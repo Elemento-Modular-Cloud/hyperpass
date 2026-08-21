@@ -57,3 +57,9 @@ Pass extra CMake configure arguments after `--` (Unix) or as remaining args (Win
 ## Side-by-side with an installed Multipass
 
 See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `multipassd` next to the system install (separate socket, storage, and distributions catalog).
+
+On macOS, if the stock CLI later fails with `certificate verify failed` after local daemon testing, regenerate the system gRPC certs:
+
+```bash
+./scripts/recover-macos-system-multipass.sh
+```
