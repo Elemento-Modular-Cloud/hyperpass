@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../glass_panel.dart';
 import '../l10n/app_localizations.dart';
 import 'general_settings.dart';
 import 'usage_settings.dart';
@@ -40,13 +39,9 @@ class SettingsScreen extends StatelessWidget {
           children: [
             Text(l10n.settingsLabel, style: const TextStyle(fontSize: 37)),
             const SizedBox(height: 32),
-            Expanded(
+            const Expanded(
               child: SingleChildScrollView(
-                child: GlassPanel(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  child: settings,
-                ),
+                child: settings,
               ),
             ),
           ],

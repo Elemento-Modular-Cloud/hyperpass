@@ -5,7 +5,6 @@ import 'package:flutter/material.dart' hide Table, Switch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalogue/catalogue.dart';
-import '../glass_panel.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -163,8 +162,7 @@ class Vms extends ConsumerWidget {
           const BulkActionsBar(),
           const SizedBox(height: 10),
           Flexible(
-            child: GlassPanel(
-              width: double.infinity,
+            child: Padding(
               padding: const EdgeInsets.all(8),
               child: SizedBox(
                 height: (infos.length + 2) * 50,

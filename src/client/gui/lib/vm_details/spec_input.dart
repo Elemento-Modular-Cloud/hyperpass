@@ -33,6 +33,8 @@ class SpecInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
     return SizedBox(
       width: width,
       child: Column(
@@ -41,7 +43,7 @@ class SpecInput extends StatelessWidget {
           if (label != null) ...[
             Text(
               label!,
-              style: const TextStyle(fontSize: 16, color: Colors.black),
+              style: TextStyle(fontSize: 16, color: onSurface),
             ),
             const SizedBox(height: 8),
           ],
@@ -52,9 +54,10 @@ class SpecInput extends StatelessWidget {
               hintText: hint,
               helperText: helper,
               helperMaxLines: 3,
-              helperStyle: const TextStyle(color: Colors.black),
-              disabledBorder: const OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.black12),
+              helperStyle: TextStyle(color: onSurface.withAlpha(180)),
+              hintStyle: TextStyle(color: onSurface.withAlpha(140)),
+              disabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: onSurface.withAlpha(40)),
                 borderRadius: BorderRadius.zero,
               ),
             ),
@@ -63,7 +66,7 @@ class SpecInput extends StatelessWidget {
             initialValue: initialValue,
             inputFormatters: inputFormatters,
             onSaved: onSaved,
-            style: const TextStyle(color: Colors.black),
+            style: TextStyle(color: onSurface),
             validator: validator,
           ),
         ],

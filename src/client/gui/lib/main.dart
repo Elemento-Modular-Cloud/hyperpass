@@ -14,6 +14,7 @@ import 'daemon_unavailable.dart';
 import 'help.dart';
 import 'logger.dart';
 import 'notifications.dart';
+import 'platform/platform.dart';
 import 'providers.dart';
 import 'settings/hotkey.dart';
 import 'settings/settings.dart';
@@ -42,6 +43,8 @@ void main() async {
     minimumSize: const Size(750, 450),
     size: await deriveWindowSize(sharedPreferences),
     title: Brand.appName,
+    backgroundColor: Colors.transparent,
+    titleBarStyle: TitleBarStyle.hidden,
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -129,6 +132,12 @@ class _AppState extends ConsumerState<App> with WindowListener {
     );
 
     final hotkey = ref.watch(hotkeyProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffold = Theme.of(context).scaffoldBackgroundColor;
+    final titleColor = isDark ? Brand.yellow : Brand.voidBlack;
+    final sidebarWidth = sidebarPushContent && sidebarExpanded
+        ? SideBar.expandedWidth
+        : SideBar.collapsedWidth;
 
     return Stack(
       children: [
@@ -137,16 +146,59 @@ class _AppState extends ConsumerState<App> with WindowListener {
           bottom: 0,
           right: 0,
           top: 0,
-          left: sidebarPushContent && sidebarExpanded
-              ? SideBar.expandedWidth
-              : SideBar.collapsedWidth,
-          child: content,
+          left: sidebarWidth,
+          child: ColoredBox(
+            color: scaffold,
+            child: Padding(
+              padding: const EdgeInsets.only(top: SideBar.titleBarHeight),
+              child: content,
+            ),
+          ),
         ),
-        CallbackGlobalShortcuts(
-          key: hotkey != null ? GlobalObjectKey(hotkey) : null,
-          bindings: {if (hotkey != null) hotkey: goToPrimary},
-          child: const SideBar(),
+        Positioned(
+          top: 0,
+          left: 0,
+          bottom: 0,
+          child: CallbackGlobalShortcuts(
+            key: hotkey != null ? GlobalObjectKey(hotkey) : null,
+            bindings: {if (hotkey != null) hotkey: goToPrimary},
+            child: const SideBar(),
+          ),
         ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: mpPlatform.showWindowCaptionButtons ? 138 : 0,
+          height: SideBar.titleBarHeight,
+          child: DragToMoveArea(
+            child: Center(
+              child: Text(
+                '${Brand.companyName} ${Brand.appName}',
+                style: TextStyle(
+                  color: titleColor,
+                  decoration: TextDecoration.none,
+                  decorationColor: Colors.transparent,
+                  fontFamily: Brand.fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (mpPlatform.showWindowCaptionButtons)
+          Align(
+            alignment: Alignment.topRight,
+            child: SizedBox(
+              width: 138,
+              height: kWindowCaptionHeight,
+              child: WindowCaption(
+                backgroundColor: Colors.transparent,
+                brightness: isDark ? Brightness.dark : Brightness.light,
+              ),
+            ),
+          ),
         const Align(
           alignment: Alignment.bottomRight,
           child: SizedBox(width: 400, child: NotificationList()),

@@ -67,8 +67,9 @@ class _EditableMountPointState extends State<EditableMountPoint> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     final headers = DefaultTextStyle.merge(
-      style: const TextStyle(color: Colors.black),
+      style: TextStyle(color: onSurface),
       child: Row(
         children: [
           Expanded(
@@ -184,9 +185,10 @@ class MountPointsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mounts = this.mounts.toList();
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     final headers = DefaultTextStyle.merge(
-      style: const TextStyle(color: Colors.black),
+      style: TextStyle(color: onSurface),
       child: Row(
         children: [
           Expanded(child: Text(l10n.mountHostDirLabel)),
@@ -196,7 +198,7 @@ class MountPointsView extends StatelessWidget {
       ),
     );
 
-    const divider = Divider(height: 15, color: Colors.black38);
+    final divider = Divider(height: 15, color: onSurface.withAlpha(60));
 
     return Column(
       children: [

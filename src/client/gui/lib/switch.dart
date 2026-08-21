@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 
 class Switch extends StatelessWidget {
   final bool value;
@@ -20,19 +21,26 @@ class Switch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
     final switchBox = SizedBox(
       height: size,
       child: FittedBox(
         child: CupertinoSwitch(
           activeTrackColor: CupertinoColors.activeBlue,
-          inactiveTrackColor: const Color(0xffd9d9d9),
+          inactiveTrackColor:
+              isDark ? const Color(0xff555555) : const Color(0xffd9d9d9),
           value: value,
           onChanged: enabled ? onChanged : null,
         ),
       ),
     );
 
-    final labelText = Text(label, style: const TextStyle(fontSize: 16));
+    final labelText = Text(
+      label,
+      style: TextStyle(fontSize: 16, color: onSurface),
+    );
 
     return trailingSwitch
         ? Row(

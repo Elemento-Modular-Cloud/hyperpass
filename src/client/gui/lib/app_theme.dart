@@ -6,11 +6,13 @@ import 'vm_details/mapping_slider.dart';
 ThemeData buildAppTheme({required Brightness brightness}) {
   final isDark = brightness == Brightness.dark;
   final scaffold = isDark ? Brand.black : Brand.white;
-  final onSurface = isDark ? Brand.greyBody : Brand.greyDarker;
+  // Prefer high-contrast body text in dark mode; greyBody is too close to
+  // elevated surfaces used by drawers and panels.
+  final onSurface = isDark ? Brand.crystalWhite : Brand.greyDarker;
   final surface = isDark ? Brand.blackLight : Brand.whiteLight;
   final inputFill =
-      isDark ? Colors.white.withOpacity(0.08) : const Color(0xfff2f2f2);
-  final outline = isDark ? Brand.blackLight : const Color(0xff333333);
+      isDark ? Colors.white.withOpacity(0.12) : const Color(0xfff2f2f2);
+  final outline = isDark ? Brand.greyBody : const Color(0xff333333);
   final glass = isDark ? GlassTokens.dark : GlassTokens.light;
 
   return ThemeData(
@@ -21,7 +23,7 @@ ThemeData buildAppTheme({required Brightness brightness}) {
     scaffoldBackgroundColor: scaffold,
     canvasColor: scaffold,
     cardColor: surface,
-    dividerColor: isDark ? Brand.blackLight : const Color(0xffe0e0e0),
+    dividerColor: isDark ? Colors.white24 : const Color(0xffe0e0e0),
     colorScheme: ColorScheme(
       brightness: brightness,
       primary: Brand.yellow,
@@ -113,7 +115,7 @@ ThemeData buildAppTheme({required Brightness brightness}) {
     sliderTheme: SliderThemeData(
       activeTrackColor: Brand.yellow,
       inactiveTrackColor:
-          isDark ? Brand.blackLight : const Color(0xffd9d9d9),
+          isDark ? Colors.white24 : const Color(0xffd9d9d9),
       overlayShape: SliderComponentShape.noThumb,
       thumbColor: Brand.crystalWhite,
       thumbShape: CustomThumbShape(),

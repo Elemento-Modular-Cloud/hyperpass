@@ -335,6 +335,8 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       child: Text(l10n.commonCancel),
     );
 
+    final surface = Theme.of(context).colorScheme.surface;
+
     return Stack(
       fit: StackFit.loose,
       children: [
@@ -342,7 +344,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           bottom: 80,
           child: Container(
             alignment: Alignment.topCenter,
-            color: Colors.white,
+            color: surface,
             child: Form(
               key: formKey,
               autovalidateMode: AutovalidateMode.always,
@@ -360,7 +362,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         Align(
           alignment: Alignment.bottomCenter,
           child: Container(
-            color: Colors.white,
+            color: surface,
             padding: const EdgeInsets.all(16).copyWith(top: 4),
             child: Column(
               mainAxisSize: MainAxisSize.min,

@@ -4,6 +4,7 @@ import 'package:basics/basics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'catalogue/catalogue.dart';
 import 'brand.dart';
@@ -11,6 +12,7 @@ import 'distro_branding.dart';
 import 'extensions.dart';
 import 'help.dart';
 import 'l10n/app_localizations.dart';
+import 'platform/platform.dart';
 import 'providers.dart';
 import 'settings/settings.dart';
 import 'vm_details/terminal.dart';
@@ -97,7 +99,10 @@ Timer? sidebarExpandTimer;
 class SideBar extends ConsumerWidget {
   static const animationDuration = Duration(milliseconds: 200);
 
-  static const collapsedWidth = 60.0;
+  /// Reserved height for the borderless window title strip.
+  static const titleBarHeight = 36.0;
+
+  static double get collapsedWidth => mpPlatform.sidebarCollapsedWidth;
   static const expandedWidth = 240.0;
 
   const SideBar({super.key});
@@ -155,10 +160,13 @@ class SideBar extends ConsumerWidget {
       color: Colors.transparent,
       child: IconButton(
         hoverColor: Colors.white24,
-        splashRadius: 15,
+        splashRadius: 16,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
         icon: Icon(
           pushContent ? Icons.chevron_left : Icons.chevron_right,
           color: Colors.white,
+          size: 20,
         ),
         onPressed: () => ref
             .read(sidebarPushContentProvider.notifier)
@@ -166,42 +174,70 @@ class SideBar extends ConsumerWidget {
       ),
     );
 
-    final header = Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Container(
-          alignment: Alignment.bottomCenter,
-          color: Brand.yellow,
-          height: 50,
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          padding: const EdgeInsets.all(4),
-          child: SvgPicture.asset(
-            Brand.logoAsset,
-            width: 20,
-            colorFilter: const ColorFilter.mode(
-              Brand.voidBlack,
-              BlendMode.srcIn,
-            ),
+    final logo = SvgPicture.asset(
+      Brand.logoAsset,
+      width: 26,
+      height: 26,
+      colorFilter: const ColorFilter.mode(
+        Brand.yellow,
+        BlendMode.srcIn,
+      ),
+    );
+
+    final brandText = DefaultTextStyle.merge(
+      style: const TextStyle(height: 1.2),
+      child: Text.rich(
+        [
+          '${Brand.companyName}\n'
+              .span
+              .size(10)
+              .color(Brand.greyBody),
+          Brand.appName.span.size(17).color(Brand.crystalWhite).bold,
+        ].spans,
+      ),
+    );
+
+    // Fixed height so expanding/collapsing only fades chrome — nav items stay put.
+    // Logo centers when collapsed; text/pin overlay without shifting layout.
+    final header = DragToMoveArea(
+      child: Padding(
+        // Clear the fake title bar; sidebar chrome itself still paints to y=0.
+        padding: const EdgeInsets.only(
+          top: SideBar.titleBarHeight,
+          bottom: 12,
+        ),
+        child: SizedBox(
+          height: 40,
+          child: Stack(
+            children: [
+              AnimatedAlign(
+                duration: SideBar.animationDuration,
+                alignment:
+                    expanded ? Alignment.centerLeft : Alignment.center,
+                child: logo,
+              ),
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  opacity: expanded ? 1 : 0,
+                  duration: SideBar.animationDuration,
+                  child: IgnorePointer(
+                    ignoring: !expanded,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(width: 38), // logo (26) + gap (12)
+                        Expanded(child: brandText),
+                        const SizedBox(width: 4),
+                        pinSidebarButton,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        Expanded(
-          flex: 3,
-          child: AnimatedOpacity(
-            opacity: expanded ? 1 : 0,
-            duration: SideBar.animationDuration,
-            child: Text.rich(
-              [
-                '${Brand.companyName}\n'
-                    .span
-                    .size(12)
-                    .color(Brand.crystalWhite),
-                Brand.appName.span.size(24).color(Brand.crystalWhite),
-              ].spans,
-            ),
-          ),
-        ),
-        Flexible(child: pinSidebarButton),
-      ],
+      ),
     );
 
     final vmEntries = vmNames.map((name) {
@@ -248,13 +284,12 @@ class SideBar extends ConsumerWidget {
       child: AnimatedContainer(
         duration: SideBar.animationDuration,
         color: Brand.voidBlack,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: EdgeInsets.fromLTRB(expanded ? 12 : 6, 0, expanded ? 12 : 6, 12),
         width: expanded ? expandedWidth : collapsedWidth,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             header,
-            const SizedBox(height: 15),
             catalogue,
             instances,
             Expanded(child: ListView(children: vmEntries.toList())),
@@ -299,6 +334,19 @@ class SidebarEntry extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final expanded = ref.watch(sidebarExpandedProvider);
 
+    final iconChild = badge == null
+        ? icon
+        : Badge(
+            backgroundColor: const Color(0xff333333),
+            isLabelVisible: !expanded,
+            label: Text(
+              badge!,
+              style: const TextStyle(color: Brand.crystalWhite),
+            ),
+            offset: const Offset(10, -6),
+            child: icon,
+          );
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
@@ -311,58 +359,48 @@ class SidebarEntry extends ConsumerWidget {
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+          padding: EdgeInsets.symmetric(
+            vertical: 18,
+            horizontal: expanded ? 12 : 0,
+          ),
           backgroundColor:
               selected ? const Color(0xff2A2A32) : Colors.transparent,
           foregroundColor: selected ? Brand.yellow : Brand.crystalWhite,
           disabledForegroundColor: Brand.crystalWhite.withAlpha(128),
         ),
-        child: Row(
-          children: [
-            badge == null
-                ? icon
-                : Badge(
-                    backgroundColor: const Color(0xff333333),
-                    isLabelVisible: !expanded,
-                    label: Text(
-                      badge!,
-                      style: const TextStyle(color: Brand.crystalWhite),
+        child: expanded
+            ? Row(
+                children: [
+                  iconChild,
+                  Expanded(
+                    flex: 5,
+                    child: Text(
+                      '    $label',
+                      softWrap: false,
+                      style: TextStyle(
+                        color: selected ? Brand.yellow : Brand.crystalWhite,
+                        fontWeight: FontWeight.w300,
+                      ),
                     ),
-                    offset: const Offset(10, -6),
-                    child: icon,
                   ),
-            Expanded(
-              flex: 5,
-              child: AnimatedOpacity(
-                duration: SideBar.animationDuration,
-                opacity: expanded ? 1 : 0,
-                child: Text(
-                  '    $label',
-                  softWrap: false,
-                  style: TextStyle(
-                    color: selected ? Brand.yellow : Brand.crystalWhite,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
-              ),
-            ),
-            if (badge != null && expanded)
-              Flexible(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xff333333),
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    badge!,
-                    softWrap: false,
-                    style: const TextStyle(color: Brand.crystalWhite),
-                  ),
-                ),
-              ),
-          ],
-        ),
+                  if (badge != null)
+                    Flexible(
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xff333333),
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          badge!,
+                          softWrap: false,
+                          style: const TextStyle(color: Brand.crystalWhite),
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : Center(child: iconChild),
       ),
     );
   }

@@ -66,6 +66,9 @@ class WindowsPlatform extends MpPlatform {
 
   @override
   String? get homeDirectory => Platform.environment['USERPROFILE'];
+
+  @override
+  bool get showWindowCaptionButtons => true;
 }
 
 class WindowsAutostartNotifier extends AutostartNotifier {

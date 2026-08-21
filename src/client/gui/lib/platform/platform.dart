@@ -27,6 +27,15 @@ abstract class MpPlatform {
   String get metaKey => 'Meta';
 
   String? get homeDirectory;
+
+  /// Padding above sidebar brand lockup (traffic lights live in the title bar).
+  double get windowTopInset => 8;
+
+  /// Collapsed sidebar width.
+  double get sidebarCollapsedWidth => 60;
+
+  /// Windows needs in-app caption buttons when the native title bar is hidden.
+  bool get showWindowCaptionButtons => false;
 }
 
 MpPlatform _getPlatform() {
