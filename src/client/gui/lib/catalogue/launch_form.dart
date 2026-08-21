@@ -50,6 +50,24 @@ final defaultCpus = 1;
 final defaultRam = 1.gibi;
 final defaultDisk = 5.gibi;
 
+bool _isCoreImage(ImageInfo imageInfo) {
+  return imageInfo.aliases.any((a) => RegExp(r'\bcore\d{0,2}\b').hasMatch(a));
+}
+
+int diskBytesForImage(ImageInfo image) {
+  final fallback = _isCoreImage(image) ? 1.gibi : defaultDisk;
+  final catalogMin = image.minDisk.toInt();
+  return catalogMin > fallback ? catalogMin : fallback;
+}
+
+String formatDiskSize(int bytes) {
+  final gibi = bytes / 1.gibi;
+  if ((gibi - gibi.round()).abs() < 0.05) {
+    return '${gibi.round()} GiB';
+  }
+  return '${gibi.toStringAsFixed(1)} GiB';
+}
+
 class LaunchForm extends ConsumerStatefulWidget {
   const LaunchForm({super.key});
 
@@ -119,10 +137,9 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     );
 
     // Determine minimums based on image type
-    final isCore =
-        imageInfo.aliases.any((a) => RegExp(r'\bcore\d{0,2}\b').hasMatch(a));
+    final isCore = _isCoreImage(imageInfo);
     final minRam = isCore ? 512.mebi : 1024.mebi;
-    final minDisk = isCore ? 1.gibi : 5.gibi;
+    final minDisk = diskBytesForImage(imageInfo);
 
     final memorySlider = RamSlider(
       initialValue: defaultRam,
@@ -131,7 +148,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     );
 
     final diskSlider = DiskSlider(
-      initialValue: defaultDisk,
+      initialValue: minDisk,
       min: minDisk,
       onSaved: (value) => launchRequest.diskSpace = '${value!}B',
     );

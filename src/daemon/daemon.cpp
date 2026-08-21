@@ -1136,6 +1136,7 @@ void add_aliases(google::protobuf::RepeatedPtrField<mp::FindReply_ImageInfo>* co
         entry->set_version(info.version);
         entry->set_codename(info.release_codename);
         entry->set_remote_name(remote_name);
+        entry->set_min_disk(info.min_disk);
     }
 }
 

@@ -9,6 +9,7 @@ from ..listing import (
     head_size_and_version,
     parse_checksum_sizes,
     parse_sha256_checksums,
+    resolve_min_disk,
     versioned_aliases,
 )
 from ..models import SUPPORTED_ARCHITECTURES
@@ -63,7 +64,8 @@ class AlmaLinuxScraper(BaseScraper):
             "image_location": qcow2_url,
             "id": sha256,
             "version": image_version,
-            "size": size
+            "size": size,
+            "min_disk": await resolve_min_disk(session, qcow2_url, self.name),
         }
 
     async def _fetch_all_arches(self, session, version: str) -> dict[str, dict]:

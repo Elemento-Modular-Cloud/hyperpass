@@ -52,7 +52,8 @@ mp::VMImageInfo mp::tag_invoke(const boost::json::value_to_tag<mp::VMImageInfo>&
             "",
             value_to<std::string>(arch_json->at("version")),
             lookup_or<int>(*arch_json, "size", -1),
-            true};
+            true,
+            lookup_or<int64_t>(*arch_json, "min_disk", 0)};
 }
 
 std::unordered_map<std::string, const mp::VMImageInfo*> mp::map_aliases_to_vm_info(

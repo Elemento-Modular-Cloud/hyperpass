@@ -156,6 +156,7 @@ message FindReply {
         repeated string aliases = 4;
         string codename = 5;
         string remote_name = 6;
+        int64 min_disk = 7;
     }
     repeated ImageInfo images_info = 1;
     string log_line = 2;

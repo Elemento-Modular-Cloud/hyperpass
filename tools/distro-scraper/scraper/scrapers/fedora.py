@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from dateutil import parser
 from ..base import BaseScraper, DEFAULT_TIMEOUT, make_session
-from ..listing import versioned_aliases
+from ..listing import versioned_aliases, resolve_min_disk
 from ..models import SUPPORTED_ARCHITECTURES
 
 
@@ -180,5 +180,6 @@ class FedoraScraper(BaseScraper):
             "image_location": qcow2_url,
             "id": sha256,
             "version": last_mod.strftime("%Y%m%d") if last_mod else "",
-            "size": size
+            "size": size,
+            "min_disk": await resolve_min_disk(session, qcow2_url, self.name),
         }

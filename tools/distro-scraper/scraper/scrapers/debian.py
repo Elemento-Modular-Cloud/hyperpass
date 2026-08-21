@@ -3,7 +3,7 @@ import aiohttp
 import asyncio
 from email.parser import Parser
 from ..base import BaseScraper, make_session
-from ..listing import versioned_aliases
+from ..listing import versioned_aliases, resolve_min_disk
 from ..models import SUPPORTED_ARCHITECTURES
 
 STABLE_RELEASE_FILE_URL = "https://deb.debian.org/debian/dists/stable/Release"
@@ -152,7 +152,8 @@ class DebianScraper(BaseScraper):
                 "image_location": image_url,
                 "id": sha512_hex,
                 "version": short_version,
-                "size": size
+                "size": size,
+                "min_disk": await resolve_min_disk(session, image_url, self.name),
             }
 
         return items

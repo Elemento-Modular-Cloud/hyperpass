@@ -145,6 +145,7 @@ TEST_F(CustomImageHost, versionedAliasesResolveDistinctImages)
     EXPECT_EQ(latest->release, "9");
     EXPECT_EQ(older->release, "8");
     EXPECT_NE(latest->id, older->id);
+    EXPECT_EQ(latest->min_disk, 10737418240);
 }
 
 TEST_F(CustomImageHost, supportedRemotesReturnsExpectedValues)

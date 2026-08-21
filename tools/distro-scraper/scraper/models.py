@@ -17,6 +17,9 @@ class ImageItem(BaseModel, extra="forbid"):
     id: str = Field(..., description="Hash/checksum of the image")
     version: str = Field(..., description="Version string of the image")
     size: int = Field(..., description="Size of the image in bytes")
+    min_disk: int = Field(
+        0, description="Minimum virtual disk size in bytes (qcow2 virtual size)"
+    )
 
 
 class ScraperResult(BaseModel, extra="forbid"):

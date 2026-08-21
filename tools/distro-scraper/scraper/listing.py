@@ -84,6 +84,51 @@ async def head_size_and_version(
     return size, version
 
 
+QCOW2_MAGIC = b"QFI\xfb"
+GIB = 1024**3
+FAMILY_MIN_DISK = {
+    "AlmaLinux": 10 * GIB,
+    "Rocky": 10 * GIB,
+    "Fedora": 5 * GIB,
+    "Debian": 2 * GIB,
+}
+
+
+async def fetch_qcow2_virtual_size(session: aiohttp.ClientSession, url: str) -> int | None:
+    """
+    Read the qcow2 virtual size from the image header via an HTTP range request.
+    """
+    try:
+        async with session.get(
+            url,
+            headers={"Range": "bytes=0-71"},
+            allow_redirects=True,
+            timeout=aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT),
+        ) as resp:
+            resp.raise_for_status()
+            data = await resp.content.read(72)
+    except (aiohttp.ClientError, asyncio.TimeoutError):
+        return None
+
+    if len(data) < 32 or data[:4] != QCOW2_MAGIC:
+        return None
+    version = int.from_bytes(data[4:8], "big")
+    if version not in (2, 3):
+        return None
+    return int.from_bytes(data[24:32], "big")
+
+
+async def resolve_min_disk(
+    session: aiohttp.ClientSession, url: str, os_name: str
+) -> int:
+    """
+    Return the image virtual size, falling back to a per-family default.
+    """
+    virtual = await fetch_qcow2_virtual_size(session, url)
+    if virtual and virtual > 0:
+        return virtual
+    return FAMILY_MIN_DISK.get(os_name, 5 * GIB)
+
 
 def parse_checksum_sizes(text: str) -> dict[str, int]:
     """

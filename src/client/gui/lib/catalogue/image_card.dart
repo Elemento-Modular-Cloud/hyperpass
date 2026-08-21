@@ -20,7 +20,7 @@ class ImageCard extends ConsumerWidget {
     required this.imageKey,
   });
 
-  String _getParentImageLogo(String os) {
+  String String _getParentImageLogo(String os) {
     return switch (os.toLowerCase()) {
       'ubuntu' => 'assets/ubuntu.svg',
       'debian' => 'assets/debian.svg',
@@ -154,18 +154,23 @@ class ImageCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
+            Text(
+              l10n.imageCardMinDisk(formatDiskSize(diskBytesForImage(selectedImage))),
+              style: const TextStyle(fontWeight: FontWeight.w300, fontSize: 14),
+            ),
             const SizedBox(height: 16),
             Row(children: [
               TextButton(
                 onPressed: () {
                   final name = ref.read(randomNameProvider);
                   final alias = selectedImage.aliases.first;
+                  final disk = diskBytesForImage(selectedImage);
                   final launchRequest = LaunchRequest(
                     instanceName: name,
                     image: alias,
                     numCores: defaultCpus,
                     memSize: '${defaultRam}B',
-                    diskSpace: '${defaultDisk}B',
+                    diskSpace: '${disk}B',
                     remoteName: selectedImage.hasRemoteName()
                         ? selectedImage.remoteName
                         : null,

@@ -10,13 +10,15 @@
         "image_location": "https://example.com/almalinux-8-x86_64.qcow2",
         "id": "almalinux-8-hash",
         "version": "20250804",
-        "size": 500000000
+        "size": 500000000,
+        "min_disk": 10737418240
       },
       "arm64": {
         "image_location": "https://example.com/almalinux-8-arm64.qcow2",
         "id": "almalinux-8-hash",
         "version": "20250804",
-        "size": 480000000
+        "size": 480000000,
+        "min_disk": 10737418240
       }
     }
   },
@@ -31,13 +33,15 @@
         "image_location": "https://example.com/almalinux-9-x86_64.qcow2",
         "id": "almalinux-9-hash",
         "version": "20250804",
-        "size": 520000000
+        "size": 520000000,
+        "min_disk": 10737418240
       },
       "arm64": {
         "image_location": "https://example.com/almalinux-9-arm64.qcow2",
         "id": "almalinux-9-hash",
         "version": "20250804",
-        "size": 500000000
+        "size": 500000000,
+        "min_disk": 10737418240
       }
     }
   },
@@ -52,13 +56,15 @@
         "image_location": "https://example.com/debian-12-amd64.qcow2",
         "id": "debian-12-hash",
         "version": "20250804",
-        "size": 444896256
+        "size": 444896256,
+        "min_disk": 2147483648
       },
       "arm64": {
         "image_location": "https://example.com/debian-12-arm64.qcow2",
         "id": "debian-12-hash",
         "version": "20250804",
-        "size": 432209920
+        "size": 432209920,
+        "min_disk": 2147483648
       }
     }
   },
@@ -73,13 +79,15 @@
         "image_location": "https://example.com/fedora-42-arm64.qcow2",
         "id": "fedora-42-hash",
         "version": "20250409",
-        "size": 533069824
+        "size": 533069824,
+        "min_disk": 5368709120
       },
       "arm64": {
         "image_location": "https://example.com/fedora-42-arm64.qcow2",
         "id": "fedora-42-hash",
         "version": "20250409",
-        "size": 532217856
+        "size": 532217856,
+        "min_disk": 5368709120
       }
     }
   }

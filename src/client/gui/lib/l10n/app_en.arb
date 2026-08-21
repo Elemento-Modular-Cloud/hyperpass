@@ -891,6 +891,15 @@
             }
         }
     },
+    "imageCardMinDisk": "Minimum disk: {size}",
+    "@imageCardMinDisk": {
+        "description": "Shows the minimum disk size required to launch this image",
+        "placeholders": {
+            "size": {
+                "type": "String"
+            }
+        }
+    },
     "launchFormTitle": "Configure instance",
     "@launchFormTitle": {
         "description": "Title of the launch/configure instance form"

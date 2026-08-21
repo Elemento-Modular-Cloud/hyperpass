@@ -38,6 +38,7 @@ struct VMImageInfo
     std::string version;
     int64_t size;
     bool verify;
+    int64_t min_disk = 0;
 
     friend inline bool operator==(const VMImageInfo& a, const VMImageInfo& b) = default;
 };
