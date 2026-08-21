@@ -205,7 +205,7 @@ class SideBar extends ConsumerWidget {
       return SidebarEntry(
         key: ValueKey(key),
         icon: Opacity(
-          opacity: hasShells ? 1 : 0,
+          opacity: hasShells ? 1 : 0.35,
           child: SvgPicture.asset(
             'assets/shell.svg',
             width: 15,
