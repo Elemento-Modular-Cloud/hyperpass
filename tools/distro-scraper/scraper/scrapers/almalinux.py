@@ -9,10 +9,12 @@ from ..listing import (
     head_size_and_version,
     parse_checksum_sizes,
     parse_sha256_checksums,
+    versioned_aliases,
 )
 from ..models import SUPPORTED_ARCHITECTURES
 
 RELEASES_URL = "https://repo.almalinux.org/almalinux/"
+MIN_MAJOR = 8
 
 
 class AlmaLinuxScraper(BaseScraper):
@@ -61,7 +63,7 @@ class AlmaLinuxScraper(BaseScraper):
             "image_location": qcow2_url,
             "id": sha256,
             "version": image_version,
-            "size": size,
+            "size": size
         }
 
     async def _fetch_all_arches(self, session, version: str) -> dict[str, dict]:
@@ -82,34 +84,47 @@ class AlmaLinuxScraper(BaseScraper):
                 items[label] = data
         return items
 
-    async def fetch(self) -> dict:
+    async def fetch(self) -> list[dict]:
         async with make_session() as session:
             entries = await fetch_href_names(session, RELEASES_URL)
             versions = sorted(
-                (e for e in entries if re.fullmatch(r"\d+", e)), key=int, reverse=True
+                (e for e in entries if re.fullmatch(r"\d+", e) and int(e) >= MIN_MAJOR),
+                key=int,
+                reverse=True,
             )
             if not versions:
                 raise RuntimeError(f"No numeric release versions found at {RELEASES_URL}")
 
-            items: dict[str, dict] = {}
-            version = versions[0]
-            for candidate in versions[:2]:
-                self.logger.info("Trying AlmaLinux version: %s", candidate)
-                items = await self._fetch_all_arches(session, candidate)
-                if items:
-                    version = candidate
-                    break
+            results = await asyncio.gather(
+                *[self._fetch_all_arches(session, version) for version in versions],
+                return_exceptions=True,
+            )
 
-            if not items:
+            products: list[dict] = []
+            latest = versions[0]
+            for version, result in zip(versions, results):
+                if isinstance(result, Exception):
+                    self.logger.error("Failed to fetch AlmaLinux %s: %s", version, result)
+                    continue
+                if not result:
+                    self.logger.error("Skipping AlmaLinux %s: no images", version)
+                    continue
+                products.append(
+                    {
+                        "aliases": versioned_aliases(
+                            ["almalinux", "alma"], version, latest=(version == latest)
+                        ),
+                        "os": "AlmaLinux",
+                        "release": version,
+                        "release_codename": f"AlmaLinux {version}",
+                        "release_title": version,
+                        "items": result,
+                    }
+                )
+
+            if not products:
                 raise RuntimeError(
                     "Failed to fetch AlmaLinux images for all architectures"
                 )
 
-            return {
-                "aliases": "almalinux, alma",
-                "os": "AlmaLinux",
-                "release": version,
-                "release_codename": f"AlmaLinux {version}",
-                "release_title": version,
-                "items": items,
-            }
+            return products

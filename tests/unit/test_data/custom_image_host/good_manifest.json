@@ -1,4 +1,46 @@
 {
+  "AlmaLinux 8": {
+    "aliases": "almalinux-8, alma-8",
+    "os": "AlmaLinux",
+    "release": "8",
+    "release_codename": "AlmaLinux 8",
+    "release_title": "8",
+    "items": {
+      "x86_64": {
+        "image_location": "https://example.com/almalinux-8-x86_64.qcow2",
+        "id": "almalinux-8-hash",
+        "version": "20250804",
+        "size": 500000000
+      },
+      "arm64": {
+        "image_location": "https://example.com/almalinux-8-arm64.qcow2",
+        "id": "almalinux-8-hash",
+        "version": "20250804",
+        "size": 480000000
+      }
+    }
+  },
+  "AlmaLinux 9": {
+    "aliases": "almalinux, alma, almalinux-9, alma-9",
+    "os": "AlmaLinux",
+    "release": "9",
+    "release_codename": "AlmaLinux 9",
+    "release_title": "9",
+    "items": {
+      "x86_64": {
+        "image_location": "https://example.com/almalinux-9-x86_64.qcow2",
+        "id": "almalinux-9-hash",
+        "version": "20250804",
+        "size": 520000000
+      },
+      "arm64": {
+        "image_location": "https://example.com/almalinux-9-arm64.qcow2",
+        "id": "almalinux-9-hash",
+        "version": "20250804",
+        "size": 500000000
+      }
+    }
+  },
   "Debian": {
     "aliases": "debian, bookworm",
     "os": "Debian",
@@ -23,7 +65,7 @@
   "Fedora": {
     "aliases": "fedora",
     "os": "Fedora",
-    "release": "",
+    "release": "42",
     "release_codename": "42",
     "release_title": "42",
     "items": {

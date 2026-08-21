@@ -4,7 +4,10 @@ A Python package for scraping cloud distribution image information for Multipass
 
 ## Overview
 
-This tool fetches metadata about the latest cloud images from various Linux distributions and outputs a JSON file for use by Multipass.
+This tool fetches metadata about cloud images from various Linux distributions (including multiple
+supported majors per distro) and outputs a JSON file for use by Multipass. Each release is stored
+under a unique catalog key such as ``AlmaLinux 10``, with versioned aliases (``almalinux-10``) so
+lookups stay unambiguous.
 
 The scraper will:
 1. Load all registered scraper plugins
@@ -71,19 +74,21 @@ class UbuntuScraper(BaseScraper):
     def name(self) -> str:
         return "Ubuntu"
 
-    async def fetch(self) -> dict:
-        # Fetch and return distribution data
-        return {
-            "aliases": "ubuntu",
-            "os": "Ubuntu",
-            "release": "24.04",
-            "release_codename": "Noble Numbat",
-            "release_title": "24.04",
-            "items": {
-                "x86_64": {...},
-                "arm64": {...}
+    async def fetch(self) -> list[dict]:
+        # Fetch and return one product dict per release
+        return [
+            {
+                "aliases": "ubuntu, ubuntu-24.04",
+                "os": "Ubuntu",
+                "release": "24.04",
+                "release_codename": "Noble Numbat",
+                "release_title": "24.04",
+                "items": {
+                    "x86_64": {...},
+                    "arm64": {...}
+                }
             }
-        }
+        ]
 ```
 
 3. Register the scraper in `pyproject.toml`:

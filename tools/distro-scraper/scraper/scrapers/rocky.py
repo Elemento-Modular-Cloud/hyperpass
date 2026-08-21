@@ -9,10 +9,12 @@ from ..listing import (
     head_size_and_version,
     parse_checksum_sizes,
     parse_sha256_checksums,
+    versioned_aliases,
 )
 from ..models import SUPPORTED_ARCHITECTURES
 
 RELEASES_URL = "https://dl.rockylinux.org/pub/rocky/"
+MIN_MAJOR = 8
 
 
 class RockyScraper(BaseScraper):
@@ -59,7 +61,7 @@ class RockyScraper(BaseScraper):
             "image_location": qcow2_url,
             "id": sha256,
             "version": image_version,
-            "size": size,
+            "size": size
         }
 
     async def _fetch_all_arches(self, session, version: str) -> dict[str, dict]:
@@ -80,32 +82,45 @@ class RockyScraper(BaseScraper):
                 items[label] = data
         return items
 
-    async def fetch(self) -> dict:
+    async def fetch(self) -> list[dict]:
         async with make_session() as session:
             entries = await fetch_href_names(session, RELEASES_URL)
             versions = sorted(
-                (e for e in entries if re.fullmatch(r"\d+", e)), key=int, reverse=True
+                (e for e in entries if re.fullmatch(r"\d+", e) and int(e) >= MIN_MAJOR),
+                key=int,
+                reverse=True,
             )
             if not versions:
                 raise RuntimeError(f"No numeric release versions found at {RELEASES_URL}")
 
-            items: dict[str, dict] = {}
-            version = versions[0]
-            for candidate in versions[:2]:
-                self.logger.info("Trying Rocky Linux version: %s", candidate)
-                items = await self._fetch_all_arches(session, candidate)
-                if items:
-                    version = candidate
-                    break
+            results = await asyncio.gather(
+                *[self._fetch_all_arches(session, version) for version in versions],
+                return_exceptions=True,
+            )
 
-            if not items:
+            products: list[dict] = []
+            latest = versions[0]
+            for version, result in zip(versions, results):
+                if isinstance(result, Exception):
+                    self.logger.error("Failed to fetch Rocky Linux %s: %s", version, result)
+                    continue
+                if not result:
+                    self.logger.error("Skipping Rocky Linux %s: no images", version)
+                    continue
+                products.append(
+                    {
+                        "aliases": versioned_aliases(
+                            ["rocky"], version, latest=(version == latest)
+                        ),
+                        "os": "Rocky",
+                        "release": version,
+                        "release_codename": f"Rocky Linux {version}",
+                        "release_title": version,
+                        "items": result,
+                    }
+                )
+
+            if not products:
                 raise RuntimeError("Failed to fetch Rocky images for all architectures")
 
-            return {
-                "aliases": "rocky",
-                "os": "Rocky",
-                "release": version,
-                "release_codename": f"Rocky Linux {version}",
-                "release_title": version,
-                "items": items,
-            }
+            return products

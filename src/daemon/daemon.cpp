@@ -70,6 +70,7 @@
 #include <QFutureSynchronizer>
 #include <QStorageInfo>
 #include <QString>
+#include <QStringList>
 #include <QSysInfo>
 #include <QtConcurrent/QtConcurrent>
 
@@ -134,11 +135,11 @@ mp::Query query_from(const mp::LaunchRequest* request, const std::string& name)
 
 bool image_supports_pollinate(const std::string& image_alias)
 {
-    static const std::unordered_set<std::string> no_pollinate{"fedora",
-                                                              "almalinux",
-                                                              "alma",
-                                                              "rocky"};
-    return !no_pollinate.contains(QString::fromStdString(image_alias).toLower().toStdString());
+    const auto alias = QString::fromStdString(image_alias).toLower();
+    static const QStringList no_pollinate{"fedora", "almalinux", "alma", "rocky"};
+    return std::none_of(no_pollinate.begin(), no_pollinate.end(), [&alias](const QString& stem) {
+        return alias == stem || alias.startsWith(stem + '-');
+    });
 }
 
 auto make_cloud_init_vendor_config(const mp::SSHKeyProvider& key_provider,

@@ -3,9 +3,11 @@ import aiohttp
 import asyncio
 from email.parser import Parser
 from ..base import BaseScraper, make_session
+from ..listing import versioned_aliases
 from ..models import SUPPORTED_ARCHITECTURES
 
-RELEASE_FILE_URL = "https://deb.debian.org/debian/dists/stable/Release"
+STABLE_RELEASE_FILE_URL = "https://deb.debian.org/debian/dists/stable/Release"
+OLDSTABLE_RELEASE_FILE_URL = "https://deb.debian.org/debian/dists/oldstable/Release"
 MANIFEST_URL_TEMPLATE = "https://cloud.debian.org/images/cloud/{codename}/latest/debian-{version}-generic-{arch}.json"
 IMAGE_BASE_URL = "https://cloud.debian.org/images/cloud/"
 
@@ -150,32 +152,78 @@ class DebianScraper(BaseScraper):
                 "image_location": image_url,
                 "id": sha512_hex,
                 "version": short_version,
-                "size": size,
+                "size": size
             }
 
         return items
 
-    async def fetch(self) -> dict:
+    async def _fetch_suite(
+        self, session: aiohttp.ClientSession, release_url: str
+    ) -> tuple[str, str] | None:
         """
-        Fetch Debian Cloud images and return normalized metadata.
+        Parse a Debian Release file and return (major_version, codename).
+        """
+        try:
+            release_text = await self._fetch_text(session, release_url)
+        except Exception as exc:
+            self.logger.error("Failed to fetch %s: %s", release_url, exc)
+            return None
+
+        raw_version, codename = self._parse_release_file(release_text)
+        if not codename:
+            self.logger.error("Could not determine Debian codename from %s", release_url)
+            return None
+
+        version = raw_version.split(".")[0] if raw_version else None
+        if not version:
+            self.logger.error("Could not determine Debian version from %s", release_url)
+            return None
+        return version, codename
+
+    async def fetch(self) -> list[dict]:
+        """
+        Fetch Debian Cloud images for stable and oldstable.
         """
         async with make_session() as session:
-            release_text = await self._fetch_text(session, RELEASE_FILE_URL)
+            suites = await asyncio.gather(
+                self._fetch_suite(session, STABLE_RELEASE_FILE_URL),
+                self._fetch_suite(session, OLDSTABLE_RELEASE_FILE_URL),
+            )
 
-            raw_version, codename = self._parse_release_file(release_text)
-            if not codename:
-                raise RuntimeError(
-                    "Could not determine Debian codename from Release file"
+            unique: dict[str, str] = {}
+            for suite in suites:
+                if suite is None:
+                    continue
+                version, codename = suite
+                unique[version] = codename
+
+            if not unique:
+                raise RuntimeError("Could not determine Debian stable or oldstable release")
+
+            latest = max(unique, key=int)
+            products: list[dict] = []
+            for version, codename in unique.items():
+                items = await self._fetch_items(session, codename, version)
+                if not items:
+                    self.logger.error("Skipping Debian %s (%s): no images", version, codename)
+                    continue
+                products.append(
+                    {
+                        "aliases": versioned_aliases(
+                            ["debian"],
+                            version,
+                            latest=(version == latest),
+                            extra=[codename],
+                        ),
+                        "os": "Debian",
+                        "release": codename,
+                        "release_codename": codename.capitalize(),
+                        "release_title": version,
+                        "items": items,
+                    }
                 )
 
-            version = raw_version.split(".")[0] if raw_version else None
-            items = await self._fetch_items(session, codename, version)
+            if not products:
+                raise RuntimeError("Failed to fetch Debian images for all architectures")
 
-            return {
-                "aliases": f"debian, {codename}",
-                "os": "Debian",
-                "release": codename,
-                "release_codename": codename.capitalize(),
-                "release_title": version,
-                "items": items,
-            }
+            return products

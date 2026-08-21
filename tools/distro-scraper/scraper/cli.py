@@ -7,6 +7,7 @@ import logging
 from importlib.metadata import entry_points
 from pydantic import ValidationError
 from scraper.base import BaseScraper
+from scraper.listing import catalog_key
 from scraper.models import ScraperResult
 
 
@@ -44,21 +45,22 @@ def load_scrapers() -> list[BaseScraper]:
     return scrapers
 
 
-def write_output_file(output: dict, path: pathlib.Path) -> None:
+def write_output_file(
+    output: dict, path: pathlib.Path, replaced_oses: set[str] | None = None
+) -> None:
     """
     Attempt to merge output with existing data at the given path.
 
-    If the file exists, load it and merge with new data. Only distributions
-    present in 'output' will be updated; others are preserved.
+    If the file exists, load it and merge with new data. Products whose ``os``
+    is in ``replaced_oses`` are dropped so a multi-release scrape replaces the
+    previous entries for that distro. Other distributions are preserved.
 
     If the file does not exist or is invalid, it will be created anew.
     """
-    # Load existing data if file exists
     existing_data = {}
     if path.exists():
         try:
             raw_data = json.loads(path.read_text())
-            # Validate existing data against schema
             for dist_name, dist_data in raw_data.items():
                 try:
                     validated = ScraperResult(**dist_data)
@@ -77,7 +79,13 @@ def write_output_file(output: dict, path: pathlib.Path) -> None:
         except (json.JSONDecodeError, OSError) as e:
             logger.warning("Could not load existing output file: %s", e)
 
-    # Merge new data into existing
+    if replaced_oses:
+        existing_data = {
+            key: value
+            for key, value in existing_data.items()
+            if value.get("os") not in replaced_oses
+        }
+
     for dist_name, dist_data in output.items():
         if dist_name in existing_data:
             merged_items = existing_data[dist_name].get("items", {})
@@ -86,7 +94,6 @@ def write_output_file(output: dict, path: pathlib.Path) -> None:
         else:
             existing_data[dist_name] = dist_data
 
-    # Write merged output
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
         json.dump(existing_data, f, indent=4, sort_keys=True)
@@ -95,12 +102,24 @@ def write_output_file(output: dict, path: pathlib.Path) -> None:
     logger.info("Output written to %s", path)
 
 
-async def run_scraper(scraper_instance: BaseScraper) -> tuple[str, dict | None]:
+def _validate_products(name: str, result: list | dict) -> list[dict]:
+    products = result if isinstance(result, list) else [result]
+    validated: list[dict] = []
+    for product in products:
+        try:
+            validated.append(ScraperResult(**product).model_dump())
+        except ValidationError as e:
+            logger.error("Scraper '%s' returned invalid structure:\n%s", name, e)
+        except Exception as e:
+            logger.exception("Unexpected error validating scraper '%s': %s", name, e)
+    return validated
+
+
+async def run_scraper(scraper_instance: BaseScraper) -> tuple[str, list[dict] | None]:
     """
     Run a single scraper.fetch and capture exceptions.
     """
     name = scraper_instance.name
-    result = None
 
     try:
         result = await scraper_instance.fetch()
@@ -108,17 +127,12 @@ async def run_scraper(scraper_instance: BaseScraper) -> tuple[str, dict | None]:
         logger.exception("Scraper '%s' failed: %s", name, e)
         return name, None
 
-    # Validate JSON structure
-    try:
-        validated = ScraperResult(**result)
-        logger.info("Scraper '%s' succeeded", name)
-        return name, validated.model_dump()
-    except ValidationError as e:
-        logger.error("Scraper '%s' returned invalid structure:\n%s", name, e)
-    except Exception as e:
-        logger.exception("Unexpected error validating scraper '%s': %s", name, e)
+    validated = _validate_products(name, result)
+    if not validated:
+        return name, None
 
-    return name, None
+    logger.info("Scraper '%s' succeeded (%d release(s))", name, len(validated))
+    return name, validated
 
 
 async def run_all_scrapers(output_file: pathlib.Path) -> None:
@@ -127,21 +141,21 @@ async def run_all_scrapers(output_file: pathlib.Path) -> None:
     """
     scrapers = load_scrapers()
     output = {}
+    replaced_oses: set[str] = set()
 
-    # Run scrapers concurrently using asyncio.gather
     tasks = [run_scraper(s) for s in scrapers]
     completed = await asyncio.gather(*tasks)
 
-    # Populate output
     failed_scrapers = []
-    for name, data in completed:
-        if data:
-            output[name] = data
+    for name, products in completed:
+        if products:
+            for product in products:
+                output[catalog_key(product["os"], product["release_title"])] = product
+                replaced_oses.add(product["os"])
         else:
             failed_scrapers.append(name)
 
-    # Write final JSON output
-    write_output_file(output, output_file)
+    write_output_file(output, output_file, replaced_oses)
     if not failed_scrapers:
         logger.info("All scrapers succeeded.")
     else:

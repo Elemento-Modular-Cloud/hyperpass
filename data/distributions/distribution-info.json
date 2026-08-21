@@ -1,6 +1,6 @@
 {
-    "AlmaLinux": {
-        "aliases": "almalinux, alma",
+    "AlmaLinux 10": {
+        "aliases": "almalinux, alma, almalinux-10, alma-10",
         "items": {
             "arm64": {
                 "id": "336c6861fe0ba9115af00f557ed1b09385a3525612dd0cb9cce7e0486f8e74a4",
@@ -32,8 +32,101 @@
         "release_codename": "AlmaLinux 10",
         "release_title": "10"
     },
-    "Debian": {
-        "aliases": "debian, trixie",
+    "AlmaLinux 8": {
+        "aliases": "almalinux-8, alma-8",
+        "items": {
+            "arm64": {
+                "id": "134b719b69952138e6e4b431f90b45731c521a41c0b343ee30d80079a2e0dbcb",
+                "image_location": "https://repo.almalinux.org/almalinux/8/cloud/aarch64/images/AlmaLinux-8-GenericCloud-latest.aarch64.qcow2",
+                "size": 1497300992,
+                "version": "20260803"
+            },
+            "power64le": {
+                "id": "a8f4e86a06af01d40cbf5a92beef23fb0120878e666df5906d22dda9d10ca5ea",
+                "image_location": "https://repo.almalinux.org/almalinux/8/cloud/ppc64le/images/AlmaLinux-8-GenericCloud-latest.ppc64le.qcow2",
+                "size": 591092736,
+                "version": "20260803"
+            },
+            "s390x": {
+                "id": "81ebd794ad639b97988462c48680c60d34366dab5be878f1aac42f28c664b6a2",
+                "image_location": "https://repo.almalinux.org/almalinux/8/cloud/s390x/images/AlmaLinux-8-GenericCloud-latest.s390x.qcow2",
+                "size": 460991488,
+                "version": "20260803"
+            },
+            "x86_64": {
+                "id": "301873ffbea203cf4e3e77970c8a26eab7e4a3afe7784e0a253a0f3d3dccfab9",
+                "image_location": "https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/AlmaLinux-8-GenericCloud-latest.x86_64.qcow2",
+                "size": 1630273536,
+                "version": "20260803"
+            }
+        },
+        "os": "AlmaLinux",
+        "release": "8",
+        "release_codename": "AlmaLinux 8",
+        "release_title": "8"
+    },
+    "AlmaLinux 9": {
+        "aliases": "almalinux-9, alma-9",
+        "items": {
+            "arm64": {
+                "id": "d5c2c1b1c03c02fe0d2abd774fa7d3bf6c4a86261c746e871a0475d12e74f8ae",
+                "image_location": "https://repo.almalinux.org/almalinux/9/cloud/aarch64/images/AlmaLinux-9-GenericCloud-latest.aarch64.qcow2",
+                "size": 451543040,
+                "version": "20260810"
+            },
+            "power64le": {
+                "id": "e10cc0ff6ea3dc68243287427392092dc00955b807154568cf19538c1e052c4b",
+                "image_location": "https://repo.almalinux.org/almalinux/9/cloud/ppc64le/images/AlmaLinux-9-GenericCloud-latest.ppc64le.qcow2",
+                "size": 535627776,
+                "version": "20260810"
+            },
+            "s390x": {
+                "id": "5cf9788088b3079540ea2cc160a52d9daba6fa973fad94e75f3b8e6516c295db",
+                "image_location": "https://repo.almalinux.org/almalinux/9/cloud/s390x/images/AlmaLinux-9-GenericCloud-latest.s390x.qcow2",
+                "size": 281132032,
+                "version": "20260810"
+            },
+            "x86_64": {
+                "id": "6bdab6376d46d42e4203ace3733efafc7c5d37c7cb443a6cc74750097002d74b",
+                "image_location": "https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/AlmaLinux-9-GenericCloud-latest.x86_64.qcow2",
+                "size": 589299712,
+                "version": "20260810"
+            }
+        },
+        "os": "AlmaLinux",
+        "release": "9",
+        "release_codename": "AlmaLinux 9",
+        "release_title": "9"
+    },
+    "Debian 12": {
+        "aliases": "bookworm, debian-12",
+        "items": {
+            "arm64": {
+                "id": "sha512:8f872616a25ac6ca7c0d1b169b062931db51cd03fda4c8cbc74f228d045b186edd1c7d105933a7149c3377372cd0196d7659f07574d7bf6425b82b01df323026",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260806-2562/debian-12-generic-arm64-20260806-2562.qcow2",
+                "size": 434044928,
+                "version": "20260806"
+            },
+            "power64le": {
+                "id": "sha512:b2075c3e9fce5fa599baf2eb295b44fc02563595b2233d2cc24b7b493ad8145da97b97b77e86ea8424019b42ca18477bd170c61aba16df28611672debe508497",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260806-2562/debian-12-generic-ppc64el-20260806-2562.qcow2",
+                "size": 394264576,
+                "version": "20260806"
+            },
+            "x86_64": {
+                "id": "sha512:0b04eda1c80b255d6234ae6fe63c43a6cb0de4afc5c37873acbc82d5b1feba7a619d2402d2341af1cf9e0898fa7d5225be343fef47349b18fe28b838001bd8eb",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260806-2562/debian-12-generic-amd64-20260806-2562.qcow2",
+                "size": 448069632,
+                "version": "20260806"
+            }
+        },
+        "os": "Debian",
+        "release": "bookworm",
+        "release_codename": "Bookworm",
+        "release_title": "12"
+    },
+    "Debian 13": {
+        "aliases": "debian, trixie, debian-13",
         "items": {
             "arm64": {
                 "id": "sha512:23f829b360500c185ee5923667319b258d5ed2e41e614982e779b87abca6fd7a5903a42e9b62635f7774d4ac4c44e9ee3037f5a9e0f61186f6a8c2e856a6f0c4",
@@ -59,8 +152,41 @@
         "release_codename": "Trixie",
         "release_title": "13"
     },
-    "Fedora": {
-        "aliases": "fedora",
+    "Fedora 43": {
+        "aliases": "fedora-43",
+        "items": {
+            "arm64": {
+                "id": "66031aea9ec61e6d0d5bba12b9454e80ca94e8a79c913d37ded4c60311705b8b",
+                "image_location": "https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Cloud/aarch64/images/Fedora-Cloud-Base-Generic-43-1.6.aarch64.qcow2",
+                "size": 544997376,
+                "version": "20251023"
+            },
+            "power64le": {
+                "id": "50c51fb73f01722b737031c333e92c0fe5bd0c3760421fe104bd888941cd41bb",
+                "image_location": "https://dl.fedoraproject.org/pub/fedora-secondary/releases/43/Cloud/ppc64le/images/Fedora-Cloud-Base-Generic-43-1.6.ppc64le.qcow2",
+                "size": 555417600,
+                "version": "20251023"
+            },
+            "s390x": {
+                "id": "6aecf1806698a1aa15ba1c1a0fef2db41ae880a2ed9821308a1e2ab7b9165ccb",
+                "image_location": "https://dl.fedoraproject.org/pub/fedora-secondary/releases/43/Cloud/s390x/images/Fedora-Cloud-Base-Generic-43-1.6.s390x.qcow2",
+                "size": 539305472,
+                "version": "20251023"
+            },
+            "x86_64": {
+                "id": "846574c8a97cd2d8dc1f231062d73107cc85cbbbda56335e264a46e3a6c8ab2f",
+                "image_location": "https://dl.fedoraproject.org/pub/fedora/linux/releases/43/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-43-1.6.x86_64.qcow2",
+                "size": 583335936,
+                "version": "20251023"
+            }
+        },
+        "os": "Fedora",
+        "release": "43",
+        "release_codename": "43",
+        "release_title": "43"
+    },
+    "Fedora 44": {
+        "aliases": "fedora, fedora-44",
         "items": {
             "arm64": {
                 "id": "55c60a3b80d3616a08705afd0459e75fe9f03c54aba7a46e4002a41a72fa0d5b",
@@ -88,12 +214,12 @@
             }
         },
         "os": "Fedora",
-        "release": "",
+        "release": "44",
         "release_codename": "44",
         "release_title": "44"
     },
-    "Rocky": {
-        "aliases": "rocky",
+    "Rocky 10": {
+        "aliases": "rocky, rocky-10",
         "items": {
             "arm64": {
                 "id": "457c8375e19496f43a25c4a6169fa11237536c53cef6f85a20ea3c5a751aa0f5",
@@ -124,5 +250,59 @@
         "release": "10",
         "release_codename": "Rocky Linux 10",
         "release_title": "10"
+    },
+    "Rocky 8": {
+        "aliases": "rocky-8",
+        "items": {
+            "arm64": {
+                "id": "946b5b9845aa5e3ed98f1bc6ee9873201712a2aef01b87731aed16857e0ca13f",
+                "image_location": "https://dl.rockylinux.org/pub/rocky/8/images/aarch64/Rocky-8-GenericCloud-Base.latest.aarch64.qcow2",
+                "size": 1925644288,
+                "version": "20240529"
+            },
+            "x86_64": {
+                "id": "e56066c58606191e96184de9a9183a3af33c59bcbd8740d8b10ca054a7a89c14",
+                "image_location": "https://dl.rockylinux.org/pub/rocky/8/images/x86_64/Rocky-8-GenericCloud-Base.latest.x86_64.qcow2",
+                "size": 2065760256,
+                "version": "20240529"
+            }
+        },
+        "os": "Rocky",
+        "release": "8",
+        "release_codename": "Rocky Linux 8",
+        "release_title": "8"
+    },
+    "Rocky 9": {
+        "aliases": "rocky-9",
+        "items": {
+            "arm64": {
+                "id": "24692a444f1f0b8bb95375c38c8b43f8099a115347623691be2c330b40c8a1fe",
+                "image_location": "https://dl.rockylinux.org/pub/rocky/9/images/aarch64/Rocky-9-GenericCloud-Base.latest.aarch64.qcow2",
+                "size": 519831552,
+                "version": "20260525"
+            },
+            "power64le": {
+                "id": "811376d2a8126b0ebbf649179da8e0075a619e6208d3e14932da7f9a782f83bc",
+                "image_location": "https://dl.rockylinux.org/pub/rocky/9/images/ppc64le/Rocky-9-GenericCloud-Base.latest.ppc64le.qcow2",
+                "size": 524812288,
+                "version": "20260525"
+            },
+            "s390x": {
+                "id": "8e09913671d234b9c745eeca67cf484b2aaa3e344fe65a372b545aa30b6442cf",
+                "image_location": "https://dl.rockylinux.org/pub/rocky/9/images/s390x/Rocky-9-GenericCloud-Base.latest.s390x.qcow2",
+                "size": 429202432,
+                "version": "20260525"
+            },
+            "x86_64": {
+                "id": "92c206cc6f790c61583247eefe87890f8828420662c17cacf247cec78ab4eec8",
+                "image_location": "https://dl.rockylinux.org/pub/rocky/9/images/x86_64/Rocky-9-GenericCloud-Base.latest.x86_64.qcow2",
+                "size": 645988352,
+                "version": "20260525"
+            }
+        },
+        "os": "Rocky",
+        "release": "9",
+        "release_codename": "Rocky Linux 9",
+        "release_title": "9"
     }
 }

@@ -51,6 +51,15 @@ final imagesProvider = FutureProvider<List<ImageInfo>>((ref) async {
   return images;
 });
 
+int compareReleasesDescending(ImageInfo a, ImageInfo b) {
+  final aNum = int.tryParse(a.release) ?? int.tryParse(a.codename);
+  final bNum = int.tryParse(b.release) ?? int.tryParse(b.codename);
+  if (aNum != null && bNum != null) {
+    return bNum.compareTo(aNum);
+  }
+  return b.release.compareTo(a.release);
+}
+
 // sorts the images in a more user-friendly way
 // the current LTS > other releases sorted by most recent > current devel > core images
 List<ImageInfo> sortImages(List<ImageInfo> images) {
@@ -73,7 +82,7 @@ List<ImageInfo> sortImages(List<ImageInfo> images) {
   }
 
   int decreasingReleaseSorter(ImageInfo a, ImageInfo b) {
-    return b.release.compareTo(a.release);
+    return compareReleasesDescending(a, b);
   }
 
   final ubuntuImages = images
@@ -110,15 +119,16 @@ List<Widget> _groupAndCreateCards(List<ImageInfo> images, double cardWidth) {
 
   final ubuntuImages = images
       .where((i) => isUbuntu(i) && !isCore(i))
-      .sorted((a, b) => b.release.compareTo(a.release));
+      .sorted(compareReleasesDescending);
 
   final coreImages = images
       .where((i) => isUbuntu(i) && isCore(i))
-      .sorted((a, b) => b.release.compareTo(a.release));
+      .sorted(compareReleasesDescending);
 
-  final otherImages = images
-      .where((i) => isOther(i))
-      .sorted((a, b) => b.release.compareTo(a.release));
+  final otherByOs = groupBy(
+    images.where(isOther),
+    (ImageInfo image) => image.os.toLowerCase(),
+  );
 
   return [
     if (ubuntuImages.isNotEmpty)
@@ -138,11 +148,12 @@ List<Widget> _groupAndCreateCards(List<ImageInfo> images, double cardWidth) {
         versions: coreImages.toList(),
         width: cardWidth,
       ),
-    ...otherImages.map((image) {
+    ...otherByOs.values.map((group) {
+      final versions = group.sorted(compareReleasesDescending);
       return ImageCard(
-        imageKey: '${image.os}-${image.release}',
-        parentImage: image,
-        versions: [image],
+        imageKey: '${versions.first.os}-${versions.first.release}',
+        parentImage: versions.first,
+        versions: versions.toList(),
         width: cardWidth,
       );
     }),

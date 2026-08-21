@@ -124,6 +124,29 @@ TEST_F(CustomImageHost, allInfoForNoRemoteReturnsOneAliasMatch)
     EXPECT_EQ(images_info.size(), 1);
 }
 
+TEST_F(CustomImageHost, versionedAliasesResolveDistinctImages)
+{
+    EXPECT_CALL(mock_url_downloader, download(_, _)).WillOnce(Return(payload));
+    mp::CustomVMImageHost host{&mock_url_downloader};
+
+    host.update_manifests(false);
+
+    if (!num_images_for_arch(payload))
+    {
+        SUCCEED() << "No images for current architecture";
+        return;
+    }
+
+    const auto latest = host.info_for(make_query("almalinux", ""));
+    const auto older = host.info_for(make_query("almalinux-8", ""));
+
+    ASSERT_TRUE(latest);
+    ASSERT_TRUE(older);
+    EXPECT_EQ(latest->release, "9");
+    EXPECT_EQ(older->release, "8");
+    EXPECT_NE(latest->id, older->id);
+}
+
 TEST_F(CustomImageHost, supportedRemotesReturnsExpectedValues)
 {
     EXPECT_CALL(mock_url_downloader, download(_, _)).WillOnce(Return(payload));

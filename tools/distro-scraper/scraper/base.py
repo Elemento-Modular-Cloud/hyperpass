@@ -82,9 +82,9 @@ class BaseScraper(ABC):
                 return None
 
     @abstractmethod
-    async def fetch(self) -> dict:
+    async def fetch(self) -> list[dict]:
         """
-        Fetch data from the source and return it as a dict.
+        Fetch data from the source and return one dict per release.
         """
         pass
 

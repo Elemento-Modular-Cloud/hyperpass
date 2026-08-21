@@ -84,6 +84,7 @@ async def head_size_and_version(
     return size, version
 
 
+
 def parse_checksum_sizes(text: str) -> dict[str, int]:
     """
     Parse '# filename: N bytes' comments from checksum files.
@@ -100,3 +101,38 @@ def first_matching(names: list[str], pattern: str) -> str | None:
         if compiled.fullmatch(name):
             return name
     return None
+
+
+def catalog_key(os_name: str, release_title: str) -> str:
+    """Top-level key used in distribution-info.json."""
+    return f"{os_name} {release_title}".strip()
+
+
+def versioned_aliases(
+    stems: list[str],
+    version: str,
+    *,
+    latest: bool,
+    extra: list[str] | None = None,
+) -> str:
+    """
+    Build unique aliases for a distro release.
+
+    Latest releases keep the generic stems (e.g. ``almalinux, alma``) plus
+    versioned forms (``almalinux-10``). Older releases only get versioned
+    (and optional extra) aliases so lookups stay unambiguous.
+    """
+    names: list[str] = []
+    if latest:
+        names.extend(stems)
+    if extra:
+        names.extend(extra)
+    names.extend(f"{stem}-{version}" for stem in stems)
+
+    seen: set[str] = set()
+    unique: list[str] = []
+    for name in names:
+        if name and name not in seen:
+            seen.add(name)
+            unique.append(name)
+    return ", ".join(unique)
