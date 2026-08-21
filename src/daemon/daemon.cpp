@@ -79,6 +79,7 @@
 #include <optional>
 #include <stdexcept>
 #include <type_traits>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -131,6 +132,15 @@ mp::Query query_from(const mp::LaunchRequest* request, const std::string& name)
     return {name, image, false, request->remote_name(), query_type, true};
 }
 
+bool image_supports_pollinate(const std::string& image_alias)
+{
+    static const std::unordered_set<std::string> no_pollinate{"fedora",
+                                                              "almalinux",
+                                                              "alma",
+                                                              "rocky"};
+    return !no_pollinate.contains(QString::fromStdString(image_alias).toLower().toStdString());
+}
+
 auto make_cloud_init_vendor_config(const mp::SSHKeyProvider& key_provider,
                                    const std::string& username,
                                    const std::string& backend_version_string,
@@ -159,9 +169,9 @@ auto make_cloud_init_vendor_config(const mp::SSHKeyProvider& key_provider,
     config["timezone"] = request->time_zone();
     config["system_info"]["default_user"]["name"] = username;
 
-    // Pollinate is not available as a RPM package and also dependencies that are inherent to
+    // Pollinate is not available as an RPM package and also dependencies that are inherent to
     // Ubuntu/Debian systems
-    if (request->image() != "fedora")
+    if (image_supports_pollinate(request->image()))
     {
         config["packages"].push_back("pollinate");
 

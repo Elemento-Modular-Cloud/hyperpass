@@ -25,6 +25,8 @@ class ImageCard extends ConsumerWidget {
       'ubuntu' => 'assets/ubuntu.svg',
       'debian' => 'assets/debian.svg',
       'fedora' => 'assets/fedora.svg',
+      'almalinux' => 'assets/almalinux.svg',
+      'rocky' => 'assets/rocky.svg',
       _ => 'assets/ubuntu.svg',
     };
   }
@@ -36,6 +38,8 @@ class ImageCard extends ConsumerWidget {
       'ubuntu' => l10n.imageCardTitleUbuntuServer,
       'debian' => l10n.imageCardTitleDebian,
       'fedora' => l10n.imageCardTitleFedora,
+      'almalinux' => l10n.imageCardTitleAlmalinux,
+      'rocky' => l10n.imageCardTitleRocky,
       _ => parentImage.os, // Default case: return the OS name as-is
     };
   }
@@ -47,6 +51,8 @@ class ImageCard extends ConsumerWidget {
       'ubuntu' => l10n.imageCardDescUbuntuServer,
       'debian' => l10n.imageCardDescDebian,
       'fedora' => l10n.imageCardDescFedora,
+      'almalinux' => l10n.imageCardDescAlmalinux,
+      'rocky' => l10n.imageCardDescRocky,
       _ => '',
     };
   }

@@ -3,6 +3,10 @@ set(VCPKG_CRT_LINKAGE dynamic)
 set(VCPKG_LIBRARY_LINKAGE static)
 set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
 
+# Required under Rosetta: without this, clang defaults to the host process arch
+# (x86_64) even when VCPKG_TARGET_ARCHITECTURE is arm64.
+set(VCPKG_OSX_ARCHITECTURES @VCPKG_OSX_ARCHITECTURES@)
+
 set(VCPKG_BUILD_TYPE release)
 set(VCPKG_OSX_DEPLOYMENT_TARGET "@CMAKE_OSX_DEPLOYMENT_TARGET@")
 

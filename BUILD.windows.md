@@ -110,6 +110,18 @@ Enter-VsDevShell -VsInstallPath "$VSPath" -DevCmdArguments '-arch=x64'
 
 ## Building
 
+After installing dependencies and entering a VS developer environment (above), you can use the convenience script:
+
+```[pwsh]
+.\scripts\build-windows.ps1
+.\scripts\build-windows.ps1 -Test
+.\scripts\build-windows.ps1 -EnterVsDevShell -GTestFilter 'CustomImageHost*;*Pollinate*'
+```
+
+See [`scripts/README.md`](./scripts/README.md) for all options.
+
+Or build manually:
+
 ```[batch]
 cd <multipass>
 git submodule update --init --recursive

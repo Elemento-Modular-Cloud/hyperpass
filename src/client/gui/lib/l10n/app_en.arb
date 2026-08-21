@@ -850,6 +850,14 @@
     "@imageCardTitleFedora": {
         "description": "Display title for Fedora image"
     },
+    "imageCardTitleAlmalinux": "AlmaLinux",
+    "@imageCardTitleAlmalinux": {
+        "description": "Display title for AlmaLinux image"
+    },
+    "imageCardTitleRocky": "Rocky Linux",
+    "@imageCardTitleRocky": {
+        "description": "Display title for Rocky Linux image"
+    },
     "imageCardDescUbuntuCore": "Ubuntu operating system optimized for IoT and Edge",
     "@imageCardDescUbuntuCore": {
         "description": "Description for Ubuntu Core image"
@@ -865,6 +873,14 @@
     "imageCardDescFedora": "Fedora Cloud Edition",
     "@imageCardDescFedora": {
         "description": "Description for Fedora image"
+    },
+    "imageCardDescAlmalinux": "AlmaLinux Generic Cloud image",
+    "@imageCardDescAlmalinux": {
+        "description": "Description for AlmaLinux image"
+    },
+    "imageCardDescRocky": "Rocky Linux Generic Cloud image",
+    "@imageCardDescRocky": {
+        "description": "Description for Rocky Linux image"
     },
     "imageCardLogoSemantics": "{os} logo",
     "@imageCardLogoSemantics": {

@@ -2,3 +2,4 @@
 // Generated from DeploymentTarget.xcconfig.in
 
 MACOSX_DEPLOYMENT_TARGET = @CMAKE_OSX_DEPLOYMENT_TARGET@
+@MULTIPASS_GUI_EXCLUDED_ARCHS@

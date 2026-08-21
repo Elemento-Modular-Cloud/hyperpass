@@ -18,9 +18,12 @@
 
 #include "common.h"
 #include "file_operations.h"
+#include "mock_environment_helpers.h"
 #include "mock_logger.h"
 #include "mock_url_downloader.h"
+#include "temp_dir.h"
 
+#include <multipass/constants.h>
 #include <multipass/exceptions/download_exception.h>
 #include <multipass/exceptions/image_not_found_exception.h>
 #include <multipass/image_host/custom_image_host.h>
@@ -241,4 +244,67 @@ TEST_F(CustomImageHost, badJsonLogsAndReturnsEmptyImages)
     auto images = host.all_images_for("", false);
 
     EXPECT_EQ(images.size(), 0);
+}
+
+TEST_F(CustomImageHost, usesRemoteUrlFromEnv)
+{
+    mpt::SetEnvScope env{mp::distributions_url_env_var,
+                         "https://example.com/distribution-info.json"};
+
+    EXPECT_CALL(mock_url_downloader,
+                download(QUrl{"https://example.com/distribution-info.json"}, _))
+        .WillOnce(Return(payload));
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), num_images_for_arch(payload));
+}
+
+TEST_F(CustomImageHost, loadsManifestFromLocalPath)
+{
+    mpt::TempDir dir;
+    const auto path = dir.filePath("distribution-info.json");
+    mpt::make_file_with_content(path, payload.toStdString());
+    mpt::SetEnvScope env{mp::distributions_url_env_var, path.toUtf8()};
+
+    EXPECT_CALL(mock_url_downloader, download(_, _)).Times(0);
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), num_images_for_arch(payload));
+}
+
+TEST_F(CustomImageHost, loadsManifestFromFileUrl)
+{
+    mpt::TempDir dir;
+    const auto path = dir.filePath("distribution-info.json");
+    mpt::make_file_with_content(path, payload.toStdString());
+    const auto file_url = QUrl::fromLocalFile(path).toString(QUrl::FullyEncoded);
+    mpt::SetEnvScope env{mp::distributions_url_env_var, file_url.toUtf8()};
+
+    EXPECT_CALL(mock_url_downloader, download(_, _)).Times(0);
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), num_images_for_arch(payload));
+}
+
+TEST_F(CustomImageHost, missingLocalManifestLogsAndReturnsEmptyImages)
+{
+    auto logger_scope = mpt::MockLogger::inject();
+    logger_scope.mock_logger->screen_logs(multipass::logging::Level::warning);
+    logger_scope.mock_logger->expect_log(multipass::logging::Level::warning,
+                                         "Failed to load manifest");
+
+    mpt::SetEnvScope env{mp::distributions_url_env_var, "/no/such/distribution-info.json"};
+
+    EXPECT_CALL(mock_url_downloader, download(_, _)).Times(0);
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), 0);
 }

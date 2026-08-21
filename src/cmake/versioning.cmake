@@ -15,10 +15,28 @@
 include(src/cmake/environment-utils.cmake)
 
 function(determine_version OUTPUT_VARIABLE)
+  if(DEFINED CACHE{MULTIPASS_VERSION} AND NOT "${MULTIPASS_VERSION}" STREQUAL "")
+    message(STATUS "Using MULTIPASS_VERSION from cache/command line: ${MULTIPASS_VERSION}")
+    set(${OUTPUT_VARIABLE} ${MULTIPASS_VERSION} PARENT_SCOPE)
+    return()
+  endif()
+
   execute_process(COMMAND git describe --long --abbrev=8
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   OUTPUT_VARIABLE GIT_VERSION
-                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+                  OUTPUT_STRIP_TRAILING_WHITESPACE
+                  ERROR_VARIABLE GIT_DESCRIBE_ERROR
+                  RESULT_VARIABLE GIT_DESCRIBE_RESULT)
+
+  if(NOT GIT_DESCRIBE_RESULT EQUAL 0 OR GIT_VERSION STREQUAL "")
+    message(FATAL_ERROR
+      "Could not determine version from git tags (git describe failed).\n"
+      "This repository has no usable tags. Either:\n"
+      "  git tag v1.17.0-dev\n"
+      "or pass an explicit version:\n"
+      "  cmake ... -DMULTIPASS_VERSION=1.17.0-dev.0+gdeadbeef\n"
+      "Git error: ${GIT_DESCRIBE_ERROR}")
+  endif()
 
   is_release_branch(GIT_IS_RELEASE_BRANCH)
   # only use -rc tags on release/* branches
@@ -42,10 +60,18 @@ function(determine_version OUTPUT_VARIABLE)
       execute_process(COMMAND git describe --tags --match *-dev --abbrev=0
                       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                       OUTPUT_VARIABLE GIT_TAG
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+                      OUTPUT_STRIP_TRAILING_WHITESPACE
+                      ERROR_VARIABLE GIT_TAG_ERROR
+                      RESULT_VARIABLE GIT_TAG_RESULT)
+      if(NOT GIT_TAG_RESULT EQUAL 0 OR GIT_TAG STREQUAL "")
+        message(FATAL_ERROR
+          "No '*-dev' tag found for versioning.\n"
+          "Create one (e.g. `git tag v1.17.0-dev`) or pass -DMULTIPASS_VERSION=...\n"
+          "Git error: ${GIT_TAG_ERROR}")
+      endif()
   endif()
 
-  string(REGEX MATCH "^v.+-([0-9]+)-(g.+)$" GIT_VERSION_MATCH ${GIT_VERSION})
+  string(REGEX MATCH "^v.+-([0-9]+)-(g.+)$" GIT_VERSION_MATCH "${GIT_VERSION}")
 
   # Snapcraft expects versions to be at most 32 characters. Currently, with these feature flag
   # suffixes, our longest version IDs are exactly at this limit.

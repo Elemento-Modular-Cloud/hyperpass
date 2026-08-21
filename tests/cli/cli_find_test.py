@@ -160,3 +160,35 @@ class TestFind:
 
             assert {k: image[k] for k in expected_image} == expected_image
             assert image["release"]
+
+    def test_query_image_almalinux(self):
+        skip_if_feature_not_supported("almalinux_images")
+
+        with multipass("find", "almalinux", "--format=json").json() as output:
+            assert output
+            image = output["images"]["almalinux"]
+
+            expected_image = {
+                "aliases": [],
+                "os": "AlmaLinux",
+                "remote": "",
+            }
+
+            assert {k: image[k] for k in expected_image} == expected_image
+            assert image["release"]
+
+    def test_query_image_rocky(self):
+        skip_if_feature_not_supported("rocky_images")
+
+        with multipass("find", "rocky", "--format=json").json() as output:
+            assert output
+            image = output["images"]["rocky"]
+
+            expected_image = {
+                "aliases": [],
+                "os": "Rocky",
+                "remote": "",
+            }
+
+            assert {k: image[k] for k in expected_image} == expected_image
+            assert image["release"]

@@ -36,6 +36,23 @@ include(src/cmake/populate-supported-backends-list.cmake)
 cmake_host_system_information(RESULT HOST_OS_NAME QUERY OS_NAME)
 cmake_host_system_information(RESULT HOST_ARCH QUERY OS_PLATFORM)
 
+# Match the active toolchain, not the physical CPU. Forcing arm64 while CMake
+# runs under Rosetta (x86_64) makes Qt treat the build as a cross-compile and
+# fail with "You need to set QT_HOST_PATH".
+if(APPLE AND HOST_ARCH STREQUAL "x86_64")
+  execute_process(
+    COMMAND sysctl -n hw.optional.arm64
+    OUTPUT_VARIABLE MULTIPASS_HAS_ARM64
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET)
+  if(MULTIPASS_HAS_ARM64 STREQUAL "1")
+    message(WARNING
+      "CMake is running under Rosetta (x86_64) on Apple Silicon. "
+      "vcpkg will build the x64-osx triplet. For a native arm64 build, install "
+      "an arm64 Homebrew toolchain under /opt/homebrew and use its cmake.")
+  endif()
+endif()
+
 if ("${HOST_ARCH}" STREQUAL "arm64" OR "${HOST_ARCH}" STREQUAL "aarch64")
   set(VCPKG_HOST_ARCH "arm64")
 elseif ("${HOST_ARCH}" STREQUAL "s390x")
@@ -86,6 +103,11 @@ if(NOT MULTIPASS_VCPKG_BUILD_DEFAULT)
 
   # Propagate macOS deployment target to vcpkg triplet
   if(APPLE AND DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    if(VCPKG_HOST_ARCH STREQUAL "arm64")
+      set(VCPKG_OSX_ARCHITECTURES "arm64")
+    else()
+      set(VCPKG_OSX_ARCHITECTURES "x86_64")
+    endif()
     set(VCPKG_TRIPLETS_DIR "${CMAKE_CURRENT_BINARY_DIR}/vcpkg-triplets")
     configure_file(
       "${CMAKE_CURRENT_SOURCE_DIR}/3rd-party/vcpkg-triplets/osx-release.cmake.in"
@@ -93,7 +115,7 @@ if(NOT MULTIPASS_VCPKG_BUILD_DEFAULT)
       @ONLY
     )
     set(VCPKG_OVERLAY_TRIPLETS "${VCPKG_TRIPLETS_DIR}" CACHE STRING "Custom vcpkg triplets directory")
-    message(STATUS "Generated vcpkg triplet: ${VCPKG_HOST_ARCH}-${VCPKG_HOST_OS}-release.cmake with deployment target ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    message(STATUS "Generated vcpkg triplet: ${VCPKG_HOST_ARCH}-${VCPKG_HOST_OS}-release.cmake with deployment target ${CMAKE_OSX_DEPLOYMENT_TARGET} and OSX_ARCHITECTURES ${VCPKG_OSX_ARCHITECTURES}")
   endif()
 
   set(VCPKG_HOST_TRIPLET "${VCPKG_HOST_ARCH}-${VCPKG_HOST_OS}-release")

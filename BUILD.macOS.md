@@ -22,6 +22,10 @@ Install Homebrew <https://brew.sh/> for package management. It is the most strai
 
 CocoaPods is required to build the Flutter GUI
 
+    brew install cocoapods
+
+Alternatively:
+
     sudo gem install cocoapods
 
 You may need to update your version of Ruby first. You can do so with RVM <https://rvm.io/rvm/install>:
@@ -50,11 +54,23 @@ brew install rustup
 Building
 ---------------------------------------
 
+### Quick start
+
+After installing dependencies (below), from the repository root:
+
+```bash
+./scripts/build-macos.sh
+./scripts/build-macos.sh --test
+./scripts/build-macos.sh --gtest-filter 'CustomImageHost*:*Pollinate*'
+```
+
+See [`scripts/README.md`](./scripts/README.md) for all options.
+
 ### Additional configuration
 
-If you encounter errors about missing `pkg-config` or `ninja`, install them with:
+If you encounter errors about missing `pkg-config`, `ninja`, or autotools (`libb2` / `autoconf`), install them with:
 
-    brew install pkg-config ninja
+    brew install pkg-config ninja autoconf autoconf-archive automake libtool
 
 This is required for CMake to find all necessary build tools and dependencies.
 
@@ -139,6 +155,34 @@ This is as simple as running
 Make sure you have dylibbundler installed!
 
 Once it is complete, you will have a Multipass.pkg file in the build directory.
+
+
+Local third-party catalog
+-------------------------
+
+A local build includes `CustomVMImageHost`, which lists Debian, Fedora, AlmaLinux, and Rocky Linux from a JSON manifest.
+
+By default the daemon fetches
+`https://raw.githubusercontent.com/canonical/multipass/refs/heads/main/data/distributions/distribution-info.json`.
+To use a catalog from this tree (or any other file/URL), set `MULTIPASS_DISTRIBUTIONS_URL` on **multipassd**:
+
+```text
+MULTIPASS_DISTRIBUTIONS_URL=/absolute/path/to/data/distributions/distribution-info.json
+# or
+MULTIPASS_DISTRIBUTIONS_URL=https://example.com/distribution-info.json
+```
+
+On macOS, add an `EnvironmentVariables` entry for that key in
+`/Library/LaunchDaemons/com.canonical.multipassd.plist`, then:
+
+```text
+sudo launchctl unload /Library/LaunchDaemons/com.canonical.multipassd.plist
+sudo launchctl load /Library/LaunchDaemons/com.canonical.multipassd.plist
+```
+
+Verify with `multipass find` and a GUI Catalogue refresh. `launch almalinux` and `launch rocky` should appear in the listing.
+
+For running this build beside an already-installed Multipass (recommended while developing), see [`LOCAL_DEV.md`](./LOCAL_DEV.md).
 
 
 Tips and Tricks for development on OSX

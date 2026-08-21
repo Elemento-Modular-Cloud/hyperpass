@@ -19,6 +19,7 @@
 #include <multipass/exceptions/download_exception.h>
 #include <multipass/exceptions/image_not_found_exception.h>
 #include <multipass/exceptions/unsupported_arch_exception.h>
+#include <multipass/file_ops.h>
 #include <multipass/image_host/custom_image_host.h>
 #include <multipass/logging/log.h>
 #include <multipass/query.h>
@@ -29,6 +30,10 @@
 
 #include <boost/json.hpp>
 
+#include <QFile>
+#include <QUrl>
+
+#include <optional>
 #include <utility>
 
 namespace mp = multipass;
@@ -44,19 +49,55 @@ constexpr auto manifest_endpoint{"https://raw.githubusercontent.com/canonical/mu
 auto get_manifest_url()
 {
     return qEnvironmentVariable(mp::distributions_url_env_var).isEmpty()
-             ? manifest_endpoint
+             ? QString{manifest_endpoint}
              : qEnvironmentVariable(mp::distributions_url_env_var);
+}
+
+std::optional<QString> local_manifest_path(const QString& source)
+{
+    const QUrl url{source, QUrl::TolerantMode};
+    const auto scheme = url.scheme().toLower();
+
+    if (scheme == QLatin1String("http") || scheme == QLatin1String("https"))
+        return std::nullopt;
+
+    if (url.isLocalFile())
+        return url.toLocalFile();
+
+    // Bare paths (including missing files) and Windows drive-letter paths.
+    if (scheme.isEmpty() || (scheme.size() == 1 && scheme[0].isLetter()))
+        return source;
+
+    return std::nullopt;
+}
+
+QByteArray read_local_manifest(const QString& path)
+{
+    QFile file{path};
+    if (!MP_FILEOPS.exists(file) || !MP_FILEOPS.open(file, QIODevice::ReadOnly))
+        throw mp::DownloadException{path.toStdString(), "file not found or unreadable"};
+
+    return MP_FILEOPS.read_all(file);
+}
+
+QByteArray load_manifest_data(mp::URLDownloader* url_downloader, bool force_update)
+{
+    const auto source = get_manifest_url();
+    mpl::log(mpl::Level::debug, category, "Fetching images from {}", source);
+
+    if (const auto path = local_manifest_path(source))
+        return read_local_manifest(*path);
+
+    return url_downloader->download(QUrl{source}, force_update);
 }
 
 std::vector<mp::VMImageInfo> fetch_image_info(const std::string& arch,
                                               mp::URLDownloader* url_downloader,
                                               bool force_update = false)
 {
-    mpl::log(mpl::Level::debug, category, "Fetching images from {}", get_manifest_url());
-
     try
     {
-        auto data = url_downloader->download(QUrl{get_manifest_url()}, force_update);
+        auto data = load_manifest_data(url_downloader, force_update);
         auto manifest = boost::json::parse(std::string_view(data)).as_object();
         mpl::log(mpl::Level::debug, category, "Found {} items", manifest.size());
 
@@ -81,7 +122,7 @@ std::vector<mp::VMImageInfo> fetch_image_info(const std::string& arch,
     }
     catch (mp::DownloadException& e)
     {
-        mpl::log(mpl::Level::warning, category, "Failed to download manifest: {}", e);
+        mpl::log(mpl::Level::warning, category, "Failed to load manifest: {}", e);
         return {};
     }
     catch (const boost::system::system_error&)

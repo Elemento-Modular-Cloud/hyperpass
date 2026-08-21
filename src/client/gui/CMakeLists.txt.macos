@@ -19,6 +19,15 @@ set(MULTIPASS_GUI_EXEC_PATH_RELATIVE_TO_BUNDLE Contents/MacOS)
 set(MULTIPASS_GUI_EXECUTABLE multipass_gui)
 set(MULTIPASS_GUI_PRODUCT_NAME Multipass)
 
+# Under Rosetta (x86_64 CMake on Apple Silicon), dart_ffi is x86_64-only. Flutter
+# release builds are universal by default and then launch as arm64, which cannot
+# load that dylib. Exclude arm64 so the app matches the C++ toolchain.
+set(MULTIPASS_GUI_EXCLUDED_ARCHS "")
+if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+  set(MULTIPASS_GUI_EXCLUDED_ARCHS "EXCLUDED_ARCHS[sdk=macosx*] = arm64")
+  message(STATUS "Rosetta/x86_64 host: Flutter macOS GUI will exclude arm64 to match libdart_ffi")
+endif()
+
 configure_file(
   ${CMAKE_SOURCE_DIR}/src/client/gui/macos/Runner/Configs/DeploymentTarget.xcconfig.in
   ${CMAKE_SOURCE_DIR}/src/client/gui/macos/Runner/Configs/DeploymentTarget.xcconfig

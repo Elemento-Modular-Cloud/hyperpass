@@ -22,7 +22,17 @@ rustup default stable
 ```
 ## Building
 
-First, go into the repository root and get all the submodules:
+After installing dependencies (above), you can use the convenience script:
+
+```
+./scripts/build-linux.sh
+./scripts/build-linux.sh --test
+./scripts/build-linux.sh --gtest-filter 'CustomImageHost*:*Pollinate*'
+```
+
+See [`scripts/README.md`](./scripts/README.md) for all options.
+
+Or build manually. First, go into the repository root and get all the submodules:
 
 ```
 cd <multipass>

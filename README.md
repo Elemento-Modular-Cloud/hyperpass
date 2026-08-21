@@ -170,6 +170,19 @@ Please follow the platform-specific build instructions in the files below:
 * [BUILD.macOS.md](./BUILD.macOS.md) for macOS
 * [BUILD.windows.md](./BUILD.windows.md) for Windows
 
+Or use the convenience scripts in [`scripts/`](./scripts/README.md):
+
+```bash
+./scripts/build-linux.sh --test          # Linux
+./scripts/build-macos.sh --test          # macOS
+```
+
+```powershell
+.\scripts\build-windows.ps1 -Test        # Windows
+```
+
+To run a source build **next to** an already-installed Multipass (separate socket and storage), see [`LOCAL_DEV.md`](./LOCAL_DEV.md).
+
 ### Generic build tips
 
 **Qt version compatibility**

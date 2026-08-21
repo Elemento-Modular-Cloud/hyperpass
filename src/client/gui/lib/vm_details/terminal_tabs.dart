@@ -87,7 +87,11 @@ class Tab extends StatelessWidget {
             ? ('assets/debian.svg', null, null)
             : osl.contains('fedora')
                 ? ('assets/fedora.svg', null, null)
-                : ('assets/ubuntu.svg', const Color(0xffE95420), Colors.white);
+                : osl.contains('almalinux') || osl.contains('alma')
+                    ? ('assets/almalinux.svg', null, null)
+                    : osl.contains('rocky')
+                        ? ('assets/rocky.svg', null, null)
+                        : ('assets/ubuntu.svg', const Color(0xffE95420), Colors.white);
 
     return Container(
       alignment: Alignment.center,

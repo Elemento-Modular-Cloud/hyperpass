@@ -587,6 +587,12 @@ struct DaemonCreateLaunchPollinateDataTestSuite
 {
 };
 
+struct DaemonCreateLaunchPollinateSkipTestSuite
+    : public Daemon,
+      public WithParamInterface<std::tuple<std::string, std::string>>
+{
+};
+
 struct DaemonCreateLaunchAliasTestSuite : public Daemon,
                                           public FakeAliasConfig,
                                           public WithParamInterface<std::string>
@@ -901,6 +907,21 @@ TEST_P(DaemonCreateLaunchPollinateDataTestSuite, addsPollinateUserAgentToCloudIn
     send_command({command, alias});
 }
 
+TEST_P(DaemonCreateLaunchPollinateSkipTestSuite, skipsPollinateForRpmImages)
+{
+    const auto [command, alias] = GetParam();
+    auto mock_factory = use_a_mock_vm_factory();
+    mp::Daemon daemon{config_builder.build()};
+
+    EXPECT_CALL(*mock_factory, prepare_instance_image(_, _))
+        .WillOnce([](const multipass::VMImage&, const mp::VirtualMachineDescription& desc) {
+            EXPECT_FALSE(desc.vendor_data_config["packages"].IsDefined());
+            EXPECT_FALSE(desc.vendor_data_config["write_files"].IsDefined());
+        });
+
+    send_command({command, alias});
+}
+
 TEST_P(LaunchWithNoExtraNetworkCloudInit, noExtraNetworkCloudInit)
 {
     mpt::MockVirtualMachineFactory* mock_factory = use_a_mock_vm_factory();
@@ -1154,6 +1175,10 @@ INSTANTIATE_TEST_SUITE_P(Daemon, DaemonCreateLaunchTestSuite, Values("launch", "
 INSTANTIATE_TEST_SUITE_P(Daemon,
                          DaemonCreateLaunchPollinateDataTestSuite,
                          Combine(Values("launch", "test_create"), Values("foo", "")));
+INSTANTIATE_TEST_SUITE_P(Daemon,
+                         DaemonCreateLaunchPollinateSkipTestSuite,
+                         Combine(Values("launch", "test_create"),
+                                 Values("fedora", "almalinux", "alma", "rocky")));
 INSTANTIATE_TEST_SUITE_P(DaemonMemory,
                          MinSpaceRespectedSuite,
                          Combine(Values("test_create", "launch"),

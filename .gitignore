@@ -32,6 +32,13 @@ CMakeUserPresets.json
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.venv/
+venv/
+
+### Rust ###
+# Cargo build output
+rxx/target/
 
 # QT network download cache
 network-cache/

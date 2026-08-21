@@ -29,6 +29,8 @@ def _feature_version(name):
         "blueprints": {"max": ver.parse("1.16")},
         "debian_images": {"min": ver.parse("1.17")},
         "fedora_images": {"min": ver.parse("1.17")},
+        "almalinux_images": {"min": ver.parse("1.17")},
+        "rocky_images": {"min": ver.parse("1.17")},
         "wait_ready": {"min": ver.parse("1.17")},
     }
     assert name in feats, f"No such feature: {name}"
