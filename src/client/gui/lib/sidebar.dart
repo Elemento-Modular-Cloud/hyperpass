@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'catalogue/catalogue.dart';
+import 'distro_branding.dart';
 import 'extensions.dart';
 import 'help.dart';
 import 'l10n/app_localizations.dart';
@@ -197,11 +198,20 @@ class SideBar extends ConsumerWidget {
       final hasShells = ref.watch(
         runningShellsProvider(name).select((n) => n > 0),
       );
+      final os = ref.watch(
+        vmInfoProvider(name).select((i) => i.instanceInfo.os),
+      );
+      final accent = distroBranding(os).accent;
       return SidebarEntry(
         key: ValueKey(key),
         icon: Opacity(
           opacity: hasShells ? 1 : 0,
-          child: SvgPicture.asset('assets/shell.svg', width: 15, height: 15),
+          child: SvgPicture.asset(
+            'assets/shell.svg',
+            width: 15,
+            height: 15,
+            colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
+          ),
         ),
         selected: isSelected(key) && expanded,
         label: name,

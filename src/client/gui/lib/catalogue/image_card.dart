@@ -156,19 +156,29 @@ class ImageCard extends ConsumerWidget {
                 onPressed: () {
                   final name = ref.read(randomNameProvider);
                   final alias = selectedImage.aliases.first;
-                  final disk = diskBytesForImage(selectedImage);
+                  final catalogMin = selectedImage.minDisk.toInt();
                   final launchRequest = LaunchRequest(
                     instanceName: name,
                     image: alias,
                     numCores: defaultCpus,
                     memSize: '${defaultRam}B',
-                    diskSpace: '${disk}B',
                     remoteName: selectedImage.hasRemoteName()
                         ? selectedImage.remoteName
                         : null,
                   );
+                  // Omit disk when catalog has no min_disk so the daemon
+                  // uses max(5G, qemu virtual-size), matching CLI.
+                  if (catalogMin > 0) {
+                    launchRequest.diskSpace =
+                        '${diskBytesForImage(selectedImage)}B';
+                  }
 
-                  initiateLaunchFlow(ref, launchRequest, os: selectedImage.os);
+                  initiateLaunchFlow(
+                    context,
+                    ref,
+                    launchRequest,
+                    os: selectedImage.os,
+                  );
                 },
                 child: Text(l10n.commonLaunch),
               ),

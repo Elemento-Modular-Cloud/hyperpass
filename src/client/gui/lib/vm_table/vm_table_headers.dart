@@ -44,14 +44,6 @@ final headers = <TableHeader<VmInfo>>[
     cellBuilder: (info) => VmNameLink(info.name),
   ),
   TableHeader(
-    name: 'DISTRO',
-    childBuilder: _l10nHeader((l10n) => l10n.vmTableColumnDistro),
-    width: 140,
-    minWidth: 90,
-    sortKey: (info) => info.instanceInfo.os,
-    cellBuilder: (info) => DistroCell(info.instanceInfo.os),
-  ),
-  TableHeader(
     name: 'STATE',
     childBuilder: _l10nHeader((l10n) => l10n.vmStatState),
     width: 110,
@@ -92,11 +84,25 @@ final headers = <TableHeader<VmInfo>>[
   TableHeader(
     name: 'IMAGE',
     childBuilder: _l10nHeader((l10n) => l10n.vmStatImage),
-    width: 140,
-    minWidth: 70,
+    width: 160,
+    minWidth: 100,
+    sortKey: (info) {
+      final image = info.instanceInfo.currentRelease;
+      return image.isNotBlank ? image : info.instanceInfo.os;
+    },
     cellBuilder: (info) {
       final image = info.instanceInfo.currentRelease;
-      return CopyableText(image.isNotBlank ? image.nonBreaking : '-');
+      return Row(
+        children: [
+          DistroLogo(info.instanceInfo.os),
+          const SizedBox(width: 8),
+          Flexible(
+            child: CopyableText(
+              image.isNotBlank ? image.nonBreaking : '-',
+            ),
+          ),
+        ],
+      );
     },
   ),
   TableHeader(
@@ -191,44 +197,35 @@ class VmNameLink extends ConsumerWidget {
   }
 }
 
-class DistroCell extends StatelessWidget {
+class DistroLogo extends StatelessWidget {
   final String os;
+  final double size;
 
-  const DistroCell(this.os, {super.key});
+  const DistroLogo(this.os, {this.size = 24, super.key});
 
   @override
   Widget build(BuildContext context) {
     if (os.trim().isEmpty) {
-      return const Text('-');
+      return SizedBox(width: size, height: size);
     }
 
     final branding = distroBranding(os);
-    return Row(
-      children: [
-        Container(
-          alignment: Alignment.center,
-          color: branding.logoBackground,
-          width: 24,
-          height: 24,
-          child: branding.logoTint == null
-              ? SvgPicture.asset(branding.logoAsset, width: 20)
-              : SvgPicture.asset(
-                  branding.logoAsset,
-                  width: 20,
-                  colorFilter: ColorFilter.mode(
-                    branding.logoTint!,
-                    BlendMode.srcIn,
-                  ),
-                ),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            branding.displayName,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+    final logoSize = size * 20 / 24;
+    return Container(
+      alignment: Alignment.center,
+      color: branding.logoBackground,
+      width: size,
+      height: size,
+      child: branding.logoTint == null
+          ? SvgPicture.asset(branding.logoAsset, width: logoSize)
+          : SvgPicture.asset(
+              branding.logoAsset,
+              width: logoSize,
+              colorFilter: ColorFilter.mode(
+                branding.logoTint!,
+                BlendMode.srcIn,
+              ),
+            ),
     );
   }
 }

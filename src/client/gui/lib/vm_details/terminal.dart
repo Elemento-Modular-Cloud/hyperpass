@@ -359,7 +359,10 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            SvgPicture.asset('assets/shell.svg'),
+            SvgPicture.asset(
+              'assets/shell.svg',
+              colorFilter: ColorFilter.mode(branding.accent, BlendMode.srcIn),
+            ),
             const SizedBox(height: 12),
             OutlinedButton(
               style: buttonStyle,

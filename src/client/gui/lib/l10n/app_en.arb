@@ -174,6 +174,23 @@
     "@commonCancel": {
         "description": "Generic cancel button label for dialogs"
     },
+    "commonContinue": "Continue",
+    "@commonContinue": {
+        "description": "Generic continue/confirm button label for dialogs"
+    },
+    "launchDiskConfirmTitle": "Larger disk required",
+    "@launchDiskConfirmTitle": {
+        "description": "Title of the dialog confirming launch with disk larger than the default"
+    },
+    "launchDiskConfirmBody": "This image needs {size} of disk. Continue?",
+    "@launchDiskConfirmBody": {
+        "description": "Body of the dialog confirming launch when requested disk exceeds the 5 GiB default",
+        "placeholders": {
+            "size": {
+                "type": "String"
+            }
+        }
+    },
     "closeTerminalTitle": "Close tab?",
     "@closeTerminalTitle": {
         "description": "Title of the dialog asking the user to confirm closing a terminal tab"
@@ -738,10 +755,6 @@
     "vmTableColumnName": "NAME",
     "@vmTableColumnName": {
         "description": "Column header label for the instance name column in the VM table"
-    },
-    "vmTableColumnDistro": "DISTRO",
-    "@vmTableColumnDistro": {
-        "description": "Column header label for the distro/OS column in the VM table"
     },
     "vmTableColumnsButton": "Columns",
     "@vmTableColumnsButton": {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Switch, ImageInfo;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rxdart/rxdart.dart';
 
+import '../confirmation_dialog.dart';
 import '../ffi.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
@@ -66,6 +67,18 @@ String formatDiskSize(int bytes) {
     return '${gibi.round()} GiB';
   }
   return '${gibi.toStringAsFixed(1)} GiB';
+}
+
+int? diskBytesFromRequest(LaunchRequest request) {
+  if (!request.hasDiskSpace()) return null;
+  final value = request.diskSpace;
+  if (value.endsWith('B') &&
+      !value.endsWith('KiB') &&
+      !value.endsWith('MiB') &&
+      !value.endsWith('GiB')) {
+    return int.tryParse(value.substring(0, value.length - 1));
+  }
+  return int.tryParse(value);
 }
 
 class LaunchForm extends ConsumerStatefulWidget {
@@ -370,7 +383,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     );
   }
 
-  void launch(ImageInfo imageInfo, {bool configureNext = false}) {
+  Future<void> launch(ImageInfo imageInfo, {bool configureNext = false}) async {
     final formState = formKey.currentState;
     if (formState == null) return;
     final mountFormState = mountFormKey.currentState;
@@ -386,16 +399,28 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       launchRequest.remoteName = imageInfo.remoteName;
     }
 
+    // Stale catalogs may lack min_disk; omit explicit disk so the daemon
+    // applies max(5G, qemu virtual-size), matching CLI without --disk.
+    if (imageInfo.minDisk.toInt() == 0) {
+      final requested = diskBytesFromRequest(launchRequest);
+      if (requested == null || requested <= diskBytesForImage(imageInfo)) {
+        launchRequest.clearDiskSpace();
+      }
+    }
+
     for (final mountRequest in mountRequests) {
       mountRequest.targetPaths.first.instanceName = launchRequest.instanceName;
     }
 
-    initiateLaunchFlow(
+    final started = await initiateLaunchFlow(
+      context,
       ref,
       launchRequest.deepCopy(),
       mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
       os: imageInfo.os,
     );
+
+    if (!started || !mounted) return;
 
     if (!configureNext) {
       Scaffold.of(context).closeEndDrawer();
@@ -406,12 +431,31 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
   }
 }
 
-void initiateLaunchFlow(
+Future<bool> initiateLaunchFlow(
+  BuildContext context,
   WidgetRef ref,
   LaunchRequest launchRequest, {
   List<MountRequest> mountRequests = const [],
   String os = '',
-}) {
+}) async {
+  final disk = diskBytesFromRequest(launchRequest);
+  if (disk != null && disk > defaultDisk) {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => ConfirmationDialog(
+        title: l10n.launchDiskConfirmTitle,
+        body: Text(l10n.launchDiskConfirmBody(formatDiskSize(disk))),
+        actionText: l10n.commonContinue,
+        onAction: () => Navigator.pop(dialogContext, true),
+        inactionText: l10n.commonCancel,
+        onInaction: () => Navigator.pop(dialogContext, false),
+      ),
+    );
+    if (confirmed != true) return false;
+  }
+
   final grpcClient = ref.read(grpcClientProvider);
   final launchingVmsNotifier = ref.read(launchingVmsProvider.notifier);
 
@@ -432,6 +476,7 @@ void initiateLaunchFlow(
   );
 
   ref.read(notificationsProvider.notifier).add(notification);
+  return true;
 }
 
 FormFieldValidator<String> nameValidator(
