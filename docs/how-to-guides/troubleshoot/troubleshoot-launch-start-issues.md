@@ -196,7 +196,7 @@ Using Administrator privileges, edit the file `C:\WINDOWS\System32\drivers\etc\h
 
 If SSH doesn't function properly in the VM, or Multipass is blocked from accessing it, your instance may need to be reconfigured or repaired.
 
-* If the default user is not `ubuntu`, Multipass cannot connect. If you used a custom cloud-init config file, make sure that the default user is `ubuntu`.
+* If you overrode the default user with custom cloud-init, Multipass cannot connect unless that user matches the distro account Multipass expects (`ubuntu` on Ubuntu, `debian` on Debian, `fedora` on Fedora, `almalinux` on AlmaLinux, `rocky` on Rocky Linux). If you used a custom cloud-init config file, make sure the default user matches the image.
 
 * if SSH keys are missing or incorrect, you will have to add your public SSH key from `~/.ssh/id_rsa.pub` on the host to `~/.ssh/authorized_keys` in the instance. To do so you may need to gain access to the instance through a method besides SSH.
 
@@ -204,7 +204,7 @@ To gain access to an instance without SSH you can try the following methods.
 
 * Mount the instance's image file on your host (see {ref}`launch-start-issues-reading-data-from-an-image`) and make necessary changes through the filesystem.
 
-* Run the instance VM directly. This will require a username and password to log in. The username is the default user, `ubuntu`, and the password is what was set in cloud-init if you used a custom cloud-init config. If you do not have a password you can modify the instance's `cloud-init-config.iso` file to change it. One way to do so is as follows.
+* Run the instance VM directly. This will require a username and password to log in. The username is the distro default user (for Ubuntu images, `ubuntu`), and the password is what was set in cloud-init if you used a custom cloud-init config. If you do not have a password you can modify the instance's `cloud-init-config.iso` file to change it. One way to do so is as follows.
   1. Back up your existing `cloud-init-config.iso`.
   2. Make a new instance by running `multipass launch --cloud-init config.yaml`, the contents `config.yaml` are shown below.
   3. Replace your existing `cloud-init-config.iso` with the newly generated `cloud-init-config.iso`.

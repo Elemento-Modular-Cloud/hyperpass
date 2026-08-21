@@ -50,7 +50,7 @@ lscc    cozy-canary  ls        secondary*   map
 
 The current context is marked with an asterisk.
 
-The column `Working directory` tells us on which directory of the host the alias will be run. The value `default` means that the alias will be run in the instance default working directory (normally, `/home/ubuntu`). The value `map` means that, in case the host directory from which the user calls the alias is mounted on the instance, the alias will be run on the mounted directory on the instance. The value will be `default` only if the `--no-map-working-directory` argument is present at alias creation.
+The column `Working directory` tells us on which directory of the host the alias will be run. The value `default` means that the alias will be run in the instance default working directory (normally the default user's home, for example `/home/ubuntu`). The value `map` means that, in case the host directory from which the user calls the alias is mounted on the instance, the alias will be run on the mounted directory on the instance. The value will be `default` only if the `--no-map-working-directory` argument is present at alias creation.
 
 ## Run an alias
 

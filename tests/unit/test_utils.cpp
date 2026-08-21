@@ -155,6 +155,21 @@ TEST(Utils, pathHomeUbuntuFooValid)
     EXPECT_FALSE(MP_UTILS.invalid_target_path(QString("/home/ubuntu/foo")));
 }
 
+TEST(Utils, defaultUsernameForKnownDistros)
+{
+    EXPECT_EQ(mpu::default_username_for("Ubuntu"), "ubuntu");
+    EXPECT_EQ(mpu::default_username_for("Debian"), "debian");
+    EXPECT_EQ(mpu::default_username_for("Fedora"), "fedora");
+    EXPECT_EQ(mpu::default_username_for("AlmaLinux"), "almalinux");
+    EXPECT_EQ(mpu::default_username_for("Rocky"), "rocky");
+}
+
+TEST(Utils, defaultUsernameForEmptyFallsBackToUbuntu)
+{
+    EXPECT_EQ(mpu::default_username_for(""), "ubuntu");
+    EXPECT_EQ(mpu::default_username_for("   "), "ubuntu");
+}
+
 TEST(Utils, makeFileWithContentWorks)
 {
     mpt::TempDir temp_dir;

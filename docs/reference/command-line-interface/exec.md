@@ -46,7 +46,7 @@ The `ls -la` command shows the contents of the `/home` directory, because it was
 
 The second option to specify the working directory is to look through the mounted folders first. In case we are running the alias on the host from a directory which is mounted on the instance, the command will be run on the instance from there. If the working directory is not mounted on the instance, the command will be run on the default directory on the instance. This is the default behaviour and no parameter must be specified for this mapping to happen.
 
-The third option is to directly run the command in the default directory in the instance (usually, it is `/home/ubuntu`. The parameter to force this behaviour is `--no-map-working-directory`.
+The third option is to directly run the command in the default directory in the instance (usually the default user's home, for example `/home/ubuntu`). The parameter to force this behaviour is `--no-map-working-directory`.
 
 ---
 

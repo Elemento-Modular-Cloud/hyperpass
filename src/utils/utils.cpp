@@ -698,3 +698,12 @@ auto mp::utils::find_bridge_with(const std::vector<mp::NetworkInterfaceInfo>& ne
                      });
     return it == std::cend(networks) ? std::nullopt : std::make_optional(*it);
 }
+
+std::string mp::utils::default_username_for(const std::string& os)
+{
+    auto user = QString::fromStdString(os).trimmed().toLower();
+    user.remove(QLatin1Char(' '));
+    if (user.isEmpty())
+        return "ubuntu";
+    return user.toStdString();
+}

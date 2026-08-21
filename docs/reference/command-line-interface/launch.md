@@ -85,8 +85,8 @@ Options:
   --bridged                             Adds one `--network bridged` network.
   --mount <local-path>:<instance-path>  Mount a local directory inside the
                                         instance. If <target> is omitted,
-                                        the mount point will be under
-                                        /home/ubuntu/<source-dir>, where
+                                        the mount point will be under the default user's home
+                                        (for example /home/ubuntu/<source-dir>), where
                                         <source-dir> is the name of the
                                         <source> directory.
   --timeout <timeout>                   Maximum time, in seconds, to wait for

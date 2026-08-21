@@ -144,6 +144,10 @@ std::string escape_for_shell(const std::string& s);
 std::vector<std::string> split(const std::string& string, const std::string& delimiter);
 std::string match_line_for(const std::string& output, const std::string& matcher);
 
+// Default SSH/cloud-init username for an image OS name (`AlmaLinux` → `almalinux`).
+// Empty/unknown OS falls back to `ubuntu`.
+std::string default_username_for(const std::string& os);
+
 // enum helpers
 template <typename RegisteredQtEnum>
 QString qenum_to_qstring(RegisteredQtEnum val);

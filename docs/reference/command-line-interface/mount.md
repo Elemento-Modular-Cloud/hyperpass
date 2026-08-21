@@ -57,7 +57,8 @@ Arguments:
                                    format, where <name> is an instance name,
                                    and optional <path> is the mount point.
                                    If omitted, the mount point will be under
-                                   /home/ubuntu/<source-dir>, where <source-dir>
+                                   the default user's home (for example
+                                   /home/ubuntu/<source-dir>), where <source-dir>
                                    is the name of the <source> directory.
 ```
 

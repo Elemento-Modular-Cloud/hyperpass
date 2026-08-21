@@ -52,6 +52,7 @@
 #include <multipass/ssh/ssh_session.h>
 #include <multipass/sshfs_mount/sshfs_mount_handler.h>
 #include <multipass/top_catch_all.h>
+#include <multipass/utils.h>
 #include <multipass/utils/grpc_utils.h>
 #include <multipass/version.h>
 #include <multipass/virtual_machine.h>
@@ -95,6 +96,26 @@ namespace
 using namespace std::chrono_literals;
 
 using error_string = std::string;
+
+QString remap_mount_target_for_user(QString target, const std::string& username)
+{
+    const auto user = username.empty() ? "ubuntu" : username;
+    if (user == "ubuntu")
+        return target;
+
+    const auto instance_home = QString::fromStdString("/home/" + user);
+    static const QString ubuntu_home{"/home/ubuntu"};
+    if (target == ubuntu_home || target.startsWith(ubuntu_home + '/'))
+        target.replace(0, ubuntu_home.size(), instance_home);
+    return target;
+}
+
+bool is_instance_home(const QString& target, const std::string& username)
+{
+    const auto user = username.empty() ? "ubuntu" : username;
+    const auto home = QString::fromStdString("/home/" + user);
+    return target == home || target == home + '/';
+}
 
 constexpr auto category = "daemon";
 constexpr auto instance_db_name = "multipassd-vm-instances.json";
@@ -1961,8 +1982,12 @@ try
             continue;
         }
         auto& vm = it->second;
+        const auto& username = vm_instance_specs[name].ssh_username;
 
-        if (MP_UTILS.invalid_target_path(q_target_path))
+        q_target_path = remap_mount_target_for_user(q_target_path, username);
+        target_path = q_target_path.toStdString();
+
+        if (MP_UTILS.invalid_target_path(q_target_path) || is_instance_home(q_target_path, username))
         {
             mpl::log(mpl::Level::warning,
                      category,
@@ -3111,7 +3136,7 @@ void mp::Daemon::create_vm(const CreateRequest* request,
                                  vm_desc.disk_space,
                                  vm_desc.default_mac_address,
                                  vm_desc.extra_interfaces,
-                                 config->ssh_username,
+                                 vm_desc.ssh_username,
                                  VirtualMachine::State::off,
                                  {},
                                  false,
@@ -3198,11 +3223,7 @@ void mp::Daemon::create_vm(const CreateRequest* request,
                 "",
                 YAML::Node{},
                 YAML::Node{},
-                make_cloud_init_vendor_config(
-                    *config->ssh_key_provider,
-                    config->ssh_username,
-                    config->factory->get_backend_version_string().toStdString(),
-                    request),
+                YAML::Node{},
                 YAML::Node{}};
 
             query = query_from(request, name);
@@ -3235,6 +3256,15 @@ void mp::Daemon::create_vm(const CreateRequest* request,
                 progress_monitor,
                 checksum,
                 config->factory->get_instance_directory(name));
+
+            const auto username = mpu::default_username_for(vm_image.os);
+            vm_desc.ssh_username = username;
+            vm_desc.vendor_data_config =
+                make_cloud_init_vendor_config(*config->ssh_key_provider,
+                                              username,
+                                              config->factory->get_backend_version_string()
+                                                  .toStdString(),
+                                              request);
 
             const auto image_size = config->vault->minimum_image_size_for(vm_image.id);
             vm_desc.disk_space = compute_final_image_size(

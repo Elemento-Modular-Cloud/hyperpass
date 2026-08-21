@@ -874,6 +874,29 @@ TEST_P(DaemonCreateLaunchTestSuite, addsSshKeysToCloudInitConfig)
     send_command({GetParam()});
 }
 
+TEST_P(DaemonCreateLaunchTestSuite, usesOsDerivedSshUsername)
+{
+    auto mock_factory = use_a_mock_vm_factory();
+    auto mock_image_vault = std::make_unique<NiceMock<mpt::MockVMImageVault>>();
+    ON_CALL(*mock_image_vault, fetch_image)
+        .WillByDefault(Return(mp::VMImage{{}, {}, {}, {}, {}, "AlmaLinux", {}}));
+    ON_CALL(*mock_image_vault, minimum_image_size_for(_))
+        .WillByDefault(Return(mp::MemorySize{"1G"}));
+    config_builder.vault = std::move(mock_image_vault);
+
+    mp::Daemon daemon{config_builder.build()};
+
+    EXPECT_CALL(*mock_factory, prepare_instance_image(_, _))
+        .WillOnce([](const multipass::VMImage&, const mp::VirtualMachineDescription& desc) {
+            EXPECT_EQ(desc.ssh_username, "almalinux");
+            EXPECT_EQ(desc.vendor_data_config["system_info"]["default_user"]["name"]
+                          .as<std::string>(),
+                      "almalinux");
+        });
+
+    send_command({GetParam()});
+}
+
 TEST_P(DaemonCreateLaunchPollinateDataTestSuite, addsPollinateUserAgentToCloudInitConfig)
 {
     const auto [command, alias] = GetParam();

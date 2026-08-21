@@ -251,7 +251,8 @@ mp::ParseCode cmd::Launch::parse_args(mp::ArgParser* parser)
     QCommandLineOption mountOption(
         "mount",
         QStringLiteral("Mount a local directory inside the instance. If <target> is omitted, the "
-                       "mount point will be under %1/<source-dir>, where <source-dir> is the name "
+                       "mount point will be under the default user's home "
+                       "(for example %1/<source-dir>), where <source-dir> is the name "
                        "of the <source> directory.")
             .arg(home_in_instance),
         "source>:<target");
