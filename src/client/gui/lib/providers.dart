@@ -177,7 +177,7 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<DetailedInfoItem>> {
     return vms;
   }
 
-  void add(LaunchRequest request) {
+  void add(LaunchRequest request, {String os = ''}) {
     final vms = state;
     state = vms.rebuild((builder) {
       builder.add(
@@ -186,7 +186,10 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<DetailedInfoItem>> {
           cpuCount: request.numCores.toString(),
           diskTotal: request.diskSpace,
           memoryTotal: request.memSize,
-          instanceInfo: InstanceDetails(currentRelease: request.image),
+          instanceInfo: InstanceDetails(
+            currentRelease: request.image,
+            os: os,
+          ),
         ),
       );
     });

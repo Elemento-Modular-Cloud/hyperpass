@@ -739,6 +739,10 @@
     "@vmTableColumnName": {
         "description": "Column header label for the instance name column in the VM table"
     },
+    "vmTableColumnDistro": "DISTRO",
+    "@vmTableColumnDistro": {
+        "description": "Column header label for the distro/OS column in the VM table"
+    },
     "vmTableColumnsButton": "Columns",
     "@vmTableColumnsButton": {
         "description": "Label on the button that opens the column show/hide menu"

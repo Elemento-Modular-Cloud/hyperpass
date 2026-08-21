@@ -393,7 +393,8 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     initiateLaunchFlow(
       ref,
       launchRequest.deepCopy(),
-      mountRequests.map((r) => r.deepCopy()).toList(),
+      mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
+      os: imageInfo.os,
     );
 
     if (!configureNext) {
@@ -407,13 +408,14 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
 
 void initiateLaunchFlow(
   WidgetRef ref,
-  LaunchRequest launchRequest, [
+  LaunchRequest launchRequest, {
   List<MountRequest> mountRequests = const [],
-]) {
+  String os = '',
+}) {
   final grpcClient = ref.read(grpcClientProvider);
   final launchingVmsNotifier = ref.read(launchingVmsProvider.notifier);
 
-  launchingVmsNotifier.add(launchRequest);
+  launchingVmsNotifier.add(launchRequest, os: os);
   final cancelCompleter = Completer<void>();
   final launchStream = grpcClient
       .launch(

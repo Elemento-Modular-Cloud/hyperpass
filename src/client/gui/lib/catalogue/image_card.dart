@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide ImageInfo;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../distro_branding.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import 'catalogue.dart';
@@ -20,16 +21,7 @@ class ImageCard extends ConsumerWidget {
     required this.imageKey,
   });
 
-  String String _getParentImageLogo(String os) {
-    return switch (os.toLowerCase()) {
-      'ubuntu' => 'assets/ubuntu.svg',
-      'debian' => 'assets/debian.svg',
-      'fedora' => 'assets/fedora.svg',
-      'almalinux' => 'assets/almalinux.svg',
-      'rocky' => 'assets/rocky.svg',
-      _ => 'assets/ubuntu.svg',
-    };
-  }
+  String _getParentImageLogo(String os) => distroLogoAsset(os);
 
   String _getDisplayTitle(ImageInfo parentImage, AppLocalizations l10n) {
     return switch (parentImage.os.toLowerCase()) {
@@ -176,7 +168,7 @@ class ImageCard extends ConsumerWidget {
                         : null,
                   );
 
-                  initiateLaunchFlow(ref, launchRequest);
+                  initiateLaunchFlow(ref, launchRequest, os: selectedImage.os);
                 },
                 child: Text(l10n.commonLaunch),
               ),

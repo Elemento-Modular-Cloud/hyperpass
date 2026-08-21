@@ -2,8 +2,10 @@ import 'package:basics/basics.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../copyable_text.dart';
+import '../distro_branding.dart';
 import '../extensions.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
@@ -40,6 +42,14 @@ final headers = <TableHeader<VmInfo>>[
     minWidth: 70,
     sortKey: (info) => info.name,
     cellBuilder: (info) => VmNameLink(info.name),
+  ),
+  TableHeader(
+    name: 'DISTRO',
+    childBuilder: _l10nHeader((l10n) => l10n.vmTableColumnDistro),
+    width: 140,
+    minWidth: 90,
+    sortKey: (info) => info.instanceInfo.os,
+    cellBuilder: (info) => DistroCell(info.instanceInfo.os),
   ),
   TableHeader(
     name: 'STATE',
@@ -177,6 +187,48 @@ class VmNameLink extends ConsumerWidget {
         name.nonBreaking.span.link(ref, goToVm),
         overflow: TextOverflow.ellipsis,
       ),
+    );
+  }
+}
+
+class DistroCell extends StatelessWidget {
+  final String os;
+
+  const DistroCell(this.os, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    if (os.trim().isEmpty) {
+      return const Text('-');
+    }
+
+    final branding = distroBranding(os);
+    return Row(
+      children: [
+        Container(
+          alignment: Alignment.center,
+          color: branding.logoBackground,
+          width: 24,
+          height: 24,
+          child: branding.logoTint == null
+              ? SvgPicture.asset(branding.logoAsset, width: 20)
+              : SvgPicture.asset(
+                  branding.logoAsset,
+                  width: 20,
+                  colorFilter: ColorFilter.mode(
+                    branding.logoTint!,
+                    BlendMode.srcIn,
+                  ),
+                ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            branding.displayName,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

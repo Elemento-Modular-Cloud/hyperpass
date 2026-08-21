@@ -50,6 +50,7 @@ class HeaderSelection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final columnLabels = {
+      'DISTRO': l10n.vmTableColumnDistro,
       'STATE': l10n.vmStatState,
       'CPU USAGE': l10n.vmStatCpuUsage,
       'MEMORY USAGE': l10n.vmStatMemoryUsage,
