@@ -69,6 +69,16 @@ First connection to a new daemon may require `multipass authenticate`.
 
 Ctrl-C in the daemon terminal. Do **not** unload `com.canonical.multipassd` unless you intend to replace the installed service.
 
+### Recover stock CLI after local testing (macOS)
+
+On macOS, even a side-by-side daemon still writes the **shared** gRPC root CA to `/usr/local/etc/multipassd/multipass_root_cert.pem`. That can leave the installed CLI unable to talk to the stock daemon (`certificate verify failed`, daemon version line missing).
+
+Restore the system install with:
+
+```bash
+./scripts/recover-macos-system-multipass.sh
+```
+
 ## Why separate storage and socket?
 
 | Variable / flag | Purpose |
@@ -83,6 +93,7 @@ Without these, a source-built daemon would fight the stock one for the default s
 
 - Point the installed LaunchDaemon/snap service at your local JSON just to “try the fork” — that changes the system install.
 - Run two daemons on the same `--address` or the same `MULTIPASS_STORAGE`.
+- On macOS, assume a separate `--address` / `MULTIPASS_STORAGE` fully isolates TLS: the root CA path is still global (see recovery script above).
 
 ## Related docs
 
