@@ -50,9 +50,7 @@ dependencies:
       path: plugins/window_size
       ref: 6c66ad2
   xterm:
-    git:
-      url: https://github.com/canonical/xterm.dart
-      ref: 4.0.0+mp
+    path: packages/xterm
 
 dependency_overrides:
   hotkey_manager_linux:

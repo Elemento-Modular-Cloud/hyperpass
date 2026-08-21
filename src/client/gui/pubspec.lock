@@ -1185,11 +1185,9 @@ packages:
   xterm:
     dependency: "direct main"
     description:
-      path: "."
-      ref: "4.0.0+mp"
-      resolved-ref: ff2309c1581c025ba8b9f65e6619fe2fe2252827
-      url: "https://github.com/canonical/xterm.dart"
-    source: git
+      path: "packages/xterm"
+      relative: true
+    source: path
     version: "4.0.0"
   yaml:
     dependency: transitive
