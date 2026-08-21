@@ -12,6 +12,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:xterm/xterm.dart';
 
+import '../distro_branding.dart';
 import '../logger.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
@@ -183,8 +184,15 @@ class VmTerminal extends ConsumerStatefulWidget {
   final String name;
   final ShellId id;
   final bool isCurrent;
+  final String os;
 
-  const VmTerminal(this.name, this.id, {super.key, this.isCurrent = false});
+  const VmTerminal(
+    this.name,
+    this.id, {
+    super.key,
+    this.isCurrent = false,
+    this.os = '',
+  });
 
   @override
   ConsumerState<VmTerminal> createState() => _VmTerminalState();
@@ -263,6 +271,8 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
     ref.read(terminalProvider(terminalIdentifier).notifier).start();
   }
 
+  DistroBranding get branding => distroBranding(widget.os);
+
   final buttonStyle = ButtonStyle(
     foregroundColor: WidgetStateColor.resolveWith((states) {
       final disabled = states.contains(WidgetState.disabled);
@@ -275,31 +285,7 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
     }),
   );
 
-  final terminalTheme = TerminalTheme(
-    cursor: Color(0xFFE5E5E5),
-    selection: Color(0x80E5E5E5),
-    foreground: Color(0xffffffff),
-    background: Color(0xff380c2a),
-    black: Color(0xFF000000),
-    white: Color(0xFFE5E5E5),
-    red: Color(0xFFCD3131),
-    green: Color(0xFF0DBC79),
-    yellow: Color(0xFFE5E510),
-    blue: Color(0xFF2472C8),
-    magenta: Color(0xFFBC3FBC),
-    cyan: Color(0xFF11A8CD),
-    brightBlack: Color(0xFF666666),
-    brightRed: Color(0xFFF14C4C),
-    brightGreen: Color(0xFF23D18B),
-    brightYellow: Color(0xFFF5F543),
-    brightBlue: Color(0xFF3B8EEA),
-    brightMagenta: Color(0xFFD670D6),
-    brightCyan: Color(0xFF29B8DB),
-    brightWhite: Color(0xFFFFFFFF),
-    searchHitBackground: Color(0XFFFFFF2B),
-    searchHitBackgroundCurrent: Color(0XFF31FF26),
-    searchHitForeground: Color(0XFF000000),
-  );
+  TerminalTheme get terminalTheme => branding.terminalTheme;
 
   void openContextMenu(Offset offset, BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -367,7 +353,7 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
     if (terminal == null) {
       contextMenuController.remove();
       return Container(
-        color: const Color(0xff380c2a),
+        color: branding.background,
         alignment: Alignment.center,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

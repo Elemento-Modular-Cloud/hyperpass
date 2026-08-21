@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:fpdart/fpdart.dart';
 
 import '../close_terminal_dialog.dart';
+import '../distro_branding.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import 'terminal.dart';
@@ -79,35 +80,23 @@ class Tab extends StatelessWidget {
   });
 
   Widget _buildIcon(String os) {
-    final osl = os.toLowerCase();
-    // Tuple: (asset path, background color, svg color)
-    final iconData = osl.contains('ubuntu')
-        ? ('assets/ubuntu.svg', const Color(0xffE95420), Colors.white)
-        : osl.contains('debian')
-            ? ('assets/debian.svg', null, null)
-            : osl.contains('fedora')
-                ? ('assets/fedora.svg', null, null)
-                : osl.contains('almalinux') || osl.contains('alma')
-                    ? ('assets/almalinux.svg', null, null)
-                    : osl.contains('rocky')
-                        ? ('assets/rocky.svg', null, null)
-                        : ('assets/ubuntu.svg', const Color(0xffE95420), Colors.white);
+    final branding = distroBranding(os);
 
     return Container(
       alignment: Alignment.center,
-      color: iconData.$2,
+      color: branding.logoBackground,
       margin: const EdgeInsets.symmetric(horizontal: 10),
       width: 17,
       height: 17,
-      child: iconData.$3 == null
+      child: branding.logoTint == null
           ? SvgPicture.asset(
-              iconData.$1,
+              branding.logoAsset,
               width: 12,
             )
           : SvgPicture.asset(
-              iconData.$1,
+              branding.logoAsset,
               width: 12,
-              colorFilter: ColorFilter.mode(iconData.$3!, BlendMode.srcIn),
+              colorFilter: ColorFilter.mode(branding.logoTint!, BlendMode.srcIn),
             ),
     );
   }
@@ -134,8 +123,8 @@ class Tab extends StatelessWidget {
     final decoration = BoxDecoration(
       color: Color(selected ? 0xff2B2B2B : 0xff222222),
       border: selected
-          ? const Border(
-              bottom: BorderSide(color: Color(0xffE95420), width: 2.5),
+          ? Border(
+              bottom: BorderSide(color: distroBranding(os).accent, width: 2.5),
             )
           : null,
     );
@@ -218,6 +207,7 @@ class TerminalTabs extends ConsumerWidget {
         name,
         shellId,
         isCurrent: index == currentIndex,
+        os: os,
       );
 
       return (tab: tab, shell: shell);
