@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'brand.dart';
 import 'l10n/app_localizations.dart';
 
 class HelpScreen extends StatelessWidget {
   static const sidebarKey = 'help';
 
-  static final docsUrl = Uri.parse('https://canonical.com/multipass/docs');
+  static final docsUrl = Brand.docsUrl;
 
   const HelpScreen({super.key});
 

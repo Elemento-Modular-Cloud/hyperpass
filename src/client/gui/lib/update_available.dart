@@ -5,6 +5,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'brand.dart';
 import 'notifications/notification_entries.dart';
 import 'notifications/notifications_provider.dart';
 import 'l10n/app_localizations.dart';
@@ -42,8 +43,8 @@ final updateProvider = NotifierProvider<UpdateNotifier, UpdateInfo>(
   UpdateNotifier.new,
 );
 
-const _color = Color(0xffE95420);
-final installUrl = Uri.parse('https://canonical.com/multipass/install');
+const _color = Brand.yellow;
+final installUrl = Brand.installUrl;
 
 Future<void> launchInstallUrl() => launchUrl(installUrl);
 
@@ -84,7 +85,14 @@ class UpdateAvailable extends StatelessWidget {
       color: _color,
       height: 40,
       width: 40,
-      child: SvgPicture.asset('assets/multipass.svg', width: 25),
+      child: SvgPicture.asset(
+        Brand.logoAsset,
+        width: 25,
+        colorFilter: const ColorFilter.mode(
+          Brand.voidBlack,
+          BlendMode.srcIn,
+        ),
+      ),
     );
 
     final text = Text(
@@ -124,7 +132,7 @@ class UpdateAvailableNotification extends StatelessWidget {
     return SimpleNotification(
       barColor: _color,
       icon: SvgPicture.asset(
-        'assets/multipass.svg',
+        Brand.logoAsset,
         width: 30,
         colorFilter: const ColorFilter.mode(_color, BlendMode.srcIn),
       ),

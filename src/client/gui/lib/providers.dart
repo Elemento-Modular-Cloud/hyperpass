@@ -366,6 +366,7 @@ class GuiSettingNotifier extends Notifier<String?> {
 // Define defaults for specific keys
     final defaultValues = {
       onAppCloseKey: 'ask',
+      themeModeKey: 'system',
     };
 
     // Return the stored value, or the default value, or null
@@ -385,6 +386,7 @@ class GuiSettingNotifier extends Notifier<String?> {
 const onAppCloseKey = 'onAppClose';
 const hotkeyKey = 'hotkey';
 const askTerminalCloseKey = 'askTerminalClose';
+const themeModeKey = 'themeMode';
 final guiSettingProvider = NotifierProvider.autoDispose
     .family<GuiSettingNotifier, String?, String>(GuiSettingNotifier.new);
 

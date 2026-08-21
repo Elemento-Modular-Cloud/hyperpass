@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
+
 class MemoryUsage extends StatelessWidget {
   final String used;
   final String total;
 
   const MemoryUsage({super.key, required this.used, required this.total});
 
-  static const normalColor = Color(0xff0066cc);
+  static const normalColor = Brand.yellow;
   static const almostFullColor = Color(0xffEC6C04);
-  static const backgroundColor = Color(0x3d006ada);
+  static const backgroundColor = Color(0x3dFFA600);
 
   @override
   Widget build(BuildContext context) {
     var value = (double.tryParse(used) ?? 0) / (double.tryParse(total) ?? 1);
     value = value.isFinite ? value : 0.0;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     final indicator = LinearProgressIndicator(
       value: value,
@@ -23,7 +26,7 @@ class MemoryUsage extends StatelessWidget {
 
     final label = Text(
       value != 0 ? '${_formatMemory(used)} / ${_formatMemory(total)}' : '-',
-      style: const TextStyle(fontSize: 11),
+      style: TextStyle(fontSize: 11, color: onSurface),
     );
 
     return Column(

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'catalogue/catalogue.dart';
+import 'brand.dart';
 import 'distro_branding.dart';
 import 'extensions.dart';
 import 'help.dart';
@@ -170,11 +171,18 @@ class SideBar extends ConsumerWidget {
       children: [
         Container(
           alignment: Alignment.bottomCenter,
-          color: const Color(0xffE95420),
+          color: Brand.yellow,
           height: 50,
           margin: const EdgeInsets.symmetric(horizontal: 8),
           padding: const EdgeInsets.all(4),
-          child: SvgPicture.asset('assets/multipass.svg', width: 20),
+          child: SvgPicture.asset(
+            Brand.logoAsset,
+            width: 20,
+            colorFilter: const ColorFilter.mode(
+              Brand.voidBlack,
+              BlendMode.srcIn,
+            ),
+          ),
         ),
         Expanded(
           flex: 3,
@@ -183,8 +191,11 @@ class SideBar extends ConsumerWidget {
             duration: SideBar.animationDuration,
             child: Text.rich(
               [
-                'Canonical\n'.span.size(12).color(Colors.white),
-                'Multipass'.span.size(24).color(Colors.white),
+                '${Brand.companyName}\n'
+                    .span
+                    .size(12)
+                    .color(Brand.crystalWhite),
+                Brand.appName.span.size(24).color(Brand.crystalWhite),
               ].spans,
             ),
           ),
@@ -236,7 +247,7 @@ class SideBar extends ConsumerWidget {
       },
       child: AnimatedContainer(
         duration: SideBar.animationDuration,
-        color: const Color(0xff262626),
+        color: Brand.voidBlack,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         width: expanded ? expandedWidth : collapsedWidth,
         child: Column(
@@ -260,7 +271,7 @@ class SideBar extends ConsumerWidget {
       style: const TextStyle(
         height: 1,
         overflow: TextOverflow.clip,
-        color: Colors.white,
+        color: Brand.crystalWhite,
         fontWeight: FontWeight.w300,
       ),
       child: sidebar,
@@ -302,7 +313,9 @@ class SidebarEntry extends ConsumerWidget {
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
           backgroundColor:
-              selected ? const Color(0xff444444) : Colors.transparent,
+              selected ? const Color(0xff2A2A32) : Colors.transparent,
+          foregroundColor: selected ? Brand.yellow : Brand.crystalWhite,
+          disabledForegroundColor: Brand.crystalWhite.withAlpha(128),
         ),
         child: Row(
           children: [
@@ -311,7 +324,10 @@ class SidebarEntry extends ConsumerWidget {
                 : Badge(
                     backgroundColor: const Color(0xff333333),
                     isLabelVisible: !expanded,
-                    label: Text(badge!),
+                    label: Text(
+                      badge!,
+                      style: const TextStyle(color: Brand.crystalWhite),
+                    ),
                     offset: const Offset(10, -6),
                     child: icon,
                   ),
@@ -320,7 +336,14 @@ class SidebarEntry extends ConsumerWidget {
               child: AnimatedOpacity(
                 duration: SideBar.animationDuration,
                 opacity: expanded ? 1 : 0,
-                child: Text('    $label', softWrap: false),
+                child: Text(
+                  '    $label',
+                  softWrap: false,
+                  style: TextStyle(
+                    color: selected ? Brand.yellow : Brand.crystalWhite,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
               ),
             ),
             if (badge != null && expanded)
@@ -331,7 +354,11 @@ class SidebarEntry extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: Text(badge!, softWrap: false),
+                  child: Text(
+                    badge!,
+                    softWrap: false,
+                    style: const TextStyle(color: Brand.crystalWhite),
+                  ),
                 ),
               ),
           ],

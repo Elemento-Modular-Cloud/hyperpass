@@ -14,10 +14,10 @@
 
 set(MULTIPASS_GUI_TARGET macos)
 set(MULTIPASS_GUI_PREFIX macos/Build/Products/Release)
-set(MULTIPASS_GUI_BUNDLE_RELATIVE "Multipass.app")
+set(MULTIPASS_GUI_BUNDLE_RELATIVE "Hyperpass.app")
 set(MULTIPASS_GUI_EXEC_PATH_RELATIVE_TO_BUNDLE Contents/MacOS)
 set(MULTIPASS_GUI_EXECUTABLE multipass_gui)
-set(MULTIPASS_GUI_PRODUCT_NAME Multipass)
+set(MULTIPASS_GUI_PRODUCT_NAME Hyperpass)
 
 # Under Rosetta (x86_64 CMake on Apple Silicon), dart_ffi is x86_64-only. Flutter
 # release builds are universal by default and then launch as arm64, which cannot
@@ -65,7 +65,7 @@ add_custom_target(${MULTIPASS_GUI_EXECUTABLE} ALL
 )
 
 install(DIRECTORY ${MULTIPASS_GUI_BUNDLE}/Contents
-  DESTINATION "bin/Multipass.app/"
+  DESTINATION "bin/Hyperpass.app/"
   USE_SOURCE_PERMISSIONS
   COMPONENT multipass_gui
   PATTERN "*/PkgInfo" EXCLUDE
@@ -80,7 +80,7 @@ set_target_properties( ${MULTIPASS_GUI_EXECUTABLE} PROPERTIES
 
 add_custom_target(bundle_symlink ALL
   WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ${MULTIPASS_GUI_PREFIX}/${MULTIPASS_GUI_BUNDLE_RELATIVE} "Multipass.app"
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${MULTIPASS_GUI_PREFIX}/${MULTIPASS_GUI_BUNDLE_RELATIVE} "Hyperpass.app"
 )
 
 # Manually copy the dart_ffi library so it is available at compile time for local testing

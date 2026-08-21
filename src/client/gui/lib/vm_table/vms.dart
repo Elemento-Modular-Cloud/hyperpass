@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Table, Switch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalogue/catalogue.dart';
+import '../glass_panel.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -108,6 +109,7 @@ class Vms extends ConsumerWidget {
     final enabledHeaderNames = ref.watch(enabledHeadersProvider).asMap();
     final enabledHeaders =
         headers.where((h) => enabledHeaderNames[h.name]!).toList();
+    final selectedVms = ref.watch(selectedVmsProvider);
 
     final infos = ref
         .watch(vmInfosProvider)
@@ -161,12 +163,18 @@ class Vms extends ConsumerWidget {
           const BulkActionsBar(),
           const SizedBox(height: 10),
           Flexible(
-            child: SizedBox(
-              height: (infos.length + 2) * 50,
-              child: Table<VmInfo>(
-                headers: enabledHeaders,
-                data: infos.toList(),
-                finalRow: totalUsageRow,
+            child: GlassPanel(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              child: SizedBox(
+                height: (infos.length + 2) * 50,
+                width: double.infinity,
+                child: Table<VmInfo>(
+                  headers: enabledHeaders,
+                  data: infos.toList(),
+                  finalRow: totalUsageRow,
+                  isSelected: (info) => selectedVms.contains(info.name),
+                ),
               ),
             ),
           ),

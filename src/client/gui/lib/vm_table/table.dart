@@ -4,6 +4,8 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 
+import '../brand.dart';
+
 class TableHeader<T> {
   final String name;
   final Widget Function(String) childBuilder;
@@ -35,12 +37,14 @@ class Table<T> extends StatefulWidget {
   final List<TableHeader<T>> headers;
   final List<T> data;
   final List<Widget> finalRow;
+  final bool Function(T entry)? isSelected;
 
   const Table({
     super.key,
     required this.headers,
     required this.data,
     required this.finalRow,
+    this.isSelected,
   });
 
   @override
@@ -54,13 +58,16 @@ class _TableState<T> extends State<Table<T>> {
   bool sortAscending = false;
   int? sortIndex;
 
-  static const borderSide = BorderSide(color: Colors.grey, width: 0.5);
-
   @override
   void dispose() {
     horizontal.dispose();
     vertical.dispose();
     super.dispose();
+  }
+
+  BorderSide _borderSide(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurface.withOpacity(0.25);
+    return BorderSide(color: muted, width: 0.5);
   }
 
   Widget addScrollbars(TableView table) {
@@ -70,7 +77,7 @@ class _TableState<T> extends State<Table<T>> {
     );
   }
 
-  Widget buildHeader(int index, TableHeader<T> header) {
+  Widget buildHeader(int index, TableHeader<T> header, BorderSide borderSide) {
     final resizeHandle = MouseRegion(
       onEnter: (_) => setState(() => isResizingColumn++),
       onExit: (_) => setState(() => isResizingColumn--),
@@ -78,7 +85,7 @@ class _TableState<T> extends State<Table<T>> {
         child: Container(
           width: 10,
           margin: const EdgeInsets.symmetric(vertical: 10),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: Colors.transparent,
             border: Border(right: borderSide),
           ),
@@ -143,8 +150,32 @@ class _TableState<T> extends State<Table<T>> {
     ];
   }
 
+  Color? _rowColor(int row, List<T> data) {
+    if (row <= 0 || row > data.length) return null;
+    final entry = data[row - 1];
+    final selected = widget.isSelected?.call(entry) ?? false;
+    if (!selected) return null;
+    return Brand.yellow.withOpacity(0.14);
+  }
+
+  List<double> _columnWidths(double viewportWidth) {
+    final headers = widget.headers;
+    final weightSum = headers.fold<double>(0, (sum, h) => sum + h.width);
+    if (weightSum <= 0 || viewportWidth <= 0) {
+      return headers.map((h) => h.width).toList();
+    }
+
+    final scale = viewportWidth / weightSum;
+    return [
+      for (final h in headers) max(h.minWidth, h.width * scale),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
+    final borderSide = _borderSide(context);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
     Iterable<T> data = widget.data;
     final sortKey = widget.headers
         .elementAtOrNull(sortIndex ?? widget.headers.length)
@@ -153,46 +184,77 @@ class _TableState<T> extends State<Table<T>> {
       final sortedData = data.sortedBy(sortKey);
       data = sortAscending ? sortedData : sortedData.reversed;
     }
+    final dataList = data.toList();
 
     final headerCells = [
-      for (final (i, header) in widget.headers.indexed) buildHeader(i, header),
+      for (final (i, header) in widget.headers.indexed)
+        buildHeader(i, header, borderSide),
     ];
-    final cells = [headerCells, ...data.map(buildRow), widget.finalRow];
+    final cells = [headerCells, ...dataList.map(buildRow), widget.finalRow];
 
-    final table = TableView.builder(
-      horizontalDetails: ScrollableDetails.horizontal(controller: horizontal),
-      verticalDetails: ScrollableDetails.vertical(controller: vertical),
-      pinnedRowCount: 1,
-      rowCount: cells.length,
-      columnCount: widget.headers.length + 1,
-      rowBuilder: (_) => const TableSpan(extent: FixedTableSpanExtent(50)),
-      columnBuilder: (i) => TableSpan(
-        extent: i == widget.headers.length
-            ? const RemainingTableSpanExtent()
-            : FixedTableSpanExtent(widget.headers[i].width),
-      ),
-      cellBuilder: (_, v) => TableViewCell(
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: v.row < cells.length - 1 ? borderSide : BorderSide.none,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final widths = _columnWidths(constraints.maxWidth);
+        // If mins pushed total over viewport, re-normalize down to fit.
+        final total = widths.fold<double>(0, (a, b) => a + b);
+        final fitted = total <= constraints.maxWidth || total == 0
+            ? widths
+            : [
+                for (final w in widths)
+                  w * (constraints.maxWidth / total),
+              ];
+
+        final table = TableView.builder(
+          horizontalDetails:
+              ScrollableDetails.horizontal(controller: horizontal),
+          verticalDetails: ScrollableDetails.vertical(controller: vertical),
+          pinnedRowCount: 1,
+          rowCount: cells.length,
+          columnCount: widget.headers.length,
+          rowBuilder: (_) =>
+              const TableSpan(extent: FixedTableSpanExtent(50)),
+          columnBuilder: (i) => TableSpan(
+            extent: FixedTableSpanExtent(fitted[i]),
           ),
-          child: cells.elementAtOrNull(v.row)?.elementAtOrNull(v.column),
-        ),
-      ),
-    );
+          cellBuilder: (_, v) {
+            final rowColor = _rowColor(v.row, dataList);
+            return TableViewCell(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: rowColor,
+                  border: Border(
+                    bottom: v.row < cells.length - 1
+                        ? borderSide
+                        : BorderSide.none,
+                    left: rowColor != null && v.column == 0
+                        ? const BorderSide(color: Brand.yellow, width: 3)
+                        : BorderSide.none,
+                  ),
+                ),
+                child: DefaultTextStyle.merge(
+                  style: TextStyle(color: onSurface),
+                  child: cells
+                          .elementAtOrNull(v.row)
+                          ?.elementAtOrNull(v.column) ??
+                      const SizedBox.shrink(),
+                ),
+              ),
+            );
+          },
+        );
 
-    return MouseRegion(
-      cursor: isResizingColumn == 0
-          ? MouseCursor.defer
-          : SystemMouseCursors.resizeColumn,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border.fromBorderSide(borderSide),
-        ),
-        child: addScrollbars(table),
-      ),
+        return MouseRegion(
+          cursor: isResizingColumn == 0
+              ? MouseCursor.defer
+              : SystemMouseCursors.resizeColumn,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.fromBorderSide(borderSide),
+            ),
+            child: addScrollbars(table),
+          ),
+        );
+      },
     );
   }
 }

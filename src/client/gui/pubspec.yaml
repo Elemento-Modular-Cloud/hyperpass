@@ -71,6 +71,15 @@ flutter:
   assets:
     - assets/
   fonts:
+    - family: RedHatDisplay
+      fonts:
+        - asset: assets/fonts/RedHatDisplay-Regular.ttf
+        - asset: assets/fonts/RedHatDisplay-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/RedHatDisplay-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/RedHatDisplay-Light.ttf
+          weight: 300
     - family: Ubuntu
       fonts:
         - asset: assets/Ubuntu-R.ttf

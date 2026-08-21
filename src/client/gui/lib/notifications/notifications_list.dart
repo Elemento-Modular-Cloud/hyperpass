@@ -3,6 +3,7 @@ import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../glass_panel.dart';
 import 'notifications_provider.dart';
 
 class NotificationList extends ConsumerStatefulWidget {
@@ -44,7 +45,10 @@ class _NotificationListState extends ConsumerState<NotificationList> {
     updateState(notifications);
 
     return DefaultTextStyle(
-      style: const TextStyle(fontSize: 16, color: Colors.black),
+      style: TextStyle(
+        fontSize: 16,
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
       child: AnimatedList(
         key: listKey,
         reverse: true,
@@ -89,17 +93,16 @@ class NotificationTile extends ConsumerWidget {
         alignment: Alignment.topCenter,
         duration: 250.milliseconds,
         child: IntrinsicHeight(
-          child: Container(
+          child: GlassPanel(
             margin: const EdgeInsets.all(5),
-            constraints: const BoxConstraints(minHeight: 60),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(blurRadius: 5, color: Colors.black38)],
-            ),
-            child: DefaultTextStyle.merge(
-              maxLines: 10,
-              overflow: TextOverflow.ellipsis,
-              child: notification,
+            padding: EdgeInsets.zero,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 60),
+              child: DefaultTextStyle.merge(
+                maxLines: 10,
+                overflow: TextOverflow.ellipsis,
+                child: notification,
+              ),
             ),
           ),
         ),

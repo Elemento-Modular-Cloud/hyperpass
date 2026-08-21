@@ -8,7 +8,7 @@ import '../tooltip.dart';
 const unknownIcon = Icon(Icons.help, color: Color(0xff757575), size: 15);
 const icons = {
   Status.RUNNING: Icon(Icons.circle, color: Color(0xff0C8420), size: 10),
-  Status.STOPPED: Icon(Icons.circle, color: Colors.black, size: 10),
+  Status.STOPPED: Icon(Icons.circle, color: Color(0xff8A8D95), size: 10),
   Status.SUSPENDED: Icon(Icons.circle, color: Color(0xff666666), size: 10),
   Status.RESTARTING: Icon(Icons.more_horiz, color: Color(0xff757575), size: 15),
   Status.STARTING: Icon(Icons.more_horiz, color: Color(0xff757575), size: 15),

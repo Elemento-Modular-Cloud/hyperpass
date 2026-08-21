@@ -2,7 +2,9 @@ import 'package:flutter/material.dart' hide ImageInfo;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../brand.dart';
 import '../distro_branding.dart';
+import '../glass_panel.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import 'catalogue.dart';
@@ -67,16 +69,13 @@ class ImageCard extends ConsumerWidget {
       });
     }
 
-    return Container(
+    return GlassPanel(
       width: width,
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xff707070)),
-      ),
       padding: const EdgeInsets.all(16),
       child: DefaultTextStyle(
-        style: const TextStyle(
-          color: Colors.black,
-          fontFamily: 'Ubuntu',
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontFamily: Brand.fontFamily,
           fontSize: 16,
         ),
         child: Column(
@@ -109,9 +108,12 @@ class ImageCard extends ConsumerWidget {
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xfff5f5f5),
+                color: Theme.of(context).inputDecorationTheme.fillColor,
                 border: Border(
-                  bottom: BorderSide(color: Colors.black, width: 1),
+                  bottom: BorderSide(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    width: 1,
+                  ),
                 ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 8),

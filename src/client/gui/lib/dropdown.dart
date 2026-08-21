@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'brand.dart';
+
 class Dropdown<T> extends StatelessWidget {
   final String? label;
   final T? value;
@@ -18,24 +20,36 @@ class Dropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     final dropdown = DropdownButton<T>(
-      icon: const Icon(Icons.keyboard_arrow_down),
+      icon: Icon(Icons.keyboard_arrow_down, color: onSurface),
       isDense: true,
       isExpanded: true,
-      focusColor: Colors.white,
+      focusColor: Colors.transparent,
+      dropdownColor: Theme.of(context).colorScheme.surface,
+      style: TextStyle(
+        color: onSurface,
+        fontFamily: Brand.fontFamily,
+        fontSize: 16,
+      ),
       underline: const SizedBox.shrink(),
       value: value,
       onChanged: onChanged,
       items: items.entries
-          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+          .map(
+            (e) => DropdownMenuItem(
+              value: e.key,
+              child: Text(e.value, style: TextStyle(color: onSurface)),
+            ),
+          )
           .toList(),
     );
 
     final styledDropdown = SizedBox(
       width: width,
       child: InputDecorator(
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(
             horizontal: 8,
             vertical: 13,
           ),
@@ -45,6 +59,7 @@ class Dropdown<T> extends StatelessWidget {
             splashColor: Colors.transparent,
             highlightColor: Colors.transparent,
             hoverColor: Colors.transparent,
+            focusColor: Colors.transparent,
           ),
           child: dropdown,
         ),
@@ -54,7 +69,12 @@ class Dropdown<T> extends StatelessWidget {
     return Row(
       children: [
         if (label != null) ...[
-          Expanded(child: Text(label!, style: const TextStyle(fontSize: 16))),
+          Expanded(
+            child: Text(
+              label!,
+              style: TextStyle(fontSize: 16, color: onSurface),
+            ),
+          ),
         ],
         styledDropdown,
       ],

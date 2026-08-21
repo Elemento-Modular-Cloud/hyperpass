@@ -190,7 +190,7 @@ class VmNameLink extends ConsumerWidget {
     return Tooltip(
       message: name,
       child: Text.rich(
-        name.nonBreaking.span.link(ref, goToVm),
+        name.nonBreaking.spanInherit.link(ref, goToVm),
         overflow: TextOverflow.ellipsis,
       ),
     );

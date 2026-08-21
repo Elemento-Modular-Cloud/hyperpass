@@ -6,7 +6,7 @@
     <string>com.canonical.multipass.gui.autostart</string>
 
     <key>Program</key>
-    <string>/Applications/Multipass.app/Contents/MacOS/Multipass</string>
+    <string>/Applications/Hyperpass.app/Contents/MacOS/Hyperpass</string>
 
     <key>KeepAlive</key>
     <dict>

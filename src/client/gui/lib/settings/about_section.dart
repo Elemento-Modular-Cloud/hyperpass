@@ -37,7 +37,7 @@ class AboutSection extends ConsumerWidget {
           ),
         const SizedBox(height: 20),
         const DisplayField(
-          label: 'Copyright © Canonical, Ltd.',
+          label: 'Copyright © Elemento Srl.',
           width: 260,
           copyable: false,
         ),

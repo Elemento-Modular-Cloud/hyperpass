@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../glass_panel.dart';
 import '../l10n/app_localizations.dart';
 import 'general_settings.dart';
 import 'usage_settings.dart';
@@ -34,16 +35,21 @@ class SettingsScreen extends StatelessWidget {
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-        child: SizedBox(
-          width: 800,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.settingsLabel, style: const TextStyle(fontSize: 37)),
-              const SizedBox(height: 32),
-              const Expanded(child: SingleChildScrollView(child: settings)),
-            ],
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.settingsLabel, style: const TextStyle(fontSize: 37)),
+            const SizedBox(height: 32),
+            Expanded(
+              child: SingleChildScrollView(
+                child: GlassPanel(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  child: settings,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

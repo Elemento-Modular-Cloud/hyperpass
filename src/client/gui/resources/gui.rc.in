@@ -8,12 +8,12 @@ BEGIN
   BEGIN
     BLOCK "040904B0"
     BEGIN
-      VALUE "CompanyName", "Canonical Ltd."
-      VALUE "FileDescription", "Multipass"
+      VALUE "CompanyName", "Elemento Srl."
+      VALUE "FileDescription", "Hyperpass"
       VALUE "FileVersion", "@MULTIPASS_VERSION@"
       VALUE "InternalName", ""
       VALUE "OriginalFilename", ""
-      VALUE "ProductName", "Multipass"
+      VALUE "ProductName", "Hyperpass"
       VALUE "ProductVersion", "@MULTIPASS_VERSION@"
     END
   END

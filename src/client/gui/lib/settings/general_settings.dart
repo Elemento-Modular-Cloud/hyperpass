@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../notifications.dart';
 import '../providers.dart';
 import '../switch.dart';
+import '../theme_mode_provider.dart';
 import '../update_available.dart';
 import 'autostart_notifiers.dart';
 
@@ -25,6 +26,7 @@ class GeneralSettings extends ConsumerWidget {
           error: (_, __) => false,
         );
     final onAppClose = ref.watch(onAppCloseProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,6 +48,29 @@ class GeneralSettings extends ConsumerWidget {
           onChanged: (value) {
             ref.read(autostartProvider.notifier).set(value).onError(
                 ref.notifyError((e) => l10n.generalAutostartError('$e')));
+          },
+        ),
+        const SizedBox(height: 20),
+        Dropdown(
+          label: l10n.generalThemeLabel,
+          width: 260,
+          value: switch (themeMode) {
+            ThemeMode.light => 'light',
+            ThemeMode.dark => 'dark',
+            ThemeMode.system => 'system',
+          },
+          onChanged: (value) {
+            final mode = switch (value) {
+              'light' => ThemeMode.light,
+              'dark' => ThemeMode.dark,
+              _ => ThemeMode.system,
+            };
+            ref.read(themeModeProvider.notifier).set(mode);
+          },
+          items: {
+            'system': l10n.generalThemeSystem,
+            'light': l10n.generalThemeLight,
+            'dark': l10n.generalThemeDark,
           },
         ),
         const SizedBox(height: 20),

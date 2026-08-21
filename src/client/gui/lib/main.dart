@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'before_quit_dialog.dart';
+import 'brand.dart';
+import 'app_theme.dart';
 import 'l10n/app_localizations.dart';
 import 'catalogue/catalogue.dart';
 import 'daemon_unavailable.dart';
@@ -16,9 +18,9 @@ import 'providers.dart';
 import 'settings/hotkey.dart';
 import 'settings/settings.dart';
 import 'sidebar.dart';
+import 'theme_mode_provider.dart';
 import 'tray_menu.dart';
 import 'update_available.dart';
-import 'vm_details/mapping_slider.dart';
 import 'vm_details/vm_details.dart';
 import 'vm_table/vm_table_screen.dart';
 import 'window_size.dart';
@@ -29,7 +31,7 @@ void main() async {
   await setupLogger();
 
   await localNotifier.setup(
-    appName: 'Multipass',
+    appName: Brand.appName,
     shortcutPolicy: ShortcutPolicy.requireCreate, // Only for Windows
   );
 
@@ -39,7 +41,7 @@ void main() async {
     center: true,
     minimumSize: const Size(750, 450),
     size: await deriveWindowSize(sharedPreferences),
-    title: 'Multipass',
+    title: Brand.appName,
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -58,14 +60,26 @@ void main() async {
   runApp(
     UncontrolledProviderScope(
       container: providerContainer,
-      child: MaterialApp(
-        theme: theme,
-        home: const UpdateSystemNotificationListener(child: App()),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-      ),
+      child: const HyperpassApp(),
     ),
   );
+}
+
+class HyperpassApp extends ConsumerWidget {
+  const HyperpassApp({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    return MaterialApp(
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: themeMode,
+      home: const UpdateSystemNotificationListener(child: App()),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    );
+  }
 }
 
 class App extends ConsumerStatefulWidget {
@@ -239,74 +253,3 @@ class _AppState extends ConsumerState<App> with WindowListener {
     }
   }
 }
-
-final theme = ThemeData(
-  useMaterial3: false,
-  fontFamily: 'Ubuntu',
-  fontFamilyFallback: ['NotoColorEmoji', 'FreeSans'],
-  inputDecorationTheme: const InputDecorationTheme(
-    contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 6),
-    fillColor: Color(0xfff2f2f2),
-    filled: true,
-    focusedBorder: UnderlineInputBorder(
-      borderSide: BorderSide(width: 2),
-      borderRadius: BorderRadius.zero,
-    ),
-    enabledBorder: UnderlineInputBorder(
-      borderSide: BorderSide(width: 2),
-      borderRadius: BorderRadius.zero,
-    ),
-    isDense: true,
-    suffixIconColor: Colors.black,
-  ),
-  outlinedButtonTheme: OutlinedButtonThemeData(
-    style: OutlinedButton.styleFrom(
-      disabledForegroundColor: Colors.black.withAlpha(128),
-      foregroundColor: Colors.black,
-      padding: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-      side: const BorderSide(color: Color(0xff333333)),
-      textStyle: const TextStyle(fontFamily: 'Ubuntu', fontSize: 16),
-    ),
-  ),
-  scaffoldBackgroundColor: Colors.white,
-  textButtonTheme: TextButtonThemeData(
-    style: TextButton.styleFrom(
-      backgroundColor: const Color(0xff0E8620),
-      disabledForegroundColor: Colors.white.withAlpha(128),
-      foregroundColor: Colors.white,
-      padding: const EdgeInsets.all(16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-      textStyle: const TextStyle(fontFamily: 'Ubuntu', fontSize: 16),
-    ),
-  ),
-  textSelectionTheme: const TextSelectionThemeData(
-    cursorColor: Colors.black,
-    selectionColor: Colors.grey,
-  ),
-  tabBarTheme: const TabBarThemeData(
-    indicator: BoxDecoration(
-      color: Colors.black12,
-      border: Border(bottom: BorderSide(width: 3)),
-    ),
-    indicatorSize: TabBarIndicatorSize.tab,
-    labelColor: Colors.black,
-    labelStyle: TextStyle(fontFamily: 'Ubuntu', fontWeight: FontWeight.bold),
-    unselectedLabelColor: Colors.black,
-    unselectedLabelStyle: TextStyle(
-      fontFamily: 'Ubuntu',
-      fontWeight: FontWeight.bold,
-    ),
-    tabAlignment: TabAlignment.start,
-  ),
-  sliderTheme: SliderThemeData(
-    activeTrackColor: Color(0xff0066cc),
-    inactiveTrackColor: Color(0xffd9d9d9),
-    overlayShape: SliderComponentShape.noThumb,
-    thumbColor: Colors.white,
-    thumbShape: CustomThumbShape(),
-    tickMarkShape: SliderTickMarkShape.noTickMark,
-    trackHeight: 2,
-    trackShape: CustomTrackShape(),
-  ),
-);
