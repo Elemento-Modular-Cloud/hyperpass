@@ -223,9 +223,9 @@ class LaunchingNotification extends ConsumerWidget {
               children: [
                 Text.rich(
                   [
-                    l10n.launchSuccessTitle(name).span.bold,
-                    l10n.launchSuccessBody.span,
-                  ].spans,
+                    l10n.launchSuccessTitle(name).spanInherit.bold,
+                    l10n.launchSuccessBody.spanInherit,
+                  ].spansInherit,
                 ),
                 Divider(),
                 Row(
@@ -276,8 +276,10 @@ class LaunchingNotification extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text.rich(
-                  [l10n.launchInProgress(name).span.bold, message.span].spans),
+              Text.rich([
+                l10n.launchInProgress(name).spanInherit.bold,
+                message.spanInherit,
+              ].spansInherit),
               if (cancelable) ...[
                 const Divider(),
                 Row(

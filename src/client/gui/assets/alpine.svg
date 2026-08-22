@@ -1,0 +1,6 @@
+<!-- Simplified Alpine Linux mark for catalogue icons. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="12" fill="#0D597F"/>
+  <path d="M32 12 L52 48 H12 Z" fill="#FFFFFF"/>
+  <path d="M32 22 L44 44 H20 Z" fill="#0D597F"/>
+</svg>

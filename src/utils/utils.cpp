@@ -713,5 +713,9 @@ std::string mp::utils::default_username_for(const std::string& os)
         return "arch";
     if (user.contains("opensuse") || user == "suse")
         return "opensuse";
+    if (user.contains("alpine"))
+        return "alpine";
+    if (user.contains("amazon"))
+        return "ec2-user";
     return user.toStdString();
 }

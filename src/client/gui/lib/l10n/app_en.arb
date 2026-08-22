@@ -907,6 +907,14 @@
     "@imageCardTitleArch": {
         "description": "Display title for Arch Linux image"
     },
+    "imageCardTitleAlpine": "Alpine Linux",
+    "@imageCardTitleAlpine": {
+        "description": "Display title for Alpine Linux image"
+    },
+    "imageCardTitleAmazonlinux": "Amazon Linux",
+    "@imageCardTitleAmazonlinux": {
+        "description": "Display title for Amazon Linux image"
+    },
     "imageCardDescUbuntuCore": "Ubuntu operating system optimized for IoT and Edge",
     "@imageCardDescUbuntuCore": {
         "description": "Description for Ubuntu Core image"
@@ -946,6 +954,14 @@
     "imageCardDescArch": "Arch Linux official cloud image",
     "@imageCardDescArch": {
         "description": "Description for Arch Linux image"
+    },
+    "imageCardDescAlpine": "Alpine Linux generic cloud image with cloud-init",
+    "@imageCardDescAlpine": {
+        "description": "Description for Alpine Linux image"
+    },
+    "imageCardDescAmazonlinux": "Amazon Linux KVM cloud image for on-premises use",
+    "@imageCardDescAmazonlinux": {
+        "description": "Description for Amazon Linux image"
     },
     "imageCardLogoSemantics": "{os} logo",
     "@imageCardLogoSemantics": {

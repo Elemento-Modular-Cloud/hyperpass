@@ -110,6 +110,20 @@ const _arch = DistroBranding(
   accent: Color(0xff1793d1),
 );
 
+const _alpine = DistroBranding(
+  logoAsset: 'assets/alpine.svg',
+  displayName: 'Alpine Linux',
+  background: Color(0xff0a2430),
+  accent: Color(0xff0d597f),
+);
+
+const _amazonlinux = DistroBranding(
+  logoAsset: 'assets/amazonlinux.svg',
+  displayName: 'Amazon Linux',
+  background: Color(0xff141c24),
+  accent: Color(0xffff9900),
+);
+
 DistroBranding distroBranding(String os) {
   final key = os.toLowerCase();
   if (key.contains('debian')) return _debian;
@@ -122,6 +136,8 @@ DistroBranding distroBranding(String os) {
   if (key.contains('centos')) return _centos;
   if (key.contains('oracle')) return _oraclelinux;
   if (key.contains('arch')) return _arch;
+  if (key.contains('alpine')) return _alpine;
+  if (key.contains('amazon')) return _amazonlinux;
   if (key.contains('ubuntu')) return _ubuntu;
   return _ubuntu;
 }

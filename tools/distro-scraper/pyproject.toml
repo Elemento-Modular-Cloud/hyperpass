@@ -27,6 +27,8 @@ opensuse = "scraper.scrapers.opensuse:OpenSUSEScraper"
 centos = "scraper.scrapers.centos:CentOSScraper"
 oraclelinux = "scraper.scrapers.oraclelinux:OracleLinuxScraper"
 arch = "scraper.scrapers.arch:ArchScraper"
+alpine = "scraper.scrapers.alpine:AlpineScraper"
+amazonlinux = "scraper.scrapers.amazonlinux:AmazonLinuxScraper"
 
 [tool.setuptools.packages.find]
 where = ["."]

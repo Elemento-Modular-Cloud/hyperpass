@@ -162,6 +162,8 @@ TEST(Utils, defaultUsernameForKnownDistros)
     EXPECT_EQ(mpu::default_username_for("Fedora"), "fedora");
     EXPECT_EQ(mpu::default_username_for("AlmaLinux"), "almalinux");
     EXPECT_EQ(mpu::default_username_for("Rocky"), "rocky");
+    EXPECT_EQ(mpu::default_username_for("Alpine"), "alpine");
+    EXPECT_EQ(mpu::default_username_for("AmazonLinux"), "ec2-user");
 }
 
 TEST(Utils, defaultUsernameForEmptyFallsBackToUbuntu)

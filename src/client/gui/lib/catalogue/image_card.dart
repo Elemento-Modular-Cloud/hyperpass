@@ -38,6 +38,8 @@ class ImageCard extends ConsumerWidget {
       'centos' => l10n.imageCardTitleCentos,
       'oraclelinux' => l10n.imageCardTitleOraclelinux,
       'arch' => l10n.imageCardTitleArch,
+      'alpine' => l10n.imageCardTitleAlpine,
+      'amazonlinux' => l10n.imageCardTitleAmazonlinux,
       _ => parentImage.os, // Default case: return the OS name as-is
     };
   }
@@ -55,6 +57,8 @@ class ImageCard extends ConsumerWidget {
       'centos' => l10n.imageCardDescCentos,
       'oraclelinux' => l10n.imageCardDescOraclelinux,
       'arch' => l10n.imageCardDescArch,
+      'alpine' => l10n.imageCardDescAlpine,
+      'amazonlinux' => l10n.imageCardDescAmazonlinux,
       _ => '',
     };
   }

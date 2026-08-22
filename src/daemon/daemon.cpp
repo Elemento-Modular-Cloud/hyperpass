@@ -171,7 +171,15 @@ bool image_supports_pollinate(const std::string& image_alias)
                                           "oraclelinux",
                                           "ol",
                                           "arch",
-                                          "archlinux"};
+                                          "archlinux",
+                                          "alpine",
+                                          "amazon",
+                                          "amazonlinux",
+                                          "al2023",
+                                          "al2",
+                                          "amzn2",
+                                          "amzn2023",
+                                          "ec2"};
     return std::none_of(no_pollinate.begin(), no_pollinate.end(), [&alias](const QString& stem) {
         return alias == stem || alias.startsWith(stem + '-');
     });

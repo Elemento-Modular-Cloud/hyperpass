@@ -17,6 +17,18 @@ def distro_arch(label: str) -> str:
     return ARCH_MAP.get(label, label)
 
 
+def parse_sha512_checksums(text: str) -> dict[str, str]:
+    """
+    Parse Alpine-style ``hash  name`` sha512 checksum files.
+    """
+    return {
+        m.group(2): m.group(1)
+        for m in re.finditer(
+            r"^([0-9a-f]{128})\s+(\S+)\s*$", text, re.MULTILINE | re.IGNORECASE
+        )
+    }
+
+
 def parse_sha256_checksums(text: str) -> dict[str, str]:
     """
     Parse checksum files into filename -> sha256 mappings.
@@ -95,6 +107,8 @@ FAMILY_MIN_DISK = {
     "CentOS": 10 * GIB,
     "OracleLinux": 16 * GIB,
     "Arch": 5 * GIB,
+    "Alpine": 2 * GIB,
+    "AmazonLinux": 8 * GIB,
 }
 
 

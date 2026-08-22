@@ -204,6 +204,7 @@ protected:
 
 private:
     std::string saved_error_msg = "";
+    std::mutex ssh_session_mutex;
     std::unique_ptr<SSHSession> ssh_session = nullptr;
     SnapshotMap snapshots;
     std::shared_ptr<Snapshot> head_snapshot = nullptr;

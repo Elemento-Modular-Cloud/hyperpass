@@ -110,6 +110,75 @@
         "release_codename": "AlmaLinux 9",
         "release_title": "9"
     },
+    "Alpine 3.24.1": {
+        "aliases": "alpine, alpine-3.24.1",
+        "items": {
+            "arm64": {
+                "id": "sha512:c80b2693236ac0c1d92078e5e6eb69edd015feac363811a4952a4366c6815a53a644d17b1e4de8302c52e6c8a7e197dbf1fb74c3bb64bfea096334c7c8a3b5ca",
+                "image_location": "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/cloud/generic_alpine-3.24.1-aarch64-uefi-cloudinit-r0.qcow2",
+                "min_disk": 257949696,
+                "size": 239271936,
+                "version": "20260616"
+            },
+            "x86_64": {
+                "id": "sha512:8d756f6fc7653daa4fb4e2e213d8a66007bcb1e5a846e28891af62c47b90685c694486c2746099ad99e9e8f5278db76b69d11dfe1e9361aa4c8406df16929a9c",
+                "image_location": "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/cloud/generic_alpine-3.24.1-x86_64-bios-cloudinit-r0.qcow2",
+                "min_disk": 209715200,
+                "size": 183697408,
+                "version": "20260616"
+            }
+        },
+        "os": "Alpine",
+        "release": "3.24.1",
+        "release_codename": "3.24.1",
+        "release_title": "3.24.1"
+    },
+    "AmazonLinux 2": {
+        "aliases": "amazonlinux-2, al2, amzn2, amazon-linux-2",
+        "items": {
+            "arm64": {
+                "id": "3689672f4f58739e73bfbfb5860e034c3259be5c81eabbb5057e0263b9d57bbf",
+                "image_location": "https://cdn.amazonlinux.com/os-images/2.0.20260817.0/kvm-arm64/amzn2-kvm-2.0.20260817.0-arm64.xfs.gpt.qcow2",
+                "min_disk": 26843545600,
+                "size": 1501691904,
+                "version": "20260818"
+            },
+            "x86_64": {
+                "id": "605d57e9155c81f0abd03c571d0f6f8f210d7122caf75d2aed8eb3ac577c10c0",
+                "image_location": "https://cdn.amazonlinux.com/os-images/2.0.20260817.0/kvm/amzn2-kvm-2.0.20260817.0-x86_64.xfs.gpt.qcow2",
+                "min_disk": 26843545600,
+                "size": 1510801408,
+                "version": "20260818"
+            }
+        },
+        "os": "AmazonLinux",
+        "release": "2",
+        "release_codename": "Amazon Linux 2",
+        "release_title": "2"
+    },
+    "AmazonLinux 2023": {
+        "aliases": "amazonlinux, amazon, al2023, amzn2023, amazonlinux-2023, amazon-2023, al2023-2023, amzn2023-2023",
+        "items": {
+            "arm64": {
+                "id": "6180d05c26820b3bdff005dd538e4c51f16922c50ee41ee547c6327704125b39",
+                "image_location": "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260817.0/kvm-arm64/al2023-kvm-2023.12.20260817.0-kernel-6.1-arm64.xfs.gpt.qcow2",
+                "min_disk": 26843545600,
+                "size": 1935736832,
+                "version": "20260817"
+            },
+            "x86_64": {
+                "id": "7e6640dd9a391ba37d021733d0cc67e192fcdf7beab2f9e86d0ea8cdf5f27f6e",
+                "image_location": "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260817.0/kvm/al2023-kvm-2023.12.20260817.0-kernel-6.1-x86_64.xfs.gpt.qcow2",
+                "min_disk": 26843545600,
+                "size": 1842479104,
+                "version": "20260817"
+            }
+        },
+        "os": "AmazonLinux",
+        "release": "2023",
+        "release_codename": "Amazon Linux 2023",
+        "release_title": "2023"
+    },
     "Arch rolling": {
         "aliases": "arch, archlinux, archlinux-latest",
         "items": {
@@ -506,11 +575,11 @@
                 "version": "20260806"
             },
             "x86_64": {
-                "id": "952d95729331a62d96fc28495c6e42936e83c4262446c124ee497b5b3aebe98b",
+                "id": "74ae90cadf0e375fb557b0e960f8ff7696802f2fc4bfca7caa09bc537743ceab",
                 "image_location": "https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2",
                 "min_disk": 2147483648,
-                "size": 317193216,
-                "version": "20260819"
+                "size": 317006848,
+                "version": "20260821"
             }
         },
         "os": "openSUSE",

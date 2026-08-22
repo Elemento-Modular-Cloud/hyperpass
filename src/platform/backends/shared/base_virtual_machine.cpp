@@ -250,7 +250,11 @@ std::unique_ptr<mp::SSHProcess> mp::BaseVirtualMachine::ssh_exec_process(const s
     while (true)
     {
         assert(reconnect && "we should have thrown otherwise");
-        if ((!ssh_session || !ssh_session->is_connected()) && reconnect)
+        const bool disconnected = [&] {
+            std::lock_guard ssh_lock{ssh_session_mutex};
+            return (!ssh_session || !ssh_session->is_connected()) && reconnect;
+        }();
+        if (disconnected)
         {
             mpl::info(vm_name,
                       "SSH session disconnected{}",
@@ -268,6 +272,7 @@ std::unique_ptr<mp::SSHProcess> mp::BaseVirtualMachine::ssh_exec_process(const s
         }
         catch (const SSHException& e)
         {
+            std::lock_guard ssh_lock{ssh_session_mutex};
             assert(ssh_session);
             if (ssh_session->is_connected() || !reconnect)
                 throw;
@@ -283,14 +288,14 @@ std::unique_ptr<mp::SSHProcess> mp::BaseVirtualMachine::ssh_exec_process(const s
 std::unique_ptr<mp::SSHProcess> mp::BaseVirtualMachine::make_ssh_process(const std::string& cmd,
                                                                          bool whisper)
 {
+    std::lock_guard lock{ssh_session_mutex};
     return ssh_session->exec(cmd, whisper);
 }
 
 void mp::BaseVirtualMachine::renew_ssh_session()
 {
+    std::lock_guard lock{ssh_session_mutex};
     auto new_session = new_ssh_session();
-
-    std::lock_guard lock{state_mutex};
     mpl::debug(vm_name, "{} SSH session", ssh_session ? "Renewing cached" : "Caching new");
     ssh_session = std::move(new_session);
 }
@@ -907,6 +912,7 @@ std::shared_ptr<mp::Snapshot> mp::BaseVirtualMachine::make_specific_snapshot(
 
 void mp::BaseVirtualMachine::drop_ssh_session()
 {
+    std::lock_guard lock{ssh_session_mutex};
     if (ssh_session)
     {
         mpl::debug(vm_name, "Dropping cached SSH session");
@@ -938,9 +944,12 @@ void mp::BaseVirtualMachine::ssh_and_cross_to_running()
     auto new_session =
         std::make_unique<PlainSSHSession>(ssh_hostname(), ssh_port(), ssh_username(), key_provider);
 
-    std::lock_guard lock{state_mutex};
-    ssh_session = std::move(new_session);
+    {
+        std::lock_guard ssh_lock{ssh_session_mutex};
+        ssh_session = std::move(new_session);
+    }
 
+    std::lock_guard lock{state_mutex};
     state = State::running;
     handle_state_update();
 }
