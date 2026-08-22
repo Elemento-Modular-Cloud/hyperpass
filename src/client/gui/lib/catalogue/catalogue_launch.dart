@@ -31,6 +31,13 @@ void launchCatalogueImage(
   );
 }
 
-void configureCatalogueImage(WidgetRef ref, ImageInfo image) {
+void configureCatalogueImage(
+  WidgetRef ref,
+  ImageInfo image, {
+  bool requireCloudInit = false,
+}) {
   ref.read(launchingImageProvider.notifier).set(image);
+  ref
+      .read(cloudInitLaunchRequiredProvider.notifier)
+      .setRequired(requireCloudInit);
 }

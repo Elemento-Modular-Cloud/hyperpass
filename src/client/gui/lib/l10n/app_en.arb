@@ -214,6 +214,146 @@
     "@cacheTableTotal": {
         "description": "Label for the cache table totals row"
     },
+    "cloudInitLabel": "Cloud-init",
+    "@cloudInitLabel": {
+        "description": "Sidebar and page title for the cloud-init config library"
+    },
+    "cloudInitSubtitle": "Create and edit user-data configs to attach when launching instances.",
+    "@cloudInitSubtitle": {
+        "description": "Subtitle under the Cloud-init page heading"
+    },
+    "cloudInitEmpty": "No cloud-init configs yet. Create or import a YAML file to get started.",
+    "@cloudInitEmpty": {
+        "description": "Empty state for the cloud-init config list"
+    },
+    "cloudInitSelectPrompt": "Select a config to edit, or create a new one.",
+    "@cloudInitSelectPrompt": {
+        "description": "Prompt shown when no cloud-init config is selected"
+    },
+    "cloudInitNew": "New",
+    "@cloudInitNew": {
+        "description": "Button to create a new cloud-init config"
+    },
+    "cloudInitNewTitle": "New cloud-init config",
+    "@cloudInitNewTitle": {
+        "description": "Dialog title when creating a cloud-init config"
+    },
+    "cloudInitImport": "Import",
+    "@cloudInitImport": {
+        "description": "Button to import a cloud-init YAML file"
+    },
+    "cloudInitImportTitle": "Import cloud-init config",
+    "@cloudInitImportTitle": {
+        "description": "Dialog title when importing a cloud-init config"
+    },
+    "cloudInitRenameAction": "Rename",
+    "@cloudInitRenameAction": {
+        "description": "Button to rename the selected cloud-init config"
+    },
+    "cloudInitRenameTitle": "Rename cloud-init config",
+    "@cloudInitRenameTitle": {
+        "description": "Dialog title when renaming a cloud-init config"
+    },
+    "cloudInitDeleteTitle": "Delete cloud-init config?",
+    "@cloudInitDeleteTitle": {
+        "description": "Title for deleting a cloud-init config"
+    },
+    "cloudInitDeleteBody": "Delete \"{name}\"? This cannot be undone.",
+    "@cloudInitDeleteBody": {
+        "description": "Body for deleting a cloud-init config",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "cloudInitDiscardTitle": "Discard unsaved changes?",
+    "@cloudInitDiscardTitle": {
+        "description": "Title when leaving a dirty cloud-init editor"
+    },
+    "cloudInitDiscardBody": "You have unsaved changes that will be lost.",
+    "@cloudInitDiscardBody": {
+        "description": "Body when leaving a dirty cloud-init editor"
+    },
+    "cloudInitDiscardAction": "Discard",
+    "@cloudInitDiscardAction": {
+        "description": "Confirm discarding unsaved cloud-init edits"
+    },
+    "cloudInitUnsaved": "Unsaved changes",
+    "@cloudInitUnsaved": {
+        "description": "Indicator that the cloud-init editor has unsaved edits"
+    },
+    "cloudInitEditorHint": "#cloud-config",
+    "@cloudInitEditorHint": {
+        "description": "Hint text inside the empty cloud-init YAML editor"
+    },
+    "cloudInitNameLabel": "Name",
+    "@cloudInitNameLabel": {
+        "description": "Label for the cloud-init config name field"
+    },
+    "cloudInitNameHelper": "Letters, digits, '.', '_' or '-'",
+    "@cloudInitNameHelper": {
+        "description": "Helper text for valid cloud-init config names"
+    },
+    "cloudInitNameErrorEmpty": "Enter a name",
+    "@cloudInitNameErrorEmpty": {
+        "description": "Validation error when cloud-init name is empty"
+    },
+    "cloudInitNameErrorInvalid": "Use only letters, digits, '.', '_' or '-'",
+    "@cloudInitNameErrorInvalid": {
+        "description": "Validation error when cloud-init name has invalid characters"
+    },
+    "cloudInitErrorExists": "A config named \"{name}\" already exists",
+    "@cloudInitErrorExists": {
+        "description": "Error when creating/importing a duplicate cloud-init name",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "cloudInitErrorInvalidYaml": "Invalid YAML: {error}",
+    "@cloudInitErrorInvalidYaml": {
+        "description": "Error when cloud-init contents fail YAML parsing",
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "cloudInitLaunchSectionTitle": "Cloud-init",
+    "@cloudInitLaunchSectionTitle": {
+        "description": "Section heading for cloud-init attachment in the launch form"
+    },
+    "cloudInitLaunchNone": "None",
+    "@cloudInitLaunchNone": {
+        "description": "Dropdown option for launching without a cloud-init config"
+    },
+    "cloudInitLaunchManage": "Manage…",
+    "@cloudInitLaunchManage": {
+        "description": "Link from the launch form to the Cloud-init library"
+    },
+    "cloudInitLaunchSelected": "Using config: {name}",
+    "@cloudInitLaunchSelected": {
+        "description": "Banner showing which cloud-init config will be attached",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "cloudInitLaunchRequired": "Select a cloud-init config to continue",
+    "@cloudInitLaunchRequired": {
+        "description": "Validation message when Launch with cloud-init has no config selected"
+    },
+    "cloudInitLaunchButton": "Launch with cloud-init",
+    "@cloudInitLaunchButton": {
+        "description": "Footer and image-card action to launch using a cloud-init config"
+    },
+    "cloudInitLaunchCardButton": "Cloud-init",
+    "@cloudInitLaunchCardButton": {
+        "description": "Short image-card action label for launching with cloud-init"
+    },
     "deleteInstanceTitle": "{count, plural, =1{Delete instance} other{Delete instances}}",
     "@deleteInstanceTitle": {
         "description": "Title of the delete instance confirmation dialog",

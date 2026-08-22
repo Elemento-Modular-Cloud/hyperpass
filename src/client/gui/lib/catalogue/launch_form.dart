@@ -19,6 +19,9 @@ import '../vm_details/mapping_slider.dart';
 import '../vm_details/mount_points.dart';
 import '../vm_details/ram_slider.dart';
 import '../vm_details/spec_input.dart';
+import '../cloud_init/cloud_init_screen.dart';
+import '../cloud_init/cloud_init_store.dart';
+import '../dropdown.dart';
 
 class LaunchingImageNotifier extends Notifier<ImageInfo> {
   @override
@@ -34,6 +37,34 @@ class LaunchingImageNotifier extends Notifier<ImageInfo> {
 final launchingImageProvider =
     NotifierProvider<LaunchingImageNotifier, ImageInfo>(
   LaunchingImageNotifier.new,
+);
+
+class CloudInitLaunchRequiredNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setRequired(bool value) => state = value;
+
+  void clear() => state = false;
+}
+
+final cloudInitLaunchRequiredProvider =
+    NotifierProvider<CloudInitLaunchRequiredNotifier, bool>(
+  CloudInitLaunchRequiredNotifier.new,
+);
+
+class SelectedCloudInitNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? name) => state = name;
+
+  void clear() => state = null;
+}
+
+final selectedCloudInitProvider =
+    NotifierProvider<SelectedCloudInitNotifier, String?>(
+  SelectedCloudInitNotifier.new,
 );
 
 final randomNameProvider = Provider.autoDispose(
@@ -95,6 +126,8 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
   final mountRequests = <MountRequest>[];
   var addingMount = false;
   final scrollController = ScrollController();
+  final cloudInitSectionKey = GlobalKey();
+  String? _cloudInitError;
 
   @override
   void dispose() {
@@ -109,6 +142,26 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     final l10n = AppLocalizations.of(context)!;
     final imageInfo = ref.watch(launchingImageProvider);
     final randomName = ref.watch(randomNameProvider);
+    final cloudInitRequired = ref.watch(cloudInitLaunchRequiredProvider);
+    final selectedCloudInit = ref.watch(selectedCloudInitProvider);
+    final cloudInitConfigs = ref.watch(cloudInitConfigsProvider).when(
+          data: (configs) => configs,
+          loading: () => const <CloudInitConfigInfo>[],
+          error: (_, __) => const <CloudInitConfigInfo>[],
+        );
+
+    if (cloudInitRequired) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = cloudInitSectionKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 250),
+            alignment: 0.1,
+          );
+        }
+      });
+    }
     final vmNames = ref.watch(vmNamesProvider);
     final deletedVms = ref.watch(deletedVmsProvider);
     final networksAsync = ref.watch(networksProvider);
@@ -310,6 +363,77 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         ),
         bridgedSwitch,
         const Divider(height: 60),
+        KeyedSubtree(
+          key: cloudInitSectionKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 50,
+                child: Text(
+                  l10n.cloudInitLaunchSectionTitle,
+                  style: TextStyle(
+                    fontSize: 24,
+                    color: cloudInitRequired
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                    fontWeight:
+                        cloudInitRequired ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ),
+              if (cloudInitRequired)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    l10n.cloudInitLaunchRequired,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              Dropdown<String?>(
+                value: selectedCloudInit,
+                width: 360,
+                onChanged: (value) {
+                  ref.read(selectedCloudInitProvider.notifier).set(value);
+                  setState(() => _cloudInitError = null);
+                },
+                items: {
+                  null: l10n.cloudInitLaunchNone,
+                  for (final config in cloudInitConfigs) config.name: config.name,
+                },
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Scaffold.of(context).closeEndDrawer();
+                  ref
+                      .read(sidebarKeyProvider.notifier)
+                      .set(CloudInitScreen.sidebarKey);
+                },
+                child: Text(l10n.cloudInitLaunchManage),
+              ),
+              if (selectedCloudInit != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Chip(
+                    avatar: const Icon(Icons.description_outlined, size: 18),
+                    label: Text(l10n.cloudInitLaunchSelected(selectedCloudInit)),
+                  ),
+                ),
+              if (_cloudInitError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _cloudInitError!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const Divider(height: 60),
         SizedBox(
           height: 50,
           child: Text(l10n.mountsTitle, style: const TextStyle(fontSize: 24)),
@@ -323,6 +447,11 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     final launchButton = TextButton(
       onPressed: () => launch(imageInfo),
       child: Text(l10n.commonLaunch),
+    );
+
+    final launchWithCloudInitButton = OutlinedButton(
+      onPressed: () => launch(imageInfo, requireCloudInit: true),
+      child: Text(l10n.cloudInitLaunchButton),
     );
 
     final launchAndConfigureNextButton = OutlinedButton(
@@ -341,7 +470,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       fit: StackFit.loose,
       children: [
         Positioned.fill(
-          bottom: 80,
+          bottom: 100,
           child: Container(
             alignment: Alignment.topCenter,
             color: surface,
@@ -368,12 +497,13 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Divider(height: 30),
-                Row(
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
                   children: [
                     launchButton,
-                    const SizedBox(width: 16),
+                    launchWithCloudInitButton,
                     launchAndConfigureNextButton,
-                    const SizedBox(width: 16),
                     cancelButton,
                   ],
                 ),
@@ -385,7 +515,11 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     );
   }
 
-  Future<void> launch(ImageInfo imageInfo, {bool configureNext = false}) async {
+  Future<void> launch(
+    ImageInfo imageInfo, {
+    bool configureNext = false,
+    bool requireCloudInit = false,
+  }) async {
     final formState = formKey.currentState;
     if (formState == null) return;
     final mountFormState = mountFormKey.currentState;
@@ -393,8 +527,39 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     if (!formState.validate()) return;
     if (!(mountFormState?.validate() ?? true)) return;
 
+    final selectedCloudInit = ref.read(selectedCloudInitProvider);
+    if (requireCloudInit && selectedCloudInit == null) {
+      setState(() {
+        _cloudInitError =
+            AppLocalizations.of(context)!.cloudInitLaunchRequired;
+      });
+      ref.read(cloudInitLaunchRequiredProvider.notifier).setRequired(true);
+      final ctx = cloudInitSectionKey.currentContext;
+      if (ctx != null) {
+        await Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 250),
+          alignment: 0.1,
+        );
+      }
+      return;
+    }
+
     mountFormState?.save();
     formState.save();
+
+    if (selectedCloudInit != null) {
+      try {
+        final store = await ref.read(cloudInitStoreProvider.future);
+        final contents = await store.read(selectedCloudInit);
+        launchRequest.cloudInitUserData = contents;
+      } catch (error) {
+        setState(() => _cloudInitError = '$error');
+        return;
+      }
+    } else {
+      launchRequest.clearCloudInitUserData();
+    }
 
     launchRequest.image = imageInfo.aliases.first;
     if (imageInfo.hasRemoteName()) {
@@ -423,6 +588,8 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     );
 
     if (!started || !mounted) return;
+
+    ref.read(cloudInitLaunchRequiredProvider.notifier).clear();
 
     if (!configureNext) {
       Scaffold.of(context).closeEndDrawer();

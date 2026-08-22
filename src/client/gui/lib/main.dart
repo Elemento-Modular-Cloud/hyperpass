@@ -11,6 +11,7 @@ import 'app_theme.dart';
 import 'l10n/app_localizations.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
+import 'cloud_init/cloud_init_screen.dart';
 import 'daemon_unavailable.dart';
 import 'help.dart';
 import 'logger.dart';
@@ -105,6 +106,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
       VmTableScreen.sidebarKey: const VmTableScreen(),
       CacheScreen.sidebarKey: const CacheScreen(),
+      CloudInitScreen.sidebarKey: const CloudInitScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),
       HelpScreen.sidebarKey: const HelpScreen(),
       for (final name in vms) 'vm-$name': VmDetailsScreen(name),

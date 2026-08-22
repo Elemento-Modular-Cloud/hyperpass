@@ -9,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 import 'catalogue/catalogue.dart';
 import 'brand.dart';
 import 'cache/cache_screen.dart';
+import 'cloud_init/cloud_init_screen.dart';
 import 'distro_branding.dart';
 import 'extensions.dart';
 import 'help.dart';
@@ -154,6 +155,15 @@ class SideBar extends ConsumerWidget {
       label: l10n.cacheLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CacheScreen.sidebarKey);
+      },
+    );
+
+    final cloudInit = SidebarEntry(
+      icon: SvgPicture.asset('assets/cloud_init.svg'),
+      selected: isSelected(CloudInitScreen.sidebarKey),
+      label: l10n.cloudInitLabel,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(CloudInitScreen.sidebarKey);
       },
     );
 
@@ -305,6 +315,7 @@ class SideBar extends ConsumerWidget {
             Expanded(child: ListView(children: vmEntries.toList())),
             Divider(color: Colors.white.withAlpha(77)),
             cache,
+            cloudInit,
             help,
             settings,
           ],

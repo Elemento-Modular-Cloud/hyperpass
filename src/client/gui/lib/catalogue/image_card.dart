@@ -133,11 +133,20 @@ class _ImageCardState extends ConsumerState<ImageCard> {
                 radius: radius,
                 onLaunch: () =>
                     launchCatalogueImage(context, ref, selectedImage),
+                onCloudInit: () {
+                  configureCatalogueImage(
+                    ref,
+                    selectedImage,
+                    requireCloudInit: true,
+                  );
+                  Scaffold.of(context).openEndDrawer();
+                },
                 onConfigure: () {
                   configureCatalogueImage(ref, selectedImage);
                   Scaffold.of(context).openEndDrawer();
                 },
                 launchLabel: l10n.commonLaunch,
+                cloudInitLabel: l10n.cloudInitLaunchCardButton,
                 configureLabel: l10n.commonConfigure,
               ),
             ],
@@ -152,15 +161,19 @@ class _CardActionBar extends StatelessWidget {
   const _CardActionBar({
     required this.radius,
     required this.onLaunch,
+    required this.onCloudInit,
     required this.onConfigure,
     required this.launchLabel,
+    required this.cloudInitLabel,
     required this.configureLabel,
   });
 
   final BorderRadius radius;
   final VoidCallback onLaunch;
+  final VoidCallback onCloudInit;
   final VoidCallback onConfigure;
   final String launchLabel;
+  final String cloudInitLabel;
   final String configureLabel;
 
   @override
@@ -168,71 +181,75 @@ class _CardActionBar extends StatelessWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final divider = Theme.of(context).dividerColor;
 
-    return SizedBox(
-      height: 40,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Material(
-              color: Brand.yellow,
-              borderRadius: BorderRadius.only(
-                bottomLeft: radius.bottomLeft,
+    Widget action({
+      required VoidCallback onTap,
+      required String label,
+      required BorderRadius borderRadius,
+      Color? color,
+      FontWeight weight = FontWeight.w500,
+      Color? textColor,
+      bool topBorder = false,
+    }) {
+      return Expanded(
+        child: Material(
+          color: color ?? Colors.transparent,
+          borderRadius: borderRadius,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: borderRadius,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: topBorder
+                    ? Border(top: BorderSide(color: divider))
+                    : null,
+                borderRadius: borderRadius,
               ),
-              child: InkWell(
-                onTap: onLaunch,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: radius.bottomLeft,
-                ),
-                child: Center(
-                  child: Text(
-                    launchLabel,
-                    style: const TextStyle(
-                      fontFamily: Brand.fontFamily,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Brand.voidBlack,
-                    ),
+              child: Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontSize: 12,
+                    fontWeight: weight,
+                    color: textColor ?? onSurface,
                   ),
                 ),
               ),
             ),
           ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 40,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          action(
+            onTap: onLaunch,
+            label: launchLabel,
+            borderRadius: BorderRadius.only(bottomLeft: radius.bottomLeft),
+            color: Brand.yellow,
+            weight: FontWeight.w600,
+            textColor: Brand.voidBlack,
+          ),
           Container(width: 1, color: divider),
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.only(
-                bottomRight: radius.bottomRight,
-              ),
-              child: InkWell(
-                onTap: onConfigure,
-                borderRadius: BorderRadius.only(
-                  bottomRight: radius.bottomRight,
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: divider),
-                    ),
-                    borderRadius: BorderRadius.only(
-                      bottomRight: radius.bottomRight,
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      configureLabel,
-                      style: TextStyle(
-                        fontFamily: Brand.fontFamily,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: onSurface,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          action(
+            onTap: onCloudInit,
+            label: cloudInitLabel,
+            borderRadius: BorderRadius.zero,
+            topBorder: true,
+          ),
+          Container(width: 1, color: divider),
+          action(
+            onTap: onConfigure,
+            label: configureLabel,
+            borderRadius: BorderRadius.only(bottomRight: radius.bottomRight),
+            topBorder: true,
           ),
         ],
       ),

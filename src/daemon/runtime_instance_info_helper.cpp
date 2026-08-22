@@ -18,6 +18,7 @@
 #include "runtime_instance_info_helper.h"
 
 #include <multipass/format.h>
+#include <multipass/logging/log.h>
 #include <multipass/rpc/multipass.grpc.pb.h>
 #include <multipass/utils.h>
 #include <multipass/virtual_machine.h>
@@ -27,9 +28,11 @@
 #include <array>
 
 namespace mp = multipass;
+namespace mpl = multipass::logging;
 
 namespace
 {
+constexpr auto category = "runtime-info";
 
 struct Keys
 {
@@ -45,61 +48,43 @@ public:
     static constexpr auto current_release_key = "current_release";
 };
 
+std::string single_quote_for_shell(const std::string& in)
+{
+    // Wrap in single quotes; encode embedded ' as: '\''
+    std::string out;
+    out.reserve(in.size() + 2);
+    out.push_back('\'');
+    for (char c : in)
+    {
+        if (c == '\'')
+            out += "'\\''";
+        else
+            out.push_back(c);
+    }
+    out.push_back('\'');
+    return out;
+}
+
 struct Cmds
 {
 private:
     static constexpr auto key_val_cmd = R"-(echo {}: "$(eval "{}")")-";
+    // Keep disk probes as short pipelines (no nested bash -c, no full-table df). Escaping matches
+    // the echo…eval wrapper: \$ → $, \" → " inside the eval'd string. Use %.0f so awk does not
+    // clamp totals ≥2GiB to INT_MAX via printf %d. Avoid `df` over all mounts — that can block
+    // forever on a stuck filesystem while several VMs are still booting.
+    static constexpr auto disk_usage_cmd =
+        R"(lsblk -b -n -o FSUSED,FSTYPE,MOUNTPOINT -e7 2>/dev/null | )"
+        R"(awk '\$2!=\"\" && \$2!=\"swap\" && \$3!=\"\"{sum+=\$1} END{printf \"%.0f\", sum+0}')";
+    static constexpr auto disk_total_cmd =
+        R"(lsblk -b -d -n -o SIZE -e7 2>/dev/null | )"
+        R"(awk '{sum+=\$1} END{printf \"%.0f\", sum+0}')";
     static constexpr std::array key_cmds_pairs{
         std::pair{Keys::loadavg_key, "cat /proc/loadavg | cut -d ' ' -f1-3"},
         std::pair{Keys::mem_usage_key, R"(free -b | grep 'Mem:' | awk '{printf \$3}')"},
         std::pair{Keys::mem_total_key, R"(free -b | grep 'Mem:' | awk '{printf \$2}')"},
-        std::pair{Keys::disk_usage_key,
-                  R"(
-                    bash -c '
-                      if command -v lsblk >/dev/null 2>&1 \
-                         && lsblk -b -n -o FSUSED -e7 >/dev/null 2>&1; then
-                        lsblk -b -n -o FSUSED,FSTYPE,MOUNTPOINT -e7 \
-                          | awk '\''\$2!="" && \$2!="swap" && \$3!=""{sum+=\$1} END{printf "%d", sum+0}'\''
-                      else
-                        declare -A seen
-                        sum=0
-                        while read -r src size mp; do
-                          fsid=\$(stat -f -c \"%d\" \$mp 2>/dev/null) || continue
-                          if [[ -z \${seen[\$fsid]} ]]; then
-                            sum=\$(( sum + size ))
-                            seen[\$fsid]=1
-                          fi
-                        done < <(
-                          df -B1 -x tmpfs -x devtmpfs -x squashfs -x overlay -x efivarfs \
-                            --output=source,used,target | tail -n +2
-                        )
-                        printf \"%d\" \$sum
-                      fi
-                    '
-                  )"},
-        std::pair{Keys::disk_total_key,
-                  R"(
-                    bash -c '
-                      if command -v lsblk >/dev/null 2>&1; then
-                        lsblk -b -d -n -o SIZE -e7 \
-                          | awk '\''{sum+=\$1} END{printf "%d", sum+0}'\''
-                      else
-                        declare -A seen
-                        sum=0
-                        while read -r src size mp; do
-                          fsid=\$(stat -f -c \"%d\" \$mp 2>/dev/null) || continue
-                          if [[ -z \${seen[\$fsid]} ]]; then
-                            sum=\$(( sum + size ))
-                            seen[\$fsid]=1
-                          fi
-                        done < <(
-                          df -B1 -x tmpfs -x devtmpfs -x squashfs -x overlay -x efivarfs \
-                            --output=source,size,target | tail -n +2
-                        )
-                        printf \"%d\" \$sum
-                      fi
-                    '
-                  )"},
+        std::pair{Keys::disk_usage_key, disk_usage_cmd},
+        std::pair{Keys::disk_total_key, disk_total_cmd},
         std::pair{Keys::cpus_key, "nproc"},
         std::pair{Keys::cpu_times_key, "head -n1 /proc/stat"},
         std::pair{Keys::uptime_key, "uptime -p | tail -c+4"},
@@ -118,12 +103,28 @@ private:
         return ret;
     }();
 
+    // SSH read timeout after connect is effectively infinite. Cap the whole guest probe so a stuck
+    // lsblk/df/free cannot wedge multipassd's RPC/Qt thread (which makes list/info/version hang).
+    static std::string with_timeout(const std::string& inner)
+    {
+        return fmt::format("timeout 12 bash -c {}", single_quote_for_shell(inner));
+    }
+
 public:
     inline static const std::string sequential_composite_cmd =
-        fmt::to_string(fmt::join(cmds, "; "));
+        with_timeout(fmt::to_string(fmt::join(cmds, "; ")));
     inline static const std::string parallel_composite_cmd =
-        fmt::format("{} & wait", fmt::join(cmds, "& "));
+        with_timeout(fmt::format("{} & wait", fmt::join(cmds, "& ")));
 };
+
+// yaml-cpp turns YAML null into the string "null" for .as<std::string>() without a fallback.
+std::string metric_or_empty(const YAML::Node& node)
+{
+    if (!node || node.IsNull())
+        return {};
+    auto value = node.as<std::string>("");
+    return value == "null" ? std::string{} : value;
+}
 } // namespace
 
 void mp::RuntimeInstanceInfoHelper::populate_runtime_info(mp::VirtualMachine& vm,
@@ -132,32 +133,51 @@ void mp::RuntimeInstanceInfoHelper::populate_runtime_info(mp::VirtualMachine& vm
                                                           const std::string& original_release,
                                                           bool parallelize)
 {
-    const auto& cmd = parallelize ? Cmds::parallel_composite_cmd : Cmds::sequential_composite_cmd;
-    auto results = YAML::Load(vm.ssh_exec(cmd, /* whisper = */ true));
+    try
+    {
+        const auto& cmd =
+            parallelize ? Cmds::parallel_composite_cmd : Cmds::sequential_composite_cmd;
+        auto results = YAML::Load(vm.ssh_exec(cmd, /* whisper = */ true));
 
-    instance_info->set_load(results[Keys::loadavg_key].as<std::string>());
-    instance_info->set_memory_usage(results[Keys::mem_usage_key].as<std::string>());
-    info->set_memory_total(results[Keys::mem_total_key].as<std::string>());
-    instance_info->set_disk_usage(results[Keys::disk_usage_key].as<std::string>());
-    info->set_disk_total(results[Keys::disk_total_key].as<std::string>());
-    info->set_cpu_count(results[Keys::cpus_key].as<std::string>());
-    instance_info->set_cpu_times(results[Keys::cpu_times_key].as<std::string>());
-    // In some older versions of Ubuntu, "uptime -p" prints only "up" right after startup. In those
-    // cases, results[Keys::uptime_key] is null.
-    instance_info->set_uptime(
-        results[Keys::uptime_key].as<std::string>(/* fallback = */ "0 minutes"));
+        instance_info->set_load(metric_or_empty(results[Keys::loadavg_key]));
+        instance_info->set_memory_usage(metric_or_empty(results[Keys::mem_usage_key]));
+        info->set_memory_total(metric_or_empty(results[Keys::mem_total_key]));
+        instance_info->set_disk_usage(metric_or_empty(results[Keys::disk_usage_key]));
+        info->set_disk_total(metric_or_empty(results[Keys::disk_total_key]));
+        info->set_cpu_count(metric_or_empty(results[Keys::cpus_key]));
+        instance_info->set_cpu_times(metric_or_empty(results[Keys::cpu_times_key]));
+        // In some older versions of Ubuntu, "uptime -p" prints only "up" right after startup. In
+        // those cases, results[Keys::uptime_key] is null.
+        auto uptime = metric_or_empty(results[Keys::uptime_key]);
+        instance_info->set_uptime(uptime.empty() ? "0 minutes" : uptime);
 
-    auto current_release = results[Keys::current_release_key].as<std::string>();
-    instance_info->set_current_release(!current_release.empty() ? current_release
-                                                                : original_release);
+        auto current_release = metric_or_empty(results[Keys::current_release_key]);
+        instance_info->set_current_release(!current_release.empty() ? current_release
+                                                                    : original_release);
+    }
+    catch (const std::exception& e)
+    {
+        mpl::warn(category,
+                  "Failed to retrieve runtime info for '{}': {}",
+                  vm.get_name(),
+                  e.what());
+        instance_info->set_current_release(original_release);
+    }
 
-    auto management_ip = vm.management_ipv4();
-    auto all_ipv4 = vm.get_all_ipv4();
+    try
+    {
+        auto management_ip = vm.management_ipv4();
+        auto all_ipv4 = vm.get_all_ipv4();
 
-    if (management_ip)
-        instance_info->add_ipv4(management_ip->as_string());
+        if (management_ip)
+            instance_info->add_ipv4(management_ip->as_string());
 
-    for (const auto& extra_ipv4 : all_ipv4)
-        if (extra_ipv4 != management_ip)
-            instance_info->add_ipv4(extra_ipv4.as_string());
+        for (const auto& extra_ipv4 : all_ipv4)
+            if (extra_ipv4 != management_ip)
+                instance_info->add_ipv4(extra_ipv4.as_string());
+    }
+    catch (const std::exception& e)
+    {
+        mpl::warn(category, "Failed to retrieve IPv4 for '{}': {}", vm.get_name(), e.what());
+    }
 }
