@@ -54,41 +54,9 @@ private:
         std::pair{Keys::mem_usage_key, R"(free -b | grep 'Mem:' | awk '{printf \$3}')"},
         std::pair{Keys::mem_total_key, R"(free -b | grep 'Mem:' | awk '{printf \$2}')"},
         std::pair{Keys::disk_usage_key,
-                  R"(
-                    bash -c '
-                      declare -A seen
-                      sum=0
-                      while read -r src size mp; do
-                        fsid=\$(stat -f -c \"%d\" \$mp)
-                        if [[ -z \${seen[\$fsid]} ]]; then
-                          sum=\$(( sum + size ))
-                          seen[\$fsid]=1
-                        fi
-                      done < <(
-                        df -B1 -t ext4 -t btrfs -t vfat --output=source,used,target \
-                        | tail -n +2
-                      )
-                      printf \"%d\" \$sum
-                    '
-                  )"},
+                  R"(lsblk -b -n -o FSUSED,FSTYPE,MOUNTPOINT -e7 | awk '\$2!="" && \$2!="swap" && \$3!=""{sum+=\$1} END{printf "%d", sum+0}')"},
         std::pair{Keys::disk_total_key,
-                  R"(
-                    bash -c '
-                      declare -A seen
-                      sum=0
-                      while read -r src size mp; do
-                        fsid=\$(stat -f -c \"%d\" \$mp)
-                        if [[ -z \${seen[\$fsid]} ]]; then
-                          sum=\$(( sum + size ))
-                          seen[\$fsid]=1
-                        fi
-                      done < <(
-                        df -B1 -t ext4 -t btrfs -t vfat --output=source,size,target \
-                        | tail -n +2
-                      )
-                      printf \"%d\" \$sum
-                    '
-                  )"},
+                  R"(lsblk -b -d -n -o SIZE -e7 | awk '{sum+=\$1} END{printf "%d", sum+0}')"},
         std::pair{Keys::cpus_key, "nproc"},
         std::pair{Keys::cpu_times_key, "head -n1 /proc/stat"},
         std::pair{Keys::uptime_key, "uptime -p | tail -c+4"},
