@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:xterm/xterm.dart';
 
 class DistroBranding {
@@ -45,13 +46,22 @@ class DistroBranding {
       );
 }
 
-const _ubuntu = DistroBranding(
+const _ubuntuServer = DistroBranding(
   logoAsset: 'assets/ubuntu.svg',
   displayName: 'Ubuntu',
   background: Color(0xff380c2a),
   accent: Color(0xffE95420),
-  logoBackground: Color(0xffE95420),
+  // Soft orange fill + white mark (not full-opacity fill).
+  logoBackground: Color(0x59E95420),
   logoTint: Colors.white,
+);
+
+const _ubuntuCore = DistroBranding(
+  logoAsset: 'assets/ubuntu.svg',
+  displayName: 'Ubuntu Core',
+  background: Color(0xff380c2a),
+  accent: Color(0xffE95420),
+  logoTint: Color(0xffE95420),
 );
 
 const _debian = DistroBranding(
@@ -59,6 +69,7 @@ const _debian = DistroBranding(
   displayName: 'Debian',
   background: Color(0xff2d0a16),
   accent: Color(0xffd70a53),
+  logoTint: Colors.white,
 );
 
 const _fedora = DistroBranding(
@@ -115,16 +126,20 @@ const _alpine = DistroBranding(
   displayName: 'Alpine Linux',
   background: Color(0xff0a2430),
   accent: Color(0xff0d597f),
+  logoBackground: Color(0x660d597f),
+  logoTint: Colors.white,
 );
 
 const _amazonlinux = DistroBranding(
-  logoAsset: 'assets/amazonlinux.svg',
+  logoAsset: 'assets/amazonlinux.png',
   displayName: 'Amazon Linux',
   background: Color(0xff141c24),
   accent: Color(0xffff9900),
+  // Soft white plate so the dark bird stays readable without a hard white square.
+  logoBackground: Color(0x40FFFFFF),
 );
 
-DistroBranding distroBranding(String os) {
+DistroBranding distroBranding(String os, {bool isCore = false}) {
   final key = os.toLowerCase();
   if (key.contains('debian')) return _debian;
   if (key.contains('fedora')) return _fedora;
@@ -138,8 +153,11 @@ DistroBranding distroBranding(String os) {
   if (key.contains('arch')) return _arch;
   if (key.contains('alpine')) return _alpine;
   if (key.contains('amazon')) return _amazonlinux;
-  if (key.contains('ubuntu')) return _ubuntu;
-  return _ubuntu;
+  if (key.contains('ubuntu')) {
+    final core = isCore || key.contains('core');
+    return core ? _ubuntuCore : _ubuntuServer;
+  }
+  return _ubuntuServer;
 }
 
 String distroLogoAsset(String os) => distroBranding(os).logoAsset;
@@ -147,4 +165,37 @@ String distroLogoAsset(String os) => distroBranding(os).logoAsset;
 String distroDisplayName(String os) {
   if (os.trim().isEmpty) return '-';
   return distroBranding(os).displayName;
+}
+
+bool distroLogoIsRaster(String asset) =>
+    asset.endsWith('.png') ||
+    asset.endsWith('.jpg') ||
+    asset.endsWith('.jpeg') ||
+    asset.endsWith('.webp');
+
+/// Renders a distro logo from SVG or raster assets.
+Widget distroLogoPicture(
+  DistroBranding branding, {
+  required double size,
+  ColorFilter? colorFilter,
+  String? semanticsLabel,
+}) {
+  final asset = branding.logoAsset;
+  if (distroLogoIsRaster(asset)) {
+    return Image.asset(
+      asset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      semanticLabel: semanticsLabel,
+    );
+  }
+  return SvgPicture.asset(
+    asset,
+    width: size,
+    height: size,
+    fit: BoxFit.contain,
+    colorFilter: colorFilter,
+    semanticsLabel: semanticsLabel,
+  );
 }

@@ -3,7 +3,6 @@ import 'package:built_collection/built_collection.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:fpdart/fpdart.dart';
 
 import '../close_terminal_dialog.dart';
@@ -81,6 +80,9 @@ class Tab extends StatelessWidget {
 
   Widget _buildIcon(String os) {
     final branding = distroBranding(os);
+    final colorFilter = branding.logoTint == null
+        ? null
+        : ColorFilter.mode(branding.logoTint!, BlendMode.srcIn);
 
     return Container(
       alignment: Alignment.center,
@@ -88,16 +90,11 @@ class Tab extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 10),
       width: 17,
       height: 17,
-      child: branding.logoTint == null
-          ? SvgPicture.asset(
-              branding.logoAsset,
-              width: 12,
-            )
-          : SvgPicture.asset(
-              branding.logoAsset,
-              width: 12,
-              colorFilter: ColorFilter.mode(branding.logoTint!, BlendMode.srcIn),
-            ),
+      child: distroLogoPicture(
+        branding,
+        size: 12,
+        colorFilter: colorFilter,
+      ),
     );
   }
 

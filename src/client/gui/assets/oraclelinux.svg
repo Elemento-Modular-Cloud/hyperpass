@@ -1,5 +1,1 @@
-<!-- Simplified Oracle Linux mark for catalogue icons (inspired by Oracle red brand). -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect width="64" height="64" rx="12" fill="#C74634"/>
-  <ellipse cx="32" cy="32" rx="18" ry="10" stroke="#FFFFFF" stroke-width="4" fill="none"/>
-</svg>
+<svg height="2500" width="2500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><path d="M0 0h200v200H0z" fill="#e1251b"/><rect fill="none" height="60" rx="30" stroke="#fff" stroke-width="18" width="120" x="40" y="70"/></svg>

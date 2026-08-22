@@ -1,15 +1,15 @@
-import 'dart:async';
 import 'dart:math';
 
-import 'package:basics/basics.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart' hide ImageInfo;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 import 'package:intersperse/intersperse.dart';
 
+import '../brand.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
+import 'catalogue_entry.dart';
+import 'catalogue_surface.dart';
 import 'image_card.dart';
 import 'launch_form.dart';
 
@@ -18,13 +18,9 @@ class SelectedImageNotifier extends Notifier<ImageInfo?> {
   final String arg;
 
   @override
-  ImageInfo? build() {
-    return null;
-  }
+  ImageInfo? build() => null;
 
-  void set(ImageInfo image) {
-    state = image;
-  }
+  void set(ImageInfo image) => state = image;
 }
 
 final selectedImageProvider =
@@ -32,243 +28,274 @@ final selectedImageProvider =
   SelectedImageNotifier.new,
 );
 
+class CatalogueSearchNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String value) => state = value;
+}
+
+final catalogueSearchProvider =
+    NotifierProvider<CatalogueSearchNotifier, String>(
+  CatalogueSearchNotifier.new,
+);
+
 final imagesProvider = FutureProvider<List<ImageInfo>>((ref) async {
   if (!ref.watch(daemonAvailableProvider)) {
-    // When daemon is not available, return empty list
-    // The UI can handle this state appropriately
     return [];
   }
 
   final images = await ref
       .watch(grpcClientProvider)
       .find()
-      .then((r) => sortImages(r.imagesInfo));
-
-  // artificial delay so that we can see the loading spinner a bit
-  // otherwise the reply arrives too quickly and we only see a flash of the spinner
-  await Future.delayed(1.seconds);
+      .then((reply) => sortImages(reply.imagesInfo));
 
   return images;
 });
 
-int compareReleasesDescending(ImageInfo a, ImageInfo b) {
-  final aNum = int.tryParse(a.release) ?? int.tryParse(a.codename);
-  final bNum = int.tryParse(b.release) ?? int.tryParse(b.codename);
-  if (aNum != null && bNum != null) {
-    return bNum.compareTo(aNum);
-  }
-  return b.release.compareTo(a.release);
-}
-
-// sorts the images in a more user-friendly way
-// the current LTS > other releases sorted by most recent > current devel > core images
-List<ImageInfo> sortImages(List<ImageInfo> images) {
-  final ltsIndex = images.indexWhere((image) {
-    return image.aliases.any((a) => a == 'lts');
-  });
-  final lts = ltsIndex != -1 ? images.removeAt(ltsIndex) : null;
-
-  final develIndex = images.indexWhere((image) {
-    return image.aliases.any((a) => a == 'devel');
-  });
-  final devel = develIndex != -1 ? images.removeAt(develIndex) : null;
-
-  bool coreFilter(ImageInfo image) {
-    return image.aliases.any((a) => a.contains('core'));
-  }
-
-  bool ubuntuFilter(ImageInfo image) {
-    return image.os.toLowerCase() == 'ubuntu';
-  }
-
-  int decreasingReleaseSorter(ImageInfo a, ImageInfo b) {
-    return compareReleasesDescending(a, b);
-  }
-
-  final ubuntuImages = images
-      .whereNot(coreFilter)
-      .where(ubuntuFilter)
-      .sorted(decreasingReleaseSorter);
-  final coreImages = images.where(coreFilter).sorted(decreasingReleaseSorter);
-  final thirdPartyImages = images
-      .whereNot(coreFilter)
-      .whereNot(ubuntuFilter)
-      .sorted(decreasingReleaseSorter);
-
-  return [
-    if (lts != null) lts,
-    ...ubuntuImages,
-    if (devel != null) devel,
-    ...coreImages,
-    ...thirdPartyImages,
-  ];
-}
-
-List<Widget> _groupAndCreateCards(List<ImageInfo> images, double cardWidth) {
-  bool isCore(ImageInfo image) {
-    return image.aliases.any((a) => a.contains('core'));
-  }
-
-  bool isUbuntu(ImageInfo image) {
-    return image.os.toLowerCase() == 'ubuntu';
-  }
-
-  bool isOther(ImageInfo image) {
-    return !isCore(image) && !isUbuntu(image);
-  }
-
-  final ubuntuImages = images
-      .where((i) => isUbuntu(i) && !isCore(i))
-      .sorted(compareReleasesDescending);
-
-  final coreImages = images
-      .where((i) => isUbuntu(i) && isCore(i))
-      .sorted(compareReleasesDescending);
-
-  final otherByOs = groupBy(
-    images.where(isOther),
-    (ImageInfo image) => image.os.toLowerCase(),
-  );
-
-  return [
-    if (ubuntuImages.isNotEmpty)
-      ImageCard(
-        imageKey: 'ubuntu-${ubuntuImages.first.release}',
-        parentImage: ubuntuImages.firstWhere(
-          (i) => i.aliases.any((a) => a == 'lts'),
-          orElse: () => ubuntuImages.first,
-        ),
-        versions: ubuntuImages.toList(),
-        width: cardWidth,
-      ),
-    if (coreImages.isNotEmpty)
-      ImageCard(
-        imageKey: 'core-${coreImages.first.release}',
-        parentImage: coreImages.first,
-        versions: coreImages.toList(),
-        width: cardWidth,
-      ),
-    ...otherByOs.values.map((group) {
-      final versions = group.sorted(compareReleasesDescending);
-      return ImageCard(
-        imageKey: '${versions.first.os}-${versions.first.release}',
-        parentImage: versions.first,
-        versions: versions.toList(),
-        width: cardWidth,
-      );
-    }),
-  ];
-}
-
-class CatalogueScreen extends ConsumerWidget {
+class CatalogueScreen extends ConsumerStatefulWidget {
   static const sidebarKey = 'catalogue';
 
   const CatalogueScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final content = ref.watch(imagesProvider).when(
-          skipLoadingOnRefresh: false,
-          data: _buildCatalogue,
-          error: (error, _) {
-            final errorMessage = error is GrpcError
-                ? (error.message ?? error.toString())
-                : error.toString();
-            return Center(
-              child: Column(
-                children: [
-                  const SizedBox(height: 32),
-                  Text(
-                    l10n.catalogueLoadError(errorMessage),
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => ref.invalidate(imagesProvider),
-                    child: Text(l10n.catalogueRefresh),
-                  ),
-                ],
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-        );
+  ConsumerState<CatalogueScreen> createState() => _CatalogueScreenState();
+}
 
-    final welcomeText = Container(
-      constraints: const BoxConstraints(maxWidth: 500),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l10n.catalogueWelcomeTitle,
-              style: const TextStyle(fontSize: 37)),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              l10n.catalogueWelcomeBody,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
-        ],
-      ),
-    );
+class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       endDrawer: const LaunchForm(),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 140).copyWith(top: 40),
+        padding: const EdgeInsets.fromLTRB(32, 24, 32, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            welcomeText,
-            const Divider(),
-            Expanded(child: content),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth >= 720) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(child: _CatalogueHeader(l10n: l10n)),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 260,
+                        child: _SearchField(
+                          controller: _searchController,
+                          hint: l10n.catalogueSearchHint,
+                          onChanged: (value) => ref
+                              .read(catalogueSearchProvider.notifier)
+                              .set(value),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _CatalogueHeader(l10n: l10n),
+                    const SizedBox(height: 12),
+                    _SearchField(
+                      controller: _searchController,
+                      hint: l10n.catalogueSearchHint,
+                      onChanged: (value) =>
+                          ref.read(catalogueSearchProvider.notifier).set(value),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ref.watch(imagesProvider).when(
+                    skipLoadingOnRefresh: false,
+                    data: (images) => _buildGrid(context, images, l10n),
+                    error: (error, _) => _buildError(context, error, l10n),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                  ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCatalogue(List<ImageInfo> images) {
-    return SingleChildScrollView(
+  Widget _buildError(BuildContext context, Object error, AppLocalizations l10n) {
+    final errorMessage = error is GrpcError
+        ? (error.message ?? error.toString())
+        : error.toString();
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          LayoutBuilder(
-            builder: (_, constraints) {
-              const minCardWidth = 285;
-              const spacing = 32.0;
-              final nCards = max(1, constraints.maxWidth ~/ minCardWidth);
-              final whiteSpace = spacing * (nCards - 1);
-              final cardWidth = (constraints.maxWidth - whiteSpace) / nCards;
-              final cards = _groupAndCreateCards(images, cardWidth);
-
-              // Group cards into rows for IntrinsicHeight
-              final rows = <Widget>[];
-              for (var i = 0; i < cards.length; i += nCards) {
-                final rowCards = cards.skip(i).take(nCards).toList();
-                rows.add(
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: rowCards
-                          .map(
-                              (card) => SizedBox(width: cardWidth, child: card))
-                          .intersperse(const SizedBox(width: spacing))
-                          .toList(),
-                    ),
-                  ),
-                );
-              }
-
-              return Column(
-                children:
-                    rows.intersperse(const SizedBox(height: spacing)).toList(),
-              );
-            },
+          Text(
+            l10n.catalogueLoadError(errorMessage),
+            style: const TextStyle(fontSize: 16),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () => ref.invalidate(imagesProvider),
+            child: Text(l10n.catalogueRefresh),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGrid(
+    BuildContext context,
+    List<ImageInfo> images,
+    AppLocalizations l10n,
+  ) {
+    final query = ref.watch(catalogueSearchProvider).trim().toLowerCase();
+    final entries = groupCatalogueEntries(images)
+        .where((entry) => entry.matchesQuery(query))
+        .toList();
+
+    if (entries.isEmpty) {
+      return Center(
+        child: Text(
+          l10n.catalogueNoResults,
+          style: TextStyle(
+            fontSize: 16,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const minCardWidth = 240.0;
+          const spacing = 16.0;
+          final nCards = max(1, constraints.maxWidth ~/ minCardWidth);
+          final cardWidth =
+              (constraints.maxWidth - spacing * (nCards - 1)) / nCards;
+
+          final rows = <Widget>[];
+          for (var i = 0; i < entries.length; i += nCards) {
+            final rowEntries = entries.skip(i).take(nCards).toList();
+            rows.add(
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var j = 0; j < rowEntries.length; j++) ...[
+                      if (j > 0) const SizedBox(width: spacing),
+                      ImageCard(
+                        entry: rowEntries[j],
+                        width: cardWidth,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Column(
+            children: rows.intersperse(const SizedBox(height: spacing)).toList(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CatalogueHeader extends StatelessWidget {
+  const _CatalogueHeader({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.catalogueWelcomeTitle,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            fontFamily: Brand.fontFamily,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.catalogueWelcomeBody,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w300,
+            height: 1.35,
+            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+            fontFamily: Brand.fontFamily,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  const _SearchField({
+    required this.controller,
+    required this.hint,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String hint;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final fill = Theme.of(context).inputDecorationTheme.fillColor;
+
+    return CatalogueSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontFamily: Brand.fontFamily,
+          fontSize: 13,
+          color: onSurface,
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(
+            color: onSurface.withValues(alpha: 0.45),
+            fontFamily: Brand.fontFamily,
+            fontSize: 13,
+          ),
+          border: InputBorder.none,
+          isDense: true,
+          filled: true,
+          fillColor: fill,
+          prefixIcon: Icon(
+            Icons.search,
+            color: onSurface.withValues(alpha: 0.5),
+            size: 18,
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        ),
       ),
     );
   }

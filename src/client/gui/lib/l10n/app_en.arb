@@ -867,6 +867,59 @@
     "@catalogueWelcomeBody": {
         "description": "Welcome screen body text in the image catalogue"
     },
+    "catalogueSearchHint": "Search distributions…",
+    "@catalogueSearchHint": {
+        "description": "Placeholder text for the catalogue search field"
+    },
+    "catalogueNoResults": "No distributions match your search",
+    "@catalogueNoResults": {
+        "description": "Message shown when catalogue search returns no results"
+    },
+    "catalogueVersionLabel": "Version",
+    "@catalogueVersionLabel": {
+        "description": "Heading above the version picker in the catalogue detail panel"
+    },
+    "catalogueVersionCount": "{count} versions",
+    "@catalogueVersionCount": {
+        "description": "Subtitle on a catalogue list item showing how many releases are available",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "catalogueBadgeLts": "LTS",
+    "@catalogueBadgeLts": {
+        "description": "Badge label for long-term support releases in the catalogue"
+    },
+    "catalogueBadgeDevel": "Devel",
+    "@catalogueBadgeDevel": {
+        "description": "Badge label for development releases in the catalogue"
+    },
+    "catalogueWizardStepDistro": "Distribution",
+    "@catalogueWizardStepDistro": {
+        "description": "Wizard step label for choosing a Linux distribution"
+    },
+    "catalogueWizardStepVersion": "Version",
+    "@catalogueWizardStepVersion": {
+        "description": "Wizard step label for choosing a release version"
+    },
+    "catalogueWizardStepLaunch": "Launch",
+    "@catalogueWizardStepLaunch": {
+        "description": "Wizard step label for reviewing and launching the VM"
+    },
+    "catalogueWizardBack": "Back",
+    "@catalogueWizardBack": {
+        "description": "Button label to go to the previous catalogue wizard step"
+    },
+    "catalogueWizardSummaryTitle": "Ready to launch",
+    "@catalogueWizardSummaryTitle": {
+        "description": "Heading on the final catalogue wizard step before launch"
+    },
+    "catalogueWizardConfigureHint": "Use Configure to customize CPU, memory, disk, and network before launching.",
+    "@catalogueWizardConfigureHint": {
+        "description": "Helper text explaining the configure option on the final wizard step"
+    },
     "imageCardTitleUbuntuCore": "Ubuntu Core",
     "@imageCardTitleUbuntuCore": {
         "description": "Display title for Ubuntu Core image"

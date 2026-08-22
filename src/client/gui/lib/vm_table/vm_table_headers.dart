@@ -2,7 +2,6 @@ import 'package:basics/basics.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../copyable_text.dart';
 import '../distro_branding.dart';
@@ -211,21 +210,19 @@ class DistroLogo extends StatelessWidget {
 
     final branding = distroBranding(os);
     final logoSize = size * 20 / 24;
+    final colorFilter = branding.logoTint == null
+        ? null
+        : ColorFilter.mode(branding.logoTint!, BlendMode.srcIn);
     return Container(
       alignment: Alignment.center,
       color: branding.logoBackground,
       width: size,
       height: size,
-      child: branding.logoTint == null
-          ? SvgPicture.asset(branding.logoAsset, width: logoSize)
-          : SvgPicture.asset(
-              branding.logoAsset,
-              width: logoSize,
-              colorFilter: ColorFilter.mode(
-                branding.logoTint!,
-                BlendMode.srcIn,
-              ),
-            ),
+      child: distroLogoPicture(
+        branding,
+        size: logoSize,
+        colorFilter: colorFilter,
+      ),
     );
   }
 }
