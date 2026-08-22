@@ -58,6 +58,17 @@ Pass extra CMake configure arguments after `--` (Unix) or as remaining args (Win
 
 See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `multipassd` next to the system install (separate socket, storage, and distributions catalog).
 
+```bash
+# Terminal 1 — dev daemon (requires sudo on macOS/Linux)
+./scripts/run-dev-daemon.sh
+
+# Terminal 2 — dev GUI (or use the CLI env vars from LOCAL_DEV.md)
+./scripts/run-dev-gui.sh
+
+# Stop the dev daemon
+./scripts/run-dev-daemon.sh --stop
+```
+
 On macOS, if the stock CLI later fails with `certificate verify failed` after local daemon testing, regenerate the system gRPC certs:
 
 ```bash

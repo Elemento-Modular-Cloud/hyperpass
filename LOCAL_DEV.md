@@ -29,10 +29,52 @@ See [`scripts/README.md`](./scripts/README.md) and `BUILD.*.md` for options and 
 
 Keep the system Multipass on its default socket. Run a second `multipassd` from your build with a **different socket**, **storage**, and (for catalog work) **distributions URL**.
 
-### Terminal 1 — fork daemon
+### Terminal 1 — dev daemon
 
 ```bash
-REPO=/Users/gabrielegaetanofronze/gitstuff/hyperpass   # adjust to your clone
+./scripts/run-dev-daemon.sh
+```
+
+Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or the platform default.
+
+The script sets `MULTIPASS_STORAGE`, `MULTIPASS_DISTRIBUTIONS_URL`, and `--address` for you. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
+
+### Terminal 2 — CLI or GUI
+
+**CLI:**
+
+```bash
+export MULTIPASS_SERVER_ADDRESS=unix:/tmp/hyperpass_multipass.socket
+export PATH="$PWD/build/bin:$PATH"
+
+multipass version
+multipass find          # expect debian, fedora, almalinux, rocky (and Ubuntu remotes)
+multipass launch almalinux -n alma-test
+multipass shell alma-test
+```
+
+**GUI:**
+
+```bash
+./scripts/run-dev-gui.sh
+```
+
+Use **`build/bin/multipass`**, not the system binary, unless `MULTIPASS_SERVER_ADDRESS` is set so both sides agree on the socket.
+
+First connection to a new daemon may require `multipass authenticate`.
+
+### Stop
+
+```bash
+./scripts/run-dev-daemon.sh --stop
+```
+
+Or Ctrl-C in the daemon terminal (shutdown can take a moment during startup or while VMs are running). Do **not** unload `com.canonical.multipassd` unless you intend to replace the installed service.
+
+### Manual invocation (equivalent)
+
+```bash
+REPO="$PWD"   # repo root
 mkdir -p /tmp/hyperpass-data
 
 export MULTIPASS_STORAGE=/tmp/hyperpass-data
@@ -44,30 +86,7 @@ sudo -E "$REPO/build/bin/multipassd" \
   --address unix:/tmp/hyperpass_multipass.socket
 ```
 
-Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or the platform default.
-
 `sudo -E` preserves the environment variables. Without `-E`, set them on the sudo command line.
-
-### Terminal 2 — fork client
-
-```bash
-REPO=/Users/gabrielegaetanofronze/gitstuff/hyperpass
-export MULTIPASS_SERVER_ADDRESS=unix:/tmp/hyperpass_multipass.socket
-export PATH="$REPO/build/bin:$PATH"
-
-multipass version
-multipass find          # expect debian, fedora, almalinux, rocky (and Ubuntu remotes)
-multipass launch almalinux -n alma-test
-multipass shell alma-test
-```
-
-Use **`build/bin/multipass`**, not the system binary, unless `MULTIPASS_SERVER_ADDRESS` is set so both sides agree on the socket.
-
-First connection to a new daemon may require `multipass authenticate`.
-
-### Stop
-
-Ctrl-C in the daemon terminal. Do **not** unload `com.canonical.multipassd` unless you intend to replace the installed service.
 
 ### Recover stock CLI after local testing (macOS)
 
