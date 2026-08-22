@@ -265,7 +265,6 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final fill = Theme.of(context).inputDecorationTheme.fillColor;
 
     return CatalogueSurface(
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -284,10 +283,16 @@ class _SearchField extends StatelessWidget {
             fontFamily: Brand.fontFamily,
             fontSize: 13,
           ),
+          // CatalogueSurface already provides fill + border; avoid a nested
+          // filled field (and theme underlines) that leave inner seams.
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
           isDense: true,
-          filled: true,
-          fillColor: fill,
+          filled: false,
           prefixIcon: Icon(
             Icons.search,
             color: onSurface.withValues(alpha: 0.5),

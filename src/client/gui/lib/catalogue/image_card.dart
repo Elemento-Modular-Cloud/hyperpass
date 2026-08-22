@@ -72,10 +72,12 @@ class _ImageCardState extends ConsumerState<ImageCard> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Center(
-                        child: _DistroLogoBadge(
+                        child: DistroLogoBadge(
                           branding: branding,
-                          os: widget.entry.representative.os,
                           size: 40,
+                          semanticsLabel: l10n.imageCardLogoSemantics(
+                            widget.entry.representative.os,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -360,47 +362,3 @@ class _VersionSelector extends ConsumerWidget {
   }
 }
 
-class _DistroLogoBadge extends StatelessWidget {
-  const _DistroLogoBadge({
-    required this.branding,
-    required this.os,
-    required this.size,
-  });
-
-  final DistroBranding branding;
-  final String os;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final isRaster = distroLogoIsRaster(branding.logoAsset);
-    final Color badgeFill;
-    if (branding.logoBackground != null) {
-      badgeFill = branding.logoBackground!;
-    } else if (isRaster) {
-      badgeFill = Colors.transparent;
-    } else {
-      badgeFill = branding.accent.withValues(alpha: 0.12);
-    }
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: badgeFill,
-        borderRadius: BorderRadius.circular(Brand.radius),
-        border: Border.all(color: branding.accent.withValues(alpha: 0.45)),
-      ),
-      padding: EdgeInsets.all(isRaster ? size * 0.08 : size * 0.18),
-      child: distroLogoPicture(
-        branding,
-        size: size,
-        semanticsLabel: l10n.imageCardLogoSemantics(os),
-        colorFilter: branding.logoTint == null
-            ? null
-            : ColorFilter.mode(branding.logoTint!, BlendMode.srcIn),
-      ),
-    );
-  }
-}

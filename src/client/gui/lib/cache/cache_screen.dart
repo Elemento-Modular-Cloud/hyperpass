@@ -172,7 +172,11 @@ class CacheScreen extends ConsumerWidget {
           final release = image.release;
           return Row(
             children: [
-              DistroLogo(image.os),
+              DistroLogo(
+                image.os,
+                release: release,
+                aliases: image.aliases,
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: CopyableText(

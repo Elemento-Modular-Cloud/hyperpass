@@ -93,7 +93,10 @@ final headers = <TableHeader<VmInfo>>[
       final image = info.instanceInfo.currentRelease;
       return Row(
         children: [
-          DistroLogo(info.instanceInfo.os),
+          DistroLogo(
+            info.instanceInfo.os,
+            release: image,
+          ),
           const SizedBox(width: 8),
           Flexible(
             child: CopyableText(
@@ -199,8 +202,18 @@ class VmNameLink extends ConsumerWidget {
 class DistroLogo extends StatelessWidget {
   final String os;
   final double size;
+  final String? release;
+  final Iterable<String>? aliases;
+  final bool isCore;
 
-  const DistroLogo(this.os, {this.size = 24, super.key});
+  const DistroLogo(
+    this.os, {
+    this.size = 24,
+    this.release,
+    this.aliases,
+    this.isCore = false,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -208,21 +221,11 @@ class DistroLogo extends StatelessWidget {
       return SizedBox(width: size, height: size);
     }
 
-    final branding = distroBranding(os);
-    final logoSize = size * 20 / 24;
-    final colorFilter = branding.logoTint == null
-        ? null
-        : ColorFilter.mode(branding.logoTint!, BlendMode.srcIn);
-    return Container(
-      alignment: Alignment.center,
-      color: branding.logoBackground,
-      width: size,
-      height: size,
-      child: distroLogoPicture(
-        branding,
-        size: logoSize,
-        colorFilter: colorFilter,
-      ),
+    final branding = distroBranding(
+      os,
+      isCore: isCore ||
+          distroIsCore(os: os, release: release, aliases: aliases),
     );
+    return DistroLogoBadge(branding: branding, size: size);
   }
 }
