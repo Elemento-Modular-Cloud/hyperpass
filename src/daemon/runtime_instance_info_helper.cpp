@@ -25,7 +25,10 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <array>
+#include <cctype>
+#include <vector>
 
 namespace mp = multipass;
 namespace mpl = multipass::logging;
@@ -36,7 +39,6 @@ constexpr auto category = "runtime-info";
 
 struct Keys
 {
-public:
     static constexpr auto loadavg_key = "loadavg";
     static constexpr auto mem_usage_key = "mem_usage";
     static constexpr auto mem_total_key = "mem_total";
@@ -48,9 +50,64 @@ public:
     static constexpr auto current_release_key = "current_release";
 };
 
+// Escaping matches the echo…eval wrapper: \$ → $, \" → " inside the eval'd string.
+// Use %.0f so awk does not clamp totals ≥2GiB via printf %d.
+struct MetricsProfile
+{
+    const char* mem_usage;
+    const char* mem_total;
+    const char* disk_usage;
+    const char* disk_total;
+    const char* cpus;
+    const char* uptime;
+};
+
+// util-linux / GNU coreutils (Ubuntu, Debian, Fedora, RHEL-ish, openSUSE, Ubuntu Core, …)
+constexpr MetricsProfile gnu_profile{
+    /* mem_usage */ R"(free -b | grep 'Mem:' | awk '{printf \$3}')",
+    /* mem_total */ R"(free -b | grep 'Mem:' | awk '{printf \$2}')",
+    /* disk_usage */
+    R"(lsblk -b -n -o FSUSED,FSTYPE,MOUNTPOINT -e7 2>/dev/null | )"
+    R"(awk '\$2!=\"\" && \$2!=\"swap\" && \$3!=\"\"{sum+=\$1} END{printf \"%.0f\", sum+0}')",
+    /* disk_total */
+    R"(lsblk -b -d -n -o SIZE -e7 2>/dev/null | awk '{sum+=\$1} END{printf \"%.0f\", sum+0}')",
+    /* cpus */ "nproc",
+    /* uptime */ "uptime -p | tail -c+4",
+};
+
+// BusyBox / Alpine: no bash, no free -b, often no nproc / lsblk FSUSED / uptime -p.
+constexpr MetricsProfile busybox_profile{
+    /* mem_usage */
+    R"(awk '/^MemTotal:/ {t=\$2} /^MemAvailable:/ {a=\$2} /^MemFree:/ {f=\$2} )"
+    R"( /^Buffers:/ {b=\$2} /^Cached:/ {c=\$2} )"
+    R"(END{ if (a != \"\") printf \"%.0f\", (t-a)*1024; else printf \"%.0f\", (t-f-b-c)*1024 }' )"
+    R"(/proc/meminfo)",
+    /* mem_total */ R"(awk '/^MemTotal:/ {printf \"%.0f\", \$2*1024}' /proc/meminfo)",
+    /* disk_usage */ R"(df -k / 2>/dev/null | awk 'NR==2{printf \"%.0f\", \$3*1024}')",
+    /* disk_total */ R"(df -k / 2>/dev/null | awk 'NR==2{printf \"%.0f\", \$2*1024}')",
+    /* cpus */
+    R"(getconf _NPROCESSORS_ONLN 2>/dev/null || grep -c ^processor /proc/cpuinfo)",
+    /* uptime */ R"(awk '{printf \"%d minutes\", int(\$1/60)}' /proc/uptime)",
+};
+
+std::string normalize_os(std::string os)
+{
+    for (char& c : os)
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    os.erase(std::remove(os.begin(), os.end(), ' '), os.end());
+    return os;
+}
+
+const MetricsProfile& profile_for(const std::string& os)
+{
+    const auto id = normalize_os(os);
+    if (id.find("alpine") != std::string::npos)
+        return busybox_profile;
+    return gnu_profile;
+}
+
 std::string single_quote_for_shell(const std::string& in)
 {
-    // Wrap in single quotes; encode embedded ' as: '\''
     std::string out;
     out.reserve(in.size() + 2);
     out.push_back('\'');
@@ -65,59 +122,39 @@ std::string single_quote_for_shell(const std::string& in)
     return out;
 }
 
-struct Cmds
+std::string with_timeout(const std::string& inner)
 {
-private:
+    // Always sh: Alpine and other minimal images often have no bash. SSH read timeout after connect
+    // is effectively infinite — cap the guest probe so a stuck tool cannot wedge multipassd.
+    return fmt::format("timeout 12 sh -c {}", single_quote_for_shell(inner));
+}
+
+std::string build_composite_cmd(const MetricsProfile& profile, bool parallelize)
+{
     static constexpr auto key_val_cmd = R"-(echo {}: "$(eval "{}")")-";
-    // Keep disk probes as short pipelines (no nested bash -c, no full-table df). Escaping matches
-    // the echo…eval wrapper: \$ → $, \" → " inside the eval'd string. Use %.0f so awk does not
-    // clamp totals ≥2GiB to INT_MAX via printf %d. Avoid `df` over all mounts — that can block
-    // forever on a stuck filesystem while several VMs are still booting.
-    static constexpr auto disk_usage_cmd =
-        R"(lsblk -b -n -o FSUSED,FSTYPE,MOUNTPOINT -e7 2>/dev/null | )"
-        R"(awk '\$2!=\"\" && \$2!=\"swap\" && \$3!=\"\"{sum+=\$1} END{printf \"%.0f\", sum+0}')";
-    static constexpr auto disk_total_cmd =
-        R"(lsblk -b -d -n -o SIZE -e7 2>/dev/null | )"
-        R"(awk '{sum+=\$1} END{printf \"%.0f\", sum+0}')";
-    static constexpr std::array key_cmds_pairs{
+
+    const std::array key_cmds_pairs{
         std::pair{Keys::loadavg_key, "cat /proc/loadavg | cut -d ' ' -f1-3"},
-        std::pair{Keys::mem_usage_key, R"(free -b | grep 'Mem:' | awk '{printf \$3}')"},
-        std::pair{Keys::mem_total_key, R"(free -b | grep 'Mem:' | awk '{printf \$2}')"},
-        std::pair{Keys::disk_usage_key, disk_usage_cmd},
-        std::pair{Keys::disk_total_key, disk_total_cmd},
-        std::pair{Keys::cpus_key, "nproc"},
+        std::pair{Keys::mem_usage_key, profile.mem_usage},
+        std::pair{Keys::mem_total_key, profile.mem_total},
+        std::pair{Keys::disk_usage_key, profile.disk_usage},
+        std::pair{Keys::disk_total_key, profile.disk_total},
+        std::pair{Keys::cpus_key, profile.cpus},
         std::pair{Keys::cpu_times_key, "head -n1 /proc/stat"},
-        std::pair{Keys::uptime_key, "uptime -p | tail -c+4"},
+        std::pair{Keys::uptime_key, profile.uptime},
         std::pair{Keys::current_release_key,
                   R"(cat /etc/os-release | grep 'PRETTY_NAME' | cut -d \\\" -f2)"}};
 
-    inline static const std::array cmds = [] {
-        constexpr auto n = key_cmds_pairs.size();
-        std::array<std::string, key_cmds_pairs.size()> ret;
-        for (std::size_t i = 0; i < n; ++i)
-        {
-            const auto [key, cmd] = key_cmds_pairs[i];
-            ret[i] = fmt::format(key_val_cmd, key, cmd);
-        }
+    std::vector<std::string> cmds;
+    cmds.reserve(key_cmds_pairs.size());
+    for (const auto& [key, cmd] : key_cmds_pairs)
+        cmds.push_back(fmt::format(key_val_cmd, key, cmd));
 
-        return ret;
-    }();
+    const auto inner = parallelize ? fmt::format("{} & wait", fmt::join(cmds, "& "))
+                                   : fmt::to_string(fmt::join(cmds, "; "));
+    return with_timeout(inner);
+}
 
-    // SSH read timeout after connect is effectively infinite. Cap the whole guest probe so a stuck
-    // lsblk/df/free cannot wedge multipassd's RPC/Qt thread (which makes list/info/version hang).
-    static std::string with_timeout(const std::string& inner)
-    {
-        return fmt::format("timeout 12 bash -c {}", single_quote_for_shell(inner));
-    }
-
-public:
-    inline static const std::string sequential_composite_cmd =
-        with_timeout(fmt::to_string(fmt::join(cmds, "; ")));
-    inline static const std::string parallel_composite_cmd =
-        with_timeout(fmt::format("{} & wait", fmt::join(cmds, "& ")));
-};
-
-// yaml-cpp turns YAML null into the string "null" for .as<std::string>() without a fallback.
 std::string metric_or_empty(const YAML::Node& node)
 {
     if (!node || node.IsNull())
@@ -131,12 +168,12 @@ void mp::RuntimeInstanceInfoHelper::populate_runtime_info(mp::VirtualMachine& vm
                                                           mp::DetailedInfoItem* info,
                                                           mp::InstanceDetails* instance_info,
                                                           const std::string& original_release,
+                                                          const std::string& os,
                                                           bool parallelize)
 {
     try
     {
-        const auto& cmd =
-            parallelize ? Cmds::parallel_composite_cmd : Cmds::sequential_composite_cmd;
+        const auto cmd = build_composite_cmd(profile_for(os), parallelize);
         auto results = YAML::Load(vm.ssh_exec(cmd, /* whisper = */ true));
 
         instance_info->set_load(metric_or_empty(results[Keys::loadavg_key]));
@@ -158,8 +195,9 @@ void mp::RuntimeInstanceInfoHelper::populate_runtime_info(mp::VirtualMachine& vm
     catch (const std::exception& e)
     {
         mpl::warn(category,
-                  "Failed to retrieve runtime info for '{}': {}",
+                  "Failed to retrieve runtime info for '{}' (os='{}'): {}",
                   vm.get_name(),
+                  os,
                   e.what());
         instance_info->set_current_release(original_release);
     }

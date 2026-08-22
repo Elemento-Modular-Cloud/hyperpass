@@ -33,6 +33,7 @@ struct RuntimeInstanceInfoHelper
                                       DetailedInfoItem* info,
                                       InstanceDetails* instance_info,
                                       const std::string& original_release,
+                                      const std::string& os,
                                       bool parallelize);
 };
 

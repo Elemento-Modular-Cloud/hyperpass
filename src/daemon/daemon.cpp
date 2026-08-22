@@ -3924,6 +3924,7 @@ void mp::Daemon::populate_instance_info(VirtualMachine& vm,
                                                          info,
                                                          instance_info,
                                                          original_release,
+                                                         os,
                                                          vm_specs.num_cores != 1);
 }
 
