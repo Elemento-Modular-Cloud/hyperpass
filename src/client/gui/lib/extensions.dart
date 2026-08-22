@@ -52,6 +52,15 @@ extension TextSpanFromListExt on List<TextSpan> {
         children: this,
         style: const TextStyle(color: Colors.black),
       );
+
+  /// Parent span that inherits color from ambient text style (theme-aware).
+  TextSpan get spansInherit => TextSpan(
+        children: this,
+        style: const TextStyle(
+          fontFamily: Brand.fontFamily,
+          fontFamilyFallback: ['NotoColorEmoji', 'FreeSans'],
+        ),
+      );
 }
 
 extension TextSpanExt on TextSpan {
