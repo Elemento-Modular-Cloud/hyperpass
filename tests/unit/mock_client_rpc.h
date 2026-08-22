@@ -438,6 +438,36 @@ public:
                 PrepareAsyncdaemon_infoRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::CacheInfoRequest,
+                                                   multipass::CacheInfoReply>*),
+                cache_infoRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CacheInfoRequest,
+                                                        multipass::CacheInfoReply>*),
+                Asynccache_infoRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CacheInfoRequest,
+                                                        multipass::CacheInfoReply>*),
+                PrepareAsynccache_infoRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::CacheDeleteRequest,
+                                                   multipass::CacheDeleteReply>*),
+                cache_deleteRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CacheDeleteRequest,
+                                                        multipass::CacheDeleteReply>*),
+                Asynccache_deleteRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CacheDeleteRequest,
+                                                        multipass::CacheDeleteReply>*),
+                PrepareAsynccache_deleteRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::WaitReadyRequest,
                                                    multipass::WaitReadyReply>*),
                 wait_readyRaw,

@@ -582,6 +582,8 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon)
     QObject::connect(&rpc, &mp::DaemonRpc::on_snapshot, &daemon, &mp::Daemon::snapshot);
     QObject::connect(&rpc, &mp::DaemonRpc::on_restore, &daemon, &mp::Daemon::restore);
     QObject::connect(&rpc, &mp::DaemonRpc::on_daemon_info, &daemon, &mp::Daemon::daemon_info);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_cache_info, &daemon, &mp::Daemon::cache_info);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_cache_delete, &daemon, &mp::Daemon::cache_delete);
     QObject::connect(&rpc, &mp::DaemonRpc::on_wait_ready, &daemon, &mp::Daemon::wait_ready);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones, &daemon, &mp::Daemon::zones);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones_state, &daemon, &mp::Daemon::zones_state);
@@ -2906,6 +2908,77 @@ try
     response.set_cpus(MP_PLATFORM.get_cpus());
     response.set_memory(MP_PLATFORM.get_total_ram());
 
+    server->Write(response);
+    context->set_value(grpc::Status{});
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, e.what(), ""));
+}
+
+void mp::Daemon::cache_info(
+    const CacheInfoRequest*,
+    grpc::ServerReaderWriterInterface<CacheInfoReply, CacheInfoRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    CacheInfoReply response;
+    response.set_cache_path(QDir(config->cache_directory).filePath("vault/images").toStdString());
+
+    uint64_t total = 0;
+    for (const auto& image : config->vault->list_cached_images())
+    {
+        auto* entry = response.add_images();
+        entry->set_id(image.id);
+        entry->set_release(image.release);
+        entry->set_remote_name(image.remote_name);
+        entry->set_os(image.os);
+        for (const auto& alias : image.aliases)
+            entry->add_aliases(alias);
+        entry->set_size_bytes(image.size_bytes);
+        entry->set_last_accessed(image.last_accessed);
+        total += image.size_bytes;
+    }
+    response.set_total_bytes(total);
+
+    server->Write(response);
+    context->set_value(grpc::Status{});
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, e.what(), ""));
+}
+
+void mp::Daemon::cache_delete(
+    const CacheDeleteRequest* request,
+    grpc::ServerReaderWriterInterface<CacheDeleteReply, CacheDeleteRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    CacheDeleteReply response;
+    uint64_t freed = 0;
+
+    if (request->prune_expired())
+    {
+        const auto before = config->vault->list_cached_images();
+        uint64_t before_total = 0;
+        for (const auto& image : before)
+            before_total += image.size_bytes;
+
+        config->vault->prune_expired_images();
+
+        const auto after = config->vault->list_cached_images();
+        uint64_t after_total = 0;
+        for (const auto& image : after)
+            after_total += image.size_bytes;
+
+        freed += before_total > after_total ? before_total - after_total : 0;
+    }
+
+    for (const auto& id : request->ids())
+        freed += config->vault->remove_cached_image(id);
+
+    response.set_freed_bytes(freed);
     server->Write(response);
     context->set_value(grpc::Status{});
 }

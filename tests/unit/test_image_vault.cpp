@@ -1252,3 +1252,40 @@ TEST_F(ImageVault, fetchRemoteImageThrowsOnMissingKernel)
     EXPECT_THROW(vault.fetch_image(query, stub_prepare, stub_monitor, std::nullopt, instance_dir),
                  mp::ImageNotFoundException);
 }
+
+TEST_F(ImageVault, listCachedImagesReportsOnDiskSize)
+{
+    mp::DefaultVMImageVault vault{hosts,
+                                  &url_downloader,
+                                  cache_dir.path(),
+                                  data_dir.path(),
+                                  mp::days{0}};
+
+    vault.fetch_image(default_query, stub_prepare, stub_monitor, std::nullopt, instance_dir);
+
+    const auto cached = vault.list_cached_images();
+    ASSERT_THAT(cached.size(), Eq(1u));
+    EXPECT_THAT(cached.front().release, Eq(mpt::default_release_info));
+    EXPECT_THAT(cached.front().os, Eq("Ubuntu"));
+    EXPECT_THAT(cached.front().size_bytes, Gt(0u));
+    EXPECT_FALSE(cached.front().id.empty());
+}
+
+TEST_F(ImageVault, removeCachedImageDeletesImageAndRecord)
+{
+    mp::DefaultVMImageVault vault{hosts,
+                                  &url_downloader,
+                                  cache_dir.path(),
+                                  data_dir.path(),
+                                  mp::days{0}};
+
+    vault.fetch_image(default_query, stub_prepare, stub_monitor, std::nullopt, instance_dir);
+    const auto cached = vault.list_cached_images();
+    ASSERT_THAT(cached.size(), Eq(1u));
+    const auto id = cached.front().id;
+    const auto size = cached.front().size_bytes;
+
+    EXPECT_THAT(vault.remove_cached_image(id), Eq(size));
+    EXPECT_THAT(vault.list_cached_images(), IsEmpty());
+    EXPECT_THAT(vault.remove_cached_image(id), Eq(0u));
+}

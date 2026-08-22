@@ -148,6 +148,72 @@
     "@settingsLabel": {
         "description": "The word 'Settings' used as a navigation label and page heading"
     },
+    "cacheLabel": "Cache",
+    "@cacheLabel": {
+        "description": "Sidebar and page title for the image cache screen"
+    },
+    "cacheEmpty": "No cached images",
+    "@cacheEmpty": {
+        "description": "Empty state when the image cache has no entries"
+    },
+    "cacheRefresh": "Refresh",
+    "@cacheRefresh": {
+        "description": "Button label to reload the image cache list"
+    },
+    "cachePruneExpired": "Prune expired",
+    "@cachePruneExpired": {
+        "description": "Button label to remove expired cached images"
+    },
+    "cacheDeleteAll": "Delete all",
+    "@cacheDeleteAll": {
+        "description": "Button label to remove every cached image"
+    },
+    "cacheDeleteAllTitle": "Delete all cached images?",
+    "@cacheDeleteAllTitle": {
+        "description": "Title for the delete-all-cache confirmation dialog"
+    },
+    "cacheDeleteAllBody": "This will permanently remove all cached images from disk. Instances already created are not affected.",
+    "@cacheDeleteAllBody": {
+        "description": "Body for the delete-all-cache confirmation dialog"
+    },
+    "cacheTotalUsed": "Total used: {size}",
+    "@cacheTotalUsed": {
+        "description": "Summary line showing total on-disk cache usage",
+        "placeholders": {
+            "size": {
+                "type": "String"
+            }
+        }
+    },
+    "cacheLoadError": "Failed to load cache: {error}",
+    "@cacheLoadError": {
+        "description": "Error message when cache info cannot be loaded",
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "cacheDeleteTooltip": "Remove from cache",
+    "@cacheDeleteTooltip": {
+        "description": "Tooltip for deleting a single cached image"
+    },
+    "cacheStatImage": "IMAGE",
+    "@cacheStatImage": {
+        "description": "Cache table column header for OS flavour and version"
+    },
+    "cacheStatSize": "SIZE ON DISK",
+    "@cacheStatSize": {
+        "description": "Cache table column header for on-disk image size"
+    },
+    "cacheStatActions": "",
+    "@cacheStatActions": {
+        "description": "Empty header for the cache table actions column"
+    },
+    "cacheTableTotal": "Total",
+    "@cacheTableTotal": {
+        "description": "Label for the cache table totals row"
+    },
     "deleteInstanceTitle": "{count, plural, =1{Delete instance} other{Delete instances}}",
     "@deleteInstanceTitle": {
         "description": "Title of the delete instance confirmation dialog",

@@ -9,6 +9,7 @@ import 'before_quit_dialog.dart';
 import 'brand.dart';
 import 'app_theme.dart';
 import 'l10n/app_localizations.dart';
+import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
 import 'daemon_unavailable.dart';
 import 'help.dart';
@@ -103,6 +104,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
     final widgets = {
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
       VmTableScreen.sidebarKey: const VmTableScreen(),
+      CacheScreen.sidebarKey: const CacheScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),
       HelpScreen.sidebarKey: const HelpScreen(),
       for (final name in vms) 'vm-$name': VmDetailsScreen(name),

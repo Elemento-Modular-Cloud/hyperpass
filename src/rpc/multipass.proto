@@ -48,6 +48,8 @@ service Rpc {
     rpc wait_ready (stream WaitReadyRequest) returns (stream WaitReadyReply);
     rpc zones (stream ZonesRequest) returns (stream ZonesReply);
     rpc zones_state (stream ZonesStateRequest) returns (stream ZonesStateReply);
+    rpc cache_info (stream CacheInfoRequest) returns (stream CacheInfoReply);
+    rpc cache_delete (stream CacheDeleteRequest) returns (stream CacheDeleteReply);
 }
 
 message LaunchRequest {
@@ -587,4 +589,36 @@ message ZonesStateRequest {
 
 message ZonesStateReply {
     string log_line = 1;
+}
+
+message CacheImageInfo {
+    string id = 1;
+    string release = 2;
+    string remote_name = 3;
+    string os = 4;
+    repeated string aliases = 5;
+    uint64 size_bytes = 6;
+    int64 last_accessed = 7; // unix seconds
+}
+
+message CacheInfoRequest {
+    int32 verbosity_level = 1;
+}
+
+message CacheInfoReply {
+    string log_line = 1;
+    uint64 total_bytes = 2;
+    string cache_path = 3;
+    repeated CacheImageInfo images = 4;
+}
+
+message CacheDeleteRequest {
+    repeated string ids = 1;
+    bool prune_expired = 2;
+    int32 verbosity_level = 3;
+}
+
+message CacheDeleteReply {
+    string log_line = 1;
+    uint64 freed_bytes = 2;
 }

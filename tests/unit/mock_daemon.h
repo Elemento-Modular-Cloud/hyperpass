@@ -184,6 +184,18 @@ struct MockDaemon : public Daemon
                  DaemonRpcContext*),
                 (override));
     MOCK_METHOD(void,
+                cache_info,
+                (const CacheInfoRequest*,
+                 (grpc::ServerReaderWriterInterface<CacheInfoReply, CacheInfoRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                cache_delete,
+                (const CacheDeleteRequest*,
+                 (grpc::ServerReaderWriterInterface<CacheDeleteReply, CacheDeleteRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
                 zones,
                 (const ZonesRequest*,
                  (grpc::ServerReaderWriterInterface<ZonesReply, ZonesRequest>*),

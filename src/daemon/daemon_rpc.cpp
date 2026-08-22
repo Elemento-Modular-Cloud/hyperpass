@@ -504,6 +504,32 @@ grpc::Status mp::DaemonRpc::daemon_info(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::cache_info(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<CacheInfoReply, CacheInfoRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_cache_info,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::cache_delete(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<CacheDeleteReply, CacheDeleteRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_cache_delete,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::wait_ready(
     grpc::ServerContext* context,
     grpc::ServerReaderWriter<WaitReadyReply, WaitReadyRequest>* server)

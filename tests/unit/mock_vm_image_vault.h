@@ -77,6 +77,8 @@ public:
                 all_info_for,
                 (const Query&),
                 (const, override));
+    MOCK_METHOD((std::vector<CachedImageInfo>), list_cached_images, (), (const, override));
+    MOCK_METHOD(uint64_t, remove_cached_image, (const std::string&), (override));
 
 private:
     TempFile dummy_image;

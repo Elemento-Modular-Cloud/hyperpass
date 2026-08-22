@@ -234,6 +234,20 @@ class GrpcClient {
   Future<DaemonInfoReply> daemonInfo() {
     return doRpc(_client.daemon_info, DaemonInfoRequest()).then((r) => r!);
   }
+
+  Future<CacheInfoReply> cacheInfo() {
+    return doRpc(_client.cache_info, CacheInfoRequest()).then((r) => r!);
+  }
+
+  Future<CacheDeleteReply> cacheDelete({
+    Iterable<String> ids = const [],
+    bool pruneExpired = false,
+  }) {
+    return doRpc(
+      _client.cache_delete,
+      CacheDeleteRequest(ids: ids, pruneExpired: pruneExpired),
+    ).then((r) => r!);
+  }
 }
 
 class CustomChannelCredentials extends ChannelCredentials {

@@ -137,6 +137,12 @@ signals:
     void on_daemon_info(const DaemonInfoRequest* request,
                         grpc::ServerReaderWriter<DaemonInfoReply, DaemonInfoRequest>* server,
                         DaemonRpcContext* context);
+    void on_cache_info(const CacheInfoRequest* request,
+                       grpc::ServerReaderWriter<CacheInfoReply, CacheInfoRequest>* server,
+                       DaemonRpcContext* context);
+    void on_cache_delete(const CacheDeleteRequest* request,
+                         grpc::ServerReaderWriter<CacheDeleteReply, CacheDeleteRequest>* server,
+                         DaemonRpcContext* context);
     void on_wait_ready(const WaitReadyRequest* request,
                        grpc::ServerReaderWriter<WaitReadyReply, WaitReadyRequest>* server,
                        DaemonRpcContext* context);
@@ -218,6 +224,12 @@ protected:
     grpc::Status daemon_info(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<DaemonInfoReply, DaemonInfoRequest>* server) override;
+    grpc::Status cache_info(grpc::ServerContext* context,
+                            grpc::ServerReaderWriter<CacheInfoReply, CacheInfoRequest>* server)
+        override;
+    grpc::Status cache_delete(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<CacheDeleteReply, CacheDeleteRequest>* server) override;
     grpc::Status wait_ready(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<WaitReadyReply, WaitReadyRequest>* server) override;

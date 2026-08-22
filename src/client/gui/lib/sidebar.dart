@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 
 import 'catalogue/catalogue.dart';
 import 'brand.dart';
+import 'cache/cache_screen.dart';
 import 'distro_branding.dart';
 import 'extensions.dart';
 import 'help.dart';
@@ -144,6 +145,15 @@ class SideBar extends ConsumerWidget {
       label: l10n.helpLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(HelpScreen.sidebarKey);
+      },
+    );
+
+    final cache = SidebarEntry(
+      icon: SvgPicture.asset('assets/cache.svg'),
+      selected: isSelected(CacheScreen.sidebarKey),
+      label: l10n.cacheLabel,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(CacheScreen.sidebarKey);
       },
     );
 
@@ -294,6 +304,7 @@ class SideBar extends ConsumerWidget {
             instances,
             Expanded(child: ListView(children: vmEntries.toList())),
             Divider(color: Colors.white.withAlpha(77)),
+            cache,
             help,
             settings,
           ],

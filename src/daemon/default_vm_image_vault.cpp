@@ -84,6 +84,32 @@ void delete_image_dir(const mp::Path& image_path)
     }
 }
 
+QString image_dir_path(const mp::Path& image_path)
+{
+    QFileInfo image_file{image_path};
+    if (image_file.isDir())
+        return image_file.absoluteFilePath();
+    return image_file.absolutePath();
+}
+
+uint64_t directory_size_bytes(const QString& dir_path)
+{
+    std::error_code err;
+    auto iter = MP_FILEOPS.recursive_dir_iterator(dir_path.toStdString(), err);
+    if (err || !iter)
+        return 0;
+
+    uint64_t total = 0;
+    while (iter->hasNext())
+    {
+        const auto& entry = iter->next();
+        std::error_code file_err;
+        if (entry.is_regular_file(file_err) && !file_err)
+            total += entry.file_size(file_err);
+    }
+    return total;
+}
+
 mp::MemorySize get_image_size(const std::filesystem::path& image_path)
 {
     return mp::MemorySize(mp::backend::get_image_info(image_path, "virtual-size").toStdString());
@@ -533,6 +559,58 @@ void mp::DefaultVMImageVault::clone(const std::string& source_instance_name,
 
     instance_image_records[destination_instance_name] = dest_vault_record;
     persist_instance_records();
+}
+
+std::vector<mp::CachedImageInfo> mp::DefaultVMImageVault::list_cached_images() const
+{
+    std::lock_guard<decltype(fetch_mutex)> lock{fetch_mutex};
+
+    std::vector<CachedImageInfo> images;
+    images.reserve(prepared_image_records.size());
+
+    for (const auto& [id, record] : prepared_image_records)
+    {
+        const auto size =
+            directory_size_bytes(image_dir_path(MP_PLATFORM.path_to_qstr(record.image.image_path)));
+        const auto last_accessed = std::chrono::duration_cast<std::chrono::seconds>(
+                                       record.last_accessed.time_since_epoch())
+                                       .count();
+
+        // Prefer original_release so the GUI can show flavour+version like the VM table.
+        auto release = record.image.original_release;
+        if (release.empty())
+            release = record.image.current_release;
+        if (release.empty())
+            release = record.query.release;
+
+        images.push_back(CachedImageInfo{id,
+                                         std::move(release),
+                                         record.query.remote_name,
+                                         record.image.os,
+                                         record.image.aliases,
+                                         size,
+                                         last_accessed});
+    }
+
+    return images;
+}
+
+uint64_t mp::DefaultVMImageVault::remove_cached_image(const std::string& id)
+{
+    std::lock_guard<decltype(fetch_mutex)> lock{fetch_mutex};
+
+    auto entry = prepared_image_records.find(id);
+    if (entry == prepared_image_records.end())
+        return 0;
+
+    const auto image_path = MP_PLATFORM.path_to_qstr(entry->second.image.image_path);
+    const auto freed = directory_size_bytes(image_dir_path(image_path));
+
+    delete_image_dir(image_path);
+    prepared_image_records.erase(entry);
+    persist_image_records();
+
+    return freed;
 }
 
 mp::VMImage mp::DefaultVMImageVault::download_and_prepare_source_image(

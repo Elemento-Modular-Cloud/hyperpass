@@ -79,6 +79,16 @@ struct StubVMImageVault final : public multipass::VMImageVault
     {
     }
 
+    std::vector<CachedImageInfo> list_cached_images() const override
+    {
+        return {};
+    }
+
+    uint64_t remove_cached_image(const std::string& /*id*/) override
+    {
+        return 0;
+    }
+
     TempFile dummy_image;
 };
 } // namespace test

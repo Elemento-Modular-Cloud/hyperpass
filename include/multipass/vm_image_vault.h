@@ -27,6 +27,7 @@
 #include <QFile>
 #include <QString>
 
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -62,6 +63,18 @@ private:
 
 class Query;
 class VMImage;
+
+struct CachedImageInfo
+{
+    std::string id;
+    std::string release;
+    std::string remote_name;
+    std::string os;
+    std::vector<std::string> aliases;
+    uint64_t size_bytes{0};
+    int64_t last_accessed{0}; // unix seconds
+};
+
 class VMImageVault : private DisabledCopyMove
 {
 public:
@@ -84,6 +97,8 @@ public:
     virtual VMImageHost* image_host_for(const std::string& remote_name) const = 0;
     virtual std::vector<std::pair<std::string, VMImageInfo>> all_info_for(
         const Query& query) const = 0;
+    virtual std::vector<CachedImageInfo> list_cached_images() const = 0;
+    virtual uint64_t remove_cached_image(const std::string& id) = 0;
 
 protected:
     VMImageVault() = default;

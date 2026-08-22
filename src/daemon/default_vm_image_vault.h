@@ -65,6 +65,8 @@ public:
     MemorySize minimum_image_size_for(const std::string& id) override;
     void clone(const std::string& source_instance_name,
                const std::string& destination_instance_name) override;
+    std::vector<CachedImageInfo> list_cached_images() const override;
+    uint64_t remove_cached_image(const std::string& id) override;
 
 private:
     VMImage image_instance_from(const VMImage& prepared_image, const Path& dest_dir);
@@ -90,7 +92,7 @@ private:
     const QDir data_dir;
     const QDir images_dir;
     const days days_to_expire;
-    std::mutex fetch_mutex;
+    mutable std::mutex fetch_mutex;
 
     std::unordered_map<std::string, VaultRecord> prepared_image_records;
     std::unordered_map<std::string, VaultRecord> instance_image_records;

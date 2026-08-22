@@ -168,6 +168,16 @@ public slots:
         grpc::ServerReaderWriterInterface<DaemonInfoReply, DaemonInfoRequest>* server,
         DaemonRpcContext* context);
 
+    virtual void cache_info(const CacheInfoRequest* request,
+                            grpc::ServerReaderWriterInterface<CacheInfoReply, CacheInfoRequest>*
+                                server,
+                            DaemonRpcContext* context);
+
+    virtual void cache_delete(
+        const CacheDeleteRequest* request,
+        grpc::ServerReaderWriterInterface<CacheDeleteReply, CacheDeleteRequest>* server,
+        DaemonRpcContext* context);
+
     virtual void zones(const ZonesRequest* request,
                        grpc::ServerReaderWriterInterface<ZonesReply, ZonesRequest>* server,
                        DaemonRpcContext* context);
