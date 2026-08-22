@@ -137,7 +137,20 @@ BaseAvailabilityZone::Data BaseAvailabilityZone::load_file(const std::string& na
         try
         {
             auto json = boost::json::parse(*filedata);
-            return value_to<Data>(json);
+            auto data = value_to<Data>(json);
+            if (subnet_allocator.contains(data.subnet))
+            {
+                subnet_allocator.reserve(data.subnet);
+                return data;
+            }
+
+            mpl::warn(name,
+                      "Persisted subnet {} is outside the preferred pool; allocating a new one",
+                      data.subnet.to_cidr());
+            return {
+                .subnet = subnet_allocator.next_available(),
+                .available = data.available,
+            };
         }
         catch (const boost::system::system_error& e)
         {

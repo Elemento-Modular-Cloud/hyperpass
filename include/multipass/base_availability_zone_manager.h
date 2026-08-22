@@ -21,6 +21,7 @@
 #include "availability_zone_manager.h"
 
 #include <multipass/constants.h>
+#include <multipass/subnet.h>
 
 #include <array>
 #include <filesystem>
@@ -63,12 +64,16 @@ private:
 
     mutable std::recursive_mutex mutex;
     const std::filesystem::path file_path;
+    const Subnet preferred_subnet;
     SubnetAllocator subnet_allocator;
     ZoneCollection zone_collection;
 
     [[nodiscard]] const ZoneCollection::ZoneArray& zones() const;
 
-    static std::string load_file(const std::filesystem::path& file_path);
+    [[nodiscard]] static ZoneCollection make_zone_collection(const std::filesystem::path& data_dir,
+                                                             const std::filesystem::path& file_path,
+                                                             const Subnet& preferred,
+                                                             SubnetAllocator& subnet_allocator);
     void save_file() const;
 };
 } // namespace multipass

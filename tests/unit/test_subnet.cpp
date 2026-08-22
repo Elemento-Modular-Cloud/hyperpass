@@ -428,6 +428,24 @@ TEST_F(SubnetAllocatorTest, nextAvailableFailsOnBadIndex)
     EXPECT_THROW(std::ignore = allocator17.next_available(), std::invalid_argument);
 }
 
+TEST_F(SubnetAllocatorTest, containsAndReserve)
+{
+    EXPECT_CALL(mock_platform, subnet_used_locally).WillRepeatedly(Return(false));
+
+    mp::SubnetAllocator allocator{subnet, 24};
+    EXPECT_TRUE(allocator.contains(mp::Subnet{"192.168.3.0/24"}));
+    EXPECT_FALSE(allocator.contains(mp::Subnet{"10.0.0.0/24"}));
+    EXPECT_FALSE(allocator.contains(mp::Subnet{"192.168.3.0/16"}));
+
+    allocator.reserve(mp::Subnet{"192.168.0.0/24"});
+    allocator.reserve(mp::Subnet{"192.168.2.0/24"});
+    // Out-of-pool reserves are ignored.
+    allocator.reserve(mp::Subnet{"10.0.0.0/24"});
+
+    auto next = allocator.next_available();
+    EXPECT_EQ(next.masked_address(), mp::IPAddress{"192.168.3.0"});
+}
+
 TEST_F(SubnetAllocatorTest, failsOnBadLength)
 {
     EXPECT_THROW(std::ignore = mp::SubnetAllocator(subnet, 15), std::logic_error);

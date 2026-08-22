@@ -25,6 +25,7 @@
 
 #include <fmt/format.h>
 
+#include <optional>
 #include <utility>
 
 namespace mpl = multipass::logging;
@@ -35,6 +36,57 @@ constexpr auto category = "az-manager";
 constexpr auto az_file = "az-manager.json";
 constexpr auto zones_directory_name = "zones";
 constexpr auto automatic_zone_key = "automatic_zone";
+constexpr auto preferred_subnet_key = "preferred_subnet";
+
+struct ManagerFile
+{
+    std::string automatic_zone;
+    std::optional<std::string> preferred_subnet;
+};
+
+[[nodiscard]] ManagerFile load_manager_file(const multipass::fs::path& file_path)
+{
+    mpl::debug(category, "reading AZ manager from file '{}'", file_path);
+    if (auto filedata = MP_FILEOPS.try_read_file(file_path))
+    {
+        try
+        {
+            auto json = boost::json::parse(*filedata);
+            ManagerFile loaded{
+                .automatic_zone = boost::json::value_to<std::string>(json.at(automatic_zone_key)),
+                .preferred_subnet = std::nullopt,
+            };
+            if (const auto* preferred = json.as_object().if_contains(preferred_subnet_key))
+                loaded.preferred_subnet = boost::json::value_to<std::string>(*preferred);
+            return loaded;
+        }
+        catch (const boost::system::system_error& e)
+        {
+            mpl::error(category, "Error parsing file '{}': {}", file_path, e.what());
+        }
+    }
+    return {};
+}
+
+void reset_zone_files_if_preferred_changed(const multipass::fs::path& zones_directory,
+                                           const ManagerFile& loaded,
+                                           const multipass::Subnet& preferred)
+{
+    const auto preferred_cidr = preferred.to_cidr();
+    if (loaded.preferred_subnet && *loaded.preferred_subnet == preferred_cidr)
+        return;
+
+    mpl::warn(category,
+              "Preferred subnet changed ({} -> {}); reallocating zone subnets",
+              loaded.preferred_subnet.value_or("<unset>"),
+              preferred_cidr);
+
+    for (const auto& zone_name : multipass::default_zone_names)
+    {
+        const auto zone_file = zones_directory / (std::string{zone_name} + ".json");
+        MP_FILEOPS.remove(zone_file);
+    }
+}
 
 [[nodiscard]] auto create_default_zones(const multipass::fs::path& zones_directory,
                                         multipass::SubnetAllocator& subnet_allocator)
@@ -49,7 +101,7 @@ constexpr auto automatic_zone_key = "automatic_zone";
                                                               subnet_allocator);
 
     return zones;
-};
+}
 } // namespace
 
 namespace multipass
@@ -57,11 +109,24 @@ namespace multipass
 
 BaseAvailabilityZoneManager::BaseAvailabilityZoneManager(const fs::path& data_dir)
     : file_path{data_dir / az_file},
-      subnet_allocator(MP_PLATFORM.get_preferred_subnet(data_dir), subnet_prefix_length),
-      zone_collection{create_default_zones(data_dir / zones_directory_name, subnet_allocator),
-                      load_file(file_path)}
+      preferred_subnet{MP_PLATFORM.get_preferred_subnet(data_dir)},
+      subnet_allocator{preferred_subnet, subnet_prefix_length},
+      zone_collection{
+          make_zone_collection(data_dir, file_path, preferred_subnet, subnet_allocator)}
 {
     save_file();
+}
+
+BaseAvailabilityZoneManager::ZoneCollection BaseAvailabilityZoneManager::make_zone_collection(
+    const fs::path& data_dir,
+    const fs::path& file_path,
+    const Subnet& preferred,
+    SubnetAllocator& subnet_allocator)
+{
+    const auto loaded = load_manager_file(file_path);
+    reset_zone_files_if_preferred_changed(data_dir / zones_directory_name, loaded, preferred);
+    return ZoneCollection{create_default_zones(data_dir / zones_directory_name, subnet_allocator),
+                          loaded.automatic_zone};
 }
 
 AvailabilityZone& BaseAvailabilityZoneManager::get_zone(const std::string& name)
@@ -101,31 +166,13 @@ std::string BaseAvailabilityZoneManager::get_default_zone_name() const
     return (*zones().begin())->get_name();
 }
 
-std::string BaseAvailabilityZoneManager::load_file(const std::filesystem::path& file_path)
-{
-    mpl::debug(category, "reading AZ manager from file '{}'", file_path);
-    if (auto filedata = MP_FILEOPS.try_read_file(file_path))
-    {
-        try
-        {
-            auto json = boost::json::parse(*filedata);
-            return value_to<std::string>(json.at(automatic_zone_key));
-        }
-        catch (const boost::system::system_error& e)
-        {
-            mpl::error(category, "Error parsing file '{}': {}", file_path, e.what());
-        }
-    }
-    // Return a default value if we couldn't load from `file_path`.
-    return "";
-}
-
 void BaseAvailabilityZoneManager::save_file() const
 {
     mpl::debug(category, "writing AZ manager to file '{}'", file_path);
     const std::unique_lock lock{mutex};
 
-    boost::json::value json = {{automatic_zone_key, zone_collection.last_used()}};
+    boost::json::value json = {{automatic_zone_key, zone_collection.last_used()},
+                               {preferred_subnet_key, preferred_subnet.to_cidr()}};
     MP_FILEOPS.write_transactionally(QString::fromStdString(file_path.string()),
                                      pretty_print(json));
 }

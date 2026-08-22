@@ -69,7 +69,7 @@ namespace
 {
 constexpr auto category = "osx platform";
 constexpr auto br_nomenclature = "bridge";
-const mp::Subnet preferred_subnet = {"192.168.252.0/16"};
+const mp::Subnet preferred_subnet = {"192.168.64.0/16"};
 
 QString get_networksetup_output()
 {
@@ -277,14 +277,11 @@ std::string mp::platform::Platform::bridge_nomenclature() const
 
 bool mp::platform::Platform::subnet_used_locally(mp::Subnet subnet) const
 {
-    // NOTE: In Multipass 1.16 and earlier on macOS, we statically define the (single) subnet to
-    // use, and unlike on Linux, don't store that value anywhere in our configuration. As a result,
-    // our availability zone manager will try to build fresh AZ configs, ultimately calling this
-    // function. To ensure that zone1 uses the same subnet as we used in 1.16, we statically declare
-    // this subnet to be unused.
+    // NOTE: Prefer the classic Apple vmnet shared range (192.168.64.0/16 → zone1 as /24). Unlike
+    // Linux, macOS does not persist that preference separately, so the AZ manager may probe this
+    // function while allocating. Treat the preferred base as unused so zone1 keeps 192.168.64.0/24.
     //
-    // After a couple of Multipass versions, we can remove this. Instances that end up with a
-    // different subnet still work, just with a different IP address.
+    // Instances that end up on a different subnet still work, just with a different IP address.
     if (subnet.address() == preferred_subnet.address())
         return false;
 

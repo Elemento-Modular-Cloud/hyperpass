@@ -68,18 +68,33 @@ TEST_F(BaseAvailabilityZoneTest, CreatesDefaultAvailableZone)
 
 TEST_F(BaseAvailabilityZoneTest, loadsExistingZoneFile)
 {
-    const auto json = "{\"subnet\": \"10.0.0.0/24\", \"available\": false}";
+    const auto json = "{\"subnet\": \"192.168.1.0/24\", \"available\": false}";
     EXPECT_CALL(*mock_logger.mock_logger, log(_, _, _)).Times(AnyNumber());
     EXPECT_CALL(mock_file_ops, try_read_file(az_file)).WillOnce(Return(json));
     EXPECT_CALL(mock_file_ops,
                 write_transactionally(QString::fromStdU16String(az_file.u16string()), _));
 
-    const mp::Subnet test_subnet{"10.0.0.0/24"};
+    const mp::Subnet test_subnet{"192.168.1.0/24"};
     mp::BaseAvailabilityZone zone{az_name, az_dir, subnet_alloc};
 
     EXPECT_EQ(zone.get_name(), az_name);
     EXPECT_EQ(zone.get_subnet(), test_subnet);
     EXPECT_FALSE(zone.is_available());
+}
+
+TEST_F(BaseAvailabilityZoneTest, reallocatesSubnetOutsidePreferredPool)
+{
+    const auto json = "{\"subnet\": \"10.0.0.0/24\", \"available\": true}";
+    EXPECT_CALL(*mock_logger.mock_logger, log(_, _, _)).Times(AnyNumber());
+    EXPECT_CALL(mock_file_ops, try_read_file(az_file)).WillOnce(Return(json));
+    EXPECT_CALL(mock_file_ops,
+                write_transactionally(QString::fromStdU16String(az_file.u16string()), _));
+    EXPECT_CALL(mock_platform, subnet_used_locally).WillOnce(Return(false));
+
+    mp::BaseAvailabilityZone zone{az_name, az_dir, subnet_alloc};
+
+    EXPECT_EQ(zone.get_subnet(), mp::Subnet{"192.168.0.0/24"});
+    EXPECT_TRUE(zone.is_available());
 }
 
 TEST_F(BaseAvailabilityZoneTest, AddsVmAndUpdatesOnAvailabilityChange)

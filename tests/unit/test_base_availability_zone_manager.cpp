@@ -36,6 +36,8 @@ struct BaseAvailabilityZoneManagerTest : public Test
     BaseAvailabilityZoneManagerTest()
     {
         mock_logger.mock_logger->screen_logs(mpl::Level::error);
+        // Preferred-subnet migrations may unlink prior zone files.
+        EXPECT_CALL(mock_file_ops, remove(A<const mp::fs::path&>())).Times(AnyNumber());
     }
 
     const mp::fs::path data_dir{"/path/to/data"};
@@ -206,4 +208,31 @@ TEST_F(BaseAvailabilityZoneManagerTest, PrefersZone1ThenZone2ThenZone3)
     manager.get_zone("zone3").set_available(false);
 
     EXPECT_THROW(manager.get_automatic_zone_name(), mp::NoAvailabilityZoneAvailable);
+}
+
+TEST_F(BaseAvailabilityZoneManagerTest, ReallocatesZonesWhenPreferredSubnetChanges)
+{
+    EXPECT_CALL(*mock_logger.mock_logger, log(_, _, _)).Times(AnyNumber());
+    EXPECT_CALL(mock_platform, get_preferred_subnet)
+        .WillOnce(Return(mp::Subnet{"192.168.64.0/16"}));
+    EXPECT_CALL(mock_file_ops, try_read_file(manager_file))
+        .WillOnce(Return("{\"automatic_zone\": \"zone1\", "
+                         "\"preferred_subnet\": \"192.168.252.0/16\"}"));
+    EXPECT_CALL(mock_platform, subnet_used_locally).WillRepeatedly(Return(false));
+
+    for (const auto& zone_name : mp::default_zone_names)
+    {
+        const auto zone_file = zones_dir / (std::string{zone_name} + ".json");
+        // Old zone files are removed, then created fresh.
+        EXPECT_CALL(mock_file_ops, try_read_file(zone_file)).WillOnce(Return(std::nullopt));
+        EXPECT_CALL(mock_file_ops,
+                    write_transactionally(QString::fromStdU16String(zone_file.u16string()), _))
+            .Times(AnyNumber());
+    }
+
+    EXPECT_CALL(mock_file_ops, write_transactionally(manager_file_qstr, _)).Times(AnyNumber());
+
+    mp::BaseAvailabilityZoneManager manager{data_dir};
+
+    EXPECT_EQ(manager.get_zone("zone1").get_subnet(), mp::Subnet{"192.168.64.0/24"});
 }

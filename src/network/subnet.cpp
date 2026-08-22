@@ -208,3 +208,34 @@ mp::Subnet mp::SubnetAllocator::next_available()
                                             block_idx,
                                             possible_subnets - 1));
 }
+
+bool mp::SubnetAllocator::contains(Subnet subnet) const
+{
+    return subnet.prefix_length() == prefix && base_subnet.contains(subnet);
+}
+
+void mp::SubnetAllocator::reserve(Subnet subnet)
+{
+    if (!contains(subnet))
+        return;
+
+    const size_t possible_subnets = base_subnet.size(prefix);
+    const auto masked_address = base_subnet.masked_address();
+    const auto starting_address = apply_mask(base_subnet.address(), prefix);
+    const auto starting_offset = starting_address.as_uint32() - masked_address.as_uint32();
+    const auto offset_mask = ~get_subnet_mask(base_subnet.prefix_length()).as_uint32();
+    const std::uint32_t step = std::size_t{1} << (32 - prefix);
+    const auto target = subnet.masked_address().as_uint32();
+
+    for (size_t i = 0; i < possible_subnets; ++i)
+    {
+        const mp::IPAddress address =
+            masked_address + ((i * step + starting_offset) & offset_mask);
+        if (address.as_uint32() == target)
+        {
+            if (block_idx <= i)
+                block_idx = i + 1;
+            return;
+        }
+    }
+}

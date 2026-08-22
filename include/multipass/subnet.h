@@ -130,6 +130,12 @@ public:
 
     [[nodiscard]] Subnet next_available();
 
+    // True if `subnet` is a child of this allocator's base pool at the configured prefix length.
+    [[nodiscard]] bool contains(Subnet subnet) const;
+
+    // Mark a previously persisted subnet as taken so next_available() will not reuse it.
+    void reserve(Subnet subnet);
+
 private:
     Subnet base_subnet;
     Subnet::PrefixLength prefix;
