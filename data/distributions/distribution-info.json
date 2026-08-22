@@ -110,29 +110,91 @@
         "release_codename": "AlmaLinux 9",
         "release_title": "9"
     },
+    "Arch rolling": {
+        "aliases": "arch, archlinux, archlinux-latest",
+        "items": {
+            "x86_64": {
+                "id": "5d8be8d28cfd290f051b0f67df0a6874596ad23de3f3f18b90c91aeb758eb878",
+                "image_location": "https://geo.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2",
+                "min_disk": 2147483648,
+                "size": 556609024,
+                "version": "20260815"
+            }
+        },
+        "os": "Arch",
+        "release": "rolling",
+        "release_codename": "rolling",
+        "release_title": "rolling"
+    },
+    "CentOS Stream 10": {
+        "aliases": "centos, centos-stream, cs, centos-stream-10, cs10, centos-10, cs-10",
+        "items": {
+            "arm64": {
+                "id": "46b29df5e664bd6bc80c066606da2e1320e3c98b714884efcf3ccd2b390276aa",
+                "image_location": "https://cloud.centos.org/centos/10-stream/aarch64/images/CentOS-Stream-GenericCloud-10-20260818.0.aarch64.qcow2",
+                "min_disk": 10737418240,
+                "size": 1482227712,
+                "version": "20260819"
+            },
+            "x86_64": {
+                "id": "578ef6128c978ceaa1f30c808ba0184275dbcc2fc22bda047b16ccba0a7f500b",
+                "image_location": "https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-20260818.0.x86_64.qcow2",
+                "min_disk": 10737418240,
+                "size": 1749155840,
+                "version": "20260819"
+            }
+        },
+        "os": "CentOS",
+        "release": "10",
+        "release_codename": "Stream 10",
+        "release_title": "Stream 10"
+    },
+    "CentOS Stream 9": {
+        "aliases": "centos-stream-9, cs9, centos-9, cs-9",
+        "items": {
+            "arm64": {
+                "id": "089f66050e8369bc5532c5562928f490a33042759649fe804376ed7f7663fdb3",
+                "image_location": "https://cloud.centos.org/centos/9-stream/aarch64/images/CentOS-Stream-GenericCloud-9-20260818.0.aarch64.qcow2",
+                "min_disk": 10737418240,
+                "size": 1295253504,
+                "version": "20260819"
+            },
+            "x86_64": {
+                "id": "14e2781c9e3505e1fb17806e1c3ca74c59392fe909306477c52e977d07672683",
+                "image_location": "https://cloud.centos.org/centos/9-stream/x86_64/images/CentOS-Stream-GenericCloud-9-20260818.0.x86_64.qcow2",
+                "min_disk": 10737418240,
+                "size": 1499036672,
+                "version": "20260819"
+            }
+        },
+        "os": "CentOS",
+        "release": "9",
+        "release_codename": "Stream 9",
+        "release_title": "Stream 9"
+    },
     "Debian 12": {
         "aliases": "bookworm, debian-12",
         "items": {
             "arm64": {
-                "id": "sha512:8f872616a25ac6ca7c0d1b169b062931db51cd03fda4c8cbc74f228d045b186edd1c7d105933a7149c3377372cd0196d7659f07574d7bf6425b82b01df323026",
-                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260806-2562/debian-12-generic-arm64-20260806-2562.qcow2",
+                "id": "sha512:7a9afb7e4ccbc432c634f53dd3ec90449d94cef2d9499ce86a454ba0858a8de20b3118201418287452a7d1eec0e89a0e82838924435427c6eeb24088007ef8b0",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260821-2577/debian-12-generic-arm64-20260821-2577.qcow2",
                 "min_disk": 3221225472,
-                "size": 434044928,
-                "version": "20260806"
+                "size": 434241536,
+                "version": "20260821"
             },
             "power64le": {
-                "id": "sha512:b2075c3e9fce5fa599baf2eb295b44fc02563595b2233d2cc24b7b493ad8145da97b97b77e86ea8424019b42ca18477bd170c61aba16df28611672debe508497",
-                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260806-2562/debian-12-generic-ppc64el-20260806-2562.qcow2",
+                "id": "sha512:b085d7c043892a3783cee951db5d0dabd6f68dd446a04f62eceaee676475244e536f8cf72f0ebcf5127df16bddbbe768bf3722875e6f7ff83fd74b7fc3b60092",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260821-2577/debian-12-generic-ppc64el-20260821-2577.qcow2",
                 "min_disk": 3221225472,
-                "size": 394264576,
-                "version": "20260806"
+                "size": 395313152,
+                "version": "20260821"
             },
             "x86_64": {
-                "id": "sha512:0b04eda1c80b255d6234ae6fe63c43a6cb0de4afc5c37873acbc82d5b1feba7a619d2402d2341af1cf9e0898fa7d5225be343fef47349b18fe28b838001bd8eb",
-                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260806-2562/debian-12-generic-amd64-20260806-2562.qcow2",
+                "id": "sha512:ee13344d530f70ca055d880e5c9b61e9af89874af02c5e2a5c26724461c79409e6d76db97c67ab222e71d03c3e33a738a8958fa5c497962f592258e9835cfcb0",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260821-2577/debian-12-generic-amd64-20260821-2577.qcow2",
                 "min_disk": 3221225472,
-                "size": 448069632,
-                "version": "20260806"
+                "size": 449511424,
+                "version": "20260821"
             }
         },
         "os": "Debian",
@@ -244,6 +306,75 @@
         "release_codename": "44",
         "release_title": "44"
     },
+    "OracleLinux 10": {
+        "aliases": "oracle, oraclelinux, ol, oracle-10, oraclelinux-10, ol-10",
+        "items": {
+            "arm64": {
+                "id": "e203063e0e8b2752a896787ecc44fc506527055ec819b1422a297d60ad968b20",
+                "image_location": "https://yum.oracle.com/templates/OracleLinux/OL10/u1/aarch64/OL10U1_aarch64-kvm-cloud-b178.qcow2",
+                "min_disk": 17179869184,
+                "size": 749273088,
+                "version": "20260529"
+            },
+            "x86_64": {
+                "id": "8e59326c4bf7cfa58a6cac404db8ed583fe3a5f4c460e2b73c64988785bb4f0f",
+                "image_location": "https://yum.oracle.com/templates/OracleLinux/OL10/u1/x86_64/OL10U1_x86_64-kvm-b291.qcow2",
+                "min_disk": 39728447488,
+                "size": 1073872896,
+                "version": "20260527"
+            }
+        },
+        "os": "OracleLinux",
+        "release": "10",
+        "release_codename": "Oracle Linux 10",
+        "release_title": "10"
+    },
+    "OracleLinux 8": {
+        "aliases": "oracle-8, oraclelinux-8, ol-8",
+        "items": {
+            "arm64": {
+                "id": "729114abf775e4dcc811b3bb4b0d85647c0db0dc2e4c700f09f59e2aea806533",
+                "image_location": "https://yum.oracle.com/templates/OracleLinux/OL8/u10/aarch64/OL8U10_aarch64-kvm-cloud-b170.qcow2",
+                "min_disk": 17179869184,
+                "size": 505020416,
+                "version": "20260527"
+            },
+            "x86_64": {
+                "id": "cf9eb243b7390311f1e2896e3e6849241e521e6592c8be9907956e3a6cee1f0c",
+                "image_location": "https://yum.oracle.com/templates/OracleLinux/OL8/u10/x86_64/OL8U10_x86_64-kvm-b287.qcow2",
+                "min_disk": 39728447488,
+                "size": 1580793856,
+                "version": "20260527"
+            }
+        },
+        "os": "OracleLinux",
+        "release": "8",
+        "release_codename": "Oracle Linux 8",
+        "release_title": "8"
+    },
+    "OracleLinux 9": {
+        "aliases": "oracle-9, oraclelinux-9, ol-9",
+        "items": {
+            "arm64": {
+                "id": "4793c3ec49d9f8b27a932d3bd88ec45d08249c5195faa3b0fac876ab0d5f5856",
+                "image_location": "https://yum.oracle.com/templates/OracleLinux/OL9/u8/aarch64/OL9U8_aarch64-kvm-cloud-b182.qcow2",
+                "min_disk": 17179869184,
+                "size": 660668416,
+                "version": "20260707"
+            },
+            "x86_64": {
+                "id": "b12103391327abee8090686759c0d62dac9a7af2bf0f45fdf6b0d085a0fbb52b",
+                "image_location": "https://yum.oracle.com/templates/OracleLinux/OL9/u8/x86_64/OL9U8_x86_64-kvm-b293.qcow2",
+                "min_disk": 39728447488,
+                "size": 815333376,
+                "version": "20260707"
+            }
+        },
+        "os": "OracleLinux",
+        "release": "9",
+        "release_codename": "Oracle Linux 9",
+        "release_title": "9"
+    },
     "Rocky 10": {
         "aliases": "rocky, rocky-10",
         "items": {
@@ -340,5 +471,51 @@
         "release": "9",
         "release_codename": "Rocky Linux 9",
         "release_title": "9"
+    },
+    "openSUSE Leap 15.6": {
+        "aliases": "opensuse, suse, leap, opensuse-leap, opensuse-leap-15.6, opensuse-15.6, suse-15.6, leap-15.6",
+        "items": {
+            "arm64": {
+                "id": "1e73945a0d31b55d20cba9ae405c10f10ecdde94548e3131d73423252110668d",
+                "image_location": "https://download.opensuse.org/distribution/leap/15.6/appliances/openSUSE-Leap-15.6-Minimal-VM.aarch64-Cloud.qcow2",
+                "min_disk": 1004535808,
+                "size": 265008640,
+                "version": "20260502"
+            },
+            "x86_64": {
+                "id": "0a5720416d423f98aacaa793a57d56ec045e3dd25cd88713952660ad00da53bd",
+                "image_location": "https://download.opensuse.org/distribution/leap/15.6/appliances/openSUSE-Leap-15.6-Minimal-VM.x86_64-Cloud.qcow2",
+                "min_disk": 879755264,
+                "size": 276980736,
+                "version": "20260502"
+            }
+        },
+        "os": "openSUSE",
+        "release": "15.6",
+        "release_codename": "Leap 15.6",
+        "release_title": "Leap 15.6"
+    },
+    "openSUSE Tumbleweed": {
+        "aliases": "tumbleweed, opensuse-tumbleweed, tw",
+        "items": {
+            "arm64": {
+                "id": "2b609ad876efc924e8ee2bd8eb574a991e2be2799a1c14e142ec2b2a1c803c2b",
+                "image_location": "https://download.opensuse.org/ports/aarch64/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.aarch64-Cloud.qcow2",
+                "min_disk": 2147483648,
+                "size": 288490496,
+                "version": "20260806"
+            },
+            "x86_64": {
+                "id": "952d95729331a62d96fc28495c6e42936e83c4262446c124ee497b5b3aebe98b",
+                "image_location": "https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2",
+                "min_disk": 2147483648,
+                "size": 317193216,
+                "version": "20260819"
+            }
+        },
+        "os": "openSUSE",
+        "release": "tumbleweed",
+        "release_codename": "Tumbleweed",
+        "release_title": "Tumbleweed"
     }
 }

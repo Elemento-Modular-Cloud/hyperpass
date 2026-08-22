@@ -705,5 +705,13 @@ std::string mp::utils::default_username_for(const std::string& os)
     user.remove(QLatin1Char(' '));
     if (user.isEmpty())
         return "ubuntu";
+    if (user.contains("centos"))
+        return "cloud-user";
+    if (user.contains("oracle"))
+        return "cloud-user";
+    if (user == "arch" || user == "archlinux")
+        return "arch";
+    if (user.contains("opensuse") || user == "suse")
+        return "opensuse";
     return user.toStdString();
 }

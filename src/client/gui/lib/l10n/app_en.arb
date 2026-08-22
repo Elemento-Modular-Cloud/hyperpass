@@ -891,6 +891,22 @@
     "@imageCardTitleRocky": {
         "description": "Display title for Rocky Linux image"
     },
+    "imageCardTitleOpensuse": "openSUSE",
+    "@imageCardTitleOpensuse": {
+        "description": "Display title for openSUSE image"
+    },
+    "imageCardTitleCentos": "CentOS Stream",
+    "@imageCardTitleCentos": {
+        "description": "Display title for CentOS Stream image"
+    },
+    "imageCardTitleOraclelinux": "Oracle Linux",
+    "@imageCardTitleOraclelinux": {
+        "description": "Display title for Oracle Linux image"
+    },
+    "imageCardTitleArch": "Arch Linux",
+    "@imageCardTitleArch": {
+        "description": "Display title for Arch Linux image"
+    },
     "imageCardDescUbuntuCore": "Ubuntu operating system optimized for IoT and Edge",
     "@imageCardDescUbuntuCore": {
         "description": "Description for Ubuntu Core image"
@@ -914,6 +930,22 @@
     "imageCardDescRocky": "Rocky Linux Generic Cloud image",
     "@imageCardDescRocky": {
         "description": "Description for Rocky Linux image"
+    },
+    "imageCardDescOpensuse": "openSUSE Leap and Tumbleweed cloud images",
+    "@imageCardDescOpensuse": {
+        "description": "Description for openSUSE image"
+    },
+    "imageCardDescCentos": "CentOS Stream Generic Cloud image",
+    "@imageCardDescCentos": {
+        "description": "Description for CentOS Stream image"
+    },
+    "imageCardDescOraclelinux": "Oracle Linux KVM cloud template",
+    "@imageCardDescOraclelinux": {
+        "description": "Description for Oracle Linux image"
+    },
+    "imageCardDescArch": "Arch Linux official cloud image",
+    "@imageCardDescArch": {
+        "description": "Description for Arch Linux image"
     },
     "imageCardLogoSemantics": "{os} logo",
     "@imageCardLogoSemantics": {

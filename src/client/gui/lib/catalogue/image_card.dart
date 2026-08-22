@@ -34,6 +34,10 @@ class ImageCard extends ConsumerWidget {
       'fedora' => l10n.imageCardTitleFedora,
       'almalinux' => l10n.imageCardTitleAlmalinux,
       'rocky' => l10n.imageCardTitleRocky,
+      'opensuse' => l10n.imageCardTitleOpensuse,
+      'centos' => l10n.imageCardTitleCentos,
+      'oraclelinux' => l10n.imageCardTitleOraclelinux,
+      'arch' => l10n.imageCardTitleArch,
       _ => parentImage.os, // Default case: return the OS name as-is
     };
   }
@@ -47,6 +51,10 @@ class ImageCard extends ConsumerWidget {
       'fedora' => l10n.imageCardDescFedora,
       'almalinux' => l10n.imageCardDescAlmalinux,
       'rocky' => l10n.imageCardDescRocky,
+      'opensuse' => l10n.imageCardDescOpensuse,
+      'centos' => l10n.imageCardDescCentos,
+      'oraclelinux' => l10n.imageCardDescOraclelinux,
+      'arch' => l10n.imageCardDescArch,
       _ => '',
     };
   }

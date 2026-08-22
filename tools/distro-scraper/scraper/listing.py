@@ -91,6 +91,10 @@ FAMILY_MIN_DISK = {
     "Rocky": 10 * GIB,
     "Fedora": 5 * GIB,
     "Debian": 2 * GIB,
+    "openSUSE": 10 * GIB,
+    "CentOS": 10 * GIB,
+    "OracleLinux": 16 * GIB,
+    "Arch": 5 * GIB,
 }
 
 

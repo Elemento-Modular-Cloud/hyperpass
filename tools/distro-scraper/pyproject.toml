@@ -23,6 +23,10 @@ debian = "scraper.scrapers.debian:DebianScraper"
 fedora = "scraper.scrapers.fedora:FedoraScraper"
 almalinux = "scraper.scrapers.almalinux:AlmaLinuxScraper"
 rocky = "scraper.scrapers.rocky:RockyScraper"
+opensuse = "scraper.scrapers.opensuse:OpenSUSEScraper"
+centos = "scraper.scrapers.centos:CentOSScraper"
+oraclelinux = "scraper.scrapers.oraclelinux:OracleLinuxScraper"
+arch = "scraper.scrapers.arch:ArchScraper"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -157,7 +157,21 @@ mp::Query query_from(const mp::LaunchRequest* request, const std::string& name)
 bool image_supports_pollinate(const std::string& image_alias)
 {
     const auto alias = QString::fromStdString(image_alias).toLower();
-    static const QStringList no_pollinate{"fedora", "almalinux", "alma", "rocky"};
+    static const QStringList no_pollinate{"fedora",
+                                          "almalinux",
+                                          "alma",
+                                          "rocky",
+                                          "opensuse",
+                                          "suse",
+                                          "leap",
+                                          "tumbleweed",
+                                          "centos",
+                                          "cs",
+                                          "oracle",
+                                          "oraclelinux",
+                                          "ol",
+                                          "arch",
+                                          "archlinux"};
     return std::none_of(no_pollinate.begin(), no_pollinate.end(), [&alias](const QString& stem) {
         return alias == stem || alias.startsWith(stem + '-');
     });
