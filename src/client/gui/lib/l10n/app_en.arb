@@ -140,6 +140,18 @@
     "@sidebarInstances": {
         "description": "Sidebar navigation label for the Instances screen"
     },
+    "sidebarDaemonService": "Hyperpass daemon",
+    "@sidebarDaemonService": {
+        "description": "Sidebar footer label for daemon connectivity status"
+    },
+    "sidebarCollapse": "Collapse sidebar",
+    "@sidebarCollapse": {
+        "description": "Tooltip for the sidebar collapse control"
+    },
+    "sidebarExpand": "Expand sidebar",
+    "@sidebarExpand": {
+        "description": "Tooltip for the sidebar expand control"
+    },
     "helpLabel": "Help",
     "@helpLabel": {
         "description": "The word 'Help' used as a navigation label and page heading"
@@ -482,6 +494,92 @@
     "generalThemeDark": "Dark",
     "@generalThemeDark": {
         "description": "Dark theme option"
+    },
+    "appearanceTitle": "Appearance",
+    "@appearanceTitle": {
+        "description": "Settings section heading for look and feel"
+    },
+    "appearanceGlassTitle": "Glassmorphism",
+    "@appearanceGlassTitle": {
+        "description": "Subsection for glass UI settings"
+    },
+    "appearanceGlassToggle": "Glassmorphism",
+    "@appearanceGlassToggle": {
+        "description": "Toggle frosted glass panels"
+    },
+    "appearanceThemeLabel": "Theme",
+    "@appearanceThemeLabel": {
+        "description": "Label for light/dark/midnight theme picker"
+    },
+    "appearanceThemeLight": "Light",
+    "@appearanceThemeLight": {
+        "description": "Light appearance theme button"
+    },
+    "appearanceThemeDark": "Dark",
+    "@appearanceThemeDark": {
+        "description": "Dark appearance theme button"
+    },
+    "appearanceThemeMidnight": "Midnight",
+    "@appearanceThemeMidnight": {
+        "description": "High-contrast midnight theme button"
+    },
+    "appearanceCardColourLabel": "Card background colour",
+    "@appearanceCardColourLabel": {
+        "description": "Label for solid card colour when glass is off"
+    },
+    "appearanceCardOpacityLabel": "Card opacity",
+    "@appearanceCardOpacityLabel": {
+        "description": "Label for card opacity slider when glass is off"
+    },
+    "appearanceBackgroundTitle": "Background",
+    "@appearanceBackgroundTitle": {
+        "description": "Subsection for wallpaper and atmosphere"
+    },
+    "appearanceBackgroundAnimations": "Background animations",
+    "@appearanceBackgroundAnimations": {
+        "description": "Toggle atmosphere animation"
+    },
+    "appearanceAtmosphereToggle": "Show atmosphere background",
+    "@appearanceAtmosphereToggle": {
+        "description": "Toggle animated atmosphere wallpaper"
+    },
+    "appearanceWallpaperLabel": "Wallpaper",
+    "@appearanceWallpaperLabel": {
+        "description": "Label above wallpaper mode tiles"
+    },
+    "appearanceWallpaperNone": "None",
+    "@appearanceWallpaperNone": {
+        "description": "Wallpaper tile: use theme background only"
+    },
+    "appearanceWallpaperColour": "Colour",
+    "@appearanceWallpaperColour": {
+        "description": "Wallpaper tile: solid colour"
+    },
+    "appearanceWallpaperImport": "Import",
+    "@appearanceWallpaperImport": {
+        "description": "Wallpaper tile: import image file"
+    },
+    "appearanceWallpaperBrightness": "Brightness",
+    "@appearanceWallpaperBrightness": {
+        "description": "Slider for image wallpaper brightness"
+    },
+    "appearanceWallpaperBlur": "Blur",
+    "@appearanceWallpaperBlur": {
+        "description": "Slider for image wallpaper blur"
+    },
+    "appearanceWallpaperHint": "Wallpapers are stored in {path}",
+    "@appearanceWallpaperHint": {
+        "description": "Hint showing where imported wallpapers are saved",
+        "placeholders": {
+            "path": {
+                "type": "String",
+                "example": "~/.hyperpass/backgrounds"
+            }
+        }
+    },
+    "appearanceColourPickerTitle": "Background colour",
+    "@appearanceColourPickerTitle": {
+        "description": "Title for the wallpaper/card colour picker dialog"
     },
     "generalAutostartLabel": "Open the Hyperpass GUI on startup",
     "@generalAutostartLabel": {

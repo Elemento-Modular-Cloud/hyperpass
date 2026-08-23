@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../confirmation_dialog.dart';
 import '../l10n/app_localizations.dart';
+import '../page_surface.dart';
 import 'cloud_init_store.dart';
 import 'yaml_highlight_controller.dart';
 
@@ -300,8 +301,7 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 40, 40, 24),
+      body: PageSurface(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

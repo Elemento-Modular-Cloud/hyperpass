@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../catalogue/catalogue_surface.dart';
+import '../page_surface.dart';
 import '../providers.dart';
 import 'terminal_tabs.dart';
 import 'vm_details_bridge.dart';
@@ -75,21 +77,30 @@ class VmDetailsScreen extends ConsumerWidget {
     return Scaffold(
       body: Column(
         children: [
-          VmDetailsHeader(name),
+          PageSurface(
+            margin: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            child: VmDetailsHeader(name),
+          ),
           Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Visibility(
-                  visible: location == VmDetailsLocation.shells,
-                  maintainState: true,
-                  child: TerminalTabs(name),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+              child: CatalogueSurface(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Visibility(
+                      visible: location == VmDetailsLocation.shells,
+                      maintainState: true,
+                      child: TerminalTabs(name),
+                    ),
+                    Visibility(
+                      visible: location == VmDetailsLocation.details,
+                      child: VmDetails(name),
+                    ),
+                  ],
                 ),
-                Visibility(
-                  visible: location == VmDetailsLocation.details,
-                  child: VmDetails(name),
-                ),
-              ],
+              ),
             ),
           ),
         ],

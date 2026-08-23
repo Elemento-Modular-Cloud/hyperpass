@@ -103,7 +103,7 @@ class VmDetailsHeader extends ConsumerWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.zero,
       child: Row(children: list.gap(width: 40).toList()),
     );
   }

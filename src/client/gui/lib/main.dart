@@ -7,7 +7,9 @@ import 'package:window_manager/window_manager.dart';
 
 import 'before_quit_dialog.dart';
 import 'brand.dart';
+import 'app_background.dart';
 import 'app_theme.dart';
+import 'appearance_settings.dart';
 import 'l10n/app_localizations.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
@@ -21,7 +23,6 @@ import 'providers.dart';
 import 'settings/hotkey.dart';
 import 'settings/settings.dart';
 import 'sidebar.dart';
-import 'theme_mode_provider.dart';
 import 'tray_menu.dart';
 import 'update_available.dart';
 import 'vm_details/vm_details.dart';
@@ -75,11 +76,9 @@ class HyperpassApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
+    final appearance = ref.watch(appearanceSettingsProvider);
     return MaterialApp(
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: themeMode,
+      theme: buildAppTheme(appearance),
       home: const UpdateSystemNotificationListener(child: App()),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -98,8 +97,6 @@ class _AppState extends ConsumerState<App> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final currentKey = ref.watch(sidebarKeyProvider);
-    final sidebarExpanded = ref.watch(sidebarExpandedProvider);
-    final sidebarPushContent = ref.watch(sidebarPushContentProvider);
     final vms = ref.watch(vmNamesProvider);
 
     final widgets = {
@@ -137,26 +134,20 @@ class _AppState extends ConsumerState<App> with WindowListener {
 
     final hotkey = ref.watch(hotkeyProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scaffold = Theme.of(context).scaffoldBackgroundColor;
     final titleColor = isDark ? Brand.yellow : Brand.voidBlack;
-    final sidebarWidth = sidebarPushContent && sidebarExpanded
-        ? SideBar.expandedWidth
-        : SideBar.collapsedWidth;
+    final sidebarWidth = SideBar.totalWidth;
 
     return Stack(
       children: [
-        AnimatedPositioned(
-          duration: SideBar.animationDuration,
+        const Positioned.fill(child: AppBackground()),
+        Positioned(
           bottom: 0,
           right: 0,
           top: 0,
           left: sidebarWidth,
-          child: ColoredBox(
-            color: scaffold,
-            child: Padding(
-              padding: const EdgeInsets.only(top: SideBar.titleBarHeight),
-              child: content,
-            ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: SideBar.titleBarHeight),
+            child: content,
           ),
         ),
         Positioned(

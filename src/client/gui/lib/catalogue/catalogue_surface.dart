@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../brand.dart';
+import '../glass_panel.dart';
 
-/// Solid catalogue panel with an optional accent border (no glass/blur).
+/// Glass catalogue / settings card (Electros `data-card` / `.card`).
 class CatalogueSurface extends StatelessWidget {
   const CatalogueSurface({
     required this.child,
     this.borderColor,
     this.borderWidth = 1,
     this.padding,
-    this.backgroundColor,
     super.key,
   });
 
@@ -17,24 +17,16 @@ class CatalogueSurface extends StatelessWidget {
   final Color? borderColor;
   final double borderWidth;
   final EdgeInsetsGeometry? padding;
-  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final surface = backgroundColor ?? Theme.of(context).colorScheme.surface;
-    final border = borderColor ?? Theme.of(context).dividerColor;
-    final radius = BorderRadius.circular(Brand.radius);
+    final glass = context.glass;
+    final border = borderColor ?? glass.border;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: radius,
-        border: Border.all(color: border, width: borderWidth),
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: padding != null ? Padding(padding: padding!, child: child) : child,
-      ),
+    return GlassPanel(
+      border: Border.all(color: border, width: borderWidth),
+      padding: padding,
+      child: child,
     );
   }
 }

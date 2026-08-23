@@ -1,27 +1,47 @@
 import 'package:flutter/material.dart';
 
+import 'appearance_settings.dart';
 import 'brand.dart';
 import 'vm_details/mapping_slider.dart';
 
-ThemeData buildAppTheme({required Brightness brightness}) {
+GlassTokens resolveGlassTokens(AppearanceSettings appearance) {
+  final tokens = !appearance.useGlassmorphism
+      ? GlassTokens.solid(
+          colour: appearance.cardColorValue,
+          opacityPercent: appearance.cardOpacity,
+        )
+      : switch (appearance.theme) {
+          AppearanceTheme.light => GlassTokens.light,
+          AppearanceTheme.dark => GlassTokens.dark,
+          AppearanceTheme.highContrast => GlassTokens.highContrast,
+        };
+  return appearance.useGlassmorphism
+      ? tokens.withRenderOpacityCompensation()
+      : tokens;
+}
+
+ThemeData buildAppTheme(AppearanceSettings appearance) {
+  final brightness = appearance.brightness;
   final isDark = brightness == Brightness.dark;
-  final scaffold = isDark ? Brand.black : Brand.white;
-  // Prefer high-contrast body text in dark mode; greyBody is too close to
-  // elevated surfaces used by drawers and panels.
+  final isHighContrast = appearance.theme == AppearanceTheme.highContrast;
   final onSurface = isDark ? Brand.crystalWhite : Brand.greyDarker;
-  final surface = isDark ? Brand.blackLight : Brand.whiteLight;
+  final surface = isHighContrast
+      ? Colors.black
+      : (isDark ? Brand.blackLight : Brand.whiteLight);
   final inputFill =
-      isDark ? Colors.white.withOpacity(0.12) : const Color(0xfff2f2f2);
+      isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xfff2f2f2);
   final outline = isDark ? Brand.greyBody : const Color(0xff333333);
-  final glass = isDark ? GlassTokens.dark : GlassTokens.light;
+  final glass = resolveGlassTokens(appearance);
+  final blurSigma =
+      appearance.useGlassmorphism ? Brand.glassBlurSigma : 0.0;
 
   return ThemeData(
     useMaterial3: false,
     brightness: brightness,
     fontFamily: Brand.fontFamily,
     fontFamilyFallback: const ['NotoColorEmoji', 'FreeSans'],
-    scaffoldBackgroundColor: scaffold,
-    canvasColor: scaffold,
+    scaffoldBackgroundColor: Colors.transparent,
+    canvasColor: Colors.transparent,
     cardColor: surface,
     dividerColor: isDark ? Colors.white24 : const Color(0xffe0e0e0),
     colorScheme: ColorScheme(
@@ -35,7 +55,7 @@ ThemeData buildAppTheme({required Brightness brightness}) {
       surface: surface,
       onSurface: onSurface,
     ),
-    extensions: [glass],
+    extensions: [glass, AppearanceTokens(blurSigma: blurSigma)],
     inputDecorationTheme: InputDecorationTheme(
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
       fillColor: inputFill,
@@ -134,5 +154,27 @@ ThemeData buildAppTheme({required Brightness brightness}) {
   );
 }
 
-final lightTheme = buildAppTheme(brightness: Brightness.light);
-final darkTheme = buildAppTheme(brightness: Brightness.dark);
+@immutable
+class AppearanceTokens extends ThemeExtension<AppearanceTokens> {
+  final double blurSigma;
+
+  const AppearanceTokens({required this.blurSigma});
+
+  @override
+  AppearanceTokens copyWith({double? blurSigma}) =>
+      AppearanceTokens(blurSigma: blurSigma ?? this.blurSigma);
+
+  @override
+  AppearanceTokens lerp(ThemeExtension<AppearanceTokens>? other, double t) {
+    if (other is! AppearanceTokens) return this;
+    return AppearanceTokens(
+      blurSigma: blurSigma + (other.blurSigma - blurSigma) * t,
+    );
+  }
+}
+
+extension AppearanceTokensContext on BuildContext {
+  AppearanceTokens get appearanceTokens =>
+      Theme.of(this).extension<AppearanceTokens>() ??
+      const AppearanceTokens(blurSigma: Brand.glassBlurSigma);
+}

@@ -8,6 +8,7 @@ import '../copyable_text.dart';
 import '../extensions.dart';
 import '../ffi.dart';
 import '../l10n/app_localizations.dart';
+import '../page_surface.dart';
 import '../providers.dart';
 import '../vm_table/table.dart';
 import '../vm_table/vm_table_headers.dart';
@@ -30,8 +31,7 @@ class CacheScreen extends ConsumerWidget {
     final cacheAsync = ref.watch(cacheInfoProvider);
 
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 40, 40, 24),
+      body: PageSurface(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

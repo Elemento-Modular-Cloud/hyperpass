@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'brand.dart';
 import 'l10n/app_localizations.dart';
+import 'page_surface.dart';
 
 class HelpScreen extends StatelessWidget {
   static const sidebarKey = 'help';
@@ -15,8 +16,7 @@ class HelpScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 140).copyWith(top: 40),
+      body: PageSurface(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

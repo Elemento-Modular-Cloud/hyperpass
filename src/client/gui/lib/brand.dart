@@ -14,6 +14,9 @@ abstract final class Brand {
   /// Starter Yellow — primary brand / CTA / logo ink on dark.
   static const yellow = Color(0xFFFFA600);
 
+  /// Status / online indicator (Electros `--green`).
+  static const green = Color(0xFF28A745);
+
   /// Lighter yellow (sidebar active bg on light theme).
   static const yellowLight = Color(0xFFFAB83A);
 
@@ -51,6 +54,24 @@ abstract final class Brand {
   static const glassBlurSigma = 10.0;
 
   static const fontFamily = 'RedHatDisplay';
+}
+
+/// Hidden render-time boost so Flutter matches Electron/CSS compositing.
+///
+/// Stored appearance values stay Electros-compatible; only alpha at paint time
+/// is adjusted.
+const double kFlutterOpacityCompensationPercent = 5;
+
+double renderOpacityAlpha(double storedOpacityPercent) {
+  return ((storedOpacityPercent + kFlutterOpacityCompensationPercent) / 100)
+      .clamp(0.0, 1.0);
+}
+
+Color boostRenderAlpha(Color color) {
+  if (color.a >= 1) return color;
+  return color.withValues(
+    alpha: (color.a + kFlutterOpacityCompensationPercent / 100).clamp(0, 1),
+  );
 }
 
 /// Theme-dependent glass / surface tokens (ElectrosGUI glassmorphism recipe).
@@ -113,6 +134,55 @@ class GlassTokens extends ThemeExtension<GlassTokens> {
     ],
     cardSolid: Brand.black,
   );
+
+  static const highContrast = GlassTokens(
+    fill: Color(0x33282828), // rgba(40,40,40,0.20)
+    border: Color(0x4D505050), // rgba(80,80,80,0.30)
+    gradientStart: Color(0x40282828),
+    gradientMid: Color(0x33141414),
+    shadows: [
+      BoxShadow(
+        color: Color(0x33000000),
+        blurRadius: 16,
+        offset: Offset(0, 4),
+      ),
+      BoxShadow(
+        color: Color(0x26282828),
+        blurRadius: 0,
+        offset: Offset(0, 1),
+        blurStyle: BlurStyle.inner,
+      ),
+    ],
+    cardSolid: Colors.black,
+  );
+
+  /// Solid card surface when glassmorphism is disabled.
+  static GlassTokens solid({
+    required Color colour,
+    required double opacityPercent,
+  }) {
+    final alpha = renderOpacityAlpha(opacityPercent);
+    final fill = colour.withValues(alpha: alpha);
+    return GlassTokens(
+      fill: fill,
+      border: fill.withValues(alpha: (alpha * 0.5).clamp(0, 1)),
+      gradientStart: fill,
+      gradientMid: fill,
+      shadows: const [],
+      cardSolid: fill,
+    );
+  }
+
+  /// Apply [kFlutterOpacityCompensationPercent] to semi-transparent tokens.
+  GlassTokens withRenderOpacityCompensation() {
+    return copyWith(
+      fill: boostRenderAlpha(fill),
+      border: boostRenderAlpha(border),
+      gradientStart: boostRenderAlpha(gradientStart),
+      gradientMid: boostRenderAlpha(gradientMid),
+      cardSolid: cardSolid.a < 1 ? boostRenderAlpha(cardSolid) : cardSolid,
+    );
+  }
 
   @override
   GlassTokens copyWith({
