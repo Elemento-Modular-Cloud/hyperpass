@@ -266,7 +266,7 @@ class _ThemePicker extends StatelessWidget {
         _ThemeButton(
           label: l10n.appearanceThemeMidnight,
           background: Colors.black,
-          foreground: Brand.yellow,
+          foreground: Brand.accent,
           selected: selected == AppearanceTheme.highContrast,
           onTap: () => onSelected(AppearanceTheme.highContrast),
         ),
@@ -303,7 +303,7 @@ class _ThemeButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Brand.radius),
             border: Border.all(
-              color: selected ? Brand.yellow : Colors.transparent,
+              color: selected ? Brand.accent : Colors.transparent,
               width: 2,
             ),
           ),
@@ -348,7 +348,7 @@ class _WallpaperTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Brand.radius),
             border: Border.all(
-              color: selected ? Brand.yellow : onSurface.withValues(alpha: 0.2),
+              color: selected ? Brand.accent : onSurface.withValues(alpha: 0.2),
               width: selected ? 2 : 1,
             ),
           ),
@@ -399,7 +399,7 @@ class _ProviderWallpaperTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Brand.radius),
             border: Border.all(
-              color: selected ? Brand.yellow : onSurface.withValues(alpha: 0.2),
+              color: selected ? Brand.accent : onSurface.withValues(alpha: 0.2),
               width: selected ? 2 : 1,
             ),
           ),
@@ -453,7 +453,7 @@ class _StoredWallpaperTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Brand.radius),
             border: Border.all(
-              color: selected ? Brand.yellow : Colors.white24,
+              color: selected ? Brand.accent : Colors.white24,
               width: selected ? 2 : 1,
             ),
             image: DecorationImage(
@@ -513,7 +513,7 @@ class _WallpaperColourTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Brand.radius),
             border: Border.all(
-              color: selected ? Brand.yellow : onSurface.withValues(alpha: 0.2),
+              color: selected ? Brand.accent : onSurface.withValues(alpha: 0.2),
               width: selected ? 2 : 1,
             ),
           ),

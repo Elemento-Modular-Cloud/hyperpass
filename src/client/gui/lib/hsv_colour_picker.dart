@@ -179,7 +179,7 @@ class _HsvColourPickerState extends State<HsvColourPicker> {
                       borderRadius: BorderRadius.circular(Brand.radius),
                       border: Border.all(
                         color: _hexOf(preset) == _hexOf(color)
-                            ? Brand.yellow
+                            ? Brand.accent
                             : onSurface.withValues(alpha: 0.2),
                         width: _hexOf(preset) == _hexOf(color) ? 2 : 1,
                       ),

@@ -43,7 +43,7 @@ final updateProvider = NotifierProvider<UpdateNotifier, UpdateInfo>(
   UpdateNotifier.new,
 );
 
-const _color = Brand.yellow;
+const _color = Brand.accent;
 final installUrl = Brand.installUrl;
 
 Future<void> launchInstallUrl() => launchUrl(installUrl);
@@ -89,7 +89,7 @@ class UpdateAvailable extends StatelessWidget {
         Brand.logoAsset,
         width: 25,
         colorFilter: const ColorFilter.mode(
-          Brand.voidBlack,
+          Brand.crystalWhite,
           BlendMode.srcIn,
         ),
       ),

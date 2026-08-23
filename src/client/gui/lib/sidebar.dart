@@ -71,13 +71,13 @@ abstract final class _SidebarStyle {
   static const labelSize = 13.0;
   static const subLabelSize = 12.0;
   static const iconSize = 14.0;
-  /// Electros `.electrosNavBarLogo` is `5rem` tall.
-  static const brandAreaHeight = 80.0;
-  static const brandLogoSize = 36.0;
-  static const brandTitleSize = 22.0;
-  /// Electros `.electrosNavBarElemento` uses `1.25rem` / `1.5rem` mark.
-  static const footerLogoSize = 24.0;
-  static const footerSize = 20.0;
+  /// Electros `.electrosNavBarLogo` is `5rem` with `1rem` margin — keep compact for two-line title.
+  static const brandAreaHeight = 48.0;
+  static const brandLogoSize = 32.0;
+  static const brandTitleSize = 15.0;
+  /// Electros `.electrosNavBarElemento`: `1.5rem` mark / `1.25rem` text.
+  static const footerLogoSize = 20.0;
+  static const footerSize = 16.0;
   static const statusSize = 12.0;
 
   static Color foreground(AppearanceTheme theme) => switch (theme) {
@@ -87,21 +87,15 @@ abstract final class _SidebarStyle {
       };
 
   static Color activeBg(AppearanceTheme theme) => switch (theme) {
-        AppearanceTheme.light => Brand.yellowLight,
+        AppearanceTheme.light => Brand.accentLight,
         AppearanceTheme.dark => Brand.black,
         AppearanceTheme.highContrast => Colors.black,
       };
 
   static Color activeFg(AppearanceTheme theme) => switch (theme) {
         AppearanceTheme.light => Brand.voidBlack,
-        AppearanceTheme.dark => Brand.yellow,
-        AppearanceTheme.highContrast => Brand.yellow,
-      };
-
-  static Color logoColor(AppearanceTheme theme) => switch (theme) {
-        AppearanceTheme.light => Brand.greyDarker,
-        AppearanceTheme.dark => Brand.yellow,
-        AppearanceTheme.highContrast => Brand.yellow,
+        AppearanceTheme.dark => Brand.accent,
+        AppearanceTheme.highContrast => Brand.accent,
       };
 
   static Color headerTitleColor(AppearanceTheme theme) => switch (theme) {
@@ -199,7 +193,7 @@ class SideBar extends ConsumerWidget {
 
     final header = DragToMoveArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
         child: SizedBox(
           height: _SidebarStyle.brandAreaHeight,
           child: Row(
@@ -208,8 +202,8 @@ class SideBar extends ConsumerWidget {
                 Brand.logoAsset,
                 width: _SidebarStyle.brandLogoSize,
                 height: _SidebarStyle.brandLogoSize,
-                colorFilter: ColorFilter.mode(
-                  _SidebarStyle.logoColor(appearanceTheme),
+                colorFilter: const ColorFilter.mode(
+                  Brand.accent,
                   BlendMode.srcIn,
                 ),
               ),
@@ -217,12 +211,14 @@ class SideBar extends ConsumerWidget {
               Expanded(
                 child: Text(
                   Brand.appName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: _SidebarStyle.headerTitleColor(appearanceTheme),
                     fontFamily: Brand.fontFamily,
                     fontSize: _SidebarStyle.brandTitleSize,
                     fontWeight: FontWeight.w700,
-                    height: 1,
+                    height: 1.15,
                   ),
                 ),
               ),
@@ -279,12 +275,12 @@ class SideBar extends ConsumerWidget {
       child: InkWell(
         onTap: () => launchUrl(Brand.docsUrl),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset(
-                Brand.logoAsset,
+                Brand.elementoLogoAsset,
                 width: _SidebarStyle.footerLogoSize,
                 height: _SidebarStyle.footerLogoSize,
                 colorFilter: const ColorFilter.mode(
@@ -292,7 +288,7 @@ class SideBar extends ConsumerWidget {
                   BlendMode.srcIn,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Text(
                 Brand.companyName,
                 style: const TextStyle(
@@ -308,8 +304,8 @@ class SideBar extends ConsumerWidget {
       ),
     );
 
-    final radius = BorderRadius.horizontal(
-      right: Radius.circular(Brand.radius),
+    final radius = BorderRadius.only(
+      topRight: Radius.circular(Brand.radius),
     );
 
     final navBody = Column(
@@ -347,7 +343,6 @@ class SideBar extends ConsumerWidget {
         padding: const EdgeInsets.only(
           top: SideBar.titleBarHeight,
           right: SideBar.gutter,
-          bottom: 4,
         ),
         child: SizedBox(
           width: SideBar.width,

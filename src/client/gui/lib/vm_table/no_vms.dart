@@ -40,7 +40,7 @@ class NoVms extends ConsumerWidget {
               [
                 l10n.noVmsMessageBefore.span,
                 l10n.catalogueLabel.spanInherit
-                    .color(Brand.yellow)
+                    .color(Brand.accent)
                     .link(ref, goToCatalogue),
                 l10n.noVmsMessageAfter.span,
               ].spans.size(16),

@@ -233,9 +233,9 @@ class _CardActionBar extends StatelessWidget {
             onTap: onLaunch,
             label: launchLabel,
             borderRadius: BorderRadius.only(bottomLeft: radius.bottomLeft),
-            color: Brand.yellow,
+            color: Brand.accent,
             weight: FontWeight.w600,
-            textColor: Brand.voidBlack,
+            textColor: Brand.crystalWhite,
           ),
           Container(width: 1, color: divider),
           action(

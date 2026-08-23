@@ -1,26 +1,33 @@
 import 'package:flutter/material.dart';
 
-/// Elemento Hyperpass brand identity tokens.
-///
-/// Colors from https://elemento.cloud/brand-guidelines.html,
-/// ElectrosGUI `themes.css`, and Elemento Modular Cloud guidelines.
+/// AtomOS Workstation brand identity (Elemento-powered).
 abstract final class Brand {
-  static const appName = 'Hyperpass';
+  static const appName = 'AtomOS Workstation';
   static const companyName = 'Elemento';
-  static const logoAsset = 'assets/elemento.svg';
+  static const logoAsset = 'assets/atomos.svg';
+  static const elementoLogoAsset = 'assets/elemento.svg';
   static final docsUrl = Uri.parse('https://www.elemento.cloud');
   static final installUrl = Uri.parse('https://www.elemento.cloud');
 
-  /// Starter Yellow — primary brand / CTA / logo ink on dark.
+  /// AtomOS brand accent.
+  static const accent = Color(0xFF118ACB);
+
+  /// Light tint for active sidebar rows on light theme.
+  static const accentLight = Color(0xFFD6EBF7);
+
+  /// Darker accent for hover / pressed CTAs.
+  static const accentDark = Color(0xFF0E6FA3);
+
+  /// Elemento Starter Yellow — footer chrome only.
   static const yellow = Color(0xFFFFA600);
 
   /// Status / online indicator (Electros `--green`).
   static const green = Color(0xFF28A745);
 
-  /// Lighter yellow (sidebar active bg on light theme).
+  /// Lighter yellow (Elemento footer hover).
   static const yellowLight = Color(0xFFFAB83A);
 
-  /// Darker yellow for hover / pressed CTAs.
+  /// Darker yellow for Elemento footer hover.
   static const yellowDark = Color(0xFFF28E00);
 
   /// Void Black — primary dark field (sidebar).

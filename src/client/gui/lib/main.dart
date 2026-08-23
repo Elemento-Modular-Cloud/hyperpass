@@ -134,7 +134,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
 
     final hotkey = ref.watch(hotkeyProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleColor = isDark ? Brand.yellow : Brand.voidBlack;
+    final titleColor = isDark ? Brand.accent : Brand.voidBlack;
     final sidebarWidth = SideBar.totalWidth;
 
     return Stack(
@@ -168,7 +168,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
           child: DragToMoveArea(
             child: Center(
               child: Text(
-                '${Brand.companyName} ${Brand.appName}',
+                Brand.appName,
                 style: TextStyle(
                   color: titleColor,
                   decoration: TextDecoration.none,

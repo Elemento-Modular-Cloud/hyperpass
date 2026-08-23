@@ -46,10 +46,10 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     dividerColor: isDark ? Colors.white24 : const Color(0xffe0e0e0),
     colorScheme: ColorScheme(
       brightness: brightness,
-      primary: Brand.yellow,
-      onPrimary: Brand.voidBlack,
-      secondary: Brand.yellowDark,
-      onSecondary: Brand.voidBlack,
+      primary: Brand.accent,
+      onPrimary: Brand.crystalWhite,
+      secondary: Brand.accentDark,
+      onSecondary: Brand.crystalWhite,
       error: const Color(0xffC7162B),
       onError: Brand.crystalWhite,
       surface: surface,
@@ -85,9 +85,9 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        backgroundColor: Brand.yellow,
-        disabledForegroundColor: Brand.voidBlack.withAlpha(128),
-        foregroundColor: Brand.voidBlack,
+        backgroundColor: Brand.accent,
+        disabledForegroundColor: Brand.crystalWhite.withAlpha(128),
+        foregroundColor: Brand.crystalWhite,
         padding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Brand.radius),
@@ -112,7 +112,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     ),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: onSurface,
-      selectionColor: Brand.yellow.withAlpha(100),
+      selectionColor: Brand.accent.withAlpha(100),
     ),
     tabBarTheme: TabBarThemeData(
       indicator: BoxDecoration(
@@ -133,7 +133,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
       tabAlignment: TabAlignment.start,
     ),
     sliderTheme: SliderThemeData(
-      activeTrackColor: Brand.yellow,
+      activeTrackColor: Brand.accent,
       inactiveTrackColor:
           isDark ? Colors.white24 : const Color(0xffd9d9d9),
       overlayShape: SliderComponentShape.noThumb,
@@ -145,10 +145,10 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     ),
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return Brand.yellow;
+        if (states.contains(WidgetState.selected)) return Brand.accent;
         return Colors.transparent;
       }),
-      checkColor: WidgetStateProperty.all(Brand.voidBlack),
+      checkColor: WidgetStateProperty.all(Brand.crystalWhite),
       side: BorderSide(color: onSurface),
     ),
   );

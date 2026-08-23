@@ -341,7 +341,7 @@ class SettingField extends StatelessWidget {
         if (changed) ...[
           OutlinedButton(
             onPressed: onSave,
-            child: const Icon(Icons.check, color: Brand.yellow),
+            child: const Icon(Icons.check, color: Brand.accent),
           ),
           const SizedBox(width: 12),
           OutlinedButton(

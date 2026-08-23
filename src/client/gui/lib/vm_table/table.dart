@@ -155,7 +155,7 @@ class _TableState<T> extends State<Table<T>> {
     final entry = data[row - 1];
     final selected = widget.isSelected?.call(entry) ?? false;
     if (!selected) return null;
-    return Brand.yellow.withOpacity(0.14);
+    return Brand.accent.withOpacity(0.14);
   }
 
   List<double> _columnWidths(double viewportWidth) {
@@ -227,7 +227,7 @@ class _TableState<T> extends State<Table<T>> {
                         ? borderSide
                         : BorderSide.none,
                     left: rowColor != null && v.column == 0
-                        ? const BorderSide(color: Brand.yellow, width: 3)
+                        ? const BorderSide(color: Brand.accent, width: 3)
                         : BorderSide.none,
                   ),
                 ),

@@ -8,7 +8,7 @@ class MemoryUsage extends StatelessWidget {
 
   const MemoryUsage({super.key, required this.used, required this.total});
 
-  static const normalColor = Brand.yellow;
+  static const normalColor = Brand.accent;
   static const almostFullColor = Color(0xffEC6C04);
   static const backgroundColor = Color(0x3dFFA600);
 
