@@ -70,4 +70,4 @@ target_include_directories(sshfs_server
 
 install(TARGETS sshfs_server
   DESTINATION bin
-  COMPONENT multipassd)
+  COMPONENT hyperpassd)

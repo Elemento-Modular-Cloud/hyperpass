@@ -53,7 +53,7 @@ QStringList generate_extra_apparmor_args()
 {
     try
     {
-        QString apparmor_cache_dir = mp::utils::snap_common_dir() + "/apparmor.d/cache/multipass";
+        QString apparmor_cache_dir = mp::utils::snap_common_dir() + "/apparmor.d/cache/hyperpass";
         QDir cache_dir;
         if (cache_dir.mkpath(apparmor_cache_dir))
         {

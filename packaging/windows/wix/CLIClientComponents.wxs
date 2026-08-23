@@ -3,12 +3,12 @@
         <Property Id="ENVIRONMENT" Secure="yes" Value="user" />
 
         <ComponentGroup Id="CLIClientComponents" Directory="INSTALLFOLDER">
-            <Component Id="MultipassCLIClient" Subdirectory="bin">
-                <File Source="bin\multipass.exe" />
+            <Component Id="HyperpassCLIClient" Subdirectory="bin">
+                <File Source="bin\hyperpass.exe" />
             </Component>
 
-            <Component Id="MultipassWTIcon" Subdirectory="bin">
-                <File Source="icon_wt.ico" Name="multipass_wt.ico" />
+            <Component Id="HyperpassWTIcon" Subdirectory="bin">
+                <File Source="icon_wt.ico" Name="hyperpass_wt.ico" />
             </Component>
 
             <Component Id="AddToUserPath" Condition="ENVIRONMENT = &quot;user&quot;"

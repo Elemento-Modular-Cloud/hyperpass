@@ -59,19 +59,19 @@ target_link_libraries(delayed_shutdown
 
 if(MSVC)
   prepare_windows_version_resource(
-    MULTIPASSD_RC_SOURCE
-    multipassd
-    "Multipass Daemon"
-    "multipassd"
-    "multipassd.exe"
+    HYPERPASSD_RC_SOURCE
+    hyperpassd
+    "Hyperpass Daemon"
+    "hyperpassd"
+    "hyperpassd.exe"
   )
-  add_executable(multipassd daemon_main_win.cpp ${MULTIPASSD_RC_SOURCE})
-  qt6_disable_unicode_defines(multipassd)
+  add_executable(hyperpassd daemon_main_win.cpp ${HYPERPASSD_RC_SOURCE})
+  qt6_disable_unicode_defines(hyperpassd)
 else()
-  add_executable(multipassd daemon_main.cpp)
+  add_executable(hyperpassd daemon_main.cpp)
 endif()
 
-target_link_libraries(multipassd
+target_link_libraries(hyperpassd
   fmt::fmt-header-only
   daemon)
 
@@ -90,33 +90,33 @@ if (NOT IS_DIRECTORY ${QT_PLUGINS_DIR}/tls)
 endif()
 
 if(APPLE)
-  set_target_properties( multipassd PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
+  set_target_properties( hyperpassd PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
 
   # Copy any framework depenencies into the install directory for packaging
   install(CODE "
     include(${CMAKE_SOURCE_DIR}/packaging/FrameworkUtilities.cmake)
-    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/multipassd\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
-    " COMPONENT multipassd)
+    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyperpassd\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
+    " COMPONENT hyperpassd)
 
   file(GLOB QT_TLS_PLUGIN_FILES "${QT_PLUGINS_DIR}/tls/*.dylib")
-  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION plugins/tls COMPONENT multipassd)
+  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION plugins/tls COMPONENT hyperpassd)
 
 endif(APPLE)
 
-install(TARGETS multipassd
+install(TARGETS hyperpassd
   DESTINATION bin
-  COMPONENT multipassd)
+  COMPONENT hyperpassd)
 
 if(MSVC)
   install(CODE "
     include(BundleUtilities)
-    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/multipassd.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
-    " COMPONENT multipassd)
+    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/hyperpassd.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
+    " COMPONENT hyperpassd)
 
   file(GLOB SSL_DLLS "${OPENSSL_INCLUDE_DIR}/../*.dll")
-  install(FILES ${SSL_DLLS} DESTINATION bin COMPONENT multipassd)
+  install(FILES ${SSL_DLLS} DESTINATION bin COMPONENT hyperpassd)
 
   file(GLOB QT_TLS_PLUGIN_FILES "${QT_PLUGINS_DIR}/tls/*.dll")
-  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION bin/tls COMPONENT multipassd)
+  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION bin/tls COMPONENT hyperpassd)
 
 endif()

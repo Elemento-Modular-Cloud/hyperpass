@@ -1,36 +1,39 @@
 #!/usr/bin/env bash
-# Run a built multipassd side-by-side with the system install (see LOCAL_DEV.md).
+# Run a built hyperpassd side-by-side with the system Multipass install (see LOCAL_DEV.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
-DAEMON="${BUILD_DIR}/bin/multipassd"
-HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass_multipass.socket}"
+DAEMON="${BUILD_DIR}/bin/hyperpassd"
+HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
 HYPERPASS_STORAGE="${HYPERPASS_STORAGE:-/tmp/hyperpass-data}"
-MULTIPASS_DISTRIBUTIONS_URL="${MULTIPASS_DISTRIBUTIONS_URL:-${ROOT}/data/distributions/distribution-info.json}"
+HYPERPASS_DISTRIBUTIONS_URL="${HYPERPASS_DISTRIBUTIONS_URL:-${ROOT}/data/distributions/distribution-info.json}"
 VERBOSITY="${VERBOSITY:-debug}"
 ACTION=start
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [options] [-- <extra multipassd args>]
+Usage: $(basename "$0") [options] [-- <extra hyperpassd args>]
 
-Start (or stop) a local multipassd from the build tree without replacing the
-system daemon. Uses a separate socket, storage directory, and distributions
-catalog by default.
+Start (or stop) a local hyperpassd from the build tree without replacing the
+system Multipass daemon. Uses a separate socket, storage directory, and
+distributions catalog by default.
+
+Note: A packaged Hyperpass install already uses distinct defaults from Multipass;
+this script is mainly for exercising a build-tree daemon.
 
 Options:
   --stop            Stop a running dev daemon and remove its socket
   --build-dir DIR   Build directory (default: ${BUILD_DIR})
-  --verbosity LEVEL multipassd --verbosity (default: ${VERBOSITY})
+  --verbosity LEVEL hyperpassd --verbosity (default: ${VERBOSITY})
   -h, --help        Show this help
 
 Environment:
-  BUILD_DIR                  Build tree (default: ${ROOT}/build)
-  HYPERPASS_SOCKET           Unix socket path (default: ${HYPERPASS_SOCKET})
-  HYPERPASS_STORAGE          Instance/image storage (default: ${HYPERPASS_STORAGE})
-  MULTIPASS_DISTRIBUTIONS_URL Catalog JSON path or URL
-  VERBOSITY                  Log level (default: debug)
+  BUILD_DIR                   Build tree (default: ${ROOT}/build)
+  HYPERPASS_SOCKET            Unix socket path (default: ${HYPERPASS_SOCKET})
+  HYPERPASS_STORAGE           Instance/image storage (default: ${HYPERPASS_STORAGE})
+  HYPERPASS_DISTRIBUTIONS_URL Catalog JSON path or URL
+  VERBOSITY                   Log level (default: debug)
 
 Examples:
   $(basename "$0")
@@ -40,7 +43,7 @@ EOF
 }
 
 stop_dev_daemon() {
-  echo "==> Stopping dev multipassd (if any)"
+  echo "==> Stopping dev hyperpassd (if any)"
   if [[ -x "$DAEMON" ]]; then
     sudo pkill -f "$DAEMON" 2>/dev/null || true
   fi
@@ -54,7 +57,7 @@ EXTRA_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) ACTION=stop; shift ;;
-    --build-dir) BUILD_DIR="$2"; DAEMON="${BUILD_DIR}/bin/multipassd"; shift 2 ;;
+    --build-dir) BUILD_DIR="$2"; DAEMON="${BUILD_DIR}/bin/hyperpassd"; shift 2 ;;
     --verbosity) VERBOSITY="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; EXTRA_ARGS+=("$@"); break ;;
@@ -68,23 +71,23 @@ if [[ "$ACTION" == stop ]]; then
 fi
 
 if [[ ! -x "$DAEMON" ]]; then
-  echo "error: multipassd not found at ${DAEMON}" >&2
+  echo "error: hyperpassd not found at ${DAEMON}" >&2
   echo "       Build first: ./scripts/build-macos.sh  (or build-linux.sh)" >&2
   exit 1
 fi
 
 mkdir -p "$HYPERPASS_STORAGE"
 
-export MULTIPASS_STORAGE="$HYPERPASS_STORAGE"
-export MULTIPASS_DISTRIBUTIONS_URL="$MULTIPASS_DISTRIBUTIONS_URL"
+export HYPERPASS_STORAGE
+export HYPERPASS_DISTRIBUTIONS_URL
 
-echo "==> Dev multipassd"
+echo "==> Dev hyperpassd"
 echo "    binary:      ${DAEMON}"
 echo "    socket:      unix:${HYPERPASS_SOCKET}"
 echo "    storage:     ${HYPERPASS_STORAGE}"
-echo "    catalog:     ${MULTIPASS_DISTRIBUTIONS_URL}"
+echo "    catalog:     ${HYPERPASS_DISTRIBUTIONS_URL}"
 echo
-echo "    CLI/GUI:     export MULTIPASS_SERVER_ADDRESS=unix:${HYPERPASS_SOCKET}"
+echo "    CLI/GUI:     export HYPERPASS_SERVER_ADDRESS=unix:${HYPERPASS_SOCKET}"
 echo "                 export PATH=\"${BUILD_DIR}/bin:\$PATH\""
 echo "                 ./scripts/run-dev-gui.sh"
 echo

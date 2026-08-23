@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.canonical.multipass.gui.autostart</string>
+    <string>com.elemento.hyperpass.gui.autostart</string>
 
     <key>Program</key>
     <string>/Applications/Hyperpass.app/Contents/MacOS/Hyperpass</string>

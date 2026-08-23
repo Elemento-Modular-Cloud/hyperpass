@@ -63,7 +63,7 @@ class MacOSPlatform extends MpPlatform {
 }
 
 class MacOSAutostartNotifier extends AutostartNotifier {
-  static const plistFile = 'com.canonical.multipass.gui.autostart.plist';
+  static const plistFile = 'com.elemento.hyperpass.gui.autostart.plist';
   final file = File(
     '${Platform.environment['HOME']}/Library/LaunchAgents/$plistFile',
   );

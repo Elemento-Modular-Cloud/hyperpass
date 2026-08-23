@@ -28,26 +28,26 @@
 set(CPACK_WARN_ON_ABSOLUTE_INSTALL_DESTINATION ON) # helps avoid errors
 
 set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
-set(CPACK_COMPONENTS_ALL multipassd multipass multipass_gui)
+set(CPACK_COMPONENTS_ALL hyperpassd hyperpass hyperpass_gui)
 
-set(CPACK_COMPONENT_MULTIPASSD_DISPLAY_NAME "Multipass Daemon")
-set(CPACK_COMPONENT_MULTIPASSD_DESCRIPTION
+set(CPACK_COMPONENT_HYPERPASSD_DISPLAY_NAME "Hyperpass Daemon")
+set(CPACK_COMPONENT_HYPERPASSD_DESCRIPTION
    "Background process that creates and manages virtual machines")
-set(CPACK_COMPONENT_MULTIPASS_DISPLAY_NAME "Clients (CLI and GUI)")
-set(CPACK_COMPONENT_MULTIPASS_DESCRIPTION
-   "Command line tool to talk to the multipass daemon")
-set(CPACK_COMPONENT_MULTIPASS_GUI_DISPLAY_NAME "Multipass Desktop GUI")
-set(CPACK_COMPONENT_MULTIPASS_GUI_DESCRIPTION
-    "Desktop client for Multipass")
+set(CPACK_COMPONENT_HYPERPASS_DISPLAY_NAME "Clients (CLI and GUI)")
+set(CPACK_COMPONENT_HYPERPASS_DESCRIPTION
+   "Command line tool to talk to the hyperpass daemon")
+set(CPACK_COMPONENT_HYPERPASS_GUI_DISPLAY_NAME "Hyperpass Desktop GUI")
+set(CPACK_COMPONENT_HYPERPASS_GUI_DESCRIPTION
+    "Desktop client for Hyperpass")
 
-set(CPACK_COMPONENT_MULTIPASSD_REQUIRED TRUE)
-set(CPACK_COMPONENT_MULTIPASS_REQUIRED TRUE)
-set(CPACK_COMPONENT_MULTIPASS_GUI_REQUIRED TRUE)
+set(CPACK_COMPONENT_HYPERPASSD_REQUIRED TRUE)
+set(CPACK_COMPONENT_HYPERPASS_REQUIRED TRUE)
+set(CPACK_COMPONENT_HYPERPASS_GUI_REQUIRED TRUE)
 
 # set default CPack Packaging options
-set(CPACK_PACKAGE_NAME              "multipass")
-set(CPACK_PACKAGE_VENDOR            "canonical")
-set(CPACK_PACKAGE_CONTACT           "contact@canonical.com")
+set(CPACK_PACKAGE_NAME              "hyperpass")
+set(CPACK_PACKAGE_VENDOR            "elemento")
+set(CPACK_PACKAGE_CONTACT           "contact@elemento.cloud")
 set(CPACK_PACKAGE_VERSION           "${MULTIPASS_VERSION}")
 
 if (APPLE)
@@ -65,7 +65,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Easily create, control and connect to clo
 
 if (MSVC)
   # qemu-img.exe (used to convert qcow images to VHDX) is built by the vcpkg
-  # qemu overlay port and installed into the multipassd component by
+  # qemu overlay port and installed into the hyperpassd component by
   # src/cmake/qemu-img-install-and-copy.cmake, so no separate lookup, shim
   # resolution or dependency fixup is needed here. The vcpkg binary is built
   # fully statically (it links only system DLLs), so fixup_bundle is unnecessary.
@@ -73,7 +73,7 @@ if (MSVC)
   # InstallRequiredSystemLibraries finds the VC redistributable dlls shipped with the Visual Studio compiler tools
   # and creats an install(PROGRAMS ...) rule using the destination and component IDs setup below.
   set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION bin)
-  set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT multipassd)
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT hyperpassd)
   if(CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
     set(CMAKE_INSTALL_DEBUG_LIBRARIES TRUE)
     set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
@@ -97,31 +97,31 @@ if(APPLE)
   set(CPACK_GENERATOR "productbuild")
   set(CPACK_productbuild_COMPONENT_INSTALL ON)
 
-  set(CPACK_PACKAGING_INSTALL_PREFIX   "/Library/Application Support/com.canonical.multipass")
+  set(CPACK_PACKAGING_INSTALL_PREFIX   "/Library/Application Support/com.elemento.hyperpass")
   list(APPEND CPACK_INSTALL_COMMANDS "bash -x ${CMAKE_SOURCE_DIR}/packaging/macos/fixup-qemu-and-deps.sh ${CMAKE_BINARY_DIR}")
 
-  set(MULTIPASSD_PLIST "com.canonical.multipassd.plist")
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${MULTIPASSD_PLIST}.in"
-                 "${CMAKE_BINARY_DIR}/${MULTIPASSD_PLIST}" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/preinstall-multipassd.sh.in"
-                 "${CMAKE_BINARY_DIR}/preinstall-multipassd.sh" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-multipassd.sh.in"
-                 "${CMAKE_BINARY_DIR}/postinstall-multipassd.sh" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-multipass.sh.in"
-                 "${CMAKE_BINARY_DIR}/postinstall-multipass.sh" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-multipass-gui.sh.in"
-                 "${CMAKE_BINARY_DIR}/postinstall-multipass-gui.sh" @ONLY)
+  set(HYPERPASSD_PLIST "com.elemento.hyperpassd.plist")
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${HYPERPASSD_PLIST}.in"
+                 "${CMAKE_BINARY_DIR}/${HYPERPASSD_PLIST}" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/preinstall-hyperpassd.sh.in"
+                 "${CMAKE_BINARY_DIR}/preinstall-hyperpassd.sh" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpassd.sh.in"
+                 "${CMAKE_BINARY_DIR}/postinstall-hyperpassd.sh" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpass.sh.in"
+                 "${CMAKE_BINARY_DIR}/postinstall-hyperpass.sh" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpass-gui.sh.in"
+                 "${CMAKE_BINARY_DIR}/postinstall-hyperpass-gui.sh" @ONLY)
 
-  install(FILES "${CMAKE_BINARY_DIR}/${MULTIPASSD_PLIST}" DESTINATION Resources COMPONENT multipassd)
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/completions" DESTINATION Resources COMPONENT multipass)
-  install(DIRECTORY "${CMAKE_BINARY_DIR}/lib/" DESTINATION lib COMPONENT multipassd)
+  install(FILES "${CMAKE_BINARY_DIR}/${HYPERPASSD_PLIST}" DESTINATION Resources COMPONENT hyperpassd)
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/completions" DESTINATION Resources COMPONENT hyperpass)
+  install(DIRECTORY "${CMAKE_BINARY_DIR}/lib/" DESTINATION lib COMPONENT hyperpassd)
 
-  set(CPACK_COMPONENT_MULTIPASS_GUI_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/multipass-gui-component.plist")
+  set(CPACK_COMPONENT_HYPERPASS_GUI_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/hyperpass-gui-component.plist")
 
-  set(CPACK_PREFLIGHT_MULTIPASSD_SCRIPT  "${CMAKE_BINARY_DIR}/preinstall-multipassd.sh")
-  set(CPACK_POSTFLIGHT_MULTIPASSD_SCRIPT "${CMAKE_BINARY_DIR}/postinstall-multipassd.sh")
-  set(CPACK_POSTFLIGHT_MULTIPASS_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-multipass.sh")
-  set(CPACK_POSTFLIGHT_MULTIPASS_GUI_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-multipass-gui.sh")
+  set(CPACK_PREFLIGHT_HYPERPASSD_SCRIPT  "${CMAKE_BINARY_DIR}/preinstall-hyperpassd.sh")
+  set(CPACK_POSTFLIGHT_HYPERPASSD_SCRIPT "${CMAKE_BINARY_DIR}/postinstall-hyperpassd.sh")
+  set(CPACK_POSTFLIGHT_HYPERPASS_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass.sh")
+  set(CPACK_POSTFLIGHT_HYPERPASS_GUI_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass-gui.sh")
 
   # Cleans up the installed package
   set(CPACK_PRE_BUILD_SCRIPTS "${CMAKE_SOURCE_DIR}/packaging/cleanup.cmake")
@@ -135,7 +135,7 @@ if(APPLE)
   set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/packaging/macos")
 
   install(FILES "${CMAKE_SOURCE_DIR}/packaging/macos/uninstall.sh"
-          DESTINATION . COMPONENT multipassd)
+          DESTINATION . COMPONENT hyperpassd)
 endif()
 
 # must be last

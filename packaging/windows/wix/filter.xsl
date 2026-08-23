@@ -7,12 +7,12 @@
 
     <xsl:strip-space elements="*" />
 
-    <xsl:key name="FilterMultipassd"
-        match="wix:Component[wix:File[contains(@Source, 'multipassd.exe')]]" use="@Id" />
-    <xsl:key name="FilterMultipass"
-        match="wix:Component[wix:File[contains(@Source, 'multipass.exe')]]" use="@Id" />
-    <xsl:key name="FilterMultipassGUI"
-        match="wix:Component[wix:File[contains(@Source, 'multipass.gui.exe')]]" use="@Id" />
+    <xsl:key name="FilterHyperpassd"
+        match="wix:Component[wix:File[contains(@Source, 'hyperpassd.exe')]]" use="@Id" />
+    <xsl:key name="FilterHyperpass"
+        match="wix:Component[wix:File[contains(@Source, 'hyperpass.exe')]]" use="@Id" />
+    <xsl:key name="FilterHyperpassGUI"
+        match="wix:Component[wix:File[contains(@Source, 'hyperpass.gui.exe')]]" use="@Id" />
 
     <!-- Copy all elements and their attributes. -->
     <xsl:template match="@*|node()">
@@ -23,9 +23,9 @@
 
     <!-- Except for those that match our filters, do nothing. -->
     <xsl:template
-        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterMultipassd', @Id ) ]" />
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpassd', @Id ) ]" />
     <xsl:template
-        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterMultipass', @Id ) ]" />
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpass', @Id ) ]" />
     <xsl:template
-        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterMultipassGUI', @Id ) ]" />
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpassGUI', @Id ) ]" />
 </xsl:stylesheet>

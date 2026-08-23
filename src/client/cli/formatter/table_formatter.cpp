@@ -23,6 +23,7 @@
 #include <multipass/memory_size.h>
 #include <multipass/utils.h>
 #include <multipass/utils/sorted_map_view.h>
+#include <multipass/constants.h>
 
 #include <regex>
 
@@ -499,11 +500,11 @@ std::string mp::TableFormatter::format(const VersionReply& reply,
                                        const std::string& client_version) const
 {
     fmt::memory_buffer buf;
-    fmt::format_to(std::back_inserter(buf), "{:<12}{}\n", "multipass", client_version);
+    fmt::format_to(std::back_inserter(buf), "{:<12}{}\n", mp::client_name, client_version);
 
     if (!reply.version().empty())
     {
-        fmt::format_to(std::back_inserter(buf), "{:<12}{}\n", "multipassd", reply.version());
+        fmt::format_to(std::back_inserter(buf), "{:<12}{}\n", mp::daemon_name, reply.version());
 
         if (mp::cmd::update_available(reply.update_info()))
         {

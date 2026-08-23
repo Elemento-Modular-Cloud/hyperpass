@@ -20,6 +20,7 @@
 #include <multipass/cli/json_formatter.h>
 #include <multipass/json_utils.h>
 #include <multipass/utils.h>
+#include <multipass/constants.h>
 
 #include <boost/json.hpp>
 
@@ -287,10 +288,10 @@ std::string mp::JsonFormatter::format(const FindReply& reply) const
 std::string mp::JsonFormatter::format(const VersionReply& reply,
                                       const std::string& client_version) const
 {
-    boost::json::object version_json = {{"multipass", client_version}};
+    boost::json::object version_json = {{mp::client_name, client_version}};
     if (!reply.version().empty())
     {
-        version_json.emplace("multipassd", reply.version());
+        version_json.emplace(mp::daemon_name, reply.version());
 
         if (mp::cmd::update_available(reply.update_info()))
         {

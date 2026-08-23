@@ -16,8 +16,8 @@ function Get-NumericVersionString {
 # Keep the expected descriptions alongside the binaries we validate so the
 # script can be reused both locally and in CI.
 $targets = @(
-    @{ File = "multipass.exe";    Description = "Multipass CLI" },
-    @{ File = "multipassd.exe";   Description = "Multipass Daemon" },
+    @{ File = "hyperpass.exe";    Description = "Hyperpass CLI" },
+    @{ File = "hyperpassd.exe";   Description = "Hyperpass Daemon" },
     @{ File = "sshfs_server.exe"; Description = "Multipass SSHFS Server" }
 )
 

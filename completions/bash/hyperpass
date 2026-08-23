@@ -14,9 +14,9 @@
 
 set -o pipefail
 
-_multipass_complete()
+_hyperpass_complete()
 {
-    _multipass_instances()
+    _hyperpass_instances()
     {
         local state=$1 instances
 
@@ -27,7 +27,7 @@ _multipass_complete()
         _add_nonrepeating_args "$instances"
     }
 
-    _multipass_snapshots()
+    _hyperpass_snapshots()
     {
         local instance=$1 snapshots
 
@@ -38,13 +38,13 @@ _multipass_complete()
         _add_nonrepeating_args "$snapshots"
     }
 
-    _multipass_instances_and_snapshots()
+    _hyperpass_instances_and_snapshots()
     {
-        _multipass_snapshots
-        _multipass_instances
+        _hyperpass_snapshots
+        _hyperpass_instances
     }
 
-    _multipass_restorable_snapshots()
+    _hyperpass_restorable_snapshots()
     {
         local instances
         instances=$( multipass info --no-runtime-information --format=csv \
@@ -54,22 +54,22 @@ _multipass_complete()
                      | \tr '\r\n' ' ')
 
         for instance in ${instances}; do
-            _multipass_snapshots "${instance}"
+            _hyperpass_snapshots "${instance}"
         done
     }
 
     # Set $opts to the list of available networks.
-    _multipass_networks()
+    _hyperpass_networks()
     {
         opts=$( multipass networks --format=csv 2>/dev/null | \tail -n +2 | \cut -d',' -f 1 )
     }
 
-    _multipass_instances_with_colon()
+    _hyperpass_instances_with_colon()
     {
         local opts_bak="${opts}"
         opts=""
 
-        _multipass_instances
+        _hyperpass_instances
         local instances="${opts}"
         opts="$opts_bak"
 
@@ -78,7 +78,7 @@ _multipass_complete()
         done
     }
 
-    _multipass_settings_keys()
+    _hyperpass_settings_keys()
     {
         local keys
 
@@ -110,12 +110,12 @@ _multipass_complete()
         done
 
         if [[ ${definition_found} == 0 ]] && [[ "${cur}" != ':' ]]; then
-            _multipass_instances_with_colon
+            _hyperpass_instances_with_colon
         fi
     }
 
     # Set $multipass_aliases to the list of available aliases.
-    _multipass_aliases()
+    _hyperpass_aliases()
     {
         multipass_aliases=$( multipass aliases --format=csv 2>/dev/null | \tail -n +2 | \cut -d',' -f 1 )
     }
@@ -137,7 +137,7 @@ _multipass_complete()
     {
         case "$1" in
             "id")
-                _multipass_networks
+                _hyperpass_networks
             ;;
             "mac")
                 opts=""
@@ -271,7 +271,7 @@ _multipass_complete()
             _add_nonrepeating_args "--show-unsupported --force-update --format"
         ;;
         "unalias")
-            _multipass_aliases
+            _hyperpass_aliases
             _add_nonrepeating_args "$multipass_aliases"
         ;;
         "transfer"|"copy-files")
@@ -306,7 +306,7 @@ _multipass_complete()
                 return
             ;;
             "--network")
-                _multipass_networks
+                _hyperpass_networks
                 if [ "${OLD_BASH}" = true ]; then
                     if [[ "${opts}" != "" ]]; then
                         opts="${opts} bridged"
@@ -349,54 +349,54 @@ _multipass_complete()
     if [[ "$prev_opts" = false ]]; then
         case "${cmd}" in
             "exec"|"suspend"|"restart")
-                _multipass_instances "Running"
+                _hyperpass_instances "Running"
             ;;
             "stop")
                 _get_comp_words_by_ref -n := -w WORDS -i CWORD cur prev
                 for ((i=2; i<CWORD; i++)); do
                     if [[ "${WORDS[i]}" == "--force" ]]; then
-                        _multipass_instances "Starting"
-                        _multipass_instances "Restarting"
-                        _multipass_instances "Suspending"
-                        _multipass_instances "Suspended"
+                        _hyperpass_instances "Starting"
+                        _hyperpass_instances "Restarting"
+                        _hyperpass_instances "Suspending"
+                        _hyperpass_instances "Suspended"
                         break
                     fi
                 done
 
-                _multipass_instances "Running"
+                _hyperpass_instances "Running"
             ;;
             "connect"|"sh"|"shell")
-                _multipass_instances "Running"
-                _multipass_instances "Stopped"
-                _multipass_instances "Suspended"
+                _hyperpass_instances "Running"
+                _hyperpass_instances "Stopped"
+                _hyperpass_instances "Suspended"
             ;;
             "start")
-                _multipass_instances "Stopped"
-                _multipass_instances "Suspended"
+                _hyperpass_instances "Stopped"
+                _hyperpass_instances "Suspended"
             ;;
             "umount"|"unmount")
-                _multipass_instances
+                _hyperpass_instances
             ;;
             "delete"|"info")
-                _multipass_instances_and_snapshots
+                _hyperpass_instances_and_snapshots
             ;;
             "recover")
-                _multipass_instances "Deleted"
+                _hyperpass_instances "Deleted"
             ;;
             "snapshot")
-                _multipass_instances "Stopped"
+                _hyperpass_instances "Stopped"
             ;;
             "clone")
-                _multipass_instances "Stopped"
+                _hyperpass_instances "Stopped"
             ;;
             "restore")
-                _multipass_restorable_snapshots
+                _hyperpass_restorable_snapshots
             ;;
             "get")
-                _multipass_settings_keys
+                _hyperpass_settings_keys
             ;;
             "set")
-                _multipass_settings_keys
+                _hyperpass_settings_keys
 
                 COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 if [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" != "--help" && "${COMPREPLY[0]}" != "--verbose" ]]; then
@@ -424,13 +424,13 @@ _multipass_complete()
                         return
                     fi
                 elif [ ${source_set} == 1 ] && [[ ${prev} != -* ]]; then
-                    _multipass_instances "Running"
-                    _multipass_instances "Stopped"
-                    _multipass_instances "Suspended"
+                    _hyperpass_instances "Running"
+                    _hyperpass_instances "Stopped"
+                    _hyperpass_instances "Suspended"
                 fi
             ;;
             "transfer"|"copy-files")
-                _multipass_instances "Running"
+                _hyperpass_instances "Running"
 
                 COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 if [[ "${#COMPREPLY[@]}" == "0" ]]; then
@@ -450,7 +450,7 @@ _multipass_complete()
     fi
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        _multipass_aliases
+        _hyperpass_aliases
         opts="${opts} ${multipass_cmds} ${multipass_aliases}"
     fi
 
@@ -469,4 +469,4 @@ else
     OLD_BASH=true
 fi
 
-complete -F _multipass_complete multipass
+complete -F _hyperpass_complete multipass

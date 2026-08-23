@@ -1,5 +1,5 @@
-multipass: Client version
-multipassd: Daemon version
+hyperpass: Client version
+hyperpassd: Daemon version
 update:
   title: update title information
   description: update description information

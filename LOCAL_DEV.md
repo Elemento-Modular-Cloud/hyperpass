@@ -1,6 +1,8 @@
 # Local development alongside an installed Multipass
 
-Use this when you already have the official Multipass package running (LaunchDaemon / snap / Windows service) and want to exercise **this tree** without replacing it.
+Use this when you already have the official Multipass package running (LaunchDaemon / snap / Windows service) and want to exercise **Hyperpass from this tree** without replacing it.
+
+Hyperpass defaults already diverge from Multipass (binaries, sockets, cert dirs, data paths, services). Dev scripts below still use a temporary socket/storage so you can run a build-tree daemon without installing Hyperpass.
 
 ## Build
 
@@ -27,7 +29,7 @@ See [`scripts/README.md`](./scripts/README.md) and `BUILD.*.md` for options and 
 
 ## Side-by-side daemon (recommended)
 
-Keep the system Multipass on its default socket. Run a second `multipassd` from your build with a **different socket**, **storage**, and (for catalog work) **distributions URL**.
+Keep system Multipass on its default socket. Run Hyperpass `hyperpassd` from your build with a **temporary socket**, **storage**, and (for catalog work) **distributions URL**.
 
 ### Terminal 1 — dev daemon
 
@@ -35,22 +37,22 @@ Keep the system Multipass on its default socket. Run a second `multipassd` from 
 ./scripts/run-dev-daemon.sh
 ```
 
-Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or the platform default.
+Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or its platform default. Dev Hyperpass uses `/tmp/hyperpass.socket` by default.
 
-The script sets `MULTIPASS_STORAGE`, `MULTIPASS_DISTRIBUTIONS_URL`, and `--address` for you. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
+The script sets `HYPERPASS_STORAGE`, `HYPERPASS_DISTRIBUTIONS_URL`, and `--address` for you. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
 
 ### Terminal 2 — CLI or GUI
 
 **CLI:**
 
 ```bash
-export MULTIPASS_SERVER_ADDRESS=unix:/tmp/hyperpass_multipass.socket
+export HYPERPASS_SERVER_ADDRESS=unix:/tmp/hyperpass.socket
 export PATH="$PWD/build/bin:$PATH"
 
-multipass version
-multipass find          # expect debian, fedora, almalinux, rocky (and Ubuntu remotes)
-multipass launch almalinux -n alma-test
-multipass shell alma-test
+hyperpass version
+hyperpass find          # expect debian, fedora, almalinux, rocky (and Ubuntu remotes)
+hyperpass launch almalinux -n alma-test
+hyperpass shell alma-test
 ```
 
 **GUI:**
@@ -59,9 +61,9 @@ multipass shell alma-test
 ./scripts/run-dev-gui.sh
 ```
 
-Use **`build/bin/multipass`**, not the system binary, unless `MULTIPASS_SERVER_ADDRESS` is set so both sides agree on the socket.
+Use **`build/bin/hyperpass`**, not the system Multipass binary.
 
-First connection to a new daemon may require `multipass authenticate`.
+First connection to a new daemon may require `hyperpass authenticate`.
 
 ### Stop
 
@@ -69,7 +71,7 @@ First connection to a new daemon may require `multipass authenticate`.
 ./scripts/run-dev-daemon.sh --stop
 ```
 
-Or Ctrl-C in the daemon terminal (shutdown can take a moment during startup or while VMs are running). Do **not** unload `com.canonical.multipassd` unless you intend to replace the installed service.
+Or Ctrl-C in the daemon terminal (shutdown can take a moment during startup or while VMs are running). Do **not** unload `com.canonical.multipassd` unless you intend to replace the installed Multipass service.
 
 ### Manual invocation (equivalent)
 
@@ -77,42 +79,41 @@ Or Ctrl-C in the daemon terminal (shutdown can take a moment during startup or w
 REPO="$PWD"   # repo root
 mkdir -p /tmp/hyperpass-data
 
-export MULTIPASS_STORAGE=/tmp/hyperpass-data
-export MULTIPASS_DISTRIBUTIONS_URL="$REPO/data/distributions/distribution-info.json"
+export HYPERPASS_STORAGE=/tmp/hyperpass-data
+export HYPERPASS_DISTRIBUTIONS_URL="$REPO/data/distributions/distribution-info.json"
 
-sudo -E "$REPO/build/bin/multipassd" \
+sudo -E "$REPO/build/bin/hyperpassd" \
   --logger stderr \
   --verbosity debug \
-  --address unix:/tmp/hyperpass_multipass.socket
+  --address unix:/tmp/hyperpass.socket
 ```
 
 `sudo -E` preserves the environment variables. Without `-E`, set them on the sudo command line.
 
-### Recover stock CLI after local testing (macOS)
+### Recover stock Multipass CLI (macOS, legacy)
 
-On macOS, even a side-by-side daemon still writes the **shared** gRPC root CA to `/usr/local/etc/multipassd/multipass_root_cert.pem`. That can leave the installed CLI unable to talk to the stock daemon (`certificate verify failed`, daemon version line missing).
+Older Hyperpass builds that still wrote Multipass’s root CA path could break the installed Multipass CLI. Current Hyperpass uses `/usr/local/etc/hyperpassd/` instead, so this should not happen.
 
-Restore the system install with:
+If you still need to restore stock Multipass TLS:
 
 ```bash
 ./scripts/recover-macos-system-multipass.sh
 ```
 
-## Why separate storage and socket?
+## Why separate storage and socket for build-tree testing?
 
 | Variable / flag | Purpose |
 |-----------------|--------|
-| `--address unix:…` / `MULTIPASS_SERVER_ADDRESS` | Avoid colliding with the installed daemon’s socket |
-| `MULTIPASS_STORAGE` | Keep images/instances out of the official install’s data |
-| `MULTIPASS_DISTRIBUTIONS_URL` | Point third-party catalog at this repo’s `distribution-info.json` (local path, `file://`, or `https://`) |
+| `--address unix:…` / `HYPERPASS_SERVER_ADDRESS` | Point CLI/GUI at the build-tree daemon |
+| `HYPERPASS_STORAGE` | Keep images/instances out of an installed Hyperpass data dir |
+| `HYPERPASS_DISTRIBUTIONS_URL` | Point third-party catalog at this repo’s `distribution-info.json` |
 
-Without these, a source-built daemon would fight the stock one for the default socket and/or share its data directory.
+A packaged Hyperpass install already uses distinct defaults from Multipass and can coexist without these overrides.
 
 ## Do not (unless intentional)
 
-- Point the installed LaunchDaemon/snap service at your local JSON just to “try the fork” — that changes the system install.
-- Run two daemons on the same `--address` or the same `MULTIPASS_STORAGE`.
-- On macOS, assume a separate `--address` / `MULTIPASS_STORAGE` fully isolates TLS: the root CA path is still global (see recovery script above).
+- Point the installed Multipass LaunchDaemon/snap service at your local JSON just to “try the fork” — that changes the system Multipass install.
+- Run two Hyperpass daemons on the same `--address` or the same `HYPERPASS_STORAGE`.
 
 ## Related docs
 

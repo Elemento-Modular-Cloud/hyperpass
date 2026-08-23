@@ -48,7 +48,7 @@ namespace mpl = multipass::logging;
 
 namespace
 {
-constexpr auto service_name = "Multipass";
+constexpr auto service_name = "Hyperpass";
 std::vector<char*> service_argv;
 
 BOOL windows_console_ctrl_handler(DWORD dwCtrlType)
@@ -111,7 +111,7 @@ void create_client_cert_if_necessary()
 
     const QString multipassd_data_dir_path{
         storage_path.isEmpty()
-            ? QString("%1\\config\\systemprofile\\AppData\\Roaming\\multipassd\\").arg(infoBuf)
+            ? QString("%1\\config\\systemprofile\\AppData\\Roaming\\hyperpassd\\").arg(infoBuf)
             : QString("%1\\data").arg(storage_path)};
 
     mp::ClientCertStore cert_store{multipassd_data_dir_path};

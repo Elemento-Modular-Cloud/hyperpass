@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:multipass_gui/grpc_client.dart';
-import 'package:multipass_gui/l10n/app_localizations.dart';
-import 'package:multipass_gui/providers.dart';
-import 'package:multipass_gui/vm_action.dart';
-import 'package:multipass_gui/vm_details/vm_action_buttons.dart';
+import 'package:hyperpass_gui/grpc_client.dart';
+import 'package:hyperpass_gui/l10n/app_localizations.dart';
+import 'package:hyperpass_gui/providers.dart';
+import 'package:hyperpass_gui/vm_action.dart';
+import 'package:hyperpass_gui/vm_details/vm_action_buttons.dart';
 
 void main() {
   const vmName = 'test-vm';

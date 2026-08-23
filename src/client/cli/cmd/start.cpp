@@ -94,7 +94,7 @@ mp::ReturnCodeVariant cmd::Start::run(mp::ArgParser* parser)
                        std::cbegin(start_error.instance_errors())->first ==
                            petenv_name.toStdString());
 
-                QStringList launch_args{"multipass", "launch", "--name", petenv_name};
+                QStringList launch_args{mp::client_name, "launch", "--name", petenv_name};
                 if (parser->isSet("timeout"))
                     launch_args.append({"--timeout", parser->value("timeout")});
 

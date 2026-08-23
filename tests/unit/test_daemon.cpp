@@ -904,10 +904,10 @@ TEST_P(DaemonCreateLaunchPollinateDataTestSuite, addsPollinateUserAgentToCloudIn
     std::vector<std::pair<std::string, std::string>> const& expected_pollinate_map{
         {"path", "/etc/pollinate/add-user-agent"},
         {"content",
-         fmt::format("multipass/version/{} # written by Multipass\n"
-                     "multipass/driver/mock-1234 # written by Multipass\n"
-                     "multipass/host/{}-{} # written by Multipass\n"
-                     "multipass/alias/{} # written by Multipass\n",
+         fmt::format("hyperpass/version/{} # written by Hyperpass\n"
+                     "hyperpass/driver/mock-1234 # written by Hyperpass\n"
+                     "hyperpass/host/{}-{} # written by Hyperpass\n"
+                     "hyperpass/alias/{} # written by Hyperpass\n",
                      multipass::version_string,
                      QSysInfo::productType(),
                      QSysInfo::productVersion(),

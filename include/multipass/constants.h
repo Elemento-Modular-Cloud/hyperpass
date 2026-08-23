@@ -24,8 +24,8 @@ using namespace std::chrono_literals;
 
 namespace multipass
 {
-constexpr auto client_name = "multipass";
-constexpr auto daemon_name = "multipassd";
+constexpr auto client_name = "hyperpass";
+constexpr auto daemon_name = "hyperpassd";
 
 constexpr auto release_remote = "release";
 constexpr auto daily_remote = "daily";
@@ -45,12 +45,13 @@ constexpr auto image_resize_timeout =
 
 constexpr auto home_automount_dir = "Home";
 
-constexpr auto multipass_storage_env_var = "MULTIPASS_STORAGE";
-constexpr auto driver_env_var = "MULTIPASS_VM_DRIVER";
-constexpr auto distributions_url_env_var = "MULTIPASS_DISTRIBUTIONS_URL";
+constexpr auto multipass_storage_env_var = "HYPERPASS_STORAGE";
+constexpr auto driver_env_var = "HYPERPASS_VM_DRIVER";
+constexpr auto distributions_url_env_var = "HYPERPASS_DISTRIBUTIONS_URL";
+constexpr auto server_address_env_var = "HYPERPASS_SERVER_ADDRESS";
 
 constexpr auto winterm_profile_guid =
-    "{aaaa9e6d-1e09-4be6-b76c-82b4ba1885fb}"; // identifies the primary Multipass profile in Windows
+    "{bbbb9e6d-1e09-4be6-b76c-82b4ba1885fb}"; // identifies the primary Hyperpass profile in Windows
                                               // Terminal
 
 constexpr auto bridged_network_name = "bridged";

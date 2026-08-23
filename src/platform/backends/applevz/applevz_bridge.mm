@@ -229,7 +229,7 @@ CFError init_with_configuration(const multipass::VirtualMachineDescription& desc
 
         // Create dispatch queue
         dispatch_queue_t queue = dispatch_queue_create(
-            fmt::format("com.canonical.multipass.vm.queue.{}", out_handle->id).c_str(),
+            fmt::format("com.elemento.hyperpass.vm.queue.{}", out_handle->id).c_str(),
             DISPATCH_QUEUE_SERIAL);
 
         // Create VM handle

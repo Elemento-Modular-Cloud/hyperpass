@@ -74,7 +74,7 @@ TEST_F(TestSSHFSServerProcessSpec, environmentCorrect)
 TEST_F(TestSSHFSServerProcessSpec, snapConfinedApparmorProfileReturnsExpectedData)
 {
     mpt::TempDir bin_dir;
-    const QByteArray snap_name{"multipass"};
+    const QByteArray snap_name{"hyperpass"};
 
     mpt::SetEnvScope env_scope("SNAP", bin_dir.path().toUtf8());
     mpt::SetEnvScope env_scope2("SNAP_NAME", snap_name);
@@ -84,12 +84,12 @@ TEST_F(TestSSHFSServerProcessSpec, snapConfinedApparmorProfileReturnsExpectedDat
 
     EXPECT_TRUE(apparmor_profile.contains(bin_dir.path() + "/bin/sshfs_server"));
     EXPECT_TRUE(apparmor_profile.contains(bin_dir.path() + "/{usr/,}lib/**"));
-    EXPECT_TRUE(apparmor_profile.contains("signal (receive) peer=snap.multipass.multipassd"));
+    EXPECT_TRUE(apparmor_profile.contains("signal (receive) peer=snap.hyperpass.hyperpassd"));
 }
 
 TEST_F(TestSSHFSServerProcessSpec, unconfinedApparmorProfileReturnsExpectedData)
 {
-    const QByteArray snap_name{"multipass"};
+    const QByteArray snap_name{"hyperpass"};
 
     mpt::UnsetEnvScope env_scope("SNAP");
     mpt::SetEnvScope env_scope2("SNAP_NAME", snap_name);

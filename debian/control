@@ -1,4 +1,4 @@
-Source: multipass
+Source: hyperpass
 Build-Depends: autoconf-archive,
                bison,
                build-essential,

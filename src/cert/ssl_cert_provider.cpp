@@ -309,8 +309,8 @@ public:
         constexpr int add_rdn{0};
 
         const auto country = as_vector("US");
-        const auto org = as_vector("Canonical");
-        const auto cn = as_vector(cert_type == CertType::Root     ? "Multipass Root CA"
+        const auto org = as_vector("Elemento");
+        const auto cn = as_vector(cert_type == CertType::Root     ? "Hyperpass Root CA"
                                   : cert_type == CertType::Client ? mp::utils::make_uuid()
                                                                   : server_name);
         const auto subject_name = X509_get_subject_name(cert.get());
@@ -436,7 +436,7 @@ mp::SSLCertProvider::KeyCertificatePair make_cert_key_pair(const QDir& cert_dir,
                                                            const std::string& server_name)
 {
     const QString prefix =
-        server_name.empty() ? "multipass_cert" : QString::fromStdString(server_name);
+        server_name.empty() ? "hyperpass_cert" : QString::fromStdString(server_name);
 
     const auto priv_key_path = cert_dir.filePath(prefix + "_key.pem");
     const auto cert_path = cert_dir.filePath(prefix + ".pem");

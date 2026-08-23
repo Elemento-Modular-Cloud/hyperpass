@@ -173,7 +173,7 @@ void start_interface(VmnetRelay& relay, xpc_object_t opts, std::string_view desc
 void start_vmnet_interface(VmnetRelay& relay, const std::string& physical_iface)
 {
     relay.queue = dispatch_queue_create(
-        fmt::format("com.canonical.multipassd.vmnet.{}", physical_iface).c_str(),
+        fmt::format("com.elemento.hyperpassd.vmnet.{}", physical_iface).c_str(),
         DISPATCH_QUEUE_SERIAL);
 
     xpc_object_t opts = xpc_dictionary_create(nullptr, nullptr, 0);
@@ -187,7 +187,7 @@ void start_vmnet_interface(VmnetRelay& relay, const std::string& physical_iface)
 void start_vmnet_interface(VmnetRelay& relay, const multipass::Subnet& subnet)
 {
     relay.queue = dispatch_queue_create(
-        fmt::format("com.canonical.multipassd.vmnet.zone.{}", subnet.to_cidr()).c_str(),
+        fmt::format("com.elemento.hyperpassd.vmnet.zone.{}", subnet.to_cidr()).c_str(),
         DISPATCH_QUEUE_SERIAL);
 
     xpc_object_t opts = xpc_dictionary_create(nullptr, nullptr, 0);
@@ -323,7 +323,7 @@ void start_forwarding_from_vm(VmnetRelay& relay)
     const bool bulk = MP_APPLEVZ_UTILS.macos_at_least(14, 0);
 
     relay.vm_queue =
-        dispatch_queue_create("com.canonical.multipassd.vmnet.vm", DISPATCH_QUEUE_SERIAL);
+        dispatch_queue_create("com.elemento.hyperpassd.vmnet.vm", DISPATCH_QUEUE_SERIAL);
     dispatch_async(relay.vm_queue, ^{
       while (forward_from_vm(relay, bulk))
           ;

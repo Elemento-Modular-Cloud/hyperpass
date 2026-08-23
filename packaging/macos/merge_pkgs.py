@@ -45,10 +45,10 @@ with tempfile.TemporaryDirectory() as workdir:
         # need to use system tar for deprecated cpio support
         subprocess.check_call(["/usr/bin/tar", "-xzf", payload, "-C", unpacked])
 
-    multipass_gui_component = "multipass_gui"
+    hyperpass_gui_component = "hyperpass_gui"
 
     for path in x86_work.glob("*.pkg/Payload.unpacked/**/*"):
-        if path.is_dir() or multipass_gui_component in str(path.absolute()):
+        if path.is_dir() or hyperpass_gui_component in str(path.absolute()):
             continue
 
         target_path = target(x86_work, path)
@@ -109,17 +109,17 @@ with tempfile.TemporaryDirectory() as workdir:
     # Recreate the package
     pkgs = dest_work / "Packages"
     pkgs.mkdir()
-    for component in ("multipass", "multipassd"):
-        pkg = dest_work / f"multipass-{version}-Darwin-{component}.pkg"
+    for component in ("hyperpass", "hyperpassd"):
+        pkg = dest_work / f"hyperpass-{version}-Darwin-{component}.pkg"
         subprocess.check_call(["pkgbuild", "--root", pkg / "Payload.unpacked",
-                               "--identifier", f"com.canonical.multipass.{component}",
+                               "--identifier", f"com.elemento.hyperpass.{component}",
                                "--scripts", pkg / "Scripts",
                                "--version", version,
                                "--install-location", "/",
                                pkgs / pkg.name])
 
-    # Handle multipass-gui seperately since we need to pass in a component plist
-    pkg = dest_work / f"multipass-{version}-Darwin-{multipass_gui_component}.pkg"
+    # Handle hyperpass-gui seperately since we need to pass in a component plist
+    pkg = dest_work / f"hyperpass-{version}-Darwin-{hyperpass_gui_component}.pkg"
     component_plist = "component.plist"
 
     subprocess.check_call(["pkgbuild", "--analyze", "--root", pkg / "Payload.unpacked",
@@ -128,7 +128,7 @@ with tempfile.TemporaryDirectory() as workdir:
                            "-bool", "false",
                             component_plist])
     subprocess.check_call(["pkgbuild", "--root", pkg / "Payload.unpacked",
-                           "--identifier", f"com.canonical.multipass.{multipass_gui_component}",
+                           "--identifier", f"com.elemento.hyperpass.{hyperpass_gui_component}",
                            "--scripts", pkg / "Scripts",
                            "--component-plist", component_plist,
                            "--version", version,

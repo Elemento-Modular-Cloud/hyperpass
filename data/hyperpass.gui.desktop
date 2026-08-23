@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Hyperpass
-Exec=multipass.gui
-Icon=multipass.gui
+Exec=hyperpass.gui
+Icon=hyperpass.gui
 Type=Application
 Terminal=false
 Categories=Utility;

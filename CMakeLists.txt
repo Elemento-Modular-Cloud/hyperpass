@@ -409,7 +409,7 @@ if(CMAKE_BUILD_TYPE_LOWER  MATCHES "coverage")
 
     add_custom_target(covreport
       DEPENDS multipass_cpp_tests multipass_integration_tests rust_coverage_tarpaulin
-        $<$<BOOL:${MULTIPASS_ENABLE_FLUTTER_GUI}>:multipass_gui>
+        $<$<BOOL:${MULTIPASS_ENABLE_FLUTTER_GUI}>:hyperpass_gui>
       WORKING_DIRECTORY ${CMAKE_BUILD_DIR}
       COMMAND ${LCOV} --directory . --zerocounters
       COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target test
@@ -446,7 +446,7 @@ if(MULTIPASS_ENABLE_TESTS)
 
   if(MULTIPASS_ENABLE_FLUTTER_GUI)
     add_test(
-      NAME multipass_gui_tests
+      NAME hyperpass_gui_tests
       COMMAND ${FLUTTER_EXECUTABLE} test
       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src/client/gui
     )

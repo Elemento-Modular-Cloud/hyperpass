@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Launch the built Hyperpass GUI against the dev multipassd (see LOCAL_DEV.md).
+# Launch the built Hyperpass GUI against the dev hyperpassd (see LOCAL_DEV.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
-HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass_multipass.socket}"
+HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
 GUI_APP=""
 
 usage() {
@@ -19,9 +19,9 @@ Options:
   -h, --help        Show this help
 
 Environment:
-  BUILD_DIR          Build tree (default: ${ROOT}/build)
-  HYPERPASS_SOCKET   Dev daemon socket (default: ${HYPERPASS_SOCKET})
-  MULTIPASS_SERVER_ADDRESS  Overrides the socket if set
+  BUILD_DIR                 Build tree (default: ${ROOT}/build)
+  HYPERPASS_SOCKET          Dev daemon socket (default: ${HYPERPASS_SOCKET})
+  HYPERPASS_SERVER_ADDRESS  Overrides the socket if set
 EOF
 }
 
@@ -47,7 +47,8 @@ resolve_gui_app() {
           ;;
       esac
       candidates=(
-        "${bin_dir}/linux/${arch}/release/bundle/multipass_gui"
+        "${bin_dir}/linux/${arch}/release/bundle/hyperpass_gui"
+        "${bin_dir}/hyperpass.gui"
       )
       ;;
     *)
@@ -84,7 +85,7 @@ if [[ ! -x "$GUI_APP" ]]; then
   exit 1
 fi
 
-export MULTIPASS_SERVER_ADDRESS="${MULTIPASS_SERVER_ADDRESS:-unix:${HYPERPASS_SOCKET}}"
+export HYPERPASS_SERVER_ADDRESS="${HYPERPASS_SERVER_ADDRESS:-unix:${HYPERPASS_SOCKET}}"
 export PATH="${BUILD_DIR}/bin:${PATH}"
 
 if [[ ! -S "$HYPERPASS_SOCKET" ]]; then
@@ -94,7 +95,7 @@ fi
 
 echo "==> Dev Hyperpass GUI"
 echo "    binary:  ${GUI_APP}"
-echo "    daemon:  ${MULTIPASS_SERVER_ADDRESS}"
+echo "    daemon:  ${HYPERPASS_SERVER_ADDRESS}"
 echo
 
 exec "$GUI_APP" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"

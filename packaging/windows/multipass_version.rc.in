@@ -30,7 +30,7 @@ BEGIN
             VALUE "InternalName", "@INTERNAL_NAME@" "\0"
             VALUE "LegalCopyright", "Copyright (C) Canonical, Ltd. All rights reserved." "\0"
             VALUE "OriginalFilename", "@ORIGINAL_FILENAME@" "\0"
-            VALUE "ProductName", "Multipass" "\0"
+            VALUE "ProductName", "Hyperpass" "\0"
             VALUE "ProductVersion", "@VERSION_STRING@" "\0"
         END
     END

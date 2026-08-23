@@ -56,7 +56,7 @@ struct TestQemuPlatformMacOS : public Test
     const std::string hw_addr{"52:54:00:6f:29:7e"};
     const QString host_arch{HOST_ARCH};
 
-    static inline const mp::Subnet zone1_subnet{"192.168.64.0/24"};
+    static inline const mp::Subnet zone1_subnet{"192.168.67.0/24"};
     static inline const mp::Subnet zone2_subnet{"192.168.96.0/24"};
     static inline const mp::Subnet zone3_subnet{"192.168.128.0/24"};
 
@@ -73,7 +73,7 @@ TEST_F(TestQemuPlatformMacOS, vmPlatformArgsReturnsExpectedArguments)
     std::vector<QStringList> expected_args{
         {"-accel", "hvf"},
         {"-nic",
-         QString("vmnet-shared,start-address=192.168.64.1,end-address=192.168.64."
+         QString("vmnet-shared,start-address=192.168.67.1,end-address=192.168.67."
                  "254,subnet-mask=255.255.255.0,model=virtio-net-pci,mac=%1")
              .arg(QString::fromStdString(hw_addr))},
         {"-cpu", "host"}};

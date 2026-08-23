@@ -72,12 +72,12 @@ struct HyperVHCSVirtualMachineFactory_UnitTests : public ::testing::Test
     {
         EXPECT_CALL(mock_hcn,
                     create_network(Field(&mhv::hcn::CreateNetworkParameters::name,
-                                         Eq("Multipass vNetwork (zone1)"))))
+                                         Eq("Hyperpass vNetwork (zone1)"))))
             .WillOnce(DoAll(
                 [&](const mhv::hcn::CreateNetworkParameters& params) {
                     EXPECT_EQ(params.type, mhv::hcn::HcnNetworkType::Ics());
                     EXPECT_EQ(params.guid,
-                              multipass::utils::make_uuid("Multipass vNetwork (zone1)"));
+                              multipass::utils::make_uuid("Hyperpass vNetwork (zone1)"));
                     EXPECT_EQ(params.policies.size(), 0);
                     ASSERT_EQ(params.ipams.size(), 1);
                     EXPECT_EQ(params.ipams[0].type, mhv::hcn::HcnIpamType::Static());
@@ -210,7 +210,7 @@ TEST_F(HyperVHCSVirtualMachineFactory_UnitTests, create_virtual_machine)
         .WillOnce(DoAll(
             [&](const std::string&, mhv::hcn::HcnNetworkInfo& out) {
                 out.guid = "this isn't a network guid";
-                out.name = fmt::format("Multipass vSwitch ({})", interface1.id);
+                out.name = fmt::format("Hyperpass vSwitch ({})", interface1.id);
                 out.type = "ICS";
                 out.network_adapter_name = interface1.id;
             },
@@ -220,7 +220,7 @@ TEST_F(HyperVHCSVirtualMachineFactory_UnitTests, create_virtual_machine)
         // only expect call for bbaa. aabb's vSwitch already exists.
         .WillOnce(DoAll(
             [&](const mhv::hcn::CreateNetworkParameters& params) {
-                constexpr auto expected_name = "Multipass vSwitch (bbaa)";
+                constexpr auto expected_name = "Hyperpass vSwitch (bbaa)";
                 EXPECT_EQ(params.name, expected_name);
                 EXPECT_EQ(params.type, mhv::hcn::HcnNetworkType::Transparent());
                 EXPECT_EQ(params.guid, multipass::utils::make_uuid(expected_name));

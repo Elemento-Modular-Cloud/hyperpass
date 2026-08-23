@@ -23,6 +23,7 @@
 #include <multipass/utils.h>
 #include <multipass/utils/sorted_map_view.h>
 #include <multipass/yaml_node_utils.h>
+#include <multipass/constants.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -310,11 +311,11 @@ std::string mp::YamlFormatter::format(const VersionReply& reply,
                                       const std::string& client_version) const
 {
     YAML::Node version;
-    version["multipass"] = client_version;
+    version[mp::client_name] = client_version;
 
     if (!reply.version().empty())
     {
-        version["multipassd"] = reply.version();
+        version[mp::daemon_name] = reply.version();
 
         if (mp::cmd::update_available(reply.update_info()))
         {

@@ -96,7 +96,7 @@ TEST_F(TestDaemonMount, refusesDisabledMount)
 
     EXPECT_EQ(status.error_code(), grpc::StatusCode::FAILED_PRECONDITION);
     EXPECT_THAT(status.error_message(),
-                HasSubstr("Mounts are disabled on this installation of Multipass."));
+                HasSubstr("Mounts are disabled on this installation of Hyperpass."));
 }
 
 TEST_F(TestDaemonMount, missingInstanceFails)

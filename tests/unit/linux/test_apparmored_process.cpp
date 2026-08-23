@@ -100,7 +100,7 @@ TEST_F(ApparmoredProcessTest, loadsProfileWithApparmor)
 TEST_F(ApparmoredProcessNoFactoryTest, snapEnablesCacheWithExpectedArgs)
 {
     mpt::TempDir cache_dir;
-    const QByteArray snap_name{"multipass"};
+    const QByteArray snap_name{"hyperpass"};
 
     mpt::SetEnvScope env_scope("SNAP_COMMON", cache_dir.path().toUtf8());
     mpt::SetEnvScope env_scope2("SNAP_NAME", snap_name);
@@ -319,7 +319,7 @@ TEST_F(ApparmoredProcessNoFactoryTest, logsAllExpectedMessagesOnStart)
     auto process = process_factory.create_process(std::make_unique<TestProcessSpec>());
 
     logger_scope.mock_logger->expect_log(mpl::Level::debug,
-                                         "Applied AppArmor policy: multipass.mock_process");
+                                         "Applied AppArmor policy: hyperpass.mock_process");
     logger_scope.mock_logger->expect_log(
         mpl::Level::trace,
         fmt::format("Removing AppArmor policy:\n{}", apparmor_profile_text));

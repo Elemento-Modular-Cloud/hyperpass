@@ -1,5 +1,0 @@
-#!/bin/sh
-
-. client-common.sh
-
-exec "$SNAP/bin/multipass" "$@"

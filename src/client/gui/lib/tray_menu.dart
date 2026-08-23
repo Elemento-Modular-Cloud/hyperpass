@@ -7,7 +7,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:multipass_gui/vm_details/terminal.dart';
+import 'package:hyperpass_gui/vm_details/terminal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:tray_menu/tray_menu.dart';

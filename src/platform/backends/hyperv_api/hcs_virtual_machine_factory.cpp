@@ -58,12 +58,12 @@ using hcs::HCS;
 using virtdisk::VirtDisk;
 
 constexpr auto log_category = "HyperV-Virtual-Machine-Factory";
-constexpr auto extra_interface_vswitch_name_fmtstr = "Multipass vSwitch ({})";
+constexpr auto extra_interface_vswitch_name_fmtstr = "Hyperpass vSwitch ({})";
 /**
  * Regex pattern to extract the origin network name and GUID from an extra interface
  * name.
  */
-constexpr auto extra_interface_vswitch_name_regex = R"(Multipass vSwitch \((.*)\))";
+constexpr auto extra_interface_vswitch_name_regex = R"(Hyperpass vSwitch \((.*)\))";
 
 HCSVirtualMachineFactory::HCSVirtualMachineFactory(const Path& data_dir,
                                                    AvailabilityZoneManager& az_manager)
@@ -351,7 +351,7 @@ std::unordered_map<std::string, std::string> HCSVirtualMachineFactory::create_az
     {
         const auto& zone = i.get();
         hcn::CreateNetworkParameters network_params{
-            .name = fmt::format("Multipass vNetwork ({})", zone.get_name()),
+            .name = fmt::format("Hyperpass vNetwork ({})", zone.get_name()),
             .type = hcn::HcnNetworkType::Ics(),
             .flags = hcn::HcnNetworkFlags::enable_dhcp_server,
             .guid = utils::make_uuid(network_params.name),

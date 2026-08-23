@@ -133,7 +133,7 @@ TEST_F(HyperVHCSAPI_UnitTests, create_compute_system_happy_path)
             "Major": 2,
             "Minor": 1
         },
-        "Owner": "Multipass",
+        "Owner": "Hyperpass",
         "ShouldTerminateOnLastHandleClosed": false,
         "VirtualMachine": {
             "Chipset": {
@@ -343,7 +343,7 @@ TEST_F(HyperVHCSAPI_UnitTests, create_compute_system_wo_cloudinit)
             "Major": 2,
             "Minor": 1
         },
-        "Owner": "Multipass",
+        "Owner": "Hyperpass",
         "ShouldTerminateOnLastHandleClosed": false,
         "VirtualMachine": {
             "Chipset": {
@@ -470,7 +470,7 @@ TEST_F(HyperVHCSAPI_UnitTests, create_compute_system_wo_vhdx)
             "Major": 2,
             "Minor": 1
         },
-        "Owner": "Multipass",
+        "Owner": "Hyperpass",
         "ShouldTerminateOnLastHandleClosed": false,
         "VirtualMachine": {
             "Chipset": {
@@ -597,7 +597,7 @@ TEST_F(HyperVHCSAPI_UnitTests, create_compute_system_wo_cloudinit_and_vhdx)
             "Major": 2,
             "Minor": 1
         },
-        "Owner": "Multipass",
+        "Owner": "Hyperpass",
         "ShouldTerminateOnLastHandleClosed": false,
         "VirtualMachine": {
             "Chipset": {
@@ -748,7 +748,7 @@ TEST_F(HyperVHCSAPI_UnitTests, create_compute_system_fail)
              "Major": 2,
              "Minor": 1
          },
-         "Owner": "Multipass",
+         "Owner": "Hyperpass",
          "ShouldTerminateOnLastHandleClosed": false,
          "VirtualMachine": {
              "Chipset": {
@@ -873,7 +873,7 @@ TEST_F(HyperVHCSAPI_UnitTests, create_compute_system_wait_for_operation_fail)
              "Major": 2,
              "Minor": 1
          },
-         "Owner": "Multipass",
+         "Owner": "Hyperpass",
          "ShouldTerminateOnLastHandleClosed": false,
          "VirtualMachine": {
              "Chipset": {

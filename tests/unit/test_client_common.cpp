@@ -106,7 +106,7 @@ TEST_F(TestClientCommon, noValidCertsCreatesNewCommonCert)
     const auto common_cert_dir = temp_dir.path() + mp::common_client_cert_dir;
 
     const auto [mock_platform, _] = mpt::MockPlatform::inject<NiceMock>();
-    // move the multipass_root_cert.pem into the temporary directory so it will be deleted
+    // move the hyperpass_root_cert.pem into the temporary directory so it will be deleted
     // automatically later
     EXPECT_CALL(*mock_platform, get_root_cert_dir())
         .WillRepeatedly(Return(std::filesystem::path{common_cert_dir.toStdU16String()}));

@@ -28,43 +28,43 @@ target_link_libraries(client
 
 if(MSVC)
   prepare_windows_version_resource(
-    MULTIPASS_RC_SOURCE
-    multipass
-    "Multipass CLI"
-    "multipass"
-    "multipass.exe"
+    HYPERPASS_RC_SOURCE
+    hyperpass
+    "Hyperpass CLI"
+    "hyperpass"
+    "hyperpass.exe"
   )
-  add_executable(multipass
+  add_executable(hyperpass
     main.cpp
-    ${MULTIPASS_RC_SOURCE})
+    ${HYPERPASS_RC_SOURCE})
 else()
-  add_executable(multipass
+  add_executable(hyperpass
     main.cpp)
 endif()
 
 
-target_link_libraries(multipass
+target_link_libraries(hyperpass
   client)
 
-install(TARGETS multipass
+install(TARGETS hyperpass
   DESTINATION bin
-  COMPONENT multipass)
+  COMPONENT hyperpass)
 
 if(APPLE)
-  set_target_properties( multipass PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
+  set_target_properties( hyperpass PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
 
   # Copy any framework depenencies into the install directory for packaging
   install(CODE "
     include(${CMAKE_SOURCE_DIR}/packaging/FrameworkUtilities.cmake)
-    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/multipass\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
-    " COMPONENT multipass)
+    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyperpass\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
+    " COMPONENT hyperpass)
 endif(APPLE)
 
 if(MSVC)
   install(CODE "
     include(BundleUtilities)
-    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/multipass.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
-    " COMPONENT multipass)
+    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/hyperpass.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
+    " COMPONENT hyperpass)
 endif()
 
 add_subdirectory(cmd)

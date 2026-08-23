@@ -79,7 +79,7 @@ profile %1 flags=(attach_disconnected) {
     try
     {
         root_dir = mpu::snap_dir();
-        signal_peer = "snap.multipass.multipassd"; // only multipassd can send qemu-img signals
+        signal_peer = "snap.hyperpass.hyperpassd"; // only hyperpassd can send qemu-img signals
     }
     catch (mp::SnapEnvironmentException&)
     {

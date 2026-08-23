@@ -214,7 +214,7 @@ TEST_F(BaseAvailabilityZoneManagerTest, ReallocatesZonesWhenPreferredSubnetChang
 {
     EXPECT_CALL(*mock_logger.mock_logger, log(_, _, _)).Times(AnyNumber());
     EXPECT_CALL(mock_platform, get_preferred_subnet)
-        .WillOnce(Return(mp::Subnet{"192.168.64.0/16"}));
+        .WillOnce(Return(mp::Subnet{"192.168.67.0/16"}));
     EXPECT_CALL(mock_file_ops, try_read_file(manager_file))
         .WillOnce(Return("{\"automatic_zone\": \"zone1\", "
                          "\"preferred_subnet\": \"192.168.252.0/16\"}"));
@@ -234,5 +234,5 @@ TEST_F(BaseAvailabilityZoneManagerTest, ReallocatesZonesWhenPreferredSubnetChang
 
     mp::BaseAvailabilityZoneManager manager{data_dir};
 
-    EXPECT_EQ(manager.get_zone("zone1").get_subnet(), mp::Subnet{"192.168.64.0/24"});
+    EXPECT_EQ(manager.get_zone("zone1").get_subnet(), mp::Subnet{"192.168.67.0/24"});
 }

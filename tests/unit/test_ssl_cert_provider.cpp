@@ -66,8 +66,8 @@ TEST_F(SSLCertProviderFixture, importsExistingCertAndKey)
                                "-----END CERTIFICATE-----\n";
 
     const QDir dir{cert_dir};
-    const auto key_path = dir.filePath("multipass_cert_key.pem");
-    const auto cert_path = dir.filePath("multipass_cert.pem");
+    const auto key_path = dir.filePath("hyperpass_cert_key.pem");
+    const auto cert_path = dir.filePath("hyperpass_cert.pem");
 
     mpt::make_file_with_content(key_path, key_data);
     mpt::make_file_with_content(cert_path, cert_data);
@@ -81,8 +81,8 @@ TEST_F(SSLCertProviderFixture, importsExistingCertAndKey)
 TEST_F(SSLCertProviderFixture, persistsCertAndKey)
 {
     QDir dir{cert_dir};
-    auto key_file = dir.filePath("multipass_cert_key.pem");
-    auto cert_file = dir.filePath("multipass_cert.pem");
+    auto key_file = dir.filePath("hyperpass_cert_key.pem");
+    auto cert_file = dir.filePath("hyperpass_cert.pem");
 
     EXPECT_FALSE(QFile::exists(key_file));
     EXPECT_FALSE(QFile::exists(cert_file));
@@ -96,7 +96,7 @@ TEST_F(SSLCertProviderFixture, persistsCertAndKey)
 TEST_F(SSLCertProviderFixture, createsDifferentCertsPerServerName)
 {
     const auto [mock_platform, _] = mpt::MockPlatform::inject<NiceMock>();
-    // move the multipass_root_cert.pem into the temporary directory so it will be deleted
+    // move the hyperpass_root_cert.pem into the temporary directory so it will be deleted
     // automatically later
     EXPECT_CALL(*mock_platform, get_root_cert_dir())
         .WillRepeatedly(Return(std::filesystem::path{cert_dir.toStdU16String()}));
@@ -175,7 +175,7 @@ TEST_P(SSLCertProviderParameterTests, regeneratesCertificates)
 
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out root_key.pem
 openssl req -x509 -new -nodes -key root_key.pem -sha256 -days 3650 \
-  -subj "/C=US/O=Canonical/CN=Multipass Root CA" \
+  -subj "/C=US/O=Elemento/CN=Hyperpass Root CA" \
   -out root_cert.pem
 
 openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -out localhost_key.pem

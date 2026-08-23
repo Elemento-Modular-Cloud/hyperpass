@@ -1,15 +1,15 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
     <Fragment>
         <ComponentGroup Id="GUIComponents" Directory="INSTALLFOLDER">
-            <Component Id="MultipassGUI" Subdirectory="bin">
-                <File Id="multipass.gui.exe" Source="bin\multipass.gui.exe" />
+            <Component Id="HyperpassGUI" Subdirectory="bin">
+                <File Id="hyperpass.gui.exe" Source="bin\hyperpass.gui.exe" />
             </Component>
 
             <Component>
-                <RegistryValue Root="HKCU" Key="SOFTWARE\Canonical\Multipass" Name="installed"
+                <RegistryValue Root="HKCU" Key="SOFTWARE\Elemento\Hyperpass" Name="installed"
                     Type="integer" Value="1" KeyPath="yes" />
-                <Shortcut Name="Multipass" Directory="ProgramMenuFolder" Icon="mp.exe"
-                    Target="[#multipass.gui.exe]" />
+                <Shortcut Name="Hyperpass" Directory="ProgramMenuFolder" Icon="mp.exe"
+                    Target="[#hyperpass.gui.exe]" />
             </Component>
         </ComponentGroup>
     </Fragment>

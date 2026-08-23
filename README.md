@@ -1,11 +1,12 @@
-# What is Multipass?
+# What is Hyperpass?
 
-Multipass is a lightweight VM manager for Linux, Windows and macOS. It's designed for developers who want to spin up a
-fresh Ubuntu environment with a single command. It uses KVM on Linux, Hyper-V on Windows and QEMU on macOS to run
-virtual machines with minimal overhead. It can also use VirtualBox on Windows and macOS. Multipass will fetch Ubuntu
-images for you and keep them up to date.
+Hyperpass is an Elemento fork of [Multipass](https://canonical.com/multipass/), a lightweight VM manager for Linux, Windows and macOS. It is designed so you can run it **alongside** stock Multipass: the CLI is `hyperpass`, the daemon is `hyperpassd`, and sockets, certs, services, and data directories all use Hyperpass-specific names.
+
+It uses KVM on Linux, Hyper-V on Windows and QEMU on macOS to run virtual machines with minimal overhead. It can also use VirtualBox on Windows and macOS. Hyperpass will fetch images for you and keep them up to date.
 
 Since it supports metadata for cloud-init, you can simulate a small cloud deployment on your laptop or workstation.
+
+For local development next to an installed Multipass, see [`LOCAL_DEV.md`](./LOCAL_DEV.md).
 
 ## Project status
 

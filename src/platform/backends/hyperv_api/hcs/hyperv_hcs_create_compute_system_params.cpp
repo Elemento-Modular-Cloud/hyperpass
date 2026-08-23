@@ -61,7 +61,7 @@ auto fmt::formatter<CreateComputeSystemParameters, Char>::format(
             "Major": 2,
             "Minor": 1
         }},
-        "Owner": "Multipass",
+        "Owner": "Hyperpass",
         "ShouldTerminateOnLastHandleClosed": false,
         "VirtualMachine": {{
             "Chipset": {{

@@ -251,14 +251,14 @@ Json::Value create_primary_profile()
 {
     Json::Value primary_profile{};
     primary_profile["guid"] = mp::winterm_profile_guid;
-    primary_profile["name"] = "Multipass";
-    primary_profile["commandline"] = "multipass shell";
+    primary_profile["name"] = "Hyperpass";
+    primary_profile["commandline"] = "hyperpass shell";
     primary_profile["background"] = "#350425";
     primary_profile["cursorShape"] = "filledBox";
     primary_profile["fontFace"] = "Ubuntu Mono";
     primary_profile["historySize"] = 50000;
     primary_profile["icon"] =
-        QDir{QCoreApplication::applicationDirPath()}.filePath("multipass_wt.ico").toStdString();
+        QDir{QCoreApplication::applicationDirPath()}.filePath("hyperpass_wt.ico").toStdString();
 
     return primary_profile;
 }
@@ -361,10 +361,10 @@ QString get_alias_script_path(const std::string& alias)
     return aliases_folder.absoluteFilePath(QString::fromStdString(alias)) + ".bat";
 }
 
-QString program_data_multipass_path()
+QString program_data_hyperpass_path()
 {
     return QDir{qEnvironmentVariable("ProgramData", "C:\\ProgramData")}.absoluteFilePath(
-        "Multipass");
+        "Hyperpass");
 }
 
 QString systemprofile_app_data_path()
@@ -866,7 +866,7 @@ void mp::platform::sync_winterm_profiles()
 
 std::string mp::platform::default_server_address()
 {
-    return {"localhost:50051"};
+    return {"localhost:50052"};
 }
 
 QString mp::platform::Platform::default_driver() const
@@ -903,7 +903,8 @@ bool mp::platform::Platform::subnet_used_locally(mp::Subnet subnet) const
 
 mp::Subnet mp::platform::Platform::get_preferred_subnet(const std::filesystem::path& data_dir) const
 {
-    return {"10.97.0.0/16"};
+    // Distinct from Multipass's 10.97.0.0/16 default so both can run side-by-side.
+    return {"10.98.0.0/16"};
 }
 
 QString mp::platform::Platform::daemon_config_home() const // temporary
@@ -916,7 +917,7 @@ QString mp::platform::Platform::daemon_config_home() const // temporary
     if (QFile::exists(ret))
     {
         return ret; // should be something like
-                    // "C:/Windows/system32/config/systemprofile/AppData/Local/multipassd"
+                    // "C:/Windows/system32/config/systemprofile/AppData/Local/hyperpassd"
     }
     else
     {
@@ -1195,7 +1196,7 @@ QDir mp::platform::Platform::get_alias_scripts_folder() const
     QDir aliases_folder;
 
     QString location = MP_STDPATHS.writableLocation(mp::StandardPaths::HomeLocation) +
-                       "/AppData/local/multipass/bin";
+                       "/AppData/local/hyperpass/bin";
     aliases_folder = QDir{location};
 
     if (!aliases_folder.mkpath(aliases_folder.path()))
@@ -1244,7 +1245,7 @@ std::string mp::platform::Platform::alias_path_message() const
 {
     return fmt::format(
         "You'll need to add the script alias folder to your path for aliases to work\n"
-        "without prefixing with `multipass`. For now, you can just do:\n\n"
+        "without prefixing with `hyperpass`. For now, you can just do:\n\n"
         "In PowerShell:\n$ENV:PATH=\"$ENV:PATH;{0}\"\n\n"
         "Or in Command Prompt:\nPATH=%PATH%;{0}\n",
         get_alias_scripts_folder().absolutePath());
@@ -1254,26 +1255,26 @@ QString mp::platform::Platform::multipass_storage_location() const
 {
     auto storage_location = mp::utils::get_multipass_storage();
 
-    // If MULTIPASS_STORAGE env var is set, use that
+    // If HYPERPASS_STORAGE env var is set, use that
     if (!storage_location.isEmpty())
     {
         return storage_location;
     }
 
-    auto program_data_path = program_data_multipass_path();
+    auto program_data_path = program_data_hyperpass_path();
     auto systemprofile_roaming_path =
         QDir{systemprofile_app_data_path()}.absoluteFilePath("Roaming");
 
-    // If %PROGRAMDATA%\Multipass exists or if
-    // %SYSTEMROOT%\system32\config\AppData\Roaming\multipassd doesn't exist, use
-    // %PROGRAMDATA%\Multipass
+    // If %PROGRAMDATA%\Hyperpass exists or if
+    // %SYSTEMROOT%\system32\config\AppData\Roaming\hyperpassd doesn't exist, use
+    // %PROGRAMDATA%\Hyperpass
     if (QFile::exists(program_data_path) ||
-        !QFile::exists(QDir{systemprofile_roaming_path}.absoluteFilePath("multipassd")))
+        !QFile::exists(QDir{systemprofile_roaming_path}.absoluteFilePath("hyperpassd")))
     {
         return program_data_path;
     }
 
-    // If %SYSTEMROOT%\system32\config\AppData\Roaming\multipassd exists, return empty and let the
+    // If %SYSTEMROOT%\system32\config\AppData\Roaming\hyperpassd exists, return empty and let the
     // caller use Qt's StandardPaths to figure it out (legacy)
     return QString();
 }
@@ -1367,8 +1368,8 @@ std::filesystem::path mp::platform::Platform::get_root_cert_dir() const
     // FOLDERID_ProgramData returns C:\ProgramData normally
     const auto base_dir = get_wellknown_path(FOLDERID_ProgramData);
 
-    // Windows doesn't use `daemon_name` for the data directory (see `program_data_multipass_path`)
-    return base_dir / "Multipass" / "data";
+    // Windows doesn't use `daemon_name` for the data directory (see `program_data_hyperpass_path`)
+    return base_dir / "Hyperpass" / "data";
 }
 
 std::filesystem::path mp::platform::Platform::qstr_to_path(const QString& qstr) const

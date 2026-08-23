@@ -128,7 +128,7 @@ public:
 TEST_F(TestGlobalSettingsHandlers, clientsRegisterPersistentHandlerWithClientFilename)
 {
     auto config_location = QStringLiteral("/a/b/c");
-    auto expected_filename = config_location + "/multipass/multipass.conf";
+    auto expected_filename = config_location + "/hyperpass/hyperpass.conf";
 
     EXPECT_CALL(mpt::MockStandardPaths::mock_instance(),
                 writableLocation(mp::StandardPaths::GenericConfigLocation))

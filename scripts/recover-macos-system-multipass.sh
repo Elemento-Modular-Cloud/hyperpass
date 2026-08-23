@@ -16,7 +16,7 @@ PLIST="/Library/LaunchDaemons/com.canonical.multipassd.plist"
 ROOT_CERT="/usr/local/etc/multipassd/multipass_root_cert.pem"
 DAEMON_CERT_DIR="/var/root/Library/Application Support/multipassd/certificates"
 HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass_multipass.socket}"
-LOCAL_DAEMON="${ROOT}/build/bin/multipassd"
+LOCAL_DAEMON="${ROOT}/build/bin/hyperpassd"
 
 usage() {
   cat <<EOF
@@ -120,6 +120,6 @@ fi
 
 echo "System Multipass CLI should be usable again. Re-open the Multipass GUI if needed."
 echo
-echo "When testing a custom daemon next time, keep MULTIPASS_STORAGE and --address"
+echo "When testing a custom daemon next time, keep HYPERPASS_STORAGE and --address"
 echo "separate (see LOCAL_DEV.md). Note: on macOS the root CA path is still shared;"
 echo "run this script again after local multipassd sessions that regenerate certs."

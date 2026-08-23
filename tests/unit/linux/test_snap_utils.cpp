@@ -34,12 +34,12 @@ using namespace testing;
 
 namespace
 {
-const QByteArray snap_name{"multipass"};
+const QByteArray snap_name{"hyperpass"};
 } // namespace
 
-TEST(Snap, recognizesInSnapWhenSnapNameIsMultipass)
+TEST(Snap, recognizesInSnapWhenSnapNameIsHyperpass)
 {
-    mpt::SetEnvScope env{"SNAP_NAME", "multipass"};
+    mpt::SetEnvScope env{"SNAP_NAME", "hyperpass"};
     EXPECT_TRUE(mpu::in_multipass_snap());
 }
 
@@ -87,7 +87,7 @@ TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotSet)
     EXPECT_THROW(getter(), mp::SnapEnvironmentException);
 }
 
-TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotMultipass)
+TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotHyperpass)
 {
     const auto& [var, getter] = GetParam();
     QByteArray other_name{"foo"};

@@ -220,12 +220,12 @@ auto make_cloud_init_vendor_config(const mp::SSHKeyProvider& key_provider,
         config["packages"].push_back("pollinate");
 
         auto pollinate_user_agent_string =
-            fmt::format("multipass/version/{} # written by Multipass\n", multipass::version_string);
+            fmt::format("hyperpass/version/{} # written by Hyperpass\n", multipass::version_string);
         pollinate_user_agent_string +=
-            fmt::format("multipass/driver/{} # written by Multipass\n", backend_version_string);
-        pollinate_user_agent_string += fmt::format("multipass/host/{} # written by Multipass\n",
+            fmt::format("hyperpass/driver/{} # written by Hyperpass\n", backend_version_string);
+        pollinate_user_agent_string += fmt::format("hyperpass/host/{} # written by Hyperpass\n",
                                                    multipass::platform::host_version());
-        pollinate_user_agent_string += fmt::format("multipass/alias/{}{} # written by Multipass\n",
+        pollinate_user_agent_string += fmt::format("hyperpass/alias/{}{} # written by Hyperpass\n",
                                                    !remote_name.empty() ? remote_name + ":" : "",
                                                    pollinate_alias);
 
@@ -1976,7 +1976,7 @@ try
     if (!MP_SETTINGS.get_as<bool>(mp::mounts_key))
         return context->set_value(grpc::Status(
             grpc::StatusCode::FAILED_PRECONDITION,
-            "Mounts are disabled on this installation of Multipass.\n\n"
+            "Mounts are disabled on this installation of Hyperpass.\n\n"
             "See https://canonical.com/multipass/docs/set-command#local.privileged-mounts for "
             "information\n"
             "on how to enable them."));
@@ -2840,7 +2840,7 @@ try
             source_vm_state != VirtualMachine::State::off)
         {
             return context->set_value(grpc::Status{grpc::FAILED_PRECONDITION,
-                                                   "Multipass can only clone stopped instances."});
+                                                   "Hyperpass can only clone stopped instances."});
         }
 
         const std::string destination_name = dest_name_for_clone(*request);

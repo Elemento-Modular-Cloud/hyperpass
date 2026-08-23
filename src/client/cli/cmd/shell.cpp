@@ -88,9 +88,9 @@ mp::ReturnCodeVariant cmd::Shell::run(mp::ArgParser* parser)
 
         if (status.error_code() == grpc::StatusCode::NOT_FOUND &&
             instance_name == petenv_name.toStdString())
-            retry_args.append({"multipass", "launch", "--name", petenv_name});
+            retry_args.append({mp::client_name, "launch", "--name", petenv_name});
         else if (status.error_code() == grpc::StatusCode::ABORTED)
-            retry_args.append({"multipass", "start", QString::fromStdString(instance_name)});
+            retry_args.append({mp::client_name, "start", QString::fromStdString(instance_name)});
         else
             return standard_failure_handler_for(name(), cerr, status);
 

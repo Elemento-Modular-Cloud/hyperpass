@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.canonical.multipassd</string>
+    <string>com.elemento.hyperpassd</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -13,7 +13,7 @@
 
     <key>ProgramArguments</key>
     <array>
-      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/multipassd</string>
+      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/hyperpassd</string>
       <string>--verbosity</string>
       <string>debug</string>
     </array>
@@ -22,9 +22,9 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Library/Logs/Multipass/multipassd.log</string>
+    <string>/Library/Logs/Hyperpass/hyperpassd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Library/Logs/Multipass/multipassd.log</string>
+    <string>/Library/Logs/Hyperpass/hyperpassd.log</string>
 
     <key>ExitTimeOut</key>
     <integer>45</integer>

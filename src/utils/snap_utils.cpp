@@ -26,7 +26,7 @@ namespace mpu = multipass::utils;
 
 namespace
 {
-const QString snap_name{"multipass"};
+const QString snap_name{"hyperpass"};
 
 void verify_snap_name()
 {

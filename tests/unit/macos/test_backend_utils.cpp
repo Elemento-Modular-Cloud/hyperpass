@@ -31,12 +31,12 @@ namespace
 const QByteArray mock_arp_output_stream = QByteArray{R"(
 ? (192.168.1.1) at 3c:37:86:8a:e6:84 on en0 ifscope [ethernet]
 ? (192.168.1.255) at ff:ff:ff:ff:ff:ff on en0 ifscope [ethernet]
-? (192.168.64.2) at 52:54:0:2a:12:b6 on bridge100 ifscope [bridge]
-? (192.168.64.3) at 52:54:0:85:72:55 on bridge100 ifscope [bridge]
-? (192.168.64.4) at 52:54:0:e1:cd:ab on bridge100 ifscope [bridge]
-? (192.168.64.5) at 50:eb:f6:7f:39:a7 on bridge100 ifscope [bridge]
-? (192.168.64.6) at 50:eb:f6:7f:39:a7 on bridge100 ifscope [bridge]
-? (192.168.64.255) at ff:ff:ff:ff:ff:ff on bridge100 ifscope [bridge]
+? (192.168.67.2) at 52:54:0:2a:12:b6 on bridge100 ifscope [bridge]
+? (192.168.67.3) at 52:54:0:85:72:55 on bridge100 ifscope [bridge]
+? (192.168.67.4) at 52:54:0:e1:cd:ab on bridge100 ifscope [bridge]
+? (192.168.67.5) at 50:eb:f6:7f:39:a7 on bridge100 ifscope [bridge]
+? (192.168.67.6) at 50:eb:f6:7f:39:a7 on bridge100 ifscope [bridge]
+? (192.168.67.255) at ff:ff:ff:ff:ff:ff on bridge100 ifscope [bridge]
 ? (192.168.2.1) at 18:58:80:a:4a:1c on en0 ifscope [ethernet]
 ? (192.168.2.1) at be:d0:74:27:1c:64 on bridge100 ifscope permanent [bridge]
 ? (192.168.2.2) at (incomplete) on en0 ifscope [ethernet]
@@ -88,7 +88,7 @@ TEST_P(GetNeighbourIPValidInputsTests, validInputCases)
 
     EXPECT_CALL(*mock_utils, run_cmd_for_status(QString("ping"), _, _))
         .WillRepeatedly([](const QString&, const QStringList& args, auto&&) {
-            return !args.contains("192.168.64.5");
+            return !args.contains("192.168.67.5");
         });
 
     EXPECT_EQ(mp::backend::get_neighbour_ip(existed_mac).value().as_string(), expected_mapped_ip);
@@ -96,10 +96,10 @@ TEST_P(GetNeighbourIPValidInputsTests, validInputCases)
 
 INSTANTIATE_TEST_SUITE_P(GetNeighbourIPTestsInstantiation,
                          GetNeighbourIPValidInputsTests,
-                         Values(std::make_pair("52:54:00:2a:12:b6", "192.168.64.2"),
-                                std::make_pair("52:54:00:85:72:55", "192.168.64.3"),
-                                std::make_pair("52:54:00:e1:cd:ab", "192.168.64.4"),
-                                std::make_pair("50:eb:f6:7f:39:a7", "192.168.64.6"),
+                         Values(std::make_pair("52:54:00:2a:12:b6", "192.168.67.2"),
+                                std::make_pair("52:54:00:85:72:55", "192.168.67.3"),
+                                std::make_pair("52:54:00:e1:cd:ab", "192.168.67.4"),
+                                std::make_pair("50:eb:f6:7f:39:a7", "192.168.67.6"),
                                 std::make_pair("52:54:00:55:1a:c8", "192.168.2.2"),
                                 std::make_pair("01:00:5e:00:00:fb", "224.0.0.251")));
 
@@ -138,7 +138,7 @@ TEST(EnableCrossZoneRouting, multipleZonesEnablesForwardingAndInstallsPfRules)
     const auto mock_process_factory = mpt::MockProcessFactory::Inject();
     auto [mock_utils, utils_guard] = mpt::MockUtils::inject();
 
-    const auto zones = {mp::Subnet{"192.168.64.0/24"},
+    const auto zones = {mp::Subnet{"192.168.67.0/24"},
                         mp::Subnet{"192.168.65.0/24"},
                         mp::Subnet{"192.168.66.0/24"}};
     const mpt::StubAvailabilityZoneManager az_manager{zones};
@@ -170,7 +170,7 @@ TEST(EnableCrossZoneRouting, multipleZonesEnablesForwardingAndInstallsPfRules)
                            "pass quick inet from {1} to {2} flags any keep state\n"
                            "pass quick inet from {2} to {0} flags any keep state\n"
                            "pass quick inet from {2} to {1} flags any keep state\n"),
-                          "192.168.64.0/24",
+                          "192.168.67.0/24",
                           "192.168.65.0/24",
                           "192.168.66.0/24"));
 }

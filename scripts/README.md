@@ -56,7 +56,7 @@ Pass extra CMake configure arguments after `--` (Unix) or as remaining args (Win
 
 ## Side-by-side with an installed Multipass
 
-See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `multipassd` next to the system install (separate socket, storage, and distributions catalog).
+See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `hyperpassd` next to system Multipass (separate socket, storage, and distributions catalog).
 
 ```bash
 # Terminal 1 — dev daemon (requires sudo on macOS/Linux)

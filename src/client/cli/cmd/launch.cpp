@@ -672,7 +672,7 @@ auto cmd::Launch::mount(const mp::ArgParser* parser,
                         const QString& mount_target) -> ReturnCodeVariant
 {
     const auto full_mount_target = QString{"%1:%2"}.arg(instance_name, mount_target);
-    auto ret = run_cmd({"multipass", "mount", mount_source, full_mount_target}, parser, cout, cerr);
+    auto ret = run_cmd({mp::client_name, "mount", mount_source, full_mount_target}, parser, cout, cerr);
     if (ret == ReturnCode::Ok)
         cout << fmt::format("Mounted '{}' into '{}'\n", mount_source, full_mount_target);
 

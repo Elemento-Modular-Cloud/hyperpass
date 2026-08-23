@@ -27,7 +27,7 @@
 
     <ItemGroup>
         <HarvestDirectory Include="$(PublishDir)">
-            <ComponentGroupName>MultipassSupportComponents</ComponentGroupName>
+            <ComponentGroupName>HyperpassSupportComponents</ComponentGroupName>
             <DirectoryRefId>INSTALLFOLDER</DirectoryRefId>
             <SuppressRootDirectory>true</SuppressRootDirectory>
             <SuppressRegistry>true</SuppressRegistry>

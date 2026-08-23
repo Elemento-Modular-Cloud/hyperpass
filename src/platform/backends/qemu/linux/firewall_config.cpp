@@ -111,7 +111,7 @@ public:
 
 auto multipass_firewall_comment(const QString& bridge_name)
 {
-    return QString("generated for Multipass network %1").arg(bridge_name);
+    return QString("generated for Hyperpass network %1").arg(bridge_name);
 }
 
 void add_firewall_rule(const QString& firewall,

@@ -19,6 +19,7 @@
 #include "common_cli.h"
 
 #include <multipass/cli/argparser.h>
+#include <multipass/constants.h>
 #include <multipass/ssh/ssh_client.h>
 #include <multipass/utils.h>
 
@@ -122,7 +123,7 @@ mp::ReturnCodeVariant cmd::Exec::run(mp::ArgParser* parser)
 
     auto on_failure = [this, &instance_name, parser](grpc::Status& status) -> ReturnCodeVariant {
         if (status.error_code() == grpc::StatusCode::ABORTED)
-            return run_cmd_and_retry({"multipass", "start", QString::fromStdString(instance_name)},
+            return run_cmd_and_retry({mp::client_name, "start", QString::fromStdString(instance_name)},
                                      parser,
                                      cout,
                                      cerr);

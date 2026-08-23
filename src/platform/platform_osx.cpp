@@ -69,7 +69,7 @@ namespace
 {
 constexpr auto category = "osx platform";
 constexpr auto br_nomenclature = "bridge";
-const mp::Subnet preferred_subnet = {"192.168.64.0/16"};
+const mp::Subnet preferred_subnet = {"192.168.67.0/16"};
 
 QString get_networksetup_output()
 {
@@ -256,7 +256,7 @@ void mp::platform::sync_winterm_profiles()
 
 std::string mp::platform::default_server_address()
 {
-    return {"unix:/var/run/multipass_socket"};
+    return {"unix:/var/run/hyperpass_socket"};
 }
 
 QString mp::platform::Platform::default_driver() const
@@ -277,11 +277,12 @@ std::string mp::platform::Platform::bridge_nomenclature() const
 
 bool mp::platform::Platform::subnet_used_locally(mp::Subnet subnet) const
 {
-    // NOTE: Prefer the classic Apple vmnet shared range (192.168.64.0/16 → zone1 as /24). Unlike
+    // NOTE: Prefer a Hyperpass-specific shared range (192.168.67.0/16 → zone1 as /24). Unlike
     // Linux, macOS does not persist that preference separately, so the AZ manager may probe this
-    // function while allocating. Treat the preferred base as unused so zone1 keeps 192.168.64.0/24.
+    // function while allocating. Treat the preferred base as unused so zone1 keeps 192.168.67.0/24.
     //
-    // Instances that end up on a different subnet still work, just with a different IP address.
+    // Avoids clashing with Apple/Multipass vmnet (192.168.64.0/16). Instances that end up on a
+    // different subnet still work, just with a different IP address.
     if (subnet.address() == preferred_subnet.address())
         return false;
 

@@ -1,4 +1,4 @@
 {
-    "multipass": "Client version",
-    "multipassd": "Daemon version"
+    "hyperpass": "Client version",
+    "hyperpassd": "Daemon version"
 }

@@ -2,9 +2,9 @@
     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
     <Fragment>
         <ComponentGroup Id="DaemonComponents" Directory="INSTALLFOLDER">
-            <Component Id="MultipassDaemon" Subdirectory="bin">
-                <File Source="bin\multipassd.exe" />
-                <ServiceInstall Name="Multipass" DisplayName="Multipass Service"
+            <Component Id="HyperpassDaemon" Subdirectory="bin">
+                <File Source="bin\hyperpassd.exe" />
+                <ServiceInstall Name="Hyperpass" DisplayName="Hyperpass Service"
                     Description="Provides a service to create and manage virtual machines"
                     Arguments="/svc --verbosity debug" Start="auto" Type="ownProcess"
                     ErrorControl="normal">
@@ -14,10 +14,10 @@
                         SecondFailureActionType="restart" ThirdFailureActionType="restart"
                         ResetPeriodInDays="49710" />
                 </ServiceInstall>
-                <ServiceControl Name="Multipass" Start="install" Stop="both" Remove="uninstall" />
+                <ServiceControl Name="Hyperpass" Start="install" Stop="both" Remove="uninstall" />
 
                 <RegistryKey Root="HKLM"
-                    Key="SYSTEM\CurrentControlSet\Services\EventLog\Application\Multipass">
+                    Key="SYSTEM\CurrentControlSet\Services\EventLog\Application\Hyperpass">
                     <RegistryValue Name="EventMessageFile"
                         Value="%SystemRoot%\\System32\EventCreate.exe" />
                     <RegistryValue Name="TypesSupported" Type="integer" Value="7" />

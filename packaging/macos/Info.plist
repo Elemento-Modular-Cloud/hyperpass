@@ -7,7 +7,7 @@
     <key>CFBundleIdentifier</key>
     <string></string>
     <key>CFBundleName</key>
-    <string>Multipass</string>
+    <string>Hyperpass</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSMinimumSystemVersion</key>
