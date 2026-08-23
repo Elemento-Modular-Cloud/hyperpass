@@ -311,11 +311,11 @@ class SideBar extends ConsumerWidget {
           children: [
             header,
             catalogue,
+            cloudInit,
             instances,
             Expanded(child: ListView(children: vmEntries.toList())),
             Divider(color: Colors.white.withAlpha(77)),
             cache,
-            cloudInit,
             help,
             settings,
           ],

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../confirmation_dialog.dart';
 import '../l10n/app_localizations.dart';
 import 'cloud_init_store.dart';
+import 'yaml_highlight_controller.dart';
 
 class CloudInitScreen extends ConsumerStatefulWidget {
   static const sidebarKey = 'cloud-init';
@@ -17,7 +18,7 @@ class CloudInitScreen extends ConsumerStatefulWidget {
 
 class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
   String? _selectedName;
-  final _editorController = TextEditingController();
+  final _editorController = YamlHighlightController();
   String _savedContents = '';
   String? _parseError;
   var _loadingContent = false;
@@ -321,23 +322,31 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
               child: configsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(child: Text('$error')),
-                data: (configs) => Row(
+                data: (configs) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(
-                      width: 280,
-                      child: _ConfigList(
-                        configs: configs,
-                        selectedName: _selectedName,
-                        onSelect: _selectConfig,
-                        onNew: _createConfig,
-                        onImport: _importConfig,
-                        onDelete: _selectedName == null ? null : _deleteConfig,
-                        onRename: _selectedName == null ? null : _renameConfig,
+                    _Toolbar(
+                      onNew: _createConfig,
+                      onImport: _importConfig,
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: 280,
+                            child: _ConfigList(
+                              configs: configs,
+                              selectedName: _selectedName,
+                              onSelect: _selectConfig,
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildEditor(l10n, onSurface)),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildEditor(l10n, onSurface)),
                   ],
                 ),
               ),
@@ -387,6 +396,17 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
                   ),
                 ),
               ),
+            IconButton(
+              tooltip: l10n.cloudInitRenameAction,
+              onPressed: _renameConfig,
+              icon: const Icon(Icons.drive_file_rename_outline),
+            ),
+            IconButton(
+              tooltip: l10n.commonDelete,
+              onPressed: _deleteConfig,
+              icon: const Icon(Icons.delete_outline),
+            ),
+            const SizedBox(width: 4),
             OutlinedButton(
               onPressed: _dirty
                   ? () {
@@ -417,10 +437,11 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
             maxLines: null,
             expands: true,
             textAlignVertical: TextAlignVertical.top,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'UbuntuMono',
               fontSize: 13,
               height: 1.4,
+              color: onSurface,
             ),
             decoration: InputDecoration(
               filled: true,
@@ -435,90 +456,86 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
   }
 }
 
+class _Toolbar extends StatelessWidget {
+  const _Toolbar({
+    required this.onNew,
+    required this.onImport,
+  });
+
+  final VoidCallback onNew;
+  final VoidCallback onImport;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
+    return Row(
+      children: [
+        TextButton.icon(
+          onPressed: onNew,
+          icon: const Icon(Icons.add, size: 18),
+          label: Text(l10n.cloudInitNew),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: onImport,
+          icon: const Icon(Icons.file_upload_outlined, size: 18),
+          label: Text(l10n.cloudInitImport),
+        ),
+      ],
+    );
+  }
+}
+
 class _ConfigList extends StatelessWidget {
   const _ConfigList({
     required this.configs,
     required this.selectedName,
     required this.onSelect,
-    required this.onNew,
-    required this.onImport,
-    required this.onDelete,
-    required this.onRename,
   });
 
   final List<CloudInitConfigInfo> configs;
   final String? selectedName;
   final ValueChanged<String> onSelect;
-  final VoidCallback onNew;
-  final VoidCallback onImport;
-  final VoidCallback? onDelete;
-  final VoidCallback? onRename;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            TextButton(onPressed: onNew, child: Text(l10n.cloudInitNew)),
-            OutlinedButton(
-              onPressed: onImport,
-              child: Text(l10n.cloudInitImport),
-            ),
-            OutlinedButton(
-              onPressed: onRename,
-              child: Text(l10n.cloudInitRenameAction),
-            ),
-            OutlinedButton(
-              onPressed: onDelete,
-              child: Text(l10n.commonDelete),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(color: onSurface.withValues(alpha: 0.2)),
-            ),
-            child: configs.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        l10n.cloudInitEmpty,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    itemCount: configs.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: onSurface.withValues(alpha: 0.12),
-                    ),
-                    itemBuilder: (context, index) {
-                      final config = configs[index];
-                      final selected = config.name == selectedName;
-                      return ListTile(
-                        selected: selected,
-                        title: Text(config.name),
-                        onTap: () => onSelect(config.name),
-                      );
-                    },
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: onSurface.withValues(alpha: 0.2)),
+      ),
+      child: configs.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  l10n.cloudInitEmpty,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: onSurface.withValues(alpha: 0.6),
                   ),
-          ),
-        ),
-      ],
+                ),
+              ),
+            )
+          : ListView.separated(
+              itemCount: configs.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                color: onSurface.withValues(alpha: 0.12),
+              ),
+              itemBuilder: (context, index) {
+                final config = configs[index];
+                final selected = config.name == selectedName;
+                return ListTile(
+                  selected: selected,
+                  title: Text(config.name),
+                  onTap: () => onSelect(config.name),
+                );
+              },
+            ),
     );
   }
 }
