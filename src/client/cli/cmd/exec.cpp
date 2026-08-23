@@ -112,7 +112,11 @@ mp::ReturnCodeVariant cmd::Exec::run(mp::ArgParser* parser)
             info_request.add_instance_snapshot_pairs()->set_instance_name(instance_name);
             info_request.set_no_runtime_information(true);
 
-            dispatch(&RpcMethod::info, info_request, on_info_success, on_info_failure);
+            dispatch_with_deadline(&RpcMethod::info,
+                                   info_request,
+                                   on_info_success,
+                                   on_info_failure,
+                                   mp::quick_rpc_deadline);
             // TODO: what to do with the returned value?
         }
     }
@@ -122,6 +126,9 @@ mp::ReturnCodeVariant cmd::Exec::run(mp::ArgParser* parser)
     };
 
     auto on_failure = [this, &instance_name, parser](grpc::Status& status) -> ReturnCodeVariant {
+        if (is_initialization_in_progress(status))
+            return standard_failure_handler_for(name(), cerr, status);
+
         if (status.error_code() == grpc::StatusCode::ABORTED)
             return run_cmd_and_retry({mp::client_name, "start", QString::fromStdString(instance_name)},
                                      parser,
@@ -133,9 +140,11 @@ mp::ReturnCodeVariant cmd::Exec::run(mp::ArgParser* parser)
 
     ssh_info_request.set_verbosity_level(parser->verbosityLevel());
     ReturnCodeVariant ssh_return_code;
-    while ((ssh_return_code =
-                dispatch(&RpcMethod::ssh_info, ssh_info_request, on_success, on_failure)) ==
-           ReturnCode::Retry)
+    while ((ssh_return_code = dispatch_with_deadline(&RpcMethod::ssh_info,
+                                                      ssh_info_request,
+                                                      on_success,
+                                                      on_failure,
+                                                      mp::quick_rpc_deadline)) == ReturnCode::Retry)
         ;
 
     return ssh_return_code;

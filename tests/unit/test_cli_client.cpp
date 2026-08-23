@@ -46,6 +46,7 @@
 #include <multipass/constants.h>
 #include <multipass/exceptions/settings_exceptions.h>
 #include <multipass/exceptions/ssh_exception.h>
+#include <multipass/format.h>
 
 #include <QStringList>
 #include <QTemporaryFile>
@@ -1075,6 +1076,23 @@ TEST_F(Client, shellCmdStartsInstanceIfStoppedOrSuspended)
             check_request_and_return<mp::SSHInfoReply, mp::SSHInfoRequest>(ssh_info_matcher, ok)));
 
     EXPECT_THAT(send_command({"shell", instance}), Eq(mp::ReturnCode::Ok));
+}
+
+TEST_F(Client, shellCmdDoesNotStartWhenInitializing)
+{
+    const auto instance = "ordinary";
+    const auto ssh_info_matcher = make_ssh_info_instance_matcher(instance);
+    const grpc::Status initializing{
+        grpc::StatusCode::FAILED_PRECONDITION,
+        fmt::format(mp::instance_initializing_message, instance)};
+
+    EXPECT_CALL(mock_daemon, ssh_info)
+        .WillOnce(WithArg<1>(
+            check_request_and_return<mp::SSHInfoReply, mp::SSHInfoRequest>(ssh_info_matcher,
+                                                                           initializing)));
+    EXPECT_CALL(mock_daemon, start).Times(0);
+
+    EXPECT_THAT(send_command({"shell", instance}), Eq(mp::ReturnCode::CommandFail));
 }
 
 TEST_F(Client, shellCmdStartsPetenvIfStoppedOrSuspended)

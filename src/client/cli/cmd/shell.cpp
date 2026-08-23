@@ -84,6 +84,9 @@ mp::ReturnCodeVariant cmd::Shell::run(mp::ArgParser* parser)
     };
 
     auto on_failure = [this, &instance_name, parser](grpc::Status& status) -> ReturnCodeVariant {
+        if (is_initialization_in_progress(status))
+            return standard_failure_handler_for(name(), cerr, status);
+
         QStringList retry_args{};
 
         if (status.error_code() == grpc::StatusCode::NOT_FOUND &&
@@ -102,8 +105,11 @@ mp::ReturnCodeVariant cmd::Shell::run(mp::ArgParser* parser)
 
     request.set_verbosity_level(parser->verbosityLevel());
     ReturnCodeVariant return_code;
-    while ((return_code = dispatch(&RpcMethod::ssh_info, request, on_success, on_failure)) ==
-           ReturnCode::Retry)
+    while ((return_code = dispatch_with_deadline(&RpcMethod::ssh_info,
+                                                request,
+                                                on_success,
+                                                on_failure,
+                                                mp::quick_rpc_deadline)) == ReturnCode::Retry)
         ;
 
     return return_code;

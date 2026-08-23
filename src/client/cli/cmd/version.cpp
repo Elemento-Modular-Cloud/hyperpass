@@ -19,6 +19,7 @@
 #include "common_cli.h"
 #include <multipass/cli/argparser.h>
 #include <multipass/cli/formatter.h>
+#include <multipass/constants.h>
 #include <multipass/version.h>
 
 namespace mp = multipass;
@@ -47,7 +48,7 @@ mp::ReturnCodeVariant cmd::Version::run(mp::ArgParser* parser)
 
     mp::VersionRequest request;
     request.set_verbosity_level(parser->verbosityLevel());
-    return dispatch(&RpcMethod::version, request, on_success, on_failure);
+    return dispatch_with_deadline(&RpcMethod::version, request, on_success, on_failure, mp::quick_rpc_deadline);
 }
 
 std::string cmd::Version::name() const

@@ -20,6 +20,7 @@
 
 #include <multipass/cli/argparser.h>
 #include <multipass/cli/formatter.h>
+#include <multipass/constants.h>
 
 namespace mp = multipass;
 namespace cmd = multipass::cmd;
@@ -46,7 +47,7 @@ mp::ReturnCodeVariant cmd::Info::run(mp::ArgParser* parser)
     };
 
     request.set_verbosity_level(parser->verbosityLevel());
-    return dispatch(&RpcMethod::info, request, on_success, on_failure);
+    return dispatch_with_deadline(&RpcMethod::info, request, on_success, on_failure, mp::info_rpc_deadline);
 }
 
 std::string cmd::Info::name() const

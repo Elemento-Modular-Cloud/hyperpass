@@ -19,6 +19,7 @@
 #include "common_cli.h"
 
 #include <multipass/cli/argparser.h>
+#include <multipass/constants.h>
 
 namespace multipass::cmd
 {
@@ -38,7 +39,11 @@ ReturnCodeVariant Zones::run(ArgParser* parser)
 
     ZonesRequest request{};
     request.set_verbosity_level(parser->verbosityLevel());
-    return dispatch(&RpcMethod::zones, request, on_success, on_failure);
+    return dispatch_with_deadline(&RpcMethod::zones,
+                                  request,
+                                  on_success,
+                                  on_failure,
+                                  multipass::quick_rpc_deadline);
 }
 
 std::string Zones::name() const

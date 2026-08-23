@@ -22,6 +22,8 @@
 #include <multipass/rpc/multipass.grpc.pb.h>
 #include <multipass/terminal.h>
 
+#include <chrono>
+
 namespace multipass
 {
 class ArgParser;
@@ -88,6 +90,25 @@ protected:
                             std::forward<SuccessCallable>(on_success),
                             std::forward<FailureCallable>(on_failure),
                             cerr);
+    }
+
+    template <typename RpcFunc,
+              typename Request,
+              typename SuccessCallable,
+              typename FailureCallable>
+    ReturnCodeVariant dispatch_with_deadline(RpcFunc&& rpc_func,
+                                           const Request& request,
+                                           SuccessCallable&& on_success,
+                                           FailureCallable&& on_failure,
+                                           std::chrono::seconds deadline)
+    {
+        return dispatch_rpc(stub,
+                            std::forward<RpcFunc>(rpc_func),
+                            request,
+                            std::forward<SuccessCallable>(on_success),
+                            std::forward<FailureCallable>(on_failure),
+                            cerr,
+                            deadline);
     }
 
     Rpc::StubInterface* stub;

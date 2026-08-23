@@ -204,6 +204,7 @@ private:
     grpc::Status switch_off_vm(VirtualMachine& vm);
     grpc::Status cancel_vm_shutdown(const VirtualMachine& vm);
     grpc::Status get_ssh_info_for_vm(VirtualMachine& vm, SSHInfoReply& response);
+    bool initialization_in_progress(const std::string& name, VirtualMachine& vm);
 
     void init_mounts(const std::string& name);
     void stop_mounts(const std::string& name);

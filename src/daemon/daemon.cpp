@@ -914,18 +914,6 @@ grpc::Status cmd_vms(const LinearInstanceSelection& tgts, const VMCommand& cmd)
     return grpc::Status::OK;
 }
 
-std::vector<std::string> names_from(const LinearInstanceSelection& instances)
-{
-    std::vector<std::string> ret;
-    ret.reserve(instances.size());
-    std::transform(std::cbegin(instances),
-                   std::cend(instances),
-                   std::back_inserter(ret),
-                   [](const auto& item) { return item->first; });
-
-    return ret;
-}
-
 template <typename Instances>
 auto instances_running(const Instances& instances)
 {
@@ -2173,9 +2161,28 @@ try
     fmt::memory_buffer start_errors, start_warnings;
     for (auto& vm_it : instance_selection.operative_selection)
     {
-        std::lock_guard lock{start_mutex};
         const auto& name = vm_it->first;
         auto& vm = *vm_it->second;
+
+        if (initialization_in_progress(name, vm))
+        {
+            fmt::format_to(std::back_inserter(start_errors),
+                           "{}\n",
+                           fmt::format(instance_initializing_message, name));
+            continue;
+        }
+
+        {
+            std::lock_guard lock{start_mutex};
+            if (async_running_futures.find(name) != async_running_futures.end())
+            {
+                fmt::format_to(std::back_inserter(start_errors),
+                               "{}\n",
+                               fmt::format(instance_initializing_message, name));
+                continue;
+            }
+        }
+
         switch (vm.current_state())
         {
         case VirtualMachine::State::unknown:
@@ -2202,9 +2209,6 @@ try
             continue;
         case VirtualMachine::State::running:
             continue;
-        case VirtualMachine::State::starting:
-        case VirtualMachine::State::restarting:
-            break;
         default:
             if (complain_disabled_mounts && !vm_instance_specs[name].mounts.empty())
             {
@@ -2215,8 +2219,11 @@ try
             vm.start();
         }
 
-        starting_vms.push_back(vm_it->first);
+        starting_vms.push_back(name);
     }
+
+    if (starting_vms.empty())
+        return context->set_value(grpc_status_for(start_errors));
 
     auto future_watcher = create_future_watcher();
     future_watcher->setFuture(
@@ -2343,15 +2350,48 @@ try
         return context->set_value(status);
     }
 
+    fmt::memory_buffer restart_errors;
+    std::vector<std::string> restarting_vms;
+    restarting_vms.reserve(instance_targets.size());
+    for (const auto& vm_it : instance_targets)
+    {
+        const auto& name = vm_it->first;
+        auto& vm = *vm_it->second;
+
+        if (initialization_in_progress(name, vm))
+        {
+            fmt::format_to(std::back_inserter(restart_errors),
+                           "{}\n",
+                           fmt::format(instance_initializing_message, name));
+            continue;
+        }
+
+        {
+            std::lock_guard lock{start_mutex};
+            if (async_running_futures.find(name) != async_running_futures.end())
+            {
+                fmt::format_to(std::back_inserter(restart_errors),
+                               "{}\n",
+                               fmt::format(instance_initializing_message, name));
+                continue;
+            }
+        }
+
+        restarting_vms.push_back(name);
+    }
+
+    if (restarting_vms.empty())
+        return context->set_value(grpc_status_for(restart_errors));
+
     auto future_watcher = create_future_watcher();
     future_watcher->setFuture(
         QtConcurrent::run(&Daemon::async_wait_for_ready_all<RestartReply, RestartRequest>,
                           this,
                           server,
-                          names_from(instance_targets),
+                          restarting_vms,
                           timeout,
                           context,
-                          std::string(),
+                          fmt::to_string(restart_errors),
                           std::string()));
 }
 catch (const std::exception& e)
@@ -3524,11 +3564,32 @@ grpc::Status mp::Daemon::cancel_vm_shutdown(const VirtualMachine& vm)
     return grpc::Status::OK;
 }
 
+bool mp::Daemon::initialization_in_progress(const std::string& name, VirtualMachine& vm)
+{
+    if (preparing_instances.find(name) != preparing_instances.end())
+        return true;
+
+    const auto state = vm.current_state();
+    if (state == VirtualMachine::State::starting || state == VirtualMachine::State::restarting)
+        return true;
+
+    if (MP_UTILS.is_running(state))
+        return false;
+
+    std::lock_guard lock{start_mutex};
+    return async_running_futures.find(name) != async_running_futures.end();
+}
+
 grpc::Status mp::Daemon::get_ssh_info_for_vm(VirtualMachine& vm, SSHInfoReply& response)
 {
     const auto& name = vm.get_name();
     if (vm.current_state() == VirtualMachine::State::unknown)
         throw std::runtime_error("Cannot retrieve credentials in unknown state");
+
+    if (initialization_in_progress(name, vm))
+        return grpc::Status{grpc::StatusCode::FAILED_PRECONDITION,
+                            fmt::format(instance_initializing_message, name),
+                            ""};
 
     if (!MP_UTILS.is_running(vm.current_state()))
         return grpc::Status{grpc::StatusCode::ABORTED,

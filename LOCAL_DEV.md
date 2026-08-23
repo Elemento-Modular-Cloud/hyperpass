@@ -110,6 +110,12 @@ If you still need to restore stock Multipass TLS:
 
 A packaged Hyperpass install already uses distinct defaults from Multipass and can coexist without these overrides.
 
+## Launch / shell troubleshooting
+
+While an instance is **Starting** (boot or cloud-init in progress), do not run `hyperpass shell` or `hyperpass exec` against it. Wait until launch finishes or `hyperpass list` shows **Running**.
+
+If the CLI stops responding, a long-running `launch`/`start` may be holding the daemon busy. Use `./scripts/run-dev-daemon.sh --stop` and restart the dev daemon, or wait for the in-flight launch to complete (default timeout is five minutes per phase).
+
 ## Do not (unless intentional)
 
 - Point the installed Multipass LaunchDaemon/snap service at your local JSON just to “try the fork” — that changes the system Multipass install.

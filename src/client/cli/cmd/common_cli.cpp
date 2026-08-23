@@ -26,6 +26,8 @@
 #include <multipass/exceptions/settings_exceptions.h>
 #include <multipass/utils.h>
 
+#include <grpcpp/grpcpp.h>
+
 #include <QCommandLineOption>
 
 #include <algorithm>
@@ -164,6 +166,16 @@ auto cmd::return_code_from(const mp::SettingsException& e) -> mp::ReturnCode
         return ReturnCode::CommandLineError;
 
     return ReturnCode::CommandFail;
+}
+
+bool mp::cmd::is_initialization_in_progress(const grpc::Status& status)
+{
+    if (status.error_code() != grpc::StatusCode::FAILED_PRECONDITION)
+        return false;
+
+    const auto& msg = status.error_message();
+    return msg.find("still initializing") != std::string::npos ||
+           msg.find("being prepared") != std::string::npos;
 }
 
 QString multipass::cmd::describe_common_settings_keys()

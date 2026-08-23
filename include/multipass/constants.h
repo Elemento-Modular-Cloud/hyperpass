@@ -19,6 +19,7 @@
 
 #include <chrono>
 #include <initializer_list>
+#include <string_view>
 
 using namespace std::chrono_literals;
 
@@ -40,6 +41,10 @@ constexpr auto default_memory_size = "1G";
 constexpr auto default_disk_size = "5G";
 constexpr auto default_cpu_cores = min_cpu_cores;
 constexpr auto default_timeout = std::chrono::seconds(300);
+constexpr auto quick_rpc_deadline = std::chrono::seconds(30);
+constexpr auto info_rpc_deadline = std::chrono::seconds(60);
+constexpr std::string_view instance_initializing_message =
+    "instance \"{}\" is still initializing; wait for launch/start to complete";
 constexpr auto image_resize_timeout =
     std::chrono::duration_cast<std::chrono::milliseconds>(5min).count();
 

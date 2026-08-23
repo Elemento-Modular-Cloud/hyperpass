@@ -20,6 +20,7 @@
 #include "common_cli.h"
 
 #include <multipass/cli/argparser.h>
+#include <multipass/constants.h>
 #include <multipass/exceptions/cmd_exceptions.h>
 #include <multipass/timer.h>
 
@@ -79,8 +80,11 @@ mp::ReturnCodeVariant cmd::WaitReady::run(mp::ArgParser* parser)
 
     ReturnCodeVariant return_code;
 
-    while ((return_code = dispatch(&RpcMethod::wait_ready, request, on_success, on_failure)) ==
-           ReturnCode::Retry)
+    while ((return_code = dispatch_with_deadline(&RpcMethod::wait_ready,
+                                                request,
+                                                on_success,
+                                                on_failure,
+                                                mp::quick_rpc_deadline)) == ReturnCode::Retry)
         ;
 
     return return_code;

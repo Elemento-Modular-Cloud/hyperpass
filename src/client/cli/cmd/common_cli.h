@@ -19,6 +19,7 @@
 
 #include <multipass/cli/client_common.h>
 #include <multipass/cli/return_codes.h>
+#include <multipass/constants.h>
 #include <multipass/rpc/multipass.grpc.pb.h>
 #include <multipass/terminal.h>
 #include <multipass/timer.h>
@@ -63,6 +64,7 @@ ReturnCodeVariant run_cmd_and_retry(const QStringList& args,
                                     std::ostream& cerr);
 ReturnCode return_code_from(const SettingsException& e);
 QString describe_common_settings_keys();
+bool is_initialization_in_progress(const grpc::Status& status);
 
 // parser helpers
 void add_instance_timeout(multipass::ArgParser*);
@@ -105,7 +107,13 @@ ReturnCodeVariant normalize_zone_names(RpcMethod* iface, T&& zone_names, std::os
     };
 
     ZonesRequest request{};
-    return dispatch_rpc(iface, &RpcMethod::zones, request, on_success, on_failure, cerr);
+    return dispatch_rpc(iface,
+                        &RpcMethod::zones,
+                        request,
+                        on_success,
+                        on_failure,
+                        cerr,
+                        multipass::quick_rpc_deadline);
 }
 
 } // namespace cmd

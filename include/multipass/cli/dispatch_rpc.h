@@ -26,7 +26,9 @@
 #include <QLocalSocket>
 #include <QString>
 
+#include <chrono>
 #include <grpc++/grpc++.h>
+#include <optional>
 
 namespace multipass::cmd
 {
@@ -89,7 +91,8 @@ ReturnCodeVariant dispatch_rpc_stream(Rpc::StubInterface* stub,
                                       const Request& request,
                                       SuccessCallable&& on_success,
                                       FailureCallable&& on_failure,
-                                      StreamingCallback&& streaming_callback)
+                                      StreamingCallback&& streaming_callback,
+                                      std::optional<std::chrono::seconds> deadline = std::nullopt)
 {
     detail::check_return_callables(on_success, on_failure);
 
@@ -101,6 +104,8 @@ ReturnCodeVariant dispatch_rpc_stream(Rpc::StubInterface* stub,
     auto rpc_method = std::bind(rpc_func, stub, std::placeholders::_1);
 
     grpc::ClientContext context;
+    if (deadline)
+        context.set_deadline(std::chrono::system_clock::now() + *deadline);
     std::unique_ptr<grpc::ClientReaderWriterInterface<Request, ReplyType>> client = rpc_method(
         &context);
 
@@ -116,6 +121,15 @@ ReturnCodeVariant dispatch_rpc_stream(Rpc::StubInterface* stub,
     if (status.ok())
     {
         return on_success(reply);
+    }
+    else if (status.error_code() == grpc::StatusCode::DEADLINE_EXCEEDED)
+    {
+        grpc::Status timeout_status{
+            grpc::StatusCode::DEADLINE_EXCEEDED,
+            "daemon did not respond in time",
+            "Another operation may still be running; wait for it to complete or restart "
+            "hyperpassd."};
+        return handle_failure(timeout_status);
     }
     else if (status.error_code() != grpc::StatusCode::UNAVAILABLE)
     {
@@ -160,7 +174,8 @@ ReturnCodeVariant dispatch_rpc(Rpc::StubInterface* stub,
                                const Request& request,
                                SuccessCallable&& on_success,
                                FailureCallable&& on_failure,
-                               std::ostream& cerr)
+                               std::ostream& cerr,
+                               std::optional<std::chrono::seconds> deadline = std::nullopt)
 {
     using Arg0Type = typename multipass::callable_traits<SuccessCallable>::template arg<0>::type;
     using ReplyType = std::decay_t<Arg0Type>;
@@ -175,7 +190,8 @@ ReturnCodeVariant dispatch_rpc(Rpc::StubInterface* stub,
             {
                 cerr << reply.log_line();
             }
-        });
+        },
+        deadline);
 }
 
 } // namespace multipass::cmd

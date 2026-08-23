@@ -20,6 +20,7 @@
 
 #include <multipass/cli/argparser.h>
 #include <multipass/cli/client_platform.h>
+#include <multipass/constants.h>
 #include <multipass/file_ops.h>
 #include <multipass/ssh/sftp_utils.h>
 
@@ -102,7 +103,7 @@ mp::ReturnCodeVariant cmd::Transfer::run(mp::ArgParser* parser)
     };
 
     request.set_verbosity_level(parser->verbosityLevel());
-    return dispatch(&RpcMethod::ssh_info, request, on_success, on_failure);
+    return dispatch_with_deadline(&RpcMethod::ssh_info, request, on_success, on_failure, mp::quick_rpc_deadline);
 }
 
 std::string cmd::Transfer::name() const
