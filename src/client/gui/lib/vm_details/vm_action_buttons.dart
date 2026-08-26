@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../brand.dart';
 import '../delete_instance_dialog.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
@@ -64,21 +65,32 @@ class VmActionButtons extends ConsumerWidget {
       tooltip: l10n.vmActionsMenuTooltip,
       position: PopupMenuPosition.under,
       itemBuilder: (_) => actionButtons,
-      child: Container(
-        width: 110,
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xff333333)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Text(l10n.vmActionsMenuTitle,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const Icon(Icons.keyboard_arrow_down),
-          ],
-        ),
+      child: Builder(
+        builder: (context) {
+          final onSurface = Theme.of(context).colorScheme.onSurface;
+          return Container(
+            width: 110,
+            height: 36,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Brand.radius),
+              border: Border.all(color: onSurface.withValues(alpha: 0.45)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Text(
+                  l10n.vmActionsMenuTitle,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: onSurface,
+                  ),
+                ),
+                Icon(Icons.keyboard_arrow_down, color: onSurface, size: 20),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -101,15 +113,23 @@ class ActionTile extends ConsumerWidget {
 
     return ListTile(
       enabled: enabled,
+      dense: true,
+      visualDensity: VisualDensity.compact,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       title: Text(
         action.label(AppLocalizations.of(context)!),
-        style: enabled ? const TextStyle(color: Colors.black) : null,
+        style: TextStyle(
+          color: enabled
+              ? Theme.of(context).colorScheme.onSurface
+              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
+        ),
       ),
-      onTap: () {
-        Navigator.pop(context);
-        function();
-      },
+      onTap: enabled
+          ? () {
+              Navigator.pop(context);
+              function();
+            }
+          : null,
     );
   }
 }

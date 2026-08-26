@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../brand.dart';
 import '../l10n/app_localizations.dart';
 import 'vm_table_headers.dart';
 
@@ -31,10 +32,13 @@ class HeaderSelectionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabledHeaders = ref.watch(enabledHeadersProvider);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return CheckboxListTile(
       controlAffinity: ListTileControlAffinity.leading,
-      title: Text(label, style: const TextStyle(color: Colors.black)),
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      title: Text(label, style: TextStyle(color: onSurface)),
       value: enabledHeaders[name],
       onChanged: (isSelected) => ref
           .read(enabledHeadersProvider.notifier)
@@ -49,6 +53,7 @@ class HeaderSelection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     final columnLabels = {
       'STATE': l10n.vmStatState,
       'CPU USAGE': l10n.vmStatCpuUsage,
@@ -71,20 +76,20 @@ class HeaderSelection extends StatelessWidget {
         width: 120,
         height: 42,
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Brand.radius),
+          border: Border.all(color: onSurface.withValues(alpha: 0.45)),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             SvgPicture.asset(
               'assets/settings.svg',
-              colorFilter: const ColorFilter.mode(
-                Color(0xff333333),
-                BlendMode.srcIn,
-              ),
+              colorFilter: ColorFilter.mode(onSurface, BlendMode.srcIn),
             ),
             Text(
               l10n.vmTableColumnsButton,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, color: onSurface),
             ),
           ],
         ),

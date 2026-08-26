@@ -41,7 +41,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     fontFamily: Brand.fontFamily,
     fontFamilyFallback: const ['NotoColorEmoji', 'FreeSans'],
     scaffoldBackgroundColor: Colors.transparent,
-    canvasColor: Colors.transparent,
+    canvasColor: surface,
     cardColor: surface,
     dividerColor: isDark ? Colors.white24 : const Color(0xffe0e0e0),
     colorScheme: ColorScheme(
@@ -54,6 +54,48 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
       onError: Brand.crystalWhite,
       surface: surface,
       onSurface: onSurface,
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      textStyle: TextStyle(
+        color: onSurface,
+        fontFamily: Brand.fontFamily,
+        fontSize: 14,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Brand.radius),
+        side: BorderSide(color: outline.withValues(alpha: 0.35)),
+      ),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xff111111) : Brand.voidBlack,
+        borderRadius: BorderRadius.circular(Brand.radius),
+      ),
+      textStyle: const TextStyle(
+        color: Brand.crystalWhite,
+        fontFamily: Brand.fontFamily,
+        fontSize: 12,
+      ),
+    ),
+    dropdownMenuTheme: DropdownMenuThemeData(
+      menuStyle: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(surface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(8),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Brand.radius),
+          ),
+        ),
+      ),
+      textStyle: TextStyle(
+        color: onSurface,
+        fontFamily: Brand.fontFamily,
+        fontSize: 14,
+      ),
     ),
     extensions: [glass, AppearanceTokens(blurSigma: blurSigma)],
     inputDecorationTheme: InputDecorationTheme(

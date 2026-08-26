@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart' as fl;
 
+import 'brand.dart';
+
 class Tooltip extends fl.StatelessWidget {
   final fl.Widget child;
   final String message;
@@ -14,15 +16,27 @@ class Tooltip extends fl.StatelessWidget {
 
   @override
   fl.Widget build(fl.BuildContext context) {
+    final theme = fl.Theme.of(context);
+    final isDark = theme.brightness == fl.Brightness.dark;
+    // Tooltips stay high-contrast: dark chip + light text in both themes.
+    final background =
+        isDark ? const fl.Color(0xff111111) : Brand.voidBlack;
+    final foreground = Brand.crystalWhite;
+
     return fl.TooltipVisibility(
       visible: visible,
       child: fl.Tooltip(
         key: fl.Key(message),
         message: message,
         textAlign: fl.TextAlign.center,
+        textStyle: fl.TextStyle(
+          color: foreground,
+          fontFamily: Brand.fontFamily,
+          fontSize: 12,
+        ),
         decoration: fl.BoxDecoration(
-          color: const fl.Color(0xff111111),
-          borderRadius: fl.BorderRadius.circular(2),
+          color: background,
+          borderRadius: fl.BorderRadius.circular(Brand.radius),
         ),
         child: child,
       ),
