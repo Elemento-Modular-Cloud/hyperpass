@@ -13,6 +13,7 @@ import 'package:synchronized/synchronized.dart';
 import 'package:tray_menu/tray_menu.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'daemon_source.dart';
 import 'ffi.dart';
 import 'l10n/app_localizations.dart';
 import 'platform/platform.dart';
@@ -149,16 +150,14 @@ extension on InstanceStatus_Status {
 
 Future<void> _updateTrayMenu(
   final ProviderContainer providerContainer,
-  final Map<String, Status> previousVms,
-  final Map<String, Status> nextVms,
+  final Map<VmId, Status> previousVms,
+  final Map<VmId, Status> nextVms,
 ) async {
-  final grpcClient = providerContainer.read(grpcClientProvider);
-
   await TrayMenu.instance.remove(_errorKey);
   await TrayMenu.instance.remove(_separatorErrorKey);
 
-  for (final name in previousVms.keys.whereNot(nextVms.containsKey)) {
-    await TrayMenu.instance.remove('vm-$name');
+  for (final id in previousVms.keys.whereNot(nextVms.containsKey)) {
+    await TrayMenu.instance.remove(id.sidebarKey);
   }
 
   if (nextVms.isEmpty) {
@@ -170,12 +169,19 @@ Future<void> _updateTrayMenu(
     );
   }
 
-  for (final MapEntry(key: name, value: status) in nextVms.entries) {
-    final key = 'vm-$name';
-    final previousStatus = previousVms[name];
-    final label = '$name (${status.label})';
+  for (final MapEntry(key: id, value: status) in nextVms.entries) {
+    final key = id.sidebarKey;
+    final previousStatus = previousVms[id];
+    final label = id.source == DaemonSource.multipass
+        ? '${id.name} · MP (${status.label})'
+        : '${id.name} (${status.label})';
     final startEnabled = VmAction.start.allowedStatuses.contains(status);
     final stopEnabled = VmAction.stop.allowedStatuses.contains(status);
+    final client = switch (id.source) {
+      DaemonSource.hyperpass => providerContainer.read(grpcClientProvider),
+      DaemonSource.multipass =>
+        providerContainer.read(multipassGrpcClientProvider),
+    };
     if (previousStatus == null) {
       final submenu = await TrayMenu.instance.addSubmenu(
         key,
@@ -185,14 +191,14 @@ Future<void> _updateTrayMenu(
       await submenu.addLabel(
         'start',
         label: _l10n().vmActionLabel('start'),
-        enabled: startEnabled,
-        callback: (_, __) => grpcClient.start([name]),
+        enabled: startEnabled && client != null,
+        callback: (_, __) => client?.start([id.name]),
       );
       await submenu.addLabel(
         'stop',
         label: _l10n().vmActionLabel('stop'),
-        enabled: stopEnabled,
-        callback: (_, __) => grpcClient.stop([name]),
+        enabled: stopEnabled && client != null,
+        callback: (_, __) => client?.stop([id.name]),
       );
       await submenu.addSeparator('separator');
       await submenu.addLabel(
@@ -200,13 +206,13 @@ Future<void> _updateTrayMenu(
         label: _l10n().trayOpenInMultipass,
         callback: (_, __) {
           providerContainer
-              .read(vmScreenLocationProvider(name).notifier)
+              .read(vmScreenLocationProvider(id).notifier)
               .set(VmDetailsLocation.shells);
           providerContainer.read(sidebarKeyProvider.notifier).set(key);
           final (:ids, :currentIndex) = providerContainer.read(
-            shellIdsProvider(name),
+            shellIdsProvider(id),
           );
-          final terminalIdentifier = (vmName: name, shellId: ids[currentIndex]);
+          final terminalIdentifier = (vmId: id, shellId: ids[currentIndex]);
           final provider = terminalProvider(terminalIdentifier);
           if (providerContainer.exists(provider)) {
             providerContainer.read(provider.notifier).start();

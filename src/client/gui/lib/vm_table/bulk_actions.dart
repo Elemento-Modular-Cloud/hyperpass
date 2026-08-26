@@ -2,6 +2,7 @@ import 'package:basics/basics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../daemon_source.dart';
 import '../delete_instance_dialog.dart';
 import '../extensions.dart';
 import '../l10n/app_localizations.dart';
@@ -15,7 +16,6 @@ class BulkActionsBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final client = ref.watch(grpcClientProvider);
     final selectedVms = ref.watch(selectedVmsProvider);
     final statuses = ref
         .watch(vmStatusesProvider)
@@ -26,17 +26,26 @@ class BulkActionsBar extends ConsumerWidget {
 
     final l10n = AppLocalizations.of(context)!;
 
+    GrpcClient? clientFor(DaemonSource source) => switch (source) {
+          DaemonSource.hyperpass => ref.read(grpcClientProvider),
+          DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
+        };
+
     Function(VmAction) wrapInNotification(
-      Future<void> Function(Iterable<String>) function,
+      Future<void> Function(GrpcClient client, Iterable<String> names) function,
     ) {
       return (action) {
         final object = selectedVms.length == 1
-            ? selectedVms.first
+            ? selectedVms.first.name
             : l10n.bulkActionInstanceCount(selectedVms.length);
 
         final notificationsNotifier = ref.read(notificationsProvider.notifier);
         notificationsNotifier.addOperation(
-          function(selectedVms),
+          runManagedAction(
+            clientFor: clientFor,
+            ids: selectedVms,
+            action: function,
+          ),
           loading: l10n.bulkActionMessage(action.continuousTense(l10n), object),
           onSuccess: (_) =>
               l10n.bulkActionMessage(action.pastTense(l10n), object),
@@ -49,16 +58,17 @@ class BulkActionsBar extends ConsumerWidget {
     }
 
     final actions = {
-      VmAction.start: wrapInNotification(client.start),
-      VmAction.stop: wrapInNotification(client.stop),
-      VmAction.suspend: wrapInNotification(client.suspend),
+      VmAction.start: wrapInNotification((c, names) => c.start(names)),
+      VmAction.stop: wrapInNotification((c, names) => c.stop(names)),
+      VmAction.suspend: wrapInNotification((c, names) => c.suspend(names)),
       VmAction.delete: (action) {
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (_) => DeleteInstanceDialog(
             count: selectedVms.length,
-            onDelete: () => wrapInNotification(client.purge)(action),
+            onDelete: () =>
+                wrapInNotification((c, names) => c.purge(names))(action),
           ),
         );
       },

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../copyable_text.dart';
+import '../daemon_source.dart';
 import '../distro_branding.dart';
 import '../extensions.dart';
 import '../l10n/app_localizations.dart';
+import '../multipass_chip.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import '../tooltip.dart';
@@ -26,21 +28,21 @@ Widget Function(String) _l10nHeader(String Function(AppLocalizations) label) {
       );
 }
 
-final headers = <TableHeader<VmInfo>>[
+final headers = <TableHeader<TaggedVmInfo>>[
   TableHeader(
     name: 'checkbox',
     childBuilder: (_) => const SelectAllCheckbox(),
     width: 50,
     minWidth: 50,
-    cellBuilder: (info) => SelectVmCheckbox(info.name),
+    cellBuilder: (info) => SelectVmCheckbox(info.id),
   ),
   TableHeader(
     name: 'NAME',
     childBuilder: _l10nHeader((l10n) => l10n.vmTableColumnName),
-    width: 115,
-    minWidth: 70,
+    width: 150,
+    minWidth: 90,
     sortKey: (info) => info.name,
-    cellBuilder: (info) => VmNameLink(info.name),
+    cellBuilder: (info) => VmNameLink(info.id),
   ),
   TableHeader(
     name: 'STATE',
@@ -51,7 +53,7 @@ final headers = <TableHeader<VmInfo>>[
     cellBuilder: (info) => Consumer(
       builder: (_, ref, __) => VmStatusIcon(
         info.instanceStatus.status,
-        isLaunching: ref.watch(isLaunchingProvider(info.name)),
+        isLaunching: ref.watch(isLaunchingProvider(info.id)),
       ),
     ),
   ),
@@ -60,7 +62,7 @@ final headers = <TableHeader<VmInfo>>[
     childBuilder: _l10nHeader((l10n) => l10n.vmStatCpuUsage),
     width: 130,
     minWidth: 100,
-    cellBuilder: (info) => CpuSparkline(info.name),
+    cellBuilder: (info) => CpuSparkline(info.id),
   ),
   TableHeader(
     name: 'MEMORY USAGE',
@@ -131,16 +133,16 @@ class SelectAllCheckbox extends ConsumerWidget {
     final selectedVms = ref.watch(selectedVmsProvider);
     final searchName = ref.watch(searchNameProvider);
     final runningOnly = ref.watch(runningOnlyProvider);
-    final vmNames = ref
+    final vmIds = ref
         .watch(vmInfosProvider)
         .where((i) => !runningOnly || i.instanceStatus.status == Status.RUNNING)
         .where((i) => i.name.contains(searchName))
-        .map((i) => i.name)
+        .map((i) => i.id)
         .toList();
-    final allSelected = selectedVms.containsAll(vmNames);
+    final allSelected = selectedVms.containsAll(vmIds);
 
     void toggleSelectedAll(bool isSelected) {
-      final newState = isSelected ? vmNames.toBuiltSet() : BuiltSet<String>();
+      final newState = isSelected ? vmIds.toBuiltSet() : BuiltSet<VmId>();
       ref.read(selectedVmsProvider.notifier).set(newState);
     }
 
@@ -155,20 +157,20 @@ class SelectAllCheckbox extends ConsumerWidget {
 }
 
 class SelectVmCheckbox extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const SelectVmCheckbox(this.name, {super.key});
+  const SelectVmCheckbox(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(
       selectedVmsProvider.select((selectedVms) {
-        return selectedVms.contains(name);
+        return selectedVms.contains(id);
       }),
     );
 
     void toggleSelected(bool isSelected) {
-      ref.read(selectedVmsProvider.notifier).toggle(name, isSelected);
+      ref.read(selectedVmsProvider.notifier).toggle(id, isSelected);
     }
 
     return Center(
@@ -181,19 +183,26 @@ class SelectVmCheckbox extends ConsumerWidget {
 }
 
 class VmNameLink extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const VmNameLink(this.name, {super.key});
+  const VmNameLink(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    goToVm() => ref.read(sidebarKeyProvider.notifier).set('vm-$name');
+    goToVm() => ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey);
 
     return Tooltip(
-      message: name,
-      child: Text.rich(
-        name.nonBreaking.spanInherit.link(ref, goToVm),
-        overflow: TextOverflow.ellipsis,
+      message: id.displayLabel,
+      child: Row(
+        children: [
+          Flexible(
+            child: Text.rich(
+              id.name.nonBreaking.spanInherit.link(ref, goToVm),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          DaemonSourceChip(id.source),
+        ],
       ),
     );
   }

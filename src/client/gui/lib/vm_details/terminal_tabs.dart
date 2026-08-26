@@ -19,7 +19,7 @@ typedef ShellIds = ({
 
 class ShellIdsNotifier extends Notifier<ShellIds> {
   ShellIdsNotifier(this.arg);
-  final String arg;
+  final VmId arg;
 
   @override
   ShellIds build() => (ids: [ShellId(1)].build(), currentIndex: 0);
@@ -60,7 +60,7 @@ class ShellIdsNotifier extends Notifier<ShellIds> {
 }
 
 final shellIdsProvider = NotifierProvider.autoDispose
-    .family<ShellIdsNotifier, ShellIds, String>(ShellIdsNotifier.new);
+    .family<ShellIdsNotifier, ShellIds, VmId>(ShellIdsNotifier.new);
 
 class Tab extends StatelessWidget {
   final String title;
@@ -144,19 +144,19 @@ class Tab extends StatelessWidget {
 }
 
 class TerminalTabs extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const TerminalTabs(this.name, {super.key});
+  const TerminalTabs(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final provider = shellIdsProvider(name);
+    final provider = shellIdsProvider(id);
     final notifier = provider.notifier;
     final (:ids, :currentIndex) = ref.watch(provider);
     final askTerminalCloseProvider = guiSettingProvider(askTerminalCloseKey);
 
-    final vmInfo = ref.watch(vmInfoProvider(name));
+    final vmInfo = ref.watch(vmInfoProvider(id));
     final os = vmInfo.hasInstanceInfo() ? vmInfo.instanceInfo.os : 'Ubuntu';
 
     final tabsAndShells = ids.mapIndexed((index, shellId) {
@@ -174,7 +174,7 @@ class TerminalTabs extends ConsumerWidget {
                 return ask?.toBoolOption.toNullable() ?? true;
               }),
             );
-            final terminalKey = (vmName: name, shellId: shellId);
+            final terminalKey = (vmId: id, shellId: shellId);
             if (!ask || ref.read(terminalProvider(terminalKey)) == null) {
               ref.read(notifier).remove(index);
               return;
@@ -201,7 +201,7 @@ class TerminalTabs extends ConsumerWidget {
 
       final shell = VmTerminal(
         key: GlobalObjectKey(shellId),
-        name,
+        id,
         shellId,
         isCurrent: index == currentIndex,
         os: os,

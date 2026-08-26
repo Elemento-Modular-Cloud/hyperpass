@@ -49,8 +49,17 @@ class DaemonUnavailable extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final available = ref.watch(daemonAvailableProvider);
     final ffiAvailable = ref.watch(ffiAvailableProvider);
+    // Allow using the GUI against Multipass-only when Hyperpassd is down.
+    final hasMultipassVms = ref.watch(
+      vmInfosProvider.select(
+        (vms) => vms.any((vm) => vm.source == DaemonSource.multipass),
+      ),
+    );
+    final multipassClient = ref.watch(multipassGrpcClientProvider);
+    final allowWithoutHyperpass =
+        hasMultipassVms || multipassClient != null;
 
-    if (available) {
+    if (available || (ffiAvailable && allowWithoutHyperpass)) {
       return const SizedBox.shrink();
     }
 

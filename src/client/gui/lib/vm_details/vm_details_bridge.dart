@@ -9,9 +9,9 @@ import '../tooltip.dart';
 import 'vm_details.dart';
 
 class BridgedDetails extends ConsumerStatefulWidget {
-  final String name;
+  final VmId id;
 
-  const BridgedDetails(this.name, {super.key});
+  const BridgedDetails(this.id, {super.key});
 
   @override
   ConsumerState<BridgedDetails> createState() => _BridgedDetailsState();
@@ -23,7 +23,7 @@ class _BridgedDetailsState extends ConsumerState<BridgedDetails> {
 
   final bridgedNetworkProvider = daemonSettingProvider('local.bridged-network');
   late final bridgedProvider = vmResourceProvider((
-    name: widget.name,
+    id: widget.id,
     resource: VmResource.bridged,
   ));
 
@@ -50,7 +50,7 @@ class _BridgedDetailsState extends ConsumerState<BridgedDetails> {
       }),
     );
     final stopped = ref.watch(
-      vmInfoProvider(widget.name).select((info) {
+      vmInfoProvider(widget.id).select((info) {
         return info.instanceStatus.status == Status.STOPPED;
       }),
     );
@@ -98,7 +98,7 @@ class _BridgedDetailsState extends ConsumerState<BridgedDetails> {
     void configure() {
       setState(() => editing = true);
       ref
-          .read(activeEditPageProvider(widget.name).notifier)
+          .read(activeEditPageProvider(widget.id).notifier)
           .set(ActiveEditPage.bridge);
     }
 
@@ -115,7 +115,7 @@ class _BridgedDetailsState extends ConsumerState<BridgedDetails> {
       onPressed: () {
         formKey.currentState?.reset();
         setState(() => editing = false);
-        ref.read(activeEditPageProvider(widget.name).notifier).set(null);
+        ref.read(activeEditPageProvider(widget.id).notifier).set(null);
       },
       child: Text(l10n.commonCancel),
     );

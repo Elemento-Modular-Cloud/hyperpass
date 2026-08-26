@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../brand.dart';
+import '../daemon_source.dart';
 import '../delete_instance_dialog.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
@@ -9,14 +10,18 @@ import '../providers.dart';
 import '../vm_action.dart';
 
 class VmActionButtons extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const VmActionButtons(this.name, {super.key});
+  const VmActionButtons(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final client = ref.watch(grpcClientProvider);
+    final name = id.name;
+    final client = switch (id.source) {
+      DaemonSource.hyperpass => ref.watch(grpcClientProvider),
+      DaemonSource.multipass => ref.watch(multipassGrpcClientProvider),
+    };
 
     Function(VmAction) wrapInNotification(
       Future<void> Function(Iterable<String>) function,
@@ -37,18 +42,20 @@ class VmActionButtons extends ConsumerWidget {
       };
     }
 
-    final actions = {
-      VmAction.start: wrapInNotification(client.start),
-      VmAction.stop: wrapInNotification(client.stop),
-      VmAction.suspend: wrapInNotification(client.suspend),
-      VmAction.delete: (action) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => DeleteInstanceDialog(
-            onDelete: () => wrapInNotification(client.purge)(action),
-          ),
-        );
+    final actions = <VmAction, void Function(VmAction)>{
+      if (client != null) ...{
+        VmAction.start: wrapInNotification(client.start),
+        VmAction.stop: wrapInNotification(client.stop),
+        VmAction.suspend: wrapInNotification(client.suspend),
+        VmAction.delete: (action) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => DeleteInstanceDialog(
+              onDelete: () => wrapInNotification(client.purge)(action),
+            ),
+          );
+        },
       },
     };
 
@@ -57,7 +64,7 @@ class VmActionButtons extends ConsumerWidget {
         PopupMenuItem(
           padding: EdgeInsets.zero,
           enabled: false,
-          child: ActionTile(name, action, () => function(action)),
+          child: ActionTile(id, action, () => function(action)),
         ),
     ];
 
@@ -97,16 +104,16 @@ class VmActionButtons extends ConsumerWidget {
 }
 
 class ActionTile extends ConsumerWidget {
-  final String name;
+  final VmId id;
   final VmAction action;
   final VoidCallback function;
 
-  const ActionTile(this.name, this.action, this.function, {super.key});
+  const ActionTile(this.id, this.action, this.function, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(
-      vmInfoProvider(name).select((info) {
+      vmInfoProvider(id).select((info) {
         return action.allowedStatuses.contains(info.instanceStatus.status);
       }),
     );

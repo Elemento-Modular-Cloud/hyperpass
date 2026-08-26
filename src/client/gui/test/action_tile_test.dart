@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hyperpass_gui/daemon_source.dart';
 import 'package:hyperpass_gui/grpc_client.dart';
 import 'package:hyperpass_gui/l10n/app_localizations.dart';
 import 'package:hyperpass_gui/providers.dart';
@@ -8,7 +9,7 @@ import 'package:hyperpass_gui/vm_action.dart';
 import 'package:hyperpass_gui/vm_details/vm_action_buttons.dart';
 
 void main() {
-  const vmName = 'test-vm';
+  final vmId = hyperpassVm('test-vm');
 
   Widget buildWidget({
     required VmAction action,
@@ -17,7 +18,7 @@ void main() {
   }) {
     return ProviderScope(
       overrides: [
-        vmInfoProvider(vmName).overrideWithBuild(
+        vmInfoProvider(vmId).overrideWithBuild(
           (ref, notifier) => DetailedInfoItem(
             instanceStatus: InstanceStatus(status: status),
           ),
@@ -27,7 +28,7 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
-          body: ActionTile(vmName, action, onTap ?? () {}),
+          body: ActionTile(vmId, action, onTap ?? () {}),
         ),
       ),
     );
@@ -145,7 +146,7 @@ void main() {
         expect(text.style?.color, isNotNull);
       });
 
-      testWidgets('title text style is null when disabled',
+      testWidgets('title text style uses muted color when disabled',
           (WidgetTester tester) async {
         await tester.pumpWidget(buildWidget(
           action: VmAction.start,
@@ -159,7 +160,7 @@ void main() {
             matching: find.byType(Text),
           ),
         );
-        expect(text.style, isNull);
+        expect(text.style?.color, isNotNull);
       });
     });
   });

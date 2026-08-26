@@ -13,13 +13,13 @@ import 'vm_details_resources.dart';
 enum VmDetailsLocation { shells, details }
 
 final vmScreenLocationProvider = NotifierProvider.autoDispose
-    .family<VmScreenLocationNotifier, VmDetailsLocation, String>(
+    .family<VmScreenLocationNotifier, VmDetailsLocation, VmId>(
   VmScreenLocationNotifier.new,
 );
 
 class VmScreenLocationNotifier extends Notifier<VmDetailsLocation> {
   VmScreenLocationNotifier(this.arg);
-  final String arg;
+  final VmId arg;
 
   @override
   VmDetailsLocation build() {
@@ -34,18 +34,18 @@ class VmScreenLocationNotifier extends Notifier<VmDetailsLocation> {
 enum ActiveEditPage { resources, bridge, mounts }
 
 final activeEditPageProvider = NotifierProvider.autoDispose
-    .family<ActiveEditPageNotifier, ActiveEditPage?, String>(
+    .family<ActiveEditPageNotifier, ActiveEditPage?, VmId>(
   ActiveEditPageNotifier.new,
 );
 
 class ActiveEditPageNotifier extends Notifier<ActiveEditPage?> {
-  ActiveEditPageNotifier(this.name);
-  final String name;
+  ActiveEditPageNotifier(this.id);
+  final VmId id;
 
   @override
   ActiveEditPage? build() {
     ref.listen(
-      vmInfoProvider(name).select((info) => info.instanceStatus.status),
+      vmInfoProvider(id).select((info) => info.instanceStatus.status),
       (_, status) {
         final isBridgeOrResources = [
           ActiveEditPage.bridge,
@@ -66,13 +66,13 @@ class ActiveEditPageNotifier extends Notifier<ActiveEditPage?> {
 }
 
 class VmDetailsScreen extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const VmDetailsScreen(this.name, {super.key});
+  const VmDetailsScreen(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final location = ref.watch(vmScreenLocationProvider(name));
+    final location = ref.watch(vmScreenLocationProvider(id));
 
     return Scaffold(
       body: Column(
@@ -80,7 +80,7 @@ class VmDetailsScreen extends ConsumerWidget {
           PageSurface(
             margin: const EdgeInsets.fromLTRB(24, 24, 24, 0),
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: VmDetailsHeader(name),
+            child: VmDetailsHeader(id),
           ),
           Expanded(
             child: Padding(
@@ -92,11 +92,11 @@ class VmDetailsScreen extends ConsumerWidget {
                     Visibility(
                       visible: location == VmDetailsLocation.shells,
                       maintainState: true,
-                      child: TerminalTabs(name),
+                      child: TerminalTabs(id),
                     ),
                     Visibility(
                       visible: location == VmDetailsLocation.details,
-                      child: VmDetails(name),
+                      child: VmDetails(id),
                     ),
                   ],
                 ),
@@ -110,13 +110,13 @@ class VmDetailsScreen extends ConsumerWidget {
 }
 
 class VmDetails extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const VmDetails(this.name, {super.key});
+  const VmDetails(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeEditPage = ref.watch(activeEditPageProvider(name));
+    final activeEditPage = ref.watch(activeEditPageProvider(id));
 
     return SingleChildScrollView(
       child: Padding(
@@ -127,25 +127,25 @@ class VmDetails extends ConsumerWidget {
             DisableSection(
               active: activeEditPage,
               letEnabledFor: const [],
-              child: GeneralDetails(name),
+              child: GeneralDetails(id),
             ),
             const Divider(height: 60),
             DisableSection(
               active: activeEditPage,
               letEnabledFor: const [ActiveEditPage.resources],
-              child: ResourcesDetails(name),
+              child: ResourcesDetails(id),
             ),
             const Divider(height: 60),
             DisableSection(
               active: activeEditPage,
               letEnabledFor: const [ActiveEditPage.bridge],
-              child: BridgedDetails(name),
+              child: BridgedDetails(id),
             ),
             const Divider(height: 60),
             DisableSection(
               active: activeEditPage,
               letEnabledFor: const [ActiveEditPage.mounts],
-              child: MountDetails(name),
+              child: MountDetails(id),
             ),
           ],
         ),

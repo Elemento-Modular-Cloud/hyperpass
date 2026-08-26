@@ -49,6 +49,19 @@ class GeneralSettings extends ConsumerWidget {
           },
         ),
         const SizedBox(height: 20),
+        Switch(
+          label: 'Show Multipass instances',
+          value: ref.watch(guiSettingProvider(showMultipassInstancesKey)) !=
+              'false',
+          trailingSwitch: true,
+          size: 30,
+          onChanged: (value) {
+            ref
+                .read(guiSettingProvider(showMultipassInstancesKey).notifier)
+                .set(value ? 'true' : 'false');
+          },
+        ),
+        const SizedBox(height: 20),
         Dropdown(
           label: l10n.generalOnCloseLabel,
           width: 260,

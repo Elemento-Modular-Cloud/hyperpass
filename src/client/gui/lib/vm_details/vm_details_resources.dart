@@ -13,9 +13,9 @@ import 'ram_slider.dart';
 import 'vm_details.dart';
 
 class ResourcesDetails extends ConsumerStatefulWidget {
-  final String name;
+  final VmId id;
 
-  const ResourcesDetails(this.name, {super.key});
+  const ResourcesDetails(this.id, {super.key});
 
   @override
   ConsumerState<ResourcesDetails> createState() => _ResourcesDetailsState();
@@ -26,15 +26,15 @@ class _ResourcesDetailsState extends ConsumerState<ResourcesDetails> {
   bool editing = false;
 
   late final cpusProvider = vmResourceProvider((
-    name: widget.name,
+    id: widget.id,
     resource: VmResource.cpus,
   ));
   late final ramProvider = vmResourceProvider((
-    name: widget.name,
+    id: widget.id,
     resource: VmResource.memory,
   ));
   late final diskProvider = vmResourceProvider((
-    name: widget.name,
+    id: widget.id,
     resource: VmResource.disk,
   ));
 
@@ -45,7 +45,7 @@ class _ResourcesDetailsState extends ConsumerState<ResourcesDetails> {
     final ram = ref.watch(ramProvider).whenOrNull(data: memoryInBytes);
     final disk = ref.watch(diskProvider).whenOrNull(data: memoryInBytes);
     final stopped = ref.watch(
-      vmInfoProvider(widget.name).select((info) {
+      vmInfoProvider(widget.id).select((info) {
         return info.instanceStatus.status == Status.STOPPED;
       }),
     );
@@ -107,7 +107,7 @@ class _ResourcesDetailsState extends ConsumerState<ResourcesDetails> {
         if (!formKey.currentState!.validate()) return;
         formKey.currentState!.save();
         setState(() => editing = false);
-        ref.read(activeEditPageProvider(widget.name).notifier).set(null);
+        ref.read(activeEditPageProvider(widget.id).notifier).set(null);
       },
       child: Text(l10n.resourcesSaveChanges),
     );
@@ -115,7 +115,7 @@ class _ResourcesDetailsState extends ConsumerState<ResourcesDetails> {
     void configure() {
       setState(() => editing = true);
       ref
-          .read(activeEditPageProvider(widget.name).notifier)
+          .read(activeEditPageProvider(widget.id).notifier)
           .set(ActiveEditPage.resources);
     }
 
@@ -132,7 +132,7 @@ class _ResourcesDetailsState extends ConsumerState<ResourcesDetails> {
       onPressed: () {
         formKey.currentState?.reset();
         setState(() => editing = false);
-        ref.read(activeEditPageProvider(widget.name).notifier).set(null);
+        ref.read(activeEditPageProvider(widget.id).notifier).set(null);
       },
       child: Text(l10n.commonCancel),
     );

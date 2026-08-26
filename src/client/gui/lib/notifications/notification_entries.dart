@@ -8,6 +8,7 @@ import 'package:grpc/grpc.dart' hide ConnectionState;
 import '../extensions.dart';
 import '../grpc_client.dart';
 import '../l10n/app_localizations.dart';
+import '../providers.dart';
 import '../sidebar.dart';
 import 'notifications_list.dart';
 
@@ -233,7 +234,9 @@ class LaunchingNotification extends ConsumerWidget {
                     const Spacer(),
                     TextButton(
                       onPressed: () {
-                        ref.read(sidebarKeyProvider.notifier).set('vm-$name');
+                        ref
+                            .read(sidebarKeyProvider.notifier)
+                            .set(hyperpassVm(name).sidebarKey);
                         closeNotification(context);
                       },
                       child: Text(l10n.launchGoToInstance),
@@ -303,7 +306,9 @@ class LaunchingNotification extends ConsumerWidget {
         return MouseRegion(
           cursor: SystemMouseCursors.click,
           child: GestureDetector(
-            onTap: () => ref.read(sidebarKeyProvider.notifier).set('vm-$name'),
+            onTap: () => ref
+                .read(sidebarKeyProvider.notifier)
+                .set(hyperpassVm(name).sidebarKey),
             child: notification,
           ),
         );

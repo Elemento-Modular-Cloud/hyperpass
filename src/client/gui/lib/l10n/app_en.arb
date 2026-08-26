@@ -142,7 +142,19 @@
     },
     "sidebarDaemonService": "Hyperpass daemon",
     "@sidebarDaemonService": {
-        "description": "Sidebar footer label for daemon connectivity status"
+        "description": "Sidebar footer label for Hyperpass daemon connectivity status"
+    },
+    "sidebarMultipassService": "Multipass daemon",
+    "@sidebarMultipassService": {
+        "description": "Sidebar footer label for Multipass daemon connectivity status"
+    },
+    "sidebarMultipassNeedsAuth": "Multipass (authenticate)",
+    "@sidebarMultipassNeedsAuth": {
+        "description": "Sidebar footer label when Multipass requires client authentication"
+    },
+    "sidebarMultipassDisabled": "Multipass (hidden)",
+    "@sidebarMultipassDisabled": {
+        "description": "Sidebar footer label when showing Multipass instances is disabled"
     },
     "sidebarCollapse": "Collapse sidebar",
     "@sidebarCollapse": {

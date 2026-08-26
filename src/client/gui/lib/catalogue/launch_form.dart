@@ -68,7 +68,7 @@ final selectedCloudInitProvider =
 );
 
 final randomNameProvider = Provider.autoDispose(
-  (ref) => generatePetname(ref.watch(vmNamesProvider)),
+  (ref) => generatePetname(ref.watch(hyperpassVmNamesProvider)),
 );
 
 String imageName(ImageInfo imageInfo) {
@@ -162,7 +162,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         }
       });
     }
-    final vmNames = ref.watch(vmNamesProvider);
+    final vmNames = ref.watch(hyperpassVmNamesProvider);
     final deletedVms = ref.watch(deletedVmsProvider);
     final networksAsync = ref.watch(networksProvider);
     final networks = networksAsync.when(
@@ -595,7 +595,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       Scaffold.of(context).closeEndDrawer();
       ref
           .read(sidebarKeyProvider.notifier)
-          .set('vm-${launchRequest.instanceName}');
+          .set(hyperpassVm(launchRequest.instanceName).sidebarKey);
     }
   }
 }

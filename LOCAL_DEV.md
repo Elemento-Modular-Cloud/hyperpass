@@ -110,6 +110,15 @@ If you still need to restore stock Multipass TLS:
 
 A packaged Hyperpass install already uses distinct defaults from Multipass and can coexist without these overrides.
 
+## GUI: Multipass instances alongside Hyperpass
+
+The Hyperpass GUI can **list and manage** stock Multipass instances when Multipass is installed and its client certificates are present. New launches always go to Hyperpass.
+
+- Discovery uses platform Multipass defaults (macOS `unix:/var/run/multipass_socket`, Linux `/run/multipass_socket` or snap common, Windows `localhost:50051`) plus Multipass root CA and `multipass-client-certificate` PEMs.
+- Override the Multipass address with `HYPERPASS_MULTIPASS_ADDRESS` (same `unix:…` / `host:port` forms as Hyperpass).
+- Toggle visibility under **Settings → General → Show Multipass instances** (default on).
+- Multipass rows show a small **Multipass** tag; if TLS auth is required, the GUI offers an authenticate dialog.
+
 ## Launch / shell troubleshooting
 
 While an instance is **Starting** (boot or cloud-init in progress), do not run `hyperpass shell` or `hyperpass exec` against it. Wait until launch finishes or `hyperpass list` shows **Running**.

@@ -12,9 +12,9 @@ import 'mount_points.dart';
 import 'vm_details.dart';
 
 class MountDetails extends ConsumerStatefulWidget {
-  final String name;
+  final VmId id;
 
-  const MountDetails(this.name, {super.key});
+  const MountDetails(this.id, {super.key});
 
   @override
   ConsumerState<MountDetails> createState() => _MountDetailsState();
@@ -30,7 +30,7 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mounts = ref.watch(
-      vmInfoProvider(widget.name).select((info) {
+      vmInfoProvider(widget.id).select((info) {
         return info.mountInfo.mountPaths.build();
       }),
     );
@@ -61,7 +61,7 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
       onPressed: () {
         setState(() => phase = MountDetailsPhase.configure);
         ref
-            .read(activeEditPageProvider(widget.name).notifier)
+            .read(activeEditPageProvider(widget.id).notifier)
             .set(ActiveEditPage.mounts);
       },
       child: Text(l10n.commonConfigure),
@@ -70,7 +70,7 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
     final cancelButton = OutlinedButton(
       onPressed: () {
         setState(() => phase = MountDetailsPhase.idle);
-        ref.read(activeEditPageProvider(widget.name).notifier).set(null);
+        ref.read(activeEditPageProvider(widget.id).notifier).set(null);
       },
       child: Text(l10n.commonCancel),
     );
@@ -79,7 +79,7 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
       onPressed: () {
         setState(() => phase = MountDetailsPhase.adding);
         ref
-            .read(activeEditPageProvider(widget.name).notifier)
+            .read(activeEditPageProvider(widget.id).notifier)
             .set(ActiveEditPage.mounts);
       },
       child: Text(l10n.mountsAddMount),
@@ -120,12 +120,17 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
 
   void doMount(MountRequest request) {
     final l10n = AppLocalizations.of(context)!;
-    final grpcClient = ref.read(grpcClientProvider);
+    final name = widget.id.name;
+    final grpcClient = switch (widget.id.source) {
+      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
+    };
+    if (grpcClient == null) return;
     final notificationsNotifier = ref.read(notificationsProvider.notifier);
     final target = request.targetPaths.first.targetPath;
-    final description = '${request.sourcePath} into ${widget.name}:$target';
+    final description = '${request.sourcePath} into $name:$target';
 
-    request.targetPaths.first.instanceName = widget.name;
+    request.targetPaths.first.instanceName = name;
     notificationsNotifier.addOperation(
       grpcClient.mount(request),
       loading: l10n.mountNotificationLoading(description),
@@ -133,13 +138,18 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
       onError: (error) => l10n.mountNotificationError(description, '$error'),
     );
     setState(() => phase = MountDetailsPhase.idle);
-    ref.read(activeEditPageProvider(widget.name).notifier).set(null);
+    ref.read(activeEditPageProvider(widget.id).notifier).set(null);
   }
 
   void doUnmount(MountPaths mountPaths) {
     final l10n = AppLocalizations.of(context)!;
+    final name = widget.id.name;
     final target = mountPaths.targetPath;
-    final grpcClient = ref.read(grpcClientProvider);
+    final grpcClient = switch (widget.id.source) {
+      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
+    };
+    if (grpcClient == null) return;
     final notificationsNotifier = ref.read(notificationsProvider.notifier);
 
     showDialog(
@@ -151,20 +161,19 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
           [
             l10n.mountDeleteBodyPrefix.span,
             '${mountPaths.sourcePath} ⭢ $target'.span.font('UbuntuMono'),
-            l10n.mountDeleteBodySuffix(widget.name).span,
+            l10n.mountDeleteBodySuffix(name).span,
           ].spans,
         ),
         actionText: l10n.commonDelete,
         onAction: () {
           Navigator.pop(context);
           notificationsNotifier.addOperation(
-            grpcClient.umount(widget.name, target),
-            loading: l10n.unmountNotificationLoading(target, widget.name),
+            grpcClient.umount(name, target),
+            loading: l10n.unmountNotificationLoading(target, name),
             onSuccess: (_) =>
-                l10n.unmountNotificationSuccess(target, widget.name),
+                l10n.unmountNotificationSuccess(target, name),
             onError: (error) {
-              return l10n.unmountNotificationError(
-                  target, widget.name, '$error');
+              return l10n.unmountNotificationError(target, name, '$error');
             },
           );
         },

@@ -5,14 +5,16 @@ import 'package:basics/basics.dart';
 import 'package:built_collection/built_collection.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fpdart/fpdart.dart';
 import 'package:grpc/grpc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'daemon_source.dart';
 import 'ffi.dart';
 import 'grpc_client.dart';
 import 'logger.dart';
+import 'multipass_discovery.dart';
 
+export 'daemon_source.dart';
 export 'grpc_client.dart';
 
 late final ProviderContainer providerContainer;
@@ -25,21 +27,19 @@ final ffiAvailableProvider = Provider((ref) {
   return isFFIAvailable;
 });
 
-final grpcClientProvider = Provider((ref) {
-  // Check if FFI is available first
-  if (!ref.watch(ffiAvailableProvider)) {
-    throw ffiLoadError ?? Exception('FFI library not available');
-  }
-
-  final address = getServerAddress();
-  final certPair = getCertPair();
-  final rootCert = getRootCert();
-
-  var channelCredentials = CustomChannelCredentials(
+GrpcClient _buildGrpcClient({
+  required Uri address,
+  required List<int> certificate,
+  required List<int> certificateKey,
+  required List<int> rootCertificate,
+  BadCertificateHandler? onBadCertificate,
+}) {
+  final channelCredentials = CustomChannelCredentials(
     authority: 'localhost',
-    certificate: certPair.cert,
-    certificateKey: certPair.key,
-    rootCertificate: rootCert,
+    certificate: certificate,
+    certificateKey: certificateKey,
+    rootCertificate: rootCertificate,
+    onBadCertificate: onBadCertificate,
   );
 
   return GrpcClient(
@@ -54,11 +54,78 @@ final grpcClientProvider = Provider((ref) {
       ),
     ),
   );
+}
+
+/// Primary Hyperpass daemon client (required).
+final grpcClientProvider = Provider((ref) {
+  if (!ref.watch(ffiAvailableProvider)) {
+    throw ffiLoadError ?? Exception('FFI library not available');
+  }
+
+  final address = getServerAddress();
+  final certPair = getCertPair();
+  final rootCert = getRootCert();
+
+  return _buildGrpcClient(
+    address: address,
+    certificate: certPair.cert,
+    certificateKey: certPair.key,
+    rootCertificate: rootCert,
+  );
 });
 
-final vmInfosStreamProvider = StreamProvider<List<VmInfo>>((ref) async* {
+const showMultipassInstancesKey = 'showMultipassInstances';
+
+bool _showMultipassEnabled(Ref ref) {
+  final value = ref.watch(guiSettingProvider(showMultipassInstancesKey));
+  return value != 'false';
+}
+
+/// Best-effort Multipass daemon client. Null when unavailable or disabled.
+final multipassGrpcClientProvider = Provider<GrpcClient?>((ref) {
+  if (!_showMultipassEnabled(ref)) return null;
+
+  final config = discoverMultipassConnection();
+  if (config == null) return null;
+
+  try {
+    return _buildGrpcClient(
+      address: config.address,
+      certificate: config.clientCert,
+      certificateKey: config.clientKey,
+      rootCertificate: config.rootCert,
+      // Multipass UDS certs are CN=localhost without SANs; Dart rejects them
+      // unless we allow that identity after pinning the Multipass root CA.
+      onBadCertificate: allowMultipassDaemonCertificate,
+    );
+  } catch (e, st) {
+    logger.w('Failed to create Multipass gRPC client', error: e, stackTrace: st);
+    return null;
+  }
+});
+
+GrpcClient? grpcClientFor(Ref ref, DaemonSource source) {
+  return switch (source) {
+    DaemonSource.hyperpass => ref.read(grpcClientProvider),
+    DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
+  };
+}
+
+/// True when Multipass is present but rejected the client cert (needs authenticate).
+final multipassNeedsAuthProvider =
+    NotifierProvider<MultipassNeedsAuthNotifier, bool>(
+  MultipassNeedsAuthNotifier.new,
+);
+
+class MultipassNeedsAuthNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final hyperpassVmInfosStreamProvider = StreamProvider<List<VmInfo>>((ref) async* {
   final grpcClient = ref.watch(grpcClientProvider);
-  // this is to de-duplicate errors received from the stream
   Object? lastError;
   while (true) {
     final timer = Future.delayed(1900.milliseconds);
@@ -67,25 +134,127 @@ final vmInfosStreamProvider = StreamProvider<List<VmInfo>>((ref) async* {
       lastError = null;
     } catch (error, stackTrace) {
       if (error != lastError) {
-        logger.e('Error on polling info', error: error, stackTrace: stackTrace);
+        logger.e('Error on polling Hyperpass info',
+            error: error, stackTrace: stackTrace);
         yield* Stream.error(error, stackTrace);
       }
       lastError = error;
     }
-    // these two timers make it so that requests are sent with at least a 2s pause between them
-    // but if the request takes longer than 1.9s to complete, we still wait 100ms before sending the next one
     await timer;
     await Future.delayed(100.milliseconds);
   }
 });
 
+/// True when the last Multipass info poll succeeded.
+final multipassOnlineProvider =
+    NotifierProvider<MultipassOnlineNotifier, bool>(MultipassOnlineNotifier.new);
+
+class MultipassOnlineNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) {
+    if (state != value) state = value;
+  }
+}
+
+/// Sidebar-facing Multipass connectivity for the status row.
+enum MultipassSidebarStatus { hidden, online, offline, needsAuth, disabled }
+
+final multipassSidebarStatusProvider = Provider<MultipassSidebarStatus>((ref) {
+  if (!_showMultipassEnabled(ref)) {
+    return MultipassSidebarStatus.disabled;
+  }
+  if (ref.watch(multipassNeedsAuthProvider)) {
+    return MultipassSidebarStatus.needsAuth;
+  }
+  if (ref.watch(multipassGrpcClientProvider) == null) {
+    return MultipassSidebarStatus.offline;
+  }
+  return ref.watch(multipassOnlineProvider)
+      ? MultipassSidebarStatus.online
+      : MultipassSidebarStatus.offline;
+});
+
+final multipassVmInfosStreamProvider =
+    StreamProvider<List<VmInfo>>((ref) async* {
+  final client = ref.watch(multipassGrpcClientProvider);
+  Object? lastError;
+  while (true) {
+    final timer = Future.delayed(1900.milliseconds);
+    if (client == null) {
+      ref.read(multipassOnlineProvider.notifier).set(false);
+      yield const [];
+    } else {
+      try {
+        final infos = await client.info();
+        if (ref.read(multipassNeedsAuthProvider)) {
+          ref.read(multipassNeedsAuthProvider.notifier).set(false);
+        }
+        ref.read(multipassOnlineProvider.notifier).set(true);
+        yield infos;
+        lastError = null;
+      } catch (error, stackTrace) {
+        final message = error is GrpcError ? (error.message ?? '') : '$error';
+        final lower = message.toLowerCase();
+        final unauthenticated = error is GrpcError &&
+            (error.code == StatusCode.unauthenticated ||
+                lower.contains('unauthenticated') ||
+                lower.contains('not authenticated') ||
+                lower.contains('access denied'));
+        if (unauthenticated) {
+          ref.read(multipassNeedsAuthProvider.notifier).set(true);
+        }
+        ref.read(multipassOnlineProvider.notifier).set(false);
+        if (error != lastError) {
+          logger.w('Error on polling Multipass info',
+              error: error, stackTrace: stackTrace);
+        }
+        lastError = error;
+        yield const [];
+      }
+    }
+    await timer;
+    await Future.delayed(100.milliseconds);
+  }
+});
+
+/// Merged Hyperpass + Multipass instance stream (tagged).
+///
+/// Multipass instances are included even when Hyperpass is offline/erroring.
+final vmInfosStreamProvider = Provider<AsyncValue<List<TaggedVmInfo>>>((ref) {
+  final hyperpass = ref.watch(hyperpassVmInfosStreamProvider);
+  final multipass = ref.watch(multipassVmInfosStreamProvider);
+
+  final hpInfos = hyperpass.asData?.value;
+  final mpInfos = multipass.asData?.value ?? const <VmInfo>[];
+
+  if (hpInfos == null && mpInfos.isEmpty) {
+    if (hyperpass.hasError) {
+      return AsyncValue.error(hyperpass.error!, hyperpass.stackTrace!);
+    }
+    return const AsyncValue.loading();
+  }
+
+  final tagged = <TaggedVmInfo>[
+    for (final info in hpInfos ?? const <VmInfo>[])
+      TaggedVmInfo(id: hyperpassVm(info.name), info: info),
+    for (final info in mpInfos)
+      TaggedVmInfo(id: multipassVm(info.name), info: info),
+  ]..sort((a, b) {
+      final byName = a.name.compareTo(b.name);
+      if (byName != 0) return byName;
+      return a.source.index.compareTo(b.source.index);
+    });
+  return AsyncValue.data(tagged);
+});
+
 final daemonAvailableProvider = Provider((ref) {
-  // Check FFI availability first
   if (!ref.watch(ffiAvailableProvider)) {
     return false;
   }
 
-  final error = ref.watch(vmInfosStreamProvider).error;
+  final error = ref.watch(hyperpassVmInfosStreamProvider).error;
   if (error == null) return true;
   if (error case GrpcError grpcError) {
     final message = grpcError.message ?? '';
@@ -100,9 +269,9 @@ final daemonInfoProvider = FutureProvider((ref) {
   return ref.watch(grpcClientProvider).daemonInfo();
 });
 
-class AllVmInfosNotifier extends Notifier<List<DetailedInfoItem>> {
+class AllVmInfosNotifier extends Notifier<List<TaggedVmInfo>> {
   @override
-  List<DetailedInfoItem> build() {
+  List<TaggedVmInfo> build() {
     return ref.watch(vmInfosStreamProvider).when(
           data: (data) => data,
           loading: () => const [],
@@ -111,12 +280,27 @@ class AllVmInfosNotifier extends Notifier<List<DetailedInfoItem>> {
   }
 
   Future<void> update() async {
-    state = await ref.read(grpcClientProvider).info();
+    final hp = await ref.read(grpcClientProvider).info();
+    final mpClient = ref.read(multipassGrpcClientProvider);
+    List<VmInfo> mp = const [];
+    if (mpClient != null) {
+      try {
+        mp = await mpClient.info();
+      } catch (_) {
+        mp = const [];
+      }
+    }
+    state = [
+      for (final info in hp)
+        TaggedVmInfo(id: hyperpassVm(info.name), info: info),
+      for (final info in mp)
+        TaggedVmInfo(id: multipassVm(info.name), info: info),
+    ];
   }
 }
 
 final allVmInfosProvider =
-    NotifierProvider<AllVmInfosNotifier, List<DetailedInfoItem>>(
+    NotifierProvider<AllVmInfosNotifier, List<TaggedVmInfo>>(
   AllVmInfosNotifier.new,
 );
 
@@ -125,53 +309,74 @@ final vmInfosProvider = Provider((ref) {
       .watch(allVmInfosProvider)
       .where((info) => info.instanceStatus.status != Status.DELETED)
       .toBuiltList();
-  final existingVmNames = existingVms.map((i) => i.name).toSet();
+  final existingIds = existingVms.map((i) => i.id).toSet();
   final launchingVms = ref.watch(launchingVmsProvider).where((info) {
-    return !existingVmNames.contains(info.name);
+    return !existingIds.contains(info.id);
   });
 
-  return existingVms.concat(launchingVms).sortedBy((i) => i.name).toList();
+  return [
+    ...existingVms,
+    ...launchingVms,
+  ]..sort((a, b) {
+      final byName = a.name.compareTo(b.name);
+      if (byName != 0) return byName;
+      return a.source.index.compareTo(b.source.index);
+    });
 });
 
 final vmInfosMapProvider = Provider((ref) {
-  return {for (final i in ref.watch(vmInfosProvider)) i.name: i};
+  return {for (final i in ref.watch(vmInfosProvider)) i.id: i};
 });
 
 class VmInfoNotifier extends Notifier<DetailedInfoItem> {
   VmInfoNotifier(this.arg);
-  final String arg;
+  final VmId arg;
 
   @override
   DetailedInfoItem build() {
-    return ref.watch(vmInfosMapProvider)[arg] ?? DetailedInfoItem();
+    return ref.watch(vmInfosMapProvider)[arg]?.info ?? DetailedInfoItem();
   }
 }
 
 final vmInfoProvider = NotifierProvider.autoDispose
-    .family<VmInfoNotifier, DetailedInfoItem, String>(VmInfoNotifier.new);
+    .family<VmInfoNotifier, DetailedInfoItem, VmId>(VmInfoNotifier.new);
 
 final vmStatusesProvider = Provider((ref) {
-  return ref
-      .watch(vmInfosMapProvider)
-      .mapValue((info) => info.instanceStatus.status)
-      .build();
+  return BuiltMap<VmId, Status>({
+    for (final entry in ref.watch(vmInfosMapProvider).entries)
+      entry.key: entry.value.instanceStatus.status,
+  });
 });
 
-final vmNamesProvider = Provider((ref) {
+final vmIdsProvider = Provider((ref) {
   return ref.watch(vmStatusesProvider).keys.toBuiltSet();
+});
+
+/// Backwards-compatible name; now returns VmIds.
+final vmNamesProvider = vmIdsProvider;
+
+/// Hyperpass instance names only (for launch uniqueness / petnames).
+final hyperpassVmNamesProvider = Provider((ref) {
+  return ref
+      .watch(vmIdsProvider)
+      .where((id) => id.source == DaemonSource.hyperpass)
+      .map((id) => id.name)
+      .toBuiltSet();
 });
 
 final deletedVmsProvider = Provider((ref) {
   return ref
       .watch(allVmInfosProvider)
-      .where((info) => info.instanceStatus.status == Status.DELETED)
+      .where((info) =>
+          info.source == DaemonSource.hyperpass &&
+          info.instanceStatus.status == Status.DELETED)
       .map((info) => info.name)
       .toBuiltSet();
 });
 
-class LaunchingVmsNotifier extends Notifier<BuiltList<DetailedInfoItem>> {
+class LaunchingVmsNotifier extends Notifier<BuiltList<TaggedVmInfo>> {
   @override
-  BuiltList<DetailedInfoItem> build() {
+  BuiltList<TaggedVmInfo> build() {
     final vms = stateOrNull ?? BuiltList();
 
     return vms;
@@ -181,14 +386,17 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<DetailedInfoItem>> {
     final vms = state;
     state = vms.rebuild((builder) {
       builder.add(
-        DetailedInfoItem(
-          name: request.instanceName,
-          cpuCount: request.numCores.toString(),
-          diskTotal: request.diskSpace,
-          memoryTotal: request.memSize,
-          instanceInfo: InstanceDetails(
-            currentRelease: request.image,
-            os: os,
+        TaggedVmInfo(
+          id: hyperpassVm(request.instanceName),
+          info: DetailedInfoItem(
+            name: request.instanceName,
+            cpuCount: request.numCores.toString(),
+            diskTotal: request.diskSpace,
+            memoryTotal: request.memSize,
+            instanceInfo: InstanceDetails(
+              currentRelease: request.image,
+              os: os,
+            ),
           ),
         ),
       );
@@ -196,32 +404,33 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<DetailedInfoItem>> {
   }
 
   void remove(String name) {
+    final id = hyperpassVm(name);
     final vms = state;
     state = vms.rebuild((builder) {
-      builder.removeWhere((info) => info.name == name);
+      builder.removeWhere((info) => info.id == id);
     });
   }
 
   @override
   bool updateShouldNotify(
-    BuiltList<DetailedInfoItem> previous,
-    BuiltList<DetailedInfoItem> next,
+    BuiltList<TaggedVmInfo> previous,
+    BuiltList<TaggedVmInfo> next,
   ) {
     return previous != next;
   }
 }
 
 final launchingVmsProvider =
-    NotifierProvider<LaunchingVmsNotifier, BuiltList<DetailedInfoItem>>(
+    NotifierProvider<LaunchingVmsNotifier, BuiltList<TaggedVmInfo>>(
   LaunchingVmsNotifier.new,
 );
 
-final isLaunchingProvider = Provider.autoDispose.family<bool, String>((
+final isLaunchingProvider = Provider.autoDispose.family<bool, VmId>((
   ref,
-  name,
+  id,
 ) {
   final launchingVms = ref.watch(launchingVmsProvider);
-  return launchingVms.any((info) => info.name == name);
+  return launchingVms.any((info) => info.id == id);
 });
 
 class ClientSettingNotifier extends Notifier<String> {
@@ -286,9 +495,10 @@ class DaemonSettingNotifier extends AsyncNotifier<String> {
 }
 
 final trayMenuDataProvider = Provider.autoDispose((ref) {
-  return ref.watch(daemonAvailableProvider)
-      ? ref.watch(vmStatusesProvider)
-      : null;
+  final hyperpassUp = ref.watch(daemonAvailableProvider);
+  final multipassClient = ref.watch(multipassGrpcClientProvider);
+  if (!hyperpassUp && multipassClient == null) return null;
+  return ref.watch(vmStatusesProvider);
 });
 
 final daemonVersionProvider = NotifierProvider<DaemonVersionNotifier, String>(
@@ -318,7 +528,7 @@ final daemonSettingProvider = AsyncNotifierProvider.autoDispose
 
 enum VmResource { cpus, memory, disk, bridged }
 
-typedef VmResourceKey = ({String name, VmResource resource});
+typedef VmResourceKey = ({VmId id, VmResource resource});
 
 class VmResourceNotifier extends AsyncNotifier<String> {
   VmResourceNotifier(this.arg);
@@ -326,10 +536,10 @@ class VmResourceNotifier extends AsyncNotifier<String> {
 
   @override
   Future<String> build() async {
-    final (:name, :resource) = arg;
+    final (:id, :resource) = arg;
     final launchingVm = ref.watch(
       launchingVmsProvider.select((infos) {
-        return infos.firstWhereOrNull((info) => info.name == name);
+        return infos.firstWhereOrNull((info) => info.id == id);
       }),
     );
 
@@ -342,14 +552,25 @@ class VmResourceNotifier extends AsyncNotifier<String> {
       };
     }
 
-    final key = 'local.$name.${resource.name}';
-    return await ref.watch(daemonSettingProvider(key).future);
+    final client = grpcClientFor(ref, id.source);
+    if (client == null) {
+      throw StateError('No client for ${id.source}');
+    }
+    final key = 'local.${id.name}.${resource.name}';
+    // Multipass and Hyperpass both expose local.<name>.* settings via get.
+    return await client.get(key);
   }
 
   Future<void> set(String value) async {
-    final (:name, :resource) = arg;
-    final key = 'local.$name.${resource.name}';
-    ref.read(daemonSettingProvider(key).notifier).set(value);
+    final (:id, :resource) = arg;
+    final key = 'local.${id.name}.${resource.name}';
+    if (id.source == DaemonSource.hyperpass) {
+      ref.read(daemonSettingProvider(key).notifier).set(value);
+      return;
+    }
+    final client = grpcClientFor(ref, id.source);
+    if (client == null) return;
+    await client.set(key, value);
   }
 }
 
@@ -363,13 +584,12 @@ class GuiSettingNotifier extends Notifier<String?> {
   @override
   String? build() {
     final sharedPreferences = ref.read(sharedPreferencesProvider);
-// Define defaults for specific keys
     final defaultValues = {
       onAppCloseKey: 'ask',
       themeModeKey: 'system',
+      showMultipassInstancesKey: 'true',
     };
 
-    // Return the stored value, or the default value, or null
     return sharedPreferences.getString(arg) ?? defaultValues[arg];
   }
 
@@ -404,7 +624,6 @@ final networksProvider =
   return BuiltSet<String>();
 });
 
-// Session-level terminal font size that resets on app restart
 class SessionTerminalFontSizeNotifier extends Notifier<double> {
   static const defaultFontSize = 13.0;
 
@@ -417,3 +636,26 @@ class SessionTerminalFontSizeNotifier extends Notifier<double> {
 final sessionTerminalFontSizeProvider =
     NotifierProvider<SessionTerminalFontSizeNotifier, double>(
         SessionTerminalFontSizeNotifier.new);
+
+/// Runs a manage RPC against each daemon represented in [ids].
+Future<void> runManagedAction({
+  required GrpcClient? Function(DaemonSource source) clientFor,
+  required Iterable<VmId> ids,
+  required Future<void> Function(GrpcClient client, Iterable<String> names)
+      action,
+}) async {
+  final bySource = <DaemonSource, List<String>>{};
+  for (final id in ids) {
+    bySource.putIfAbsent(id.source, () => []).add(id.name);
+  }
+  await Future.wait([
+    for (final entry in bySource.entries)
+      () async {
+        final client = clientFor(entry.key);
+        if (client == null) {
+          throw StateError('${entry.key.label} daemon is unavailable');
+        }
+        await action(client, entry.value);
+      }(),
+  ]);
+}

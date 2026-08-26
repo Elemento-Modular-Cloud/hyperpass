@@ -17,6 +17,7 @@ import 'cloud_init/cloud_init_screen.dart';
 import 'daemon_unavailable.dart';
 import 'help.dart';
 import 'logger.dart';
+import 'multipass_auth_banner.dart';
 import 'notifications.dart';
 import 'platform/platform.dart';
 import 'providers.dart';
@@ -97,7 +98,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final currentKey = ref.watch(sidebarKeyProvider);
-    final vms = ref.watch(vmNamesProvider);
+    final vms = ref.watch(vmIdsProvider);
 
     final widgets = {
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
@@ -106,7 +107,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
       CloudInitScreen.sidebarKey: const CloudInitScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),
       HelpScreen.sidebarKey: const HelpScreen(),
-      for (final name in vms) 'vm-$name': VmDetailsScreen(name),
+      for (final id in vms) id.sidebarKey: VmDetailsScreen(id),
     };
 
     final content = Stack(
@@ -199,15 +200,22 @@ class _AppState extends ConsumerState<App> with WindowListener {
           child: SizedBox(width: 400, child: NotificationList()),
         ),
         const DaemonUnavailable(),
+        Positioned(
+          left: sidebarWidth,
+          right: 0,
+          top: SideBar.titleBarHeight,
+          child: const MultipassAuthBanner(),
+        ),
       ],
     );
   }
 
   void goToPrimary() {
-    final vms = ref.read(vmNamesProvider);
+    final vms = ref.read(vmIdsProvider);
     final primary = ref.read(clientSettingProvider(primaryNameKey));
-    if (vms.contains(primary)) {
-      ref.read(sidebarKeyProvider.notifier).set('vm-$primary');
+    final primaryId = hyperpassVm(primary);
+    if (vms.contains(primaryId)) {
+      ref.read(sidebarKeyProvider.notifier).set(primaryId.sidebarKey);
       windowManager.showAndRestore();
     }
   }
@@ -258,7 +266,14 @@ class _AppState extends ConsumerState<App> with WindowListener {
           .toList();
       final notificationsNotifier = ref.read(notificationsProvider.notifier);
       notificationsNotifier.addOperation(
-        ref.read(grpcClientProvider).stop(runningVMs),
+        runManagedAction(
+          clientFor: (source) => switch (source) {
+            DaemonSource.hyperpass => ref.read(grpcClientProvider),
+            DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
+          },
+          ids: runningVMs,
+          action: (client, names) => client.stop(names),
+        ),
         loading: 'Stopping all instances',
         onError: (error) => 'Failed to stop all instances: $error',
         onSuccess: (_) {

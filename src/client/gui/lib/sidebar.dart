@@ -1,4 +1,3 @@
-import 'package:basics/basics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -14,28 +13,29 @@ import 'cloud_init/cloud_init_screen.dart';
 import 'glass_panel.dart';
 import 'help.dart';
 import 'l10n/app_localizations.dart';
+import 'multipass_auth_banner.dart';
 import 'providers.dart';
 import 'settings/settings.dart';
 import 'vm_details/terminal.dart';
 import 'vm_table/vm_table_screen.dart';
 
 extension on String {
-  String? get sidebarVmName => startsWith('vm-') ? withoutPrefix('vm-') : null;
+  VmId? get sidebarVmId => parseSidebarVmKey(this);
 }
 
 class SidebarKeyNotifier extends Notifier<String> {
   @override
   String build() {
-    ref.listen(vmNamesProvider, (_, names) {
-      final vmName = state.sidebarVmName;
-      if (vmName != null && !names.contains(vmName)) ref.invalidateSelf();
+    ref.listen(vmIdsProvider, (_, ids) {
+      final vmId = state.sidebarVmId;
+      if (vmId != null && !ids.contains(vmId)) ref.invalidateSelf();
     });
 
     return CatalogueScreen.sidebarKey;
   }
 
   void set(String key) {
-    if (key.sidebarVmName != null) {
+    if (key.sidebarVmId != null) {
       ref.read(vmVisitedProvider(key).notifier).setVisited();
     }
     state = key;
@@ -129,8 +129,9 @@ class SideBar extends ConsumerWidget {
     final glass = context.glass;
     final selectedSidebarKey = ref.watch(sidebarKeyProvider);
     final sidebarKeyNotifier = sidebarKeyProvider.notifier;
-    final vmNames = ref.watch(vmNamesProvider);
+    final vmNames = ref.watch(vmIdsProvider);
     final daemonUp = ref.watch(daemonAvailableProvider);
+    final multipassStatus = ref.watch(multipassSidebarStatusProvider);
     final fg = _SidebarStyle.foreground(appearanceTheme);
 
     bool isSelected(String key) => key == selectedSidebarKey;
@@ -228,16 +229,18 @@ class SideBar extends ConsumerWidget {
       ),
     );
 
-    final vmEntries = vmNames.map((name) {
-      final key = 'vm-$name';
+    final vmEntries = vmNames.map((id) {
+      final key = id.sidebarKey;
       final hasShells = ref.watch(
-        runningShellsProvider(name).select((n) => n > 0),
+        runningShellsProvider(id).select((n) => n > 0),
       );
       return SidebarEntry(
         key: ValueKey(key),
         icon: FontAwesomeIcons.terminal,
         selected: isSelected(key),
-        label: name,
+        label: id.source == DaemonSource.multipass
+            ? '${id.name} · MP'
+            : id.name,
         subroute: true,
         iconOpacity: hasShells ? 1 : 0.35,
         onPressed: () {
@@ -268,6 +271,22 @@ class SideBar extends ConsumerWidget {
       icon: FontAwesomeIcons.microchip,
       label: l10n.sidebarDaemonService,
       online: daemonUp,
+    );
+
+    final multipassStatusRow = _SidebarStatusRow(
+      icon: FontAwesomeIcons.cube,
+      label: switch (multipassStatus) {
+        MultipassSidebarStatus.needsAuth => l10n.sidebarMultipassNeedsAuth,
+        MultipassSidebarStatus.disabled => l10n.sidebarMultipassDisabled,
+        MultipassSidebarStatus.hidden ||
+        MultipassSidebarStatus.online ||
+        MultipassSidebarStatus.offline =>
+          l10n.sidebarMultipassService,
+      },
+      online: multipassStatus == MultipassSidebarStatus.online,
+      onTap: multipassStatus == MultipassSidebarStatus.needsAuth
+          ? () => MultipassAuthBanner.showAuthDialog(context)
+          : null,
     );
 
     final elementoFooter = Material(
@@ -327,6 +346,7 @@ class SideBar extends ConsumerWidget {
         settings,
         const SizedBox(height: 8),
         daemonStatus,
+        multipassStatusRow,
         elementoFooter,
       ],
     );
@@ -367,11 +387,13 @@ class _SidebarStatusRow extends ConsumerWidget {
     required this.icon,
     required this.label,
     required this.online,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool online;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -381,7 +403,7 @@ class _SidebarStatusRow extends ConsumerWidget {
     final fg = _SidebarStyle.foreground(appearanceTheme);
     final dot = online ? Brand.green : Brand.yellow;
 
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Row(
         children: [
@@ -400,6 +422,12 @@ class _SidebarStatusRow extends ConsumerWidget {
           ),
         ],
       ),
+    );
+
+    if (onTap == null) return row;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, child: row),
     );
   }
 }

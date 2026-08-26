@@ -7,6 +7,7 @@ import 'package:protobuf/protobuf.dart' hide RpcClient;
 import 'package:rxdart/rxdart.dart';
 
 import 'logger.dart';
+import 'daemon_source.dart';
 import 'providers.dart';
 import 'update_available.dart';
 
@@ -17,6 +18,21 @@ typedef VmInfo = DetailedInfoItem;
 typedef ImageInfo = FindReply_ImageInfo;
 typedef MountPaths = MountInfo_MountPaths;
 typedef RpcMessage = GeneratedMessage;
+
+class TaggedVmInfo {
+  final VmId id;
+  final DetailedInfoItem info;
+
+  const TaggedVmInfo({required this.id, required this.info});
+
+  String get name => id.name;
+  DaemonSource get source => id.source;
+  InstanceStatus get instanceStatus => info.instanceStatus;
+  InstanceDetails get instanceInfo => info.instanceInfo;
+  String get memoryTotal => info.memoryTotal;
+  String get diskTotal => info.diskTotal;
+  String get cpuCount => info.cpuCount;
+}
 
 extension on RpcMessage {
   String get repr => '$runtimeType${toProto3Json()}';
@@ -248,6 +264,13 @@ class GrpcClient {
       CacheDeleteRequest(ids: ids, pruneExpired: pruneExpired),
     ).then((r) => r!);
   }
+
+  Future<void> authenticate(String passphrase) {
+    return doRpc(
+      _client.authenticate,
+      AuthenticateRequest(passphrase: passphrase),
+    );
+  }
 }
 
 class CustomChannelCredentials extends ChannelCredentials {
@@ -256,23 +279,41 @@ class CustomChannelCredentials extends ChannelCredentials {
   final List<int> rootCertificate;
 
   CustomChannelCredentials({
-    super.authority,
+    String? authority,
     required List<int> certificate,
     required this.certificateKey,
     required this.rootCertificate,
+    BadCertificateHandler? onBadCertificate,
   })  : certificateChain = certificate,
         super.secure(
+          // Parent uses these bytes as an initial trust store; [securityContext]
+          // replaces them with [rootCertificate] and installs the client identity.
           certificates: certificate,
+          authority: authority,
+          onBadCertificate: onBadCertificate,
         );
 
   @override
   SecurityContext get securityContext {
-    final ctx = super.securityContext!;
+    final ctx = createSecurityContext(false);
     ctx.setTrustedCertificatesBytes(rootCertificate);
     ctx.useCertificateChainBytes(certificateChain);
     ctx.usePrivateKeyBytes(certificateKey);
     return ctx;
   }
+}
+
+/// Accept Multipass daemon certs over a Unix socket.
+///
+/// Stock Multipass serves `CN=localhost` without SANs. Dart/BoringSSL then fails
+/// with `CERTIFICATE_VERIFY_FAILED: application verification failure` even when
+/// the chain is anchored to the pinned Multipass root CA. gRPC only invokes this
+/// after the built-in check fails; we still require a localhost identity.
+bool allowMultipassDaemonCertificate(X509Certificate certificate, String host) {
+  final hostOk = host.isEmpty || host == 'localhost';
+  final subject = certificate.subject;
+  final localhostIdentity = subject.contains('CN=localhost');
+  return hostOk && localhostIdentity;
 }
 
 extension<T> on Stream<T> {

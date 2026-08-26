@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Table, Switch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalogue/catalogue.dart';
+import '../daemon_source.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -32,35 +33,30 @@ final runningOnlyProvider = NotifierProvider<RunningOnlyNotifier, bool>(
 );
 
 final selectedVmsProvider =
-    NotifierProvider<SelectedVmsNotifier, BuiltSet<String>>(
+    NotifierProvider<SelectedVmsNotifier, BuiltSet<VmId>>(
   SelectedVmsNotifier.new,
 );
 
-class SelectedVmsNotifier extends Notifier<BuiltSet<String>> {
+class SelectedVmsNotifier extends Notifier<BuiltSet<VmId>> {
   @override
-  BuiltSet<String> build() {
-    // if any filter is applied (either name or show running only), the provider
-    // will be invalidated and return the empty set again
+  BuiltSet<VmId> build() {
     ref.watch(runningOnlyProvider);
     ref.watch(searchNameProvider);
-    // if navigating to another page, deselect all
     ref.watch(sidebarKeyProvider);
-    // look for changes in available vms and make sure this set does not contain
-    // vm names that are no longer present
-    ref.listen(vmNamesProvider, (_, availableNames) {
-      state = availableNames.intersection(state);
+    ref.listen(vmIdsProvider, (_, availableIds) {
+      state = availableIds.intersection(state);
     });
 
     return BuiltSet();
   }
 
-  void set(BuiltSet<String> newState) {
+  void set(BuiltSet<VmId> newState) {
     state = newState;
   }
 
-  void toggle(String name, bool isSelected) {
+  void toggle(VmId id, bool isSelected) {
     state = state.rebuild((set) {
-      isSelected ? set.add(name) : set.remove(name);
+      isSelected ? set.add(id) : set.remove(id);
     });
   }
 }
@@ -165,11 +161,11 @@ class Vms extends ConsumerWidget {
             child: SizedBox(
               height: (infos.length + 2) * 50,
               width: double.infinity,
-              child: Table<VmInfo>(
+              child: Table<TaggedVmInfo>(
                 headers: enabledHeaders,
                 data: infos.toList(),
                 finalRow: totalUsageRow,
-                isSelected: (info) => selectedVms.contains(info.name),
+                isSelected: (info) => selectedVms.contains(info.id),
               ),
             ),
           ),

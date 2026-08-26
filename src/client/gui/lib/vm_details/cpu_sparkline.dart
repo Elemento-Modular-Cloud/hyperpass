@@ -8,13 +8,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
 
 class CpuSparkline extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const CpuSparkline(this.name, {super.key});
+  const CpuSparkline(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final values = ref.watch(cpuUsagesProvider(name));
+    final values = ref.watch(cpuUsagesProvider(id));
 
     final sparkline = LineChartBarData(
       barWidth: 1,
@@ -48,7 +48,7 @@ class CpuSparkline extends ConsumerWidget {
 
 class CpuUsagesNotifier extends Notifier<Queue<double>> {
   CpuUsagesNotifier(this.arg);
-  final String arg;
+  final VmId arg;
 
   var lastTotal = 0;
   var lastIdle = 0;
@@ -87,4 +87,4 @@ class CpuUsagesNotifier extends Notifier<Queue<double>> {
 }
 
 final cpuUsagesProvider = NotifierProvider.autoDispose
-    .family<CpuUsagesNotifier, Queue<double>, String>(CpuUsagesNotifier.new);
+    .family<CpuUsagesNotifier, Queue<double>, VmId>(CpuUsagesNotifier.new);

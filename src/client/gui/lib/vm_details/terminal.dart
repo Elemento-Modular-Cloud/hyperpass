@@ -22,7 +22,7 @@ import '../vm_action.dart';
 
 class RunningShellsNotifier extends Notifier<int> {
   RunningShellsNotifier(this.arg);
-  final String arg;
+  final VmId arg;
 
   @override
   int build() {
@@ -39,7 +39,7 @@ class RunningShellsNotifier extends Notifier<int> {
 }
 
 final runningShellsProvider =
-    NotifierProvider.autoDispose.family<RunningShellsNotifier, int, String>(
+    NotifierProvider.autoDispose.family<RunningShellsNotifier, int, VmId>(
   RunningShellsNotifier.new,
 );
 
@@ -53,7 +53,7 @@ class ShellId {
   String toString() => 'ShellId{$id}';
 }
 
-typedef TerminalIdentifier = ({String vmName, ShellId shellId});
+typedef TerminalIdentifier = ({VmId vmId, ShellId shellId});
 
 class TerminalNotifier extends Notifier<Terminal?> {
   TerminalNotifier(this.arg);
@@ -61,7 +61,7 @@ class TerminalNotifier extends Notifier<Terminal?> {
 
   final lock = Lock();
   Isolate? isolate;
-  late final vmStatusProvider = vmInfoProvider(arg.vmName).select((info) {
+  late final vmStatusProvider = vmInfoProvider(arg.vmId).select((info) {
     return info.instanceStatus.status == Status.RUNNING;
   });
 
@@ -79,7 +79,7 @@ class TerminalNotifier extends Notifier<Terminal?> {
 
   void _decrementShellCount() {
     if (ref.mounted) {
-      ref.read(runningShellsProvider(arg.vmName).notifier).decrement();
+      ref.read(runningShellsProvider(arg.vmId).notifier).decrement();
     }
   }
 
@@ -90,8 +90,13 @@ class TerminalNotifier extends Notifier<Terminal?> {
     final running = ref.read(vmStatusProvider);
     if (!running) return null;
 
-    final grpcClient = ref.read(grpcClientProvider);
-    final sshInfo = await grpcClient.sshInfo(arg.vmName).onError((err, stack) {
+    final grpcClient = switch (arg.vmId.source) {
+      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
+    };
+    if (grpcClient == null) return null;
+    final sshInfo =
+        await grpcClient.sshInfo(arg.vmId.name).onError((err, stack) {
       ref
           .notifyError((error) => 'Failed to get SSH information: $err')
           .call(err, stack);
@@ -153,7 +158,7 @@ class TerminalNotifier extends Notifier<Terminal?> {
       errorsAreFatal: true,
     );
 
-    ref.read(runningShellsProvider(arg.vmName).notifier).increment();
+    ref.read(runningShellsProvider(arg.vmId).notifier).increment();
     return terminal;
   }
 
@@ -181,14 +186,14 @@ final terminalProvider = NotifierProvider.autoDispose
 );
 
 class VmTerminal extends ConsumerStatefulWidget {
-  final String name;
-  final ShellId id;
+  final VmId vmId;
+  final ShellId shellId;
   final bool isCurrent;
   final String os;
 
   const VmTerminal(
-    this.name,
-    this.id, {
+    this.vmId,
+    this.shellId, {
     super.key,
     this.isCurrent = false,
     this.os = '',
@@ -223,7 +228,7 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
   final contextMenuController = ContextMenuController();
   final terminalController = TerminalController();
   final focusNode = FocusNode();
-  late final terminalIdentifier = (vmName: widget.name, shellId: widget.id);
+  late final terminalIdentifier = (vmId: widget.vmId, shellId: widget.shellId);
 
   @override
   void initState() {
@@ -249,9 +254,14 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
   Future<void> startVmIfNeeded(final bool vmRunning) async {
     if (vmRunning) return;
     final l10n = AppLocalizations.of(context)!;
-    final name = widget.name;
+    final name = widget.vmId.name;
     final action = VmAction.start;
-    final operation = ref.read(grpcClientProvider).start([name]);
+    final client = switch (widget.vmId.source) {
+      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
+    };
+    if (client == null) return;
+    final operation = client.start([name]);
     ref.read(notificationsProvider.notifier).addOperation(
           operation,
           loading:
@@ -343,7 +353,7 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
     final l10n = AppLocalizations.of(context)!;
     final terminal = ref.watch(terminalProvider(terminalIdentifier));
     final vmStatus = ref.watch(
-      vmInfoProvider(widget.name).select((info) {
+      vmInfoProvider(widget.vmId).select((info) {
         return info.instanceStatus.status;
       }),
     );

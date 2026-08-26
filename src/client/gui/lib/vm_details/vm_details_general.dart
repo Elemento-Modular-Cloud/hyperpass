@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../copyable_text.dart';
+import '../daemon_source.dart';
 import '../extensions.dart';
 import '../l10n/app_localizations.dart';
+import '../multipass_chip.dart';
 import '../providers.dart';
 import 'cpu_sparkline.dart';
 import 'memory_usage.dart';
@@ -22,20 +24,20 @@ extension InstanceDetailsExtensions on InstanceDetails {
 }
 
 class VmDetailsHeader extends ConsumerWidget {
-  final String name;
+  final VmId id;
 
-  const VmDetailsHeader(this.name, {super.key});
+  const VmDetailsHeader(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final info = ref.watch(vmInfoProvider(name));
+    final info = ref.watch(vmInfoProvider(id));
 
     final cpu = VmStat(
       width: 120,
       height: 35,
       label: l10n.vmStatCpuUsage,
-      child: CpuSparkline(info.name),
+      child: CpuSparkline(id),
     );
 
     final memory = VmStat(
@@ -58,7 +60,7 @@ class VmDetailsHeader extends ConsumerWidget {
       ),
     );
 
-    final currentLocation = ref.watch(vmScreenLocationProvider(name));
+    final currentLocation = ref.watch(vmScreenLocationProvider(id));
     final buttonStyle = Theme.of(context).outlinedButtonTheme.style;
 
     OutlinedButton locationButton(VmDetailsLocation location) {
@@ -75,7 +77,7 @@ class VmDetailsHeader extends ConsumerWidget {
         style: style,
         child: Text(location.name.capitalize()),
         onPressed: () {
-          ref.read(vmScreenLocationProvider(name).notifier).set(location);
+          ref.read(vmScreenLocationProvider(id).notifier).set(location);
         },
       );
     }
@@ -90,16 +92,24 @@ class VmDetailsHeader extends ConsumerWidget {
 
     final list = [
       Expanded(
-        child: CopyableText(
-          name.nonBreaking,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w300),
+        child: Row(
+          children: [
+            Flexible(
+              child: CopyableText(
+                id.name.nonBreaking,
+                style:
+                    const TextStyle(fontSize: 24, fontWeight: FontWeight.w300),
+              ),
+            ),
+            DaemonSourceChip(id.source),
+          ],
         ),
       ),
       locationButtons,
       cpu,
       memory,
       disk,
-      VmActionButtons(name),
+      VmActionButtons(id),
     ];
 
     return Padding(
@@ -146,16 +156,16 @@ class VmStat extends StatelessWidget {
 }
 
 class GeneralDetails extends ConsumerWidget {
-  final String name;
+  final VmId id;
   static const double baseVmStatHeight = 50;
 
-  const GeneralDetails(this.name, {super.key});
+  const GeneralDetails(this.id, {super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final info = ref.watch(vmInfoProvider(name));
-    final isLaunching = ref.watch(isLaunchingProvider(name));
+    final info = ref.watch(vmInfoProvider(id));
+    final isLaunching = ref.watch(isLaunchingProvider(id));
 
     final status = VmStat(
       width: 100,
