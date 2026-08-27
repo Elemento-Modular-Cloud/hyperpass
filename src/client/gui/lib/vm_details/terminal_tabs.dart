@@ -157,7 +157,14 @@ class TerminalTabs extends ConsumerWidget {
     final askTerminalCloseProvider = guiSettingProvider(askTerminalCloseKey);
 
     final vmInfo = ref.watch(vmInfoProvider(id));
-    final os = vmInfo.hasInstanceInfo() ? vmInfo.instanceInfo.os : 'Ubuntu';
+    final os = () {
+      if (!vmInfo.hasInstanceInfo()) return 'Ubuntu';
+      final fromOs = vmInfo.instanceInfo.os.trim();
+      if (fromOs.isNotEmpty) return fromOs;
+      final fromRelease = vmInfo.instanceInfo.currentRelease.trim();
+      if (fromRelease.isNotEmpty) return fromRelease;
+      return 'Ubuntu';
+    }();
 
     final tabsAndShells = ids.mapIndexed((index, shellId) {
       final tab = ReorderableDragStartListener(

@@ -10,6 +10,7 @@ import 'brand.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
 import 'cloud_init/cloud_init_screen.dart';
+import 'distro_branding.dart';
 import 'glass_panel.dart';
 import 'help.dart';
 import 'l10n/app_localizations.dart';
@@ -234,6 +235,11 @@ class SideBar extends ConsumerWidget {
       final hasShells = ref.watch(
         runningShellsProvider(id).select((n) => n > 0),
       );
+      final info = ref.watch(vmInfoProvider(id));
+      final branding = distroBranding(
+        info.instanceInfo.os,
+        release: info.instanceInfo.currentRelease,
+      );
       return SidebarEntry(
         key: ValueKey(key),
         icon: FontAwesomeIcons.terminal,
@@ -243,6 +249,7 @@ class SideBar extends ConsumerWidget {
             : id.name,
         subroute: true,
         iconOpacity: hasShells ? 1 : 0.35,
+        iconColor: branding.accent,
         onPressed: () {
           ref.read(sidebarKeyNotifier).set(key);
         },
@@ -440,6 +447,7 @@ class SidebarEntry extends ConsumerWidget {
   final bool selected;
   final bool subroute;
   final double iconOpacity;
+  final Color? iconColor;
 
   const SidebarEntry({
     super.key,
@@ -450,6 +458,7 @@ class SidebarEntry extends ConsumerWidget {
     this.selected = false,
     this.subroute = false,
     this.iconOpacity = 1,
+    this.iconColor,
   });
 
   @override
@@ -472,7 +481,11 @@ class SidebarEntry extends ConsumerWidget {
       child: SizedBox(
         width: _SidebarStyle.iconColumnWidth,
         child: Center(
-          child: FaIcon(icon, size: _SidebarStyle.iconSize, color: fg),
+          child: FaIcon(
+            icon,
+            size: _SidebarStyle.iconSize,
+            color: iconColor ?? fg,
+          ),
         ),
       ),
     );

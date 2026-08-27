@@ -163,8 +163,15 @@ const _amazonlinux = DistroBranding(
   logoBackground: Color(0x40FFFFFF),
 );
 
-DistroBranding distroBranding(String os, {bool isCore = false}) {
-  final key = os.toLowerCase();
+DistroBranding distroBranding(
+  String os, {
+  bool isCore = false,
+  String? release,
+}) {
+  // Multipass often leaves `os` blank and puts e.g. "Ubuntu 24.04 LTS" in release.
+  final key = '$os ${release ?? ''}'.trim().toLowerCase();
+  if (key.isEmpty) return _ubuntuServer;
+
   if (key.contains('debian')) return _debian;
   if (key.contains('fedora')) return _fedora;
   if (key.contains('almalinux') || key.contains('alma')) return _almalinux;
@@ -199,11 +206,14 @@ bool distroIsCore({
   return false;
 }
 
-String distroLogoAsset(String os) => distroBranding(os).logoAsset;
+String distroLogoAsset(String os, {String? release}) =>
+    distroBranding(os, release: release).logoAsset;
 
-String distroDisplayName(String os) {
-  if (os.trim().isEmpty) return '-';
-  return distroBranding(os).displayName;
+String distroDisplayName(String os, {String? release}) {
+  if (os.trim().isEmpty && (release == null || release.trim().isEmpty)) {
+    return '-';
+  }
+  return distroBranding(os, release: release).displayName;
 }
 
 bool distroLogoIsRaster(String asset) =>

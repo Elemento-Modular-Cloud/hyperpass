@@ -226,12 +226,14 @@ class DistroLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (os.trim().isEmpty) {
+    final releaseText = release?.trim() ?? '';
+    if (os.trim().isEmpty && releaseText.isEmpty) {
       return SizedBox(width: size, height: size);
     }
 
     final branding = distroBranding(
       os,
+      release: release,
       isCore: isCore ||
           distroIsCore(os: os, release: release, aliases: aliases),
     );
