@@ -20,6 +20,7 @@
 #include "config.h"
 #include "grpc_backend.h"
 #include "operation_tracker.h"
+#include "vm_registry.h"
 
 #include <httplib.h>
 
@@ -33,6 +34,7 @@ class ApiServer
 public:
     ApiServer(ApiConfig config,
               std::shared_ptr<GrpcBackend> hyperpass_backend,
+              std::shared_ptr<VmRegistry> registry,
               std::shared_ptr<GrpcBackend> multipass_backend = nullptr);
 
     /** Blocking listen. Returns false if bind/listen failed. */
@@ -45,11 +47,17 @@ public:
         return tracker;
     }
 
+    VmRegistry& registry()
+    {
+        return *vm_registry;
+    }
+
 private:
     void register_routes();
 
     ApiConfig config;
     std::shared_ptr<GrpcBackend> hyperpass_backend;
+    std::shared_ptr<VmRegistry> vm_registry;
     std::shared_ptr<GrpcBackend> multipass_backend;
     OperationTracker tracker;
     httplib::Server server;

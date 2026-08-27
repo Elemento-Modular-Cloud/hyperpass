@@ -1,101 +1,170 @@
 openapi: 3.0.3
 info:
-  title: Hyperpass External REST API
+  title: Hyperpass AtomOS Service API
   description: |
-    Placeholder OpenAPI contract for the hyperpass-api sidecar.
-
-    The definitive external standard will replace resource shapes and paths once
-    the API reference is provided. Current endpoints are infrastructure smoke
-    paths used to validate auth, health, and gRPC translation.
-  version: 0.1.0-placeholder
+    Meson-compatible Service daemon surface (port 7781) backed by Hyperpass.
+    Aligns with the AtomOS Bruno `service/` collection.
+  version: 0.2.0
 servers:
-  - url: http://127.0.0.1:51052
-    description: Default local listen address
+  - url: http://127.0.0.1:7781
+    description: Default local Service listen address
 security:
   - bearerAuth: []
 paths:
-  /healthz:
+  /:
     get:
-      summary: Liveness probe
+      summary: Ping
       security: []
       responses:
         "200":
-          description: Process is alive
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatus"
-  /readyz:
-    get:
-      summary: Readiness probe (daemon gRPC reachable)
-      security: []
-      responses:
-        "200":
-          description: Daemon reachable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReadyStatus"
+          description: Alive
         "503":
-          description: Daemon unreachable
+          description: Hyperpass backend unreachable
+  /version:
+    get:
+      summary: Version
+      security: []
+      responses:
+        "200":
+          description: Service version
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ReadyStatus"
-  /v1/instances:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  backend:
+                    type: string
+                  backend_version:
+                    type: string
+  /api/v1.0/register:
+    post:
+      summary: Register (launch) VM
+      description: AtomOS path; same handler as create_machine.
+      responses:
+        "200":
+          description: Registered
+        "400":
+          description: Bad request
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          description: Backend unreachable
+  /api/v1.0/create_machine:
+    post:
+      summary: Create machine (Meson alias of register)
+      responses:
+        "200":
+          description: Registered
+        "400":
+          description: Bad request
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          description: Backend unreachable
+  /api/v1.0/running:
     get:
-      summary: List instances (provisional)
-      description: |
-        Merges Hyperpass and (when discovered) stock Multipass instances.
-        Each item includes a `source` field: `hyperpass` or `multipass`.
+      summary: List VMs for client
+      description: AtomOS path; same handler as get_machine. Requires JSON body with client_uid.
+      responses:
+        "200":
+          description: VM list
+        "400":
+          description: Bad request
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1.0/get_machine:
+    get:
+      summary: Get machines (Meson alias of running)
+      description: Requires JSON body with client_uid.
+      responses:
+        "200":
+          description: VM list
+        "400":
+          description: Bad request
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1.0/unregister:
+    delete:
+      summary: Unregister (delete) VM
+      description: AtomOS path; same handler as delete_machine.
+      responses:
+        "200":
+          description: Unregistered
+        "404":
+          description: Not found
+  /api/v1.0/delete_machine:
+    delete:
+      summary: Delete machine (Meson alias of unregister)
+      responses:
+        "200":
+          description: Unregistered
+        "404":
+          description: Not found
+  /api/v1.0/start:
+    post:
+      summary: Start VM
+      responses:
+        "200":
+          description: Started
+        "409":
+          description: Already running
+  /api/v1.0/stop:
+    post:
+      summary: Stop VM
+      responses:
+        "200":
+          description: Stopped
+  /api/v1.0/reboot:
+    post:
+      summary: Reboot VM
+      responses:
+        "200":
+          description: Rebooted
+  /api/v1.0/images/find:
+    get:
+      summary: Find images
       parameters:
-        - name: ipv4
+        - name: query
           in: query
           schema:
             type: string
-            enum: ["true", "false"]
-            default: "true"
+        - name: remote
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Image catalog
+  /healthz:
+    get:
+      summary: Liveness (extra)
+      security: []
+      responses:
+        "200":
+          description: OK
+  /readyz:
+    get:
+      summary: Readiness (extra)
+      security: []
+      responses:
+        "200":
+          description: Ready
+        "503":
+          description: Not ready
+  /v1/instances:
+    get:
+      summary: Provisional merged instance list (extra)
+      parameters:
         - name: source
           in: query
-          description: Restrict to one daemon
           schema:
             type: string
             enum: [hyperpass, multipass]
       responses:
         "200":
-          description: Instance list
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InstanceList"
-        "400":
-          description: Invalid source filter
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "502":
-          $ref: "#/components/responses/DaemonError"
-        "503":
-          description: Multipass requested but not discovered
-  /v1/operations/{operationId}:
-    get:
-      summary: Get long-running operation status
-      parameters:
-        - name: operationId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Operation status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Operation"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: Unknown operation
+          description: Instances
 components:
   securitySchemes:
     bearerAuth:
@@ -104,99 +173,3 @@ components:
   responses:
     Unauthorized:
       description: Missing or invalid Bearer token
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-    DaemonError:
-      description: Upstream hyperpassd gRPC failure
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Error"
-  schemas:
-    HealthStatus:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [ok]
-    ReadyStatus:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [ready, not_ready]
-        message:
-          type: string
-        hyperpass:
-          type: string
-          enum: [ready, not_ready]
-        multipass:
-          type: string
-          enum: [ready, not_ready, unavailable]
-    InstanceList:
-      type: object
-      required: [instances]
-      properties:
-        instances:
-          type: array
-          items:
-            $ref: "#/components/schemas/Instance"
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              source:
-                type: string
-              message:
-                type: string
-              code:
-                type: integer
-    Instance:
-      type: object
-      properties:
-        name:
-          type: string
-        source:
-          type: string
-          enum: [hyperpass, multipass]
-        state:
-          type: string
-        release:
-          type: string
-        os:
-          type: string
-        ipv4:
-          type: array
-          items:
-            type: string
-        zone:
-          type: string
-    Operation:
-      type: object
-      required: [id, kind, state]
-      properties:
-        id:
-          type: string
-        kind:
-          type: string
-        state:
-          type: string
-          enum: [pending, running, succeeded, failed]
-        message:
-          type: string
-        error:
-          type: string
-    Error:
-      type: object
-      properties:
-        error:
-          type: string
-        message:
-          type: string
-        code:
-          type: integer

@@ -24,7 +24,7 @@ namespace json = boost::json;
 
 bool mp::api::is_public_path(std::string_view path)
 {
-    return path == "/healthz" || path == "/readyz";
+    return path == "/" || path == "/version" || path == "/healthz" || path == "/readyz";
 }
 
 mp::api::AuthResult mp::api::check_bearer_auth(std::string_view authorization_header,

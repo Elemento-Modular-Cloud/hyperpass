@@ -6,7 +6,7 @@
                 <File Source="bin\hyperpass-api.exe" />
                 <ServiceInstall Name="HyperpassApi" DisplayName="Hyperpass REST API"
                     Description="REST API sidecar for the Hyperpass daemon"
-                    Arguments="--listen 127.0.0.1:51052 --insecure-no-auth --verbosity info"
+                    Arguments="--listen 127.0.0.1:7781 --insecure-no-auth --verbosity info"
                     Start="auto" Type="ownProcess"
                     ErrorControl="normal">
                     <ServiceConfig FailureActionsWhen="failedToStopOrReturnedError" OnInstall="yes"

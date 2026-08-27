@@ -1,58 +1,47 @@
 # hyperpass-api
 
-REST sidecar that translates an external-standard HTTP API to `hyperpassd` over
-the existing mTLS gRPC control plane.
+REST sidecar implementing the AtomOS **Service** API (Meson-compatible VM surface on
+port **7781**), translating to `hyperpassd` over mTLS gRPC.
 
 ## Build
 
-Enabled by default (`HYPERPASS_ENABLE_API=ON`). Disable with:
-
-```bash
-cmake -DHYPERPASS_ENABLE_API=OFF ...
-```
-
-Binary: `build/bin/hyperpass-api`
+Enabled by default (`HYPERPASS_ENABLE_API=ON`). Binary: `build/bin/hyperpass-api`
 
 ## Run (local dev)
 
-With a dev daemon from `scripts/run-dev-daemon.sh`:
-
 ```bash
 export HYPERPASS_SERVER_ADDRESS=unix:/tmp/hyperpass.socket
-./scripts/run-dev-api.sh
+./scripts/run-dev-api.sh --insecure-no-auth
 ```
 
-Or manually:
-
-```bash
-export HYPERPASS_SERVER_ADDRESS=unix:/tmp/hyperpass.socket
-./build/bin/hyperpass-api --insecure-no-auth --listen 127.0.0.1:51052
-```
-
-## Auth
-
-By default a Bearer token is required:
-
-```bash
-./build/bin/hyperpass-api --api-token secret
-curl -H "Authorization: Bearer secret" http://127.0.0.1:51052/v1/instances
-```
-
-`--insecure-no-auth` skips REST auth (local development only). The sidecar still
-uses the same client certificates as the CLI when talking to `hyperpassd`.
-
-## Endpoints (scaffold)
+## AtomOS Service endpoints
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| GET | `/healthz` | no | Liveness |
-| GET | `/readyz` | no | Daemon gRPC reachable (`hyperpass` + `multipass` status) |
-| GET | `/v1/instances` | yes | Merged Hyperpass + Multipass list (`source` on each item) |
-| GET | `/v1/operations/{id}` | yes | Long-running operation status |
+| GET | `/` | no | Ping (503 if hyperpassd down) |
+| GET | `/version` | no | Service + backend version |
+| POST | `/api/v1.0/register` | yes | Launch VM (cloud-init) |
+| POST | `/api/v1.0/create_machine` | yes | Meson alias of `register` |
+| GET | `/api/v1.0/running` | yes | List VMs for `client_uid` (JSON body) |
+| GET | `/api/v1.0/get_machine` | yes | Meson alias of `running` |
+| DELETE | `/api/v1.0/unregister` | yes | Delete (+ optional `purge`) |
+| DELETE | `/api/v1.0/delete_machine` | yes | Meson alias of `unregister` |
+| POST | `/api/v1.0/start` | yes | Start |
+| POST | `/api/v1.0/stop` | yes | Stop |
+| POST | `/api/v1.0/reboot` | yes | Restart |
+| GET | `/api/v1.0/images/find` | yes | Image catalog helper |
 
-Filter instances with `?source=hyperpass` or `?source=multipass`.
+Extra (non-Meson) helpers: `/healthz`, `/readyz`, `/v1/instances` (merged Hyperpass+Multipass).
 
-Disable Multipass discovery with `--no-multipass`, or override the address with
-`--multipass-address` / `HYPERPASS_MULTIPASS_ADDRESS` (same env as the GUI).
+## Auth
 
-OpenAPI placeholder: [`openapi/hyperpass-external.yaml`](openapi/hyperpass-external.yaml)
+```bash
+./build/bin/hyperpass-api --api-token secret
+curl -H "Authorization: Bearer secret" \
+  -H "Content-Type: application/json" \
+  -d '{"client_uid":"demo"}' \
+  http://127.0.0.1:7781/api/v1.0/running
+```
+
+OpenAPI: [`openapi/hyperpass-external.yaml`](openapi/hyperpass-external.yaml)  
+Bruno reference: AtomOS `service/` collection (port 7781).

@@ -22,13 +22,16 @@ add_library(hyperpass_api STATIC
   multipass_discovery.cpp
   operation_tracker.cpp
   server.cpp
-  handlers/handlers.cpp)
+  vm_registry.cpp
+  handlers/handlers.cpp
+  handlers/service.cpp)
 
 target_include_directories(hyperpass_api
   PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
   PRIVATE
-    ${CMAKE_SOURCE_DIR}/include)
+    ${CMAKE_SOURCE_DIR}/include
+    ${MULTIPASS_GENERATED_SOURCE_DIR})
 
 target_link_libraries(hyperpass_api
   PUBLIC

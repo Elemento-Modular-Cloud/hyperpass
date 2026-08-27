@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <multipass/constants.h>
 #include <multipass/rpc/multipass.grpc.pb.h>
 
 #include <grpcpp/grpcpp.h>
@@ -44,6 +45,36 @@ struct ListResult : GrpcResult
     ListReply reply;
 };
 
+struct LaunchResult : GrpcResult
+{
+    LaunchReply reply;
+};
+
+struct FindResult : GrpcResult
+{
+    FindReply reply;
+};
+
+struct InfoResult : GrpcResult
+{
+    InfoReply reply;
+};
+
+struct VersionResult : GrpcResult
+{
+    VersionReply reply;
+};
+
+struct LaunchSpec
+{
+    std::string instance_name;
+    std::string image;
+    int num_cores{1};
+    std::string mem_size;  // e.g. "2048M"
+    std::string disk_space; // e.g. "20G"
+    std::string cloud_init_user_data;
+};
+
 /**
  * Thin gRPC client over hyperpassd. Uses the same mTLS channel path as the CLI.
  * Streaming RPCs are collapsed to a final reply for unary-style REST handlers.
@@ -57,6 +88,23 @@ public:
     DaemonInfoResult daemon_info(std::chrono::seconds deadline = std::chrono::seconds{30});
     ListResult list_instances(bool request_ipv4 = false,
                               std::chrono::seconds deadline = std::chrono::seconds{30});
+    LaunchResult launch(const LaunchSpec& spec,
+                        std::chrono::seconds deadline = default_timeout);
+    GrpcResult start(const std::string& instance_name,
+                     std::chrono::seconds deadline = default_timeout);
+    GrpcResult stop(const std::string& instance_name,
+                    std::chrono::seconds deadline = default_timeout);
+    GrpcResult restart(const std::string& instance_name,
+                       std::chrono::seconds deadline = default_timeout);
+    GrpcResult delete_instance(const std::string& instance_name,
+                               bool purge,
+                               std::chrono::seconds deadline = default_timeout);
+    FindResult find(const std::string& search,
+                    const std::string& remote,
+                    std::chrono::seconds deadline = std::chrono::seconds{60});
+    InfoResult info(const std::string& instance_name,
+                    std::chrono::seconds deadline = info_rpc_deadline);
+    VersionResult version(std::chrono::seconds deadline = quick_rpc_deadline);
 
     Rpc::StubInterface& stub()
     {

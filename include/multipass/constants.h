@@ -59,7 +59,7 @@ constexpr auto api_token_env_var = "HYPERPASS_API_TOKEN";
 constexpr auto multipass_address_env_var = "HYPERPASS_MULTIPASS_ADDRESS";
 
 constexpr auto api_name = "hyperpass-api";
-constexpr auto default_api_listen = "127.0.0.1:51052";
+constexpr auto default_api_listen = "127.0.0.1:7781";
 constexpr auto instance_source_hyperpass = "hyperpass";
 constexpr auto instance_source_multipass = "multipass";
 

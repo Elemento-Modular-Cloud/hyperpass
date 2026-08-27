@@ -19,6 +19,7 @@
 #include "grpc_backend.h"
 #include "multipass_discovery.h"
 #include "server.h"
+#include "vm_registry.h"
 
 #include <multipass/cli/client_common.h>
 #include <multipass/constants.h>
@@ -77,9 +78,11 @@ int main_impl(int argc, char* argv[])
     auto channel = mp::client::make_channel(config.daemon_address, *cert_provider);
     auto hyperpass_backend = std::make_shared<mp::api::GrpcBackend>(std::move(channel));
     auto multipass_backend = maybe_make_multipass_backend(config);
+    auto registry = std::make_shared<mp::api::VmRegistry>(mp::api::VmRegistry::default_path());
 
     mp::api::ApiServer server{std::move(config),
                               std::move(hyperpass_backend),
+                              std::move(registry),
                               std::move(multipass_backend)};
     g_server.store(&server);
 

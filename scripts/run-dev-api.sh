@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 API_BIN="${BUILD_DIR}/bin/hyperpass-api"
 HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
-HYPERPASS_API_LISTEN="${HYPERPASS_API_LISTEN:-127.0.0.1:51052}"
+HYPERPASS_API_LISTEN="${HYPERPASS_API_LISTEN:-127.0.0.1:7781}"
 HYPERPASS_API_TOKEN="${HYPERPASS_API_TOKEN:-}"
 INSECURE=0
 VERBOSITY="${VERBOSITY:-info}"
@@ -39,7 +39,7 @@ Environment:
 Examples:
   $(basename "$0") --insecure-no-auth
   $(basename "$0") --token secret
-  curl -H "Authorization: Bearer secret" http://127.0.0.1:51052/v1/instances
+  curl -H "Authorization: Bearer secret" http://127.0.0.1:7781/api/v1.0/running
 EOF
 }
 

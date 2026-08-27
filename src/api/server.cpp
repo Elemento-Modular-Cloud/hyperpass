@@ -19,6 +19,7 @@
 
 #include "auth_middleware.h"
 #include "handlers/handlers.h"
+#include "handlers/service.h"
 
 #include <multipass/format.h>
 #include <multipass/logging/log.h>
@@ -33,9 +34,11 @@ constexpr auto category = "api-server";
 
 mp::api::ApiServer::ApiServer(ApiConfig config,
                               std::shared_ptr<GrpcBackend> hyperpass_backend,
+                              std::shared_ptr<VmRegistry> registry,
                               std::shared_ptr<GrpcBackend> multipass_backend)
     : config{std::move(config)},
       hyperpass_backend{std::move(hyperpass_backend)},
+      vm_registry{std::move(registry)},
       multipass_backend{std::move(multipass_backend)}
 {
     register_routes();
@@ -60,6 +63,7 @@ void mp::api::ApiServer::register_routes()
             return httplib::Server::HandlerResponse::Unhandled;
         });
 
+    register_service_handlers(server, *hyperpass_backend, *vm_registry);
     register_health_handlers(server, *hyperpass_backend, multipass_backend.get());
     register_instance_handlers(server, *hyperpass_backend, multipass_backend.get());
     register_operation_handlers(server, tracker);

@@ -45,6 +45,15 @@ grpc::Status call_streaming_rpc(Method method,
 
     return stream->Finish();
 }
+
+template <typename Request, typename Reply, typename Method>
+grpc::Status call_streaming_rpc_noreply(Method method,
+                                        Request request,
+                                        std::chrono::seconds deadline)
+{
+    Reply discarded;
+    return call_streaming_rpc(method, std::move(request), discarded, deadline);
+}
 } // namespace
 
 mp::api::GrpcBackend::GrpcBackend(std::shared_ptr<grpc::Channel> channel)
@@ -82,6 +91,142 @@ mp::api::ListResult mp::api::GrpcBackend::list_instances(bool request_ipv4,
 
     result.status = call_streaming_rpc(
         [this](grpc::ClientContext* ctx) { return rpc_stub->list(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::LaunchResult mp::api::GrpcBackend::launch(const LaunchSpec& spec,
+                                                   std::chrono::seconds deadline)
+{
+    LaunchResult result;
+    LaunchRequest request;
+    request.set_instance_name(spec.instance_name);
+    request.set_image(spec.image);
+    request.set_num_cores(spec.num_cores);
+    request.set_mem_size(spec.mem_size);
+    request.set_disk_space(spec.disk_space);
+    request.set_cloud_init_user_data(spec.cloud_init_user_data);
+    request.set_verbosity_level(0);
+    request.set_timeout(static_cast<int32_t>(deadline.count()));
+
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->launch(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::GrpcResult mp::api::GrpcBackend::start(const std::string& instance_name,
+                                                std::chrono::seconds deadline)
+{
+    GrpcResult result;
+    StartRequest request;
+    request.mutable_instance_names()->add_instance_name(instance_name);
+    request.set_verbosity_level(0);
+    request.set_timeout(static_cast<int32_t>(deadline.count()));
+
+    result.status = call_streaming_rpc_noreply<StartRequest, StartReply>(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->start(ctx); },
+        request,
+        deadline);
+    return result;
+}
+
+mp::api::GrpcResult mp::api::GrpcBackend::stop(const std::string& instance_name,
+                                               std::chrono::seconds deadline)
+{
+    GrpcResult result;
+    StopRequest request;
+    request.mutable_instance_names()->add_instance_name(instance_name);
+    request.set_verbosity_level(0);
+
+    result.status = call_streaming_rpc_noreply<StopRequest, StopReply>(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->stop(ctx); },
+        request,
+        deadline);
+    return result;
+}
+
+mp::api::GrpcResult mp::api::GrpcBackend::restart(const std::string& instance_name,
+                                                  std::chrono::seconds deadline)
+{
+    GrpcResult result;
+    RestartRequest request;
+    request.mutable_instance_names()->add_instance_name(instance_name);
+    request.set_verbosity_level(0);
+    request.set_timeout(static_cast<int32_t>(deadline.count()));
+
+    result.status = call_streaming_rpc_noreply<RestartRequest, RestartReply>(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->restart(ctx); },
+        request,
+        deadline);
+    return result;
+}
+
+mp::api::GrpcResult mp::api::GrpcBackend::delete_instance(const std::string& instance_name,
+                                                          bool purge,
+                                                          std::chrono::seconds deadline)
+{
+    GrpcResult result;
+    DeleteRequest request;
+    auto* pair = request.add_instance_snapshot_pairs();
+    pair->set_instance_name(instance_name);
+    request.set_purge(purge);
+    request.set_verbosity_level(0);
+
+    result.status = call_streaming_rpc_noreply<DeleteRequest, DeleteReply>(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->delet(ctx); },
+        request,
+        deadline);
+    return result;
+}
+
+mp::api::FindResult mp::api::GrpcBackend::find(const std::string& search,
+                                               const std::string& remote,
+                                               std::chrono::seconds deadline)
+{
+    FindResult result;
+    FindRequest request;
+    request.set_search_string(search);
+    request.set_remote_name(remote);
+    request.set_verbosity_level(0);
+
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->find(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::InfoResult mp::api::GrpcBackend::info(const std::string& instance_name,
+                                               std::chrono::seconds deadline)
+{
+    InfoResult result;
+    InfoRequest request;
+    auto* pair = request.add_instance_snapshot_pairs();
+    pair->set_instance_name(instance_name);
+    request.set_verbosity_level(0);
+
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->info(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::VersionResult mp::api::GrpcBackend::version(std::chrono::seconds deadline)
+{
+    VersionResult result;
+    VersionRequest request;
+    request.set_verbosity_level(0);
+
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->version(ctx); },
         request,
         result.reply,
         deadline);

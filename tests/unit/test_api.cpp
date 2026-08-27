@@ -22,6 +22,7 @@
 #include "handlers/handlers.h"
 #include "multipass_discovery.h"
 #include "operation_tracker.h"
+#include "vm_registry.h"
 
 #include <multipass/constants.h>
 #include <multipass/rpc/multipass.grpc.pb.h>
@@ -31,6 +32,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <filesystem>
+
 namespace mp = multipass;
 namespace mpt = multipass::test;
 namespace api = multipass::api;
@@ -39,8 +42,11 @@ using namespace testing;
 
 TEST(ApiAuth, publicPathsAreUnauthenticated)
 {
+    EXPECT_TRUE(api::is_public_path("/"));
+    EXPECT_TRUE(api::is_public_path("/version"));
     EXPECT_TRUE(api::is_public_path("/healthz"));
     EXPECT_TRUE(api::is_public_path("/readyz"));
+    EXPECT_FALSE(api::is_public_path("/api/v1.0/running"));
     EXPECT_FALSE(api::is_public_path("/v1/instances"));
 }
 
@@ -192,4 +198,37 @@ TEST(ApiDiscovery, defaultMultipassAddressIsPlatformSpecific)
 #else
     EXPECT_THAT(address, HasSubstr("multipass_socket"));
 #endif
+}
+
+TEST(ApiVmRegistry, upsertFindAndListByClient)
+{
+    const auto path =
+        (std::filesystem::temp_directory_path() / "hyperpass-api-registry-test.json").string();
+    std::filesystem::remove(path);
+
+    api::VmRegistry registry{path};
+    api::RegisteredVm vm;
+    vm.vm_uid = "uid-1";
+    vm.vm_name = "web-1";
+    vm.client_uid = "client-a";
+    vm.os_family = "linux";
+    vm.os_flavour = "ubuntu";
+    registry.upsert(vm);
+
+    auto found = registry.find_by_uid("uid-1");
+    ASSERT_TRUE(found.has_value());
+    EXPECT_EQ(found->vm_name, "web-1");
+
+    const auto for_client = registry.list_for_client("client-a");
+    ASSERT_EQ(for_client.size(), 1u);
+    EXPECT_EQ(for_client[0].vm_uid, "uid-1");
+    EXPECT_TRUE(registry.list_for_client("other").empty());
+
+    EXPECT_TRUE(registry.remove("uid-1"));
+    EXPECT_FALSE(registry.find_by_uid("uid-1").has_value());
+
+    // Reload from disk after remove
+    api::VmRegistry reloaded{path};
+    EXPECT_FALSE(reloaded.find_by_uid("uid-1").has_value());
+    std::filesystem::remove(path);
 }

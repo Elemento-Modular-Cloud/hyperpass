@@ -1,42 +1,27 @@
 # External API coverage gaps
 
-This document tracks how Hyperpass daemon capabilities map to the eventual
-external REST standard. Update when the API reference arrives.
+AtomOS Service (Meson-compatible) surface on port 7781 — see Bruno `AtomOS/service/`.
 
 ## Status
 
 | Area | Status |
 |------|--------|
-| Health / readiness | Implemented (`/healthz`, `/readyz`) |
-| Auth (Bearer token) | Implemented |
-| Instance list | Merged Hyperpass + Multipass (`GET /v1/instances`, `source` field, `?source=` filter) |
-| Multipass discovery | Same socket/cert layout as the GUI (`multipass_discovery`) |
-| Long-running ops tracker | Interface + `GET /v1/operations/{id}` |
-| Full external resource map | **Blocked** on API reference |
-
-## Hyperpass gRPC capabilities without REST mapping yet
-
-From `src/rpc/multipass.proto` `service Rpc` (non-exhaustive):
-
-- create / launch / clone / delete / purge / recover
-- start / stop / suspend / restart
-- info / find / networks
-- mount / umount
-- snapshot / restore
-- get / set / keys
-- authenticate
-- zones / enable_zones / disable_zones / zones_state
-- cache_info / cache_delete
-- wait_ready / version / daemon_info (used internally by readyz)
-- shell / exec / transfer (streaming / interactive — may not belong in REST)
-
-## External standard resources without Hyperpass equivalent
-
-_To be filled when the API reference is available._
+| `GET /` ping | Implemented |
+| `GET /version` | Implemented |
+| `POST /api/v1.0/register` | Implemented → gRPC `launch` + registry |
+| `POST /api/v1.0/create_machine` | Alias of `register` (Meson name) |
+| `GET /api/v1.0/running` | Implemented → `list` + registry filter by `client_uid` |
+| `GET /api/v1.0/get_machine` | Alias of `running` (Meson name) |
+| `DELETE /api/v1.0/unregister` | Implemented → `delet` (+ purge) |
+| `DELETE /api/v1.0/delete_machine` | Alias of `unregister` (Meson name) |
+| `POST /api/v1.0/start\|stop\|reboot` | Implemented |
+| `GET /api/v1.0/images/find` | Implemented → `find` |
+| VM registry (`vm_uid`) | JSON file under `…/hyperpass-api/vm_registry.json` |
+| Multipass merge (`/v1/instances`) | Extra helper (not Meson) |
+| `Async: true` non-blocking register | Not implemented (always waits for launch) |
+| `atomos-iso` backend | Not implemented (`backend` always `hyperpass`) |
 
 ## Notes
 
-- Prefer adding missing capabilities as gRPC RPCs on `hyperpassd` first, then
-  mapping them in this sidecar — do not reimplement VM logic here.
-- Streaming progress (launch, etc.) should use the `OperationTracker` and either
-  `202 Accepted` + poll, or SSE, per the external standard.
+- Prefer adding missing capabilities as gRPC RPCs on `hyperpassd` first, then mapping them here.
+- `req.cpu` SMT/overprovision/PCI fields are accepted for Meson parity but ignored by Hyperpass.
