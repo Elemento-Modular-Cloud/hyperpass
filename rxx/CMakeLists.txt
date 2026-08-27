@@ -52,8 +52,21 @@ if(WIN32)
   list(APPEND CARGO_ENV "CFLAGS=${RUST_CFLAGS}" "CXXFLAGS=${RUST_CXXFLAGS}")
 endif()
 
-#Find cargo, which will be a hard dependency
+#Find cargo, which will be a hard dependency. On Apple Silicon prefer native
+#Homebrew (/opt/homebrew) so libnamegen.a matches the arm64 C++ link.
+if(APPLE)
+  execute_process(
+    COMMAND uname -m
+    OUTPUT_VARIABLE MULTIPASS_HOST_ARCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(MULTIPASS_HOST_ARCH STREQUAL "arm64")
+    find_program(CARGO_EXECUTABLE cargo HINTS /opt/homebrew/bin NO_DEFAULT_PATH)
+  elseif(MULTIPASS_HOST_ARCH STREQUAL "x86_64")
+    find_program(CARGO_EXECUTABLE cargo HINTS /usr/local/bin NO_DEFAULT_PATH)
+  endif()
+endif()
 find_program(CARGO_EXECUTABLE cargo REQUIRED)
+message(STATUS "Using cargo: ${CARGO_EXECUTABLE}")
 #Set the build directory via env variable
 set(CARGO_CMD ${CMAKE_COMMAND} -E env ${CARGO_ENV} ${CARGO_EXECUTABLE})
 #Crates to build. Both consumers and providers of code to the C++ side

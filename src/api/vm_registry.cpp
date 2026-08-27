@@ -47,6 +47,19 @@ json::object to_json(const mp::api::RegisteredVm& vm)
     obj["os_family"] = vm.os_family;
     obj["os_flavour"] = vm.os_flavour;
     obj["backend"] = vm.backend;
+    if (!vm.req_json.empty())
+    {
+        try
+        {
+            obj["req_json"] = json::parse(vm.req_json);
+        }
+        catch (const std::exception&)
+        {
+            obj["req_json"] = vm.req_json;
+        }
+    }
+    if (!vm.xml.empty())
+        obj["xml"] = vm.xml;
     return obj;
 }
 
@@ -56,12 +69,21 @@ mp::api::RegisteredVm from_json(const json::object& obj)
     vm.vm_uid = std::string(obj.at("vm_uid").as_string());
     vm.vm_name = std::string(obj.at("vm_name").as_string());
     vm.client_uid = std::string(obj.at("client_uid").as_string());
-    if (obj.contains("os_family"))
+    if (obj.contains("os_family") && obj.at("os_family").is_string())
         vm.os_family = std::string(obj.at("os_family").as_string());
-    if (obj.contains("os_flavour"))
+    if (obj.contains("os_flavour") && obj.at("os_flavour").is_string())
         vm.os_flavour = std::string(obj.at("os_flavour").as_string());
-    if (obj.contains("backend"))
+    if (obj.contains("backend") && obj.at("backend").is_string())
         vm.backend = std::string(obj.at("backend").as_string());
+    if (obj.contains("req_json"))
+    {
+        if (obj.at("req_json").is_object() || obj.at("req_json").is_array())
+            vm.req_json = json::serialize(obj.at("req_json"));
+        else if (obj.at("req_json").is_string())
+            vm.req_json = std::string(obj.at("req_json").as_string());
+    }
+    if (obj.contains("xml") && obj.at("xml").is_string())
+        vm.xml = std::string(obj.at("xml").as_string());
     return vm;
 }
 } // namespace

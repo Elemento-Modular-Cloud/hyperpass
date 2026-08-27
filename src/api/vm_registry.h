@@ -34,6 +34,8 @@ struct RegisteredVm
     std::string os_family;
     std::string os_flavour;
     std::string backend{"hyperpass"};
+    std::string req_json; // serialized Electros/matcher req_json object
+    std::string xml;      // libvirt-ish domain xml (matcher seed)
 };
 
 /**

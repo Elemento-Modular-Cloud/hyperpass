@@ -86,7 +86,7 @@ void mp::api::ApiServer::make_server()
 void mp::api::ApiServer::register_routes()
 {
     server->set_logger([](const httplib::Request& req, const httplib::Response& res) {
-        mpl::log(mpl::Level::debug,
+        mpl::log(mpl::Level::info,
                  category,
                  "{} {} -> {} ({} bytes, from {})",
                  req.method,

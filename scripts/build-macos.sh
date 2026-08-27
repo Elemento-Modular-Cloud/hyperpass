@@ -71,6 +71,27 @@ if [[ -x /opt/homebrew/bin/cmake ]]; then
   export PATH="/opt/homebrew/bin:${PATH}"
 fi
 
+# Rust crates (rxx/namegen) must match the C++ link arch. Intel Homebrew rustc under
+# /usr/local produces x86_64 libnamegen.a that arm64 ld then drops → undefined cxxbridge
+# symbols. Prefer /opt/homebrew cargo/rustc on Apple Silicon.
+if [[ "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" == "1" ]]; then
+  if [[ -x /opt/homebrew/bin/cargo && -x /opt/homebrew/bin/rustc ]]; then
+    export PATH="/opt/homebrew/bin:${PATH}"
+  fi
+  rustc_bin="$(command -v rustc || true)"
+  rustc_arch="$(file -b "${rustc_bin}" 2>/dev/null || true)"
+  if [[ -n "${rustc_bin}" && "${rustc_arch}" == *x86_64* && "${rustc_arch}" != *arm64* ]]; then
+    echo "error: rustc is x86_64 (${rustc_bin}) but this Mac builds arm64 C++." >&2
+    echo "       Install native Rust and put it first on PATH, e.g.:" >&2
+    echo "         brew install rust" >&2
+    echo "         # ensure /opt/homebrew/bin precedes /usr/local/bin" >&2
+    echo "       Then wipe the stale Rust artifacts and rebuild:" >&2
+    echo "         rm -rf build/rxx" >&2
+    echo "         # if CMake cached Intel cargo: delete CARGO_EXECUTABLE from build/CMakeCache.txt" >&2
+    exit 1
+  fi
+fi
+
 if ! command -v ninja >/dev/null 2>&1; then
   echo "error: ninja not found; install with: brew install ninja" >&2
   exit 1

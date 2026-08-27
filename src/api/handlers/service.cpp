@@ -272,6 +272,194 @@ std::string flavour_from_os(std::string_view os, std::string_view release)
         return std::string{release};
     return lower_os.empty() ? "linux" : lower_os;
 }
+
+/** Ensure req_json fields Electros VmModel.fromJSON requires are present/typed. */
+json::object electros_safe_req_json(json::object req)
+{
+    auto ensure_array = [&req](std::string_view key) {
+        if (!req.contains(key) || !req.at(key).is_array())
+            req[key] = json::array{};
+    };
+    ensure_array("networks");
+    ensure_array("pcidevs");
+    ensure_array("netdevs");
+    ensure_array("flags");
+
+    json::array safe_vols;
+    if (req.contains("volumes") && req.at("volumes").is_array())
+    {
+        for (const auto& v : req.at("volumes").as_array())
+        {
+            if (!v.is_object())
+                continue;
+            auto vol = v.as_object();
+            if (!vol.contains("lastUpdated") || !vol.at("lastUpdated").is_string())
+                vol["lastUpdated"] = "";
+            if (!vol.contains("cache") || !vol.at("cache").is_object())
+            {
+                json::object cache;
+                cache["partitions"] = json::array{};
+                vol["cache"] = std::move(cache);
+            }
+            else
+            {
+                auto& cache = vol.at("cache").as_object();
+                if (!cache.contains("partitions") || !cache.at("partitions").is_array())
+                    cache["partitions"] = json::array{};
+            }
+            safe_vols.push_back(std::move(vol));
+        }
+    }
+    req["volumes"] = std::move(safe_vols);
+
+    if (!req.contains("viewer"))
+        req["viewer"] = nullptr;
+    if (!req.contains("domviewer"))
+        req["domviewer"] = nullptr;
+    if (!req.contains("network_config"))
+        req["network_config"] = nullptr;
+    if (!req.contains("states"))
+        req["states"] = "running";
+
+    return req;
+}
+
+bool is_electros_req_json(const json::object& req)
+{
+    return req.contains("vm_name") && req.contains("os_family");
+}
+
+/** Build Electros VmModel req_json from matcher systemrequirements or an existing req_json. */
+json::object build_electros_req_json(json::object req_or_sys,
+                                     std::string_view vm_name,
+                                     std::string_view os_family,
+                                     std::string_view os_flavour,
+                                     const json::array& volumes,
+                                     const json::array& networks,
+                                     bool autostart,
+                                     std::string_view state,
+                                     std::string_view guest_ipv4 = {})
+{
+    if (is_electros_req_json(req_or_sys))
+    {
+        if (!req_or_sys.contains("states"))
+            req_or_sys["states"] = state;
+        if (!volumes.empty() &&
+            (!req_or_sys.contains("volumes") || !req_or_sys.at("volumes").is_array() ||
+             req_or_sys.at("volumes").as_array().empty()))
+            req_or_sys["volumes"] = volumes;
+        if (!networks.empty() &&
+            (!req_or_sys.contains("networks") || !req_or_sys.at("networks").is_array() ||
+             req_or_sys.at("networks").as_array().empty()))
+            req_or_sys["networks"] = networks;
+        return electros_safe_req_json(std::move(req_or_sys));
+    }
+
+    json::object misc;
+    json::object cpu;
+    json::object mem;
+    if (req_or_sys.contains("misc") && req_or_sys.at("misc").is_object())
+        misc = req_or_sys.at("misc").as_object();
+    if (req_or_sys.contains("cpu") && req_or_sys.at("cpu").is_object())
+        cpu = req_or_sys.at("cpu").as_object();
+    if (req_or_sys.contains("mem") && req_or_sys.at("mem").is_object())
+        mem = req_or_sys.at("mem").as_object();
+
+    const auto family =
+        os_family.empty() ? json_string_field(misc, "os_family", "linux") : std::string{os_family};
+    const auto flavour = os_flavour.empty() ? json_string_field(misc, "os_flavour", family)
+                                            : std::string{os_flavour};
+
+    const auto cpu_slots = json_int_field(cpu, "slots", 1);
+    const auto capacity_mb = json_int_field(mem, "capacity", 1024);
+    const auto ramsize_gb = std::max<std::int64_t>((capacity_mb + 1023) / 1024, 1);
+
+    json::object req;
+    req["vm_name"] = vm_name;
+    req["states"] = state;
+    req["slots"] = cpu_slots;
+    req["ramsize"] = ramsize_gb;
+    req["os_family"] = family;
+    req["os_flavour"] = flavour;
+    req["creation_date"] = "";
+    req["autostart"] = autostart;
+    req["firmware"] = json_string_field(misc, "firmware", "bios");
+    req["qemu_agent"] = misc.contains("qemu_agent") ? json_truthy(misc.at("qemu_agent")) : false;
+    req["allowSMT"] = false;
+    req["arch"] = "";
+    req["flags"] =
+        cpu.contains("flags") && cpu.at("flags").is_array() ? cpu.at("flags") : json::array{};
+    req["netdevs"] = json::array{};
+    req["overprovision"] = json_int_field(cpu, "maxOverprovision", 0);
+    req["reqECC"] = mem.contains("requireECC") ? json_truthy(mem.at("requireECC")) : false;
+    req["viewer"] = nullptr;
+    req["domviewer"] = nullptr;
+    req["pcidevs"] = json::array{};
+    req["volumes"] = volumes;
+    req["networks"] = networks;
+
+    if (!guest_ipv4.empty())
+    {
+        json::object nc;
+        nc["interface"] = "";
+        nc["mac"] = "";
+        nc["ipv4"] = guest_ipv4;
+        nc["is_reachable_from_host"] = false;
+        nc["model"] = "";
+        nc["name"] = "";
+        nc["source"] = "";
+        nc["type"] = "";
+        json::object dom;
+        dom["port"] = 5900;
+        dom["protocol"] = "vnc";
+        nc["dom_display"] = std::move(dom);
+        req["network_config"] = std::move(nc);
+    }
+    else
+    {
+        req["network_config"] = nullptr;
+    }
+
+    return electros_safe_req_json(std::move(req));
+}
+
+json::object synthesize_req_json(const mp::api::RegisteredVm& recorded,
+                                 std::string_view state = "running",
+                                 std::string_view guest_ipv4 = {})
+{
+    json::object req_or_sys;
+    if (!recorded.req_json.empty())
+    {
+        try
+        {
+            const auto parsed = json::parse(recorded.req_json);
+            if (parsed.is_object())
+                req_or_sys = parsed.as_object();
+        }
+        catch (const std::exception&)
+        {
+        }
+    }
+
+    return build_electros_req_json(std::move(req_or_sys),
+                                   recorded.vm_name,
+                                   recorded.os_family,
+                                   recorded.os_flavour,
+                                   json::array{},
+                                   json::array{},
+                                   false,
+                                   state,
+                                   guest_ipv4);
+}
+
+std::string domain_xml_for(const mp::api::RegisteredVm& recorded)
+{
+    if (!recorded.xml.empty())
+        return recorded.xml;
+    return fmt::format("<domain type='hyperpass'><name>{}</name><uuid>{}</uuid></domain>",
+                       recorded.vm_name,
+                       recorded.vm_uid);
+}
 } // namespace
 
 void mp::api::register_service_handlers(httplib::Server& server,
@@ -302,6 +490,60 @@ void mp::api::register_service_handlers(httplib::Server& server,
         set_json(res, 200, body);
     });
 
+    // Matcher canallocate — Electros discovery (TCP list / gateways) requires this before register.
+    // Always accept while Hyperpass is up; resource checks happen at launch time.
+    const httplib::Server::Handler canallocate_handler =
+        [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
+            mpl::log(mpl::Level::debug,
+                     service_category,
+                     "canallocate from {} ({} bytes)",
+                     req.remote_addr,
+                     req.body.size());
+
+            if (!hyperpass_backend.ping())
+            {
+                set_json(res, 503, json::object{{"error", "hyperpass backend unreachable"},
+                                                {"canallocate", false}});
+                return;
+            }
+
+            json::object out;
+            out["canallocate"] = true;
+            out["available_slots"] = 64;
+            out["available_ram"] = 131072;
+            // Electros substitutes discovery URLs itself; include a hint for gateways.
+            out["server_url"] = fmt::format("https://{}:{}",
+                                            req.local_addr.empty() ? "127.0.0.1" : req.local_addr,
+                                            req.local_port > 0 ? req.local_port : 7777);
+            out["nservers"] = 1;
+            set_json(res, 200, out);
+        };
+    server.Get("/api/v1.0/canallocate", canallocate_handler);
+    server.Post("/api/v1.0/canallocate", canallocate_handler);
+
+    server.Post("/api/v1.0/canallocate/multiple",
+                [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
+                    mpl::log(mpl::Level::debug,
+                             service_category,
+                             "canallocate/multiple from {} ({} bytes)",
+                             req.remote_addr,
+                             req.body.size());
+                    if (!hyperpass_backend.ping())
+                    {
+                        set_json(res,
+                                 503,
+                                 json::object{{"error", "hyperpass backend unreachable"},
+                                              {"canallocate", false}});
+                        return;
+                    }
+                    // Electros builds an allocation tree from per-server answers; a single-node
+                    // affirmative is enough for one host.
+                    json::object out;
+                    out["canallocate"] = true;
+                    out["nservers"] = 1;
+                    set_json(res, 200, out);
+                });
+
     // AtomOS names (register/running/unregister) and Meson aliases
     // (create_machine/get_machine/delete_machine) share the same handlers.
     const httplib::Server::Handler register_or_create =
@@ -313,29 +555,37 @@ void mp::api::register_service_handlers(httplib::Server& server,
 
             try
             {
-                const auto vm_name = json_string_field(body, "vm_name");
                 const auto client_uid = json_string_field(body, "client_uid");
-                if (vm_name.empty())
-                    throw std::runtime_error("request was badly formatted. 'vm_name'");
+                auto vm_name = json_string_field(body, "vm_name");
                 if (client_uid.empty())
                     throw std::runtime_error("request was badly formatted. 'client_uid'");
+                // Electros matcher-client often omits vm_name unless info.vm_name is set.
+                if (vm_name.empty())
+                    vm_name = fmt::format("hp-{}", mp::utils::make_uuid().substr(0, 8));
                 if (!body.contains("req") || !body.at("req").is_object())
                     throw std::runtime_error("request was badly formatted. 'req'");
-                if (!body.contains("volumes") || !body.at("volumes").is_array() ||
-                    body.at("volumes").as_array().empty())
-                    throw std::runtime_error("request was badly formatted. 'volumes'");
+                // Matcher may send empty volumes when storage is unused; allow with a default disk.
+                json::array volumes;
+                if (body.contains("volumes") && body.at("volumes").is_array())
+                    volumes = body.at("volumes").as_array();
+                json::array networks;
+                if (body.contains("networks") && body.at("networks").is_array())
+                    networks = body.at("networks").as_array();
+                const auto autostart =
+                    body.contains("autostart") && json_truthy(body.at("autostart"));
 
                 const auto& req_obj = body.at("req").as_object();
                 if (!req_obj.contains("cpu") || !req_obj.at("cpu").is_object())
                     throw std::runtime_error("request was badly formatted. 'req.cpu'");
                 if (!req_obj.contains("mem") || !req_obj.at("mem").is_object())
                     throw std::runtime_error("request was badly formatted. 'req.mem'");
-                if (!req_obj.contains("misc") || !req_obj.at("misc").is_object())
-                    throw std::runtime_error("request was badly formatted. 'req.misc'");
+                // misc is optional for some Electros encodings; default linux/ubuntu.
+                json::object misc;
+                if (req_obj.contains("misc") && req_obj.at("misc").is_object())
+                    misc = req_obj.at("misc").as_object();
 
                 const auto& cpu = req_obj.at("cpu").as_object();
                 const auto& mem = req_obj.at("mem").as_object();
-                const auto& misc = req_obj.at("misc").as_object();
 
                 const auto cpu_slots = json_int_field(cpu, "slots", 1);
                 const auto mem_mib = json_int_field(mem, "capacity", 1024);
@@ -345,8 +595,9 @@ void mp::api::register_service_handlers(httplib::Server& server,
                     throw std::runtime_error(
                         "request was badly formatted. 'req.misc.os_family/os_flavour'");
 
-                const auto& volumes = body.at("volumes").as_array();
-                const auto disk_gb = json_int_field(volumes.front().as_object(), "size", 5);
+                std::int64_t disk_gb = 5;
+                if (!volumes.empty() && volumes.front().is_object())
+                    disk_gb = json_int_field(volumes.front().as_object(), "size", 5);
 
                 LaunchSpec spec;
                 spec.instance_name = vm_name;
@@ -385,15 +636,8 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 record.os_family = os_family;
                 record.os_flavour = os_flavour;
                 record.backend = backend_name;
-                registry.upsert(record);
 
-                mpl::log(mpl::Level::info,
-                         service_category,
-                         "registered '{}' as vm_uid={} for client_uid={}",
-                         vm_name,
-                         record.vm_uid,
-                         client_uid);
-
+                std::string guest_ip;
                 json::array ipv4;
                 const auto listed = hyperpass_backend.list_instances(true);
                 if (listed.status.ok() && listed.reply.has_instance_list())
@@ -403,18 +647,73 @@ void mp::api::register_service_handlers(httplib::Server& server,
                         if (inst.name() == vm_name)
                         {
                             for (const auto& ip : inst.ipv4())
+                            {
                                 ipv4.emplace_back(ip);
+                                if (guest_ip.empty())
+                                    guest_ip = ip;
+                            }
                             break;
                         }
                     }
                 }
 
+                const auto safe_req = build_electros_req_json(req_obj,
+                                                              vm_name,
+                                                              os_family,
+                                                              os_flavour,
+                                                              volumes,
+                                                              networks,
+                                                              autostart,
+                                                              "running",
+                                                              guest_ip);
+                record.req_json = json::serialize(safe_req);
+                record.xml = fmt::format(
+                    "<domain type='hyperpass'><name>{}</name><uuid>{}</uuid></domain>",
+                    record.vm_name,
+                    record.vm_uid);
+                registry.upsert(record);
+
+                mpl::log(mpl::Level::info,
+                         service_category,
+                         "registered '{}' as vm_uid={} for client_uid={}",
+                         vm_name,
+                         record.vm_uid,
+                         client_uid);
+
+                json::array ipv4_after;
+                if (ipv4.empty())
+                {
+                    const auto listed_after = hyperpass_backend.list_instances(true);
+                    if (listed_after.status.ok() && listed_after.reply.has_instance_list())
+                    {
+                        for (const auto& inst : listed_after.reply.instance_list().instances())
+                        {
+                            if (inst.name() == vm_name)
+                            {
+                                for (const auto& ip : inst.ipv4())
+                                    ipv4_after.emplace_back(ip);
+                                break;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    ipv4_after = std::move(ipv4);
+                }
+
                 json::object out;
                 out["registered"] = true;
+                // Matcher / Electros fields (required by matcher-client.registerSpec / running).
+                out["uniqueID"] = record.vm_uid;
+                out["req_json"] = safe_req;
+                out["xml"] = record.xml;
+                out["is_gateway"] = false;
+                // Service / Meson fields (Bruno service collection).
                 out["vm_uid"] = record.vm_uid;
                 out["vm_name"] = record.vm_name;
                 out["state"] = "running";
-                out["ipv4"] = std::move(ipv4);
+                out["ipv4"] = std::move(ipv4_after);
                 out["backend"] = backend_name;
                 set_json(res, 200, out);
             }
@@ -456,14 +755,29 @@ void mp::api::register_service_handlers(httplib::Server& server,
                     by_name.emplace(inst.name(), &inst);
             }
 
-            json::array out;
+            json::array vms;
             for (const auto& recorded : registry.list_for_client(client_uid))
             {
                 const auto it = by_name.find(recorded.vm_name);
                 if (it == by_name.end())
                     continue;
 
+                std::string guest_ip;
+                for (const auto& ip : it->second->ipv4())
+                {
+                    if (guest_ip.empty())
+                        guest_ip = ip;
+                }
+
                 json::object item;
+                // Matcher / Electros shape (retrieveRunningSpecs reads response.json()['vms']).
+                item["uniqueID"] = recorded.vm_uid;
+                item["req_json"] =
+                    synthesize_req_json(recorded, instance_status_name(it->second->instance_status()), guest_ip);
+                item["xml"] = domain_xml_for(recorded);
+                item["is_gateway"] = false;
+                item["external"] = false;
+                // Service / Bruno extras (harmless for matcher).
                 item["vm_uid"] = recorded.vm_uid;
                 item["vm_name"] = recorded.vm_name;
                 item["state"] = instance_status_name(it->second->instance_status());
@@ -475,28 +789,40 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 item["os_flavour"] = recorded.os_flavour;
                 item["client_uid"] = recorded.client_uid;
                 item["backend"] = recorded.backend;
-                out.push_back(std::move(item));
+                vms.push_back(std::move(item));
             }
 
+            json::object out;
+            out["vms"] = std::move(vms);
             set_json(res, 200, out);
         };
     server.Get("/api/v1.0/running", running_or_get);
     server.Get("/api/v1.0/get_machine", running_or_get);
 
+    auto resolve_vm_uid = [](const json::object& body) {
+        // Electros matcher uses uniqueID; Service/Bruno use vm_uid.
+        auto id = json_string_field(body, "vm_uid");
+        if (id.empty())
+            id = json_string_field(body, "uniqueID");
+        return id;
+    };
+
     const httplib::Server::Handler unregister_or_delete =
-        [&hyperpass_backend, &registry](const httplib::Request& req, httplib::Response& res) {
+        [&hyperpass_backend, &registry, resolve_vm_uid](const httplib::Request& req,
+                                                        httplib::Response& res) {
             const auto body_opt = parse_object_body(req, res);
             if (!body_opt)
                 return;
             const auto& body = *body_opt;
-            const auto vm_uid = json_string_field(body, "vm_uid");
+            const auto vm_uid = resolve_vm_uid(body);
             const auto client_uid = json_string_field(body, "client_uid");
             if (vm_uid.empty() || client_uid.empty())
             {
-                set_json(
-                    res,
-                    400,
-                    json::object{{"error", "request was badly formatted. 'vm_uid'/'client_uid'"}});
+                set_json(res,
+                         400,
+                         json::object{
+                             {"error",
+                              "request was badly formatted. 'vm_uid'|'uniqueID'/'client_uid'"}});
                 return;
             }
 
@@ -522,21 +848,27 @@ void mp::api::register_service_handlers(httplib::Server& server,
             json::object out;
             out["unregistered"] = true;
             out["vm_uid"] = vm_uid;
+            out["uniqueID"] = vm_uid;
             out["purged"] = purge;
             set_json(res, 200, out);
         };
     server.Delete("/api/v1.0/unregister", unregister_or_delete);
     server.Delete("/api/v1.0/delete_machine", unregister_or_delete);
+    // Electros historically POSTed unregister in some code paths.
+    server.Post("/api/v1.0/unregister", unregister_or_delete);
+
     auto require_registered =
-        [&registry](const json::object& body, httplib::Response& res) -> std::optional<RegisteredVm> {
-        const auto vm_uid = json_string_field(body, "vm_uid");
+        [&registry, resolve_vm_uid](const json::object& body,
+                                    httplib::Response& res) -> std::optional<RegisteredVm> {
+        const auto vm_uid = resolve_vm_uid(body);
         const auto client_uid = json_string_field(body, "client_uid");
         if (vm_uid.empty() || client_uid.empty())
         {
-            set_json(
-                res,
-                400,
-                json::object{{"error", "request was badly formatted. 'vm_uid'/'client_uid'"}});
+            set_json(res,
+                     400,
+                     json::object{
+                         {"error",
+                          "request was badly formatted. 'vm_uid'|'uniqueID'/'client_uid'"}});
             return std::nullopt;
         }
         const auto record = registry.find_by_uid(vm_uid);

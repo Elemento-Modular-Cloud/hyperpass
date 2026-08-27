@@ -28,9 +28,10 @@ require `Authorization: Bearer <token>` unless `--insecure-no-auth`.
 |--------|------|------|-------|
 | GET | `/` | yes | Ping (503 if hyperpassd down) |
 | GET | `/version` | yes | Service + backend version |
-| POST | `/api/v1.0/register` | yes | Launch VM (cloud-init) |
+| GET | `/api/v1.0/canallocate` | yes | Matcher capacity probe (Electros discovery) |
+| POST | `/api/v1.0/register` | yes | Launch VM (returns `uniqueID` + `vm_uid`) |
 | POST | `/api/v1.0/create_machine` | yes | Meson alias of `register` |
-| GET | `/api/v1.0/running` | yes | List VMs for `client_uid` (JSON body) |
+| GET | `/api/v1.0/running` | yes | List VMs: `{"vms":[{uniqueID,req_json,xml,…}]}` |
 | GET | `/api/v1.0/get_machine` | yes | Meson alias of `running` |
 | DELETE | `/api/v1.0/unregister` | yes | Delete (+ optional `purge`) |
 | DELETE | `/api/v1.0/delete_machine` | yes | Meson alias of `unregister` |
@@ -87,11 +88,13 @@ curl -k -H "Authorization: Bearer secret" https://127.0.0.1:7777/
 
 ## Logging
 
+Default (`info`): one line per HTTP request (`GET /path -> 200`).
+
 ```bash
 ./scripts/run-dev-api.sh --token secret --verbosity debug
 ```
 
-With `debug`/`trace`: per-request lines plus service-flow details. Auth failures log at `warning`.
+With `debug`/`trace`: pre-routing request details plus service-flow logs (register, canallocate, …). Auth failures log at `warning`.
 
 OpenAPI: [`openapi/hyperpass-external.yaml`](openapi/hyperpass-external.yaml)  
 Bruno reference: AtomOS `service/` collection (temporarily on port 7777).

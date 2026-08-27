@@ -11,9 +11,11 @@ AtomOS VM surface temporarily on matcher port **7777** (Service/Meson canonical
 | HTTPS + AtomOS TLS fingerprint | HTTPS by default (opt out with `--http`); Electros peer-TLS `:7777`; `GET /api/v1/authenticate/cert?host=` dials remote `:7777`/`:7772`; `/fingerprint` returns local cert |
 | `GET /` ping | Implemented (auth required) |
 | `GET /version` | Implemented (auth required) |
-| `POST /api/v1.0/register` | Implemented → gRPC `launch` + registry |
+| `GET /api/v1.0/canallocate` | Implemented (always true while hyperpassd is up; Electros discovery) |
+| `POST /api/v1.0/canallocate/multiple` | Stub affirmative for Electros multi-alloc |
+| `POST /api/v1.0/register` | Implemented → gRPC `launch` + registry; returns matcher `uniqueID`/`req_json`/`xml` plus Service `vm_uid` |
 | `POST /api/v1.0/create_machine` | Alias of `register` (Meson name) |
-| `GET /api/v1.0/running` | Implemented → `list` + registry filter by `client_uid` |
+| `GET /api/v1.0/running` | Implemented → `{"vms":[{uniqueID,req_json,xml,…}]}` (Electros/matcher) |
 | `GET /api/v1.0/get_machine` | Alias of `running` (Meson name) |
 | `DELETE /api/v1.0/unregister` | Implemented → `delet` (+ purge) |
 | `DELETE /api/v1.0/delete_machine` | Alias of `unregister` (Meson name) |
