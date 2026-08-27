@@ -14,6 +14,7 @@
 
 find_package(httplib CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED COMPONENTS json)
+find_package(OpenSSL REQUIRED)
 
 add_library(hyperpass_api STATIC
   auth_middleware.cpp
@@ -22,6 +23,7 @@ add_library(hyperpass_api STATIC
   multipass_discovery.cpp
   operation_tracker.cpp
   server.cpp
+  tls_fingerprint.cpp
   vm_registry.cpp
   handlers/handlers.cpp
   handlers/service.cpp)
@@ -33,6 +35,11 @@ target_include_directories(hyperpass_api
     ${CMAKE_SOURCE_DIR}/include
     ${MULTIPASS_GENERATED_SOURCE_DIR})
 
+target_compile_definitions(hyperpass_api
+  PUBLIC
+    CPPHTTPLIB_OPENSSL_SUPPORT
+    CPPHTTPLIB_DISABLE_MACOSX_AUTOMATIC_ROOT_CERTIFICATES)
+
 target_link_libraries(hyperpass_api
   PUBLIC
     client_common
@@ -41,6 +48,9 @@ target_link_libraries(hyperpass_api
     Boost::json
     fmt::fmt-header-only
     Qt6::Core
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    cert
   PRIVATE
     logger
     utils)

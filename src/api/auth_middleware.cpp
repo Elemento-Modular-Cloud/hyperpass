@@ -24,7 +24,10 @@ namespace json = boost::json;
 
 bool mp::api::is_public_path(std::string_view path)
 {
-    return path == "/" || path == "/version" || path == "/healthz" || path == "/readyz";
+    // AtomOS Service requires Bearer on / and /version.
+    // Probe extras and TLS fingerprint discovery stay public.
+    return path == "/healthz" || path == "/readyz" || path == "/fingerprint" ||
+           path == "/api/v1/authenticate/cert";
 }
 
 mp::api::AuthResult mp::api::check_bearer_auth(std::string_view authorization_header,

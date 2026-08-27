@@ -22,6 +22,9 @@
 #include "operation_tracker.h"
 #include "vm_registry.h"
 
+#ifndef CPPHTTPLIB_OPENSSL_SUPPORT
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#endif
 #include <httplib.h>
 
 #include <memory>
@@ -53,6 +56,7 @@ public:
     }
 
 private:
+    void make_server();
     void register_routes();
 
     ApiConfig config;
@@ -60,7 +64,7 @@ private:
     std::shared_ptr<VmRegistry> vm_registry;
     std::shared_ptr<GrpcBackend> multipass_backend;
     OperationTracker tracker;
-    httplib::Server server;
+    std::unique_ptr<httplib::Server> server;
 };
 
 } // namespace multipass::api

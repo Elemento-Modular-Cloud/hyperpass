@@ -2,28 +2,32 @@ openapi: 3.0.3
 info:
   title: Hyperpass AtomOS Service API
   description: |
-    Meson-compatible Service daemon surface (port 7781) backed by Hyperpass.
-    Aligns with the AtomOS Bruno `service/` collection.
-  version: 0.2.0
+    Meson-compatible VM surface (temporarily on matcher port 7777; Service
+    canonical is 7781) backed by Hyperpass. Aligns with the AtomOS Bruno
+    `service/` collection (Bearer auth on all Service paths, including `/`
+    and `/version`). All endpoints share this listen address.
+  version: 0.3.0
 servers:
-  - url: http://127.0.0.1:7781
-    description: Default local Service listen address
+  - url: https://127.0.0.1:7777
+    description: Temporary local listen (matcher port; HTTPS default)
 security:
   - bearerAuth: []
 paths:
   /:
     get:
       summary: Ping
-      security: []
+      description: AtomOS Service ping. Requires Bearer (Bruno `auth: inherit`).
       responses:
         "200":
           description: Alive
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "503":
           description: Hyperpass backend unreachable
   /version:
     get:
       summary: Version
-      security: []
+      description: Service + backend version. Requires Bearer.
       responses:
         "200":
           description: Service version
@@ -38,6 +42,8 @@ paths:
                     type: string
                   backend_version:
                     type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1.0/register:
     post:
       summary: Register (launch) VM
@@ -92,6 +98,8 @@ paths:
       responses:
         "200":
           description: Unregistered
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: Not found
   /api/v1.0/delete_machine:
@@ -100,6 +108,8 @@ paths:
       responses:
         "200":
           description: Unregistered
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           description: Not found
   /api/v1.0/start:
@@ -108,6 +118,8 @@ paths:
       responses:
         "200":
           description: Started
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "409":
           description: Already running
   /api/v1.0/stop:
@@ -116,12 +128,16 @@ paths:
       responses:
         "200":
           description: Stopped
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1.0/reboot:
     post:
       summary: Reboot VM
       responses:
         "200":
           description: Rebooted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /api/v1.0/images/find:
     get:
       summary: Find images
@@ -137,6 +153,54 @@ paths:
       responses:
         "200":
           description: Image catalog
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/authenticate/cert:
+    get:
+      summary: Fetch remote TLS certificate fingerprint (Electros)
+      description: |
+        Electros-compatible probe: TLS-connect to `host` on matcher port 7777
+        (fallback storage 7772), return SHA-256 DER fingerprint. Does not call
+        an HTTP route on the remote — same behavior as Electros auth on :47777.
+      security: []
+      parameters:
+        - name: host
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Remote IP or hostname to fingerprint
+          example: 172.16.25.197
+      responses:
+        "200":
+          description: Fingerprint
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fingerprint:
+                    type: string
+                    example: "46:59:75:6B:51:DE:E8:A0:3F:DB:41:0C:4C:D5:5B:82:B0:9A:E4:2A:5E:71:3F:26:59:9F:E1:A9:0C:B6:8C:28"
+                  validated:
+                    type: boolean
+        "400":
+          description: Missing host
+        "500":
+          description: Remote TLS fetch failed
+  /fingerprint:
+    get:
+      summary: Local TLS fingerprint alias
+      description: |
+        Returns this process's HTTPS certificate fingerprint (HTTPS is default).
+        For Electros TOFU against Hyperpass, prefer dialing this host's
+        `:7777` TLS (or use `/api/v1/authenticate/cert?host=`).
+      security: []
+      responses:
+        "200":
+          description: Fingerprint
+        "503":
+          description: HTTPS disabled
   /healthz:
     get:
       summary: Liveness (extra)
@@ -165,11 +229,27 @@ paths:
       responses:
         "200":
           description: Instances
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
+      description: |
+        Same pattern as AtomOS Bruno (`Authorization: Bearer {{auth_token}}`).
+        Configure with `--api-token` / `HYPERPASS_API_TOKEN`, or use
+        `--insecure-no-auth` for local development only.
   responses:
     Unauthorized:
       description: Missing or invalid Bearer token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum: [missing_token, invalid_token]
+              message:
+                type: string

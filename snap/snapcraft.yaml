@@ -78,7 +78,7 @@ apps:
       - all-home
       - network
   hyperpass-api:
-    command: bin/hyperpass-api --listen 127.0.0.1:7781 --insecure-no-auth --verbosity info
+    command: bin/hyperpass-api --listen 127.0.0.1:7777 --insecure-no-auth --verbosity info
     environment:
       LD_LIBRARY_PATH: *library-path
       PATH: *path
@@ -87,7 +87,7 @@ apps:
       XDG_CACHE_HOME: $SNAP_COMMON/cache
       XDG_CONFIG_HOME: *daemon-config
       DAEMON_CONFIG_HOME: *daemon-config
-      HYPERPASS_API_LISTEN: 127.0.0.1:7781
+      HYPERPASS_API_LISTEN: 127.0.0.1:7777
     daemon: simple
     restart-condition: on-failure
     plugs:

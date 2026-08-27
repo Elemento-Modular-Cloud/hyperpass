@@ -33,6 +33,14 @@ struct ApiConfig
     bool include_multipass{true}; // discover/list stock Multipass instances
     std::string multipass_address; // optional override (else discover)
     logging::Level verbosity_level{logging::Level::info};
+
+    // HTTPS / AtomOS fingerprint verification (default on — Electros dials TLS on :7777)
+    bool use_https{true};
+    std::string cert_file; // optional PEM path (with key_file)
+    std::string key_file;
+    std::string cert_pem;         // resolved material
+    std::string key_pem;
+    std::string tls_fingerprint;  // AtomOS SHA-256 colon form
 };
 
 /**
@@ -40,6 +48,12 @@ struct ApiConfig
  * Requires a live QCoreApplication (for argument/env access). Throws on invalid input.
  */
 ApiConfig parse_config();
+
+/**
+ * Load or auto-generate HTTPS PEMs and compute the AtomOS TLS fingerprint.
+ * No-op when use_https is false (--http).
+ */
+void prepare_tls(ApiConfig& config);
 
 /** Split "host:port" into host and port. Throws if malformed. */
 void parse_listen_address(const std::string& listen, std::string& host, int& port);

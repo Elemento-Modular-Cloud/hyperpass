@@ -21,6 +21,7 @@
 
 #include <multipass/constants.h>
 #include <multipass/format.h>
+#include <multipass/logging/log.h>
 #include <multipass/utils.h>
 #include <multipass/version.h>
 
@@ -30,11 +31,14 @@
 #include <string>
 #include <unordered_map>
 
+namespace mpl = multipass::logging;
+
 namespace mp = multipass;
 namespace json = boost::json;
 
 namespace
 {
+constexpr auto service_category = "api-service";
 constexpr auto backend_name = "hyperpass";
 
 std::string json_string_field(const json::object& obj, std::string_view key, std::string_view fallback = {})
@@ -352,9 +356,24 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 spec.disk_space = fmt::format("{}G", std::max<std::int64_t>(disk_gb, 1));
                 spec.cloud_init_user_data = build_cloud_init(body);
 
+                mpl::log(mpl::Level::debug,
+                         service_category,
+                         "launching '{}' image='{}' cores={} mem={} disk={} client_uid={}",
+                         spec.instance_name,
+                         spec.image,
+                         spec.num_cores,
+                         spec.mem_size,
+                         spec.disk_space,
+                         client_uid);
+
                 const auto result = hyperpass_backend.launch(spec);
                 if (!result.status.ok())
                 {
+                    mpl::log(mpl::Level::warning,
+                             service_category,
+                             "launch failed for '{}': {}",
+                             vm_name,
+                             result.status.error_message());
                     set_daemon_error(res, result.status);
                     return;
                 }
@@ -367,6 +386,13 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 record.os_flavour = os_flavour;
                 record.backend = backend_name;
                 registry.upsert(record);
+
+                mpl::log(mpl::Level::info,
+                         service_category,
+                         "registered '{}' as vm_uid={} for client_uid={}",
+                         vm_name,
+                         record.vm_uid,
+                         client_uid);
 
                 json::array ipv4;
                 const auto listed = hyperpass_backend.list_instances(true);

@@ -25,7 +25,7 @@
 namespace multipass::api
 {
 
-/** AtomOS Service / Meson-compatible VM API (port 7781). */
+/** AtomOS Service / Meson-compatible VM API (temporarily on matcher port 7777). */
 void register_service_handlers(httplib::Server& server,
                                GrpcBackend& hyperpass_backend,
                                VmRegistry& registry);

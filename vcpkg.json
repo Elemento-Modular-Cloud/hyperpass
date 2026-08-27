@@ -30,7 +30,13 @@
         },
         "premock",
         "out-ptr",
-        "cpp-httplib"
+        {
+            "name": "cpp-httplib",
+            "features": [
+                "openssl",
+                "brotli"
+            ]
+        }
     ],
     "overrides": [
         {

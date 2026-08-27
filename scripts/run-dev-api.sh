@@ -6,9 +6,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 API_BIN="${BUILD_DIR}/bin/hyperpass-api"
 HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
-HYPERPASS_API_LISTEN="${HYPERPASS_API_LISTEN:-127.0.0.1:7781}"
+# Temporary: matcher VM port. Service/Meson canonical is 7781.
+HYPERPASS_API_LISTEN="${HYPERPASS_API_LISTEN:-127.0.0.1:7777}"
 HYPERPASS_API_TOKEN="${HYPERPASS_API_TOKEN:-}"
 INSECURE=0
+HTTP=0
+CERT_FILE="${HYPERPASS_API_CERT:-}"
+KEY_FILE="${HYPERPASS_API_KEY:-}"
 VERBOSITY="${VERBOSITY:-info}"
 ACTION=start
 
@@ -17,14 +21,17 @@ usage() {
 Usage: $(basename "$0") [options] [-- <extra hyperpass-api args>]
 
 Start the REST API sidecar against a local hyperpassd. Prefer running
-scripts/run-dev-daemon.sh first.
+scripts/run-dev-daemon.sh first. HTTPS is on by default (AtomOS/Electros).
 
 Options:
   --stop              Stop a running hyperpass-api started from this build tree
   --build-dir DIR     Build directory (default: ${BUILD_DIR})
-  --listen ADDR       HTTP listen host:port (default: ${HYPERPASS_API_LISTEN})
+  --listen ADDR       HTTPS listen host:port (default: ${HYPERPASS_API_LISTEN})
   --token TOKEN       Bearer API token (or set HYPERPASS_API_TOKEN)
   --insecure-no-auth  Disable REST auth (local development only)
+  --http              Plain HTTP instead of HTTPS (breaks Electros fingerprinting)
+  --cert PATH         TLS certificate PEM (or HYPERPASS_API_CERT)
+  --key PATH          TLS private key PEM (or HYPERPASS_API_KEY)
   --verbosity LEVEL   Log level (default: ${VERBOSITY})
   -h, --help          Show this help
 
@@ -34,12 +41,15 @@ Environment:
   HYPERPASS_SERVER_ADDRESS    Override daemon address entirely
   HYPERPASS_API_LISTEN
   HYPERPASS_API_TOKEN
+  HYPERPASS_API_CERT
+  HYPERPASS_API_KEY
   VERBOSITY
 
 Examples:
-  $(basename "$0") --insecure-no-auth
   $(basename "$0") --token secret
-  curl -H "Authorization: Bearer secret" http://127.0.0.1:7781/api/v1.0/running
+  $(basename "$0") --token secret --cert ./api.crt --key ./api.key
+  curl -k https://127.0.0.1:7777/fingerprint
+  curl -k -H "Authorization: Bearer secret" https://127.0.0.1:7777/
 EOF
 }
 
@@ -58,6 +68,10 @@ while [[ $# -gt 0 ]]; do
     --listen) HYPERPASS_API_LISTEN="$2"; shift 2 ;;
     --token) HYPERPASS_API_TOKEN="$2"; shift 2 ;;
     --insecure-no-auth) INSECURE=1; shift ;;
+    --http) HTTP=1; shift ;;
+    --https) shift ;; # default; kept for backwards compatibility
+    --cert) CERT_FILE="$2"; shift 2 ;;
+    --key) KEY_FILE="$2"; shift 2 ;;
     --verbosity) VERBOSITY="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; EXTRA_ARGS+=("$@"); break ;;
@@ -90,9 +104,22 @@ else
   exit 1
 fi
 
+TLS_ARGS=()
+SCHEME=https
+if [[ "$HTTP" -eq 1 ]]; then
+  SCHEME=http
+  TLS_ARGS+=(--http)
+fi
+if [[ -n "$CERT_FILE" ]]; then
+  TLS_ARGS+=(--cert "$CERT_FILE")
+fi
+if [[ -n "$KEY_FILE" ]]; then
+  TLS_ARGS+=(--key "$KEY_FILE")
+fi
+
 echo "==> Dev hyperpass-api"
 echo "    binary:  ${API_BIN}"
-echo "    listen:  http://${HYPERPASS_API_LISTEN}"
+echo "    listen:  ${SCHEME}://${HYPERPASS_API_LISTEN}"
 echo "    daemon:  ${HYPERPASS_SERVER_ADDRESS}"
 echo
 echo "    Stop:    Ctrl-C, or: $(basename "$0") --stop"
@@ -102,4 +129,5 @@ exec "$API_BIN" \
   --listen "$HYPERPASS_API_LISTEN" \
   --verbosity "$VERBOSITY" \
   "${AUTH_ARGS[@]}" \
+  "${TLS_ARGS[@]+"${TLS_ARGS[@]}"}" \
   "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"

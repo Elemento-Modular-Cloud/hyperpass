@@ -22,6 +22,7 @@
 #include "handlers/handlers.h"
 #include "multipass_discovery.h"
 #include "operation_tracker.h"
+#include "tls_fingerprint.h"
 #include "vm_registry.h"
 
 #include <multipass/constants.h>
@@ -42,12 +43,23 @@ using namespace testing;
 
 TEST(ApiAuth, publicPathsAreUnauthenticated)
 {
-    EXPECT_TRUE(api::is_public_path("/"));
-    EXPECT_TRUE(api::is_public_path("/version"));
+    // AtomOS Service requires Bearer on / and /version; probes + fingerprint are public.
+    EXPECT_FALSE(api::is_public_path("/"));
+    EXPECT_FALSE(api::is_public_path("/version"));
     EXPECT_TRUE(api::is_public_path("/healthz"));
     EXPECT_TRUE(api::is_public_path("/readyz"));
+    EXPECT_TRUE(api::is_public_path("/fingerprint"));
+    EXPECT_TRUE(api::is_public_path("/api/v1/authenticate/cert"));
     EXPECT_FALSE(api::is_public_path("/api/v1.0/running"));
+    EXPECT_FALSE(api::is_public_path("/api/v1.0/get_machine"));
+    EXPECT_FALSE(api::is_public_path("/api/v1.0/create_machine"));
+    EXPECT_FALSE(api::is_public_path("/api/v1.0/delete_machine"));
     EXPECT_FALSE(api::is_public_path("/v1/instances"));
+}
+
+TEST(ApiConfig, defaultListenAddressIsMatcherPort)
+{
+    EXPECT_EQ(mp::default_api_listen, "127.0.0.1:7777");
 }
 
 TEST(ApiAuth, insecureSkipsTokenCheck)
@@ -77,6 +89,30 @@ TEST(ApiAuth, errorBodyIsJson)
     const auto invalid = api::auth_error_body(api::AuthResult::invalid);
     EXPECT_THAT(missing, HasSubstr("missing_token"));
     EXPECT_THAT(invalid, HasSubstr("invalid_token"));
+}
+
+TEST(ApiTlsFingerprint, formatsSha256LikeAtomOS)
+{
+    // Empty DER → SHA-256 of empty input, colon-separated uppercase (AtomOS get_fingerprint).
+    const auto fp = api::fingerprint_from_der("");
+    EXPECT_EQ(fp,
+              "E3:B0:C4:42:98:FC:1C:14:9A:FB:F4:C8:99:6F:B9:24:27:AE:41:E4:64:9B:93:4C:A4:95:99:1B:"
+              "78:52:B8:55");
+}
+
+TEST(ApiTlsFingerprint, fetchRemoteAtomOSMatcherCert)
+{
+    // Live AtomOS matcher used as the Electros fingerprint reference host.
+    const auto info = api::fetch_remote_tls_cert("172.16.25.197", api::atomos_matcher_tls_port);
+    EXPECT_EQ(info.fingerprint,
+              "46:59:75:6B:51:DE:E8:A0:3F:DB:41:0C:4C:D5:5B:82:B0:9A:E4:2A:5E:71:3F:26:59:9F:E1:A9:"
+              "0C:B6:8C:28");
+    EXPECT_FALSE(info.validated); // self-signed AtomOS cert
+}
+
+TEST(ApiTlsFingerprint, fetchRemoteMissingHostThrows)
+{
+    EXPECT_THROW(api::fetch_remote_tls_cert("", api::atomos_matcher_tls_port), std::runtime_error);
 }
 
 TEST(ApiConfig, parseListenAddressAcceptsHostPort)

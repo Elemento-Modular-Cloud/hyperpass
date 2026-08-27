@@ -1,13 +1,16 @@
 # External API coverage gaps
 
-AtomOS Service (Meson-compatible) surface on port 7781 — see Bruno `AtomOS/service/`.
+AtomOS VM surface temporarily on matcher port **7777** (Service/Meson canonical
+**7781**) — see Bruno `AtomOS/service/`. All endpoints share that listen address.
 
 ## Status
 
 | Area | Status |
 |------|--------|
-| `GET /` ping | Implemented |
-| `GET /version` | Implemented |
+| Bearer auth (Bruno) | Required on all Service paths (`/`, `/version`, `/api/v1.0/*`); probes `/healthz` `/readyz` and fingerprint paths exempt |
+| HTTPS + AtomOS TLS fingerprint | HTTPS by default (opt out with `--http`); Electros peer-TLS `:7777`; `GET /api/v1/authenticate/cert?host=` dials remote `:7777`/`:7772`; `/fingerprint` returns local cert |
+| `GET /` ping | Implemented (auth required) |
+| `GET /version` | Implemented (auth required) |
 | `POST /api/v1.0/register` | Implemented → gRPC `launch` + registry |
 | `POST /api/v1.0/create_machine` | Alias of `register` (Meson name) |
 | `GET /api/v1.0/running` | Implemented → `list` + registry filter by `client_uid` |
@@ -25,3 +28,4 @@ AtomOS Service (Meson-compatible) surface on port 7781 — see Bruno `AtomOS/ser
 
 - Prefer adding missing capabilities as gRPC RPCs on `hyperpassd` first, then mapping them here.
 - `req.cpu` SMT/overprovision/PCI fields are accepted for Meson parity but ignored by Hyperpass.
+- Revert default listen to `127.0.0.1:7781` when dropping the temporary matcher-port mapping.

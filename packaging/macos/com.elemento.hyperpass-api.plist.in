@@ -10,7 +10,7 @@
       <key>PATH</key>
       <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
       <key>HYPERPASS_API_LISTEN</key>
-      <string>127.0.0.1:7781</string>
+      <string>127.0.0.1:7777</string>
     </dict>
 
     <key>ProgramArguments</key>

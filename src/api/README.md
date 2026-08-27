@@ -1,7 +1,8 @@
 # hyperpass-api
 
-REST sidecar implementing the AtomOS **Service** API (Meson-compatible VM surface on
-port **7781**), translating to `hyperpassd` over mTLS gRPC.
+REST sidecar implementing the AtomOS VM API (temporarily on matcher port **7777**;
+Service/Meson canonical is 7781), translating to `hyperpassd` over mTLS gRPC.
+All endpoints — including fingerprint discovery — share that single listen address.
 
 ## Build
 
@@ -11,15 +12,22 @@ Enabled by default (`HYPERPASS_ENABLE_API=ON`). Binary: `build/bin/hyperpass-api
 
 ```bash
 export HYPERPASS_SERVER_ADDRESS=unix:/tmp/hyperpass.socket
-./scripts/run-dev-api.sh --insecure-no-auth
+# Prefer a token (matches Bruno Bearer auth). --insecure-no-auth is local-only.
+# HTTPS is on by default (Electros fingerprints the peer cert on :7777).
+./scripts/run-dev-api.sh --token secret
+# or: ./scripts/run-dev-api.sh --insecure-no-auth
+# Plain HTTP (debug only): ./scripts/run-dev-api.sh --token secret --http
 ```
 
-## AtomOS Service endpoints
+## AtomOS VM endpoints (port 7777, temporary)
+
+Aligned with Bruno `AtomOS/service/` (including Meson aliases). All Service paths
+require `Authorization: Bearer <token>` unless `--insecure-no-auth`.
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| GET | `/` | no | Ping (503 if hyperpassd down) |
-| GET | `/version` | no | Service + backend version |
+| GET | `/` | yes | Ping (503 if hyperpassd down) |
+| GET | `/version` | yes | Service + backend version |
 | POST | `/api/v1.0/register` | yes | Launch VM (cloud-init) |
 | POST | `/api/v1.0/create_machine` | yes | Meson alias of `register` |
 | GET | `/api/v1.0/running` | yes | List VMs for `client_uid` (JSON body) |
@@ -31,17 +39,59 @@ export HYPERPASS_SERVER_ADDRESS=unix:/tmp/hyperpass.socket
 | POST | `/api/v1.0/reboot` | yes | Restart |
 | GET | `/api/v1.0/images/find` | yes | Image catalog helper |
 
-Extra (non-Meson) helpers: `/healthz`, `/readyz`, `/v1/instances` (merged Hyperpass+Multipass).
+Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/api/v1/authenticate/cert`.  
+Extra (auth): `/v1/instances`.
+
+## HTTPS + fingerprint
+
+Electros does **not** call an HTTP fingerprint route on the remote matcher. It opens a
+TLS connection to `host:7777` (fallback `:7772`) and SHA-256s the peer cert DER.
+
+Hyperpass exposes the same probe as Electros' local auth client, on the VM API port:
+
+```bash
+# Against a real AtomOS matcher (Electros-compatible):
+curl -k "https://127.0.0.1:7777/api/v1/authenticate/cert?host=172.16.25.197"
+# {"fingerprint":"46:59:…","validated":false}
+
+# Local cert convenience:
+./scripts/run-dev-api.sh --token secret
+curl -k https://127.0.0.1:7777/fingerprint
+```
+
+HTTPS is the default so Electros can dial this host's `:7777` TLS the same way it
+does for AtomOS matcher.
+
+Options:
+
+| Flag / env | Meaning |
+|------------|---------|
+| `--listen` / `HYPERPASS_API_LISTEN` | All endpoints (default `127.0.0.1:7777`) |
+| `--http` | Opt out of TLS (debug only; breaks Electros fingerprinting) |
+| `--cert` / `HYPERPASS_API_CERT` | Existing certificate PEM (HTTPS is default) |
+| `--key` / `HYPERPASS_API_KEY` | Matching private key PEM |
+
+Providing `--cert`/`--key` uses those PEMs. Otherwise Hyperpass prefers shared
+`/etc/elemento/certs/atomos.{crt,key}` when present, else auto-generates under
+`…/hyperpass-api/https/`. On AtomOS hosts, prefer the shared `atomos.*` pair so one
+Electros TOFU pin covers matcher and Hyperpass.
 
 ## Auth
 
+Matches AtomOS Bruno collection headers (`Authorization: Bearer {{auth_token}}`).
+
 ```bash
 ./build/bin/hyperpass-api --api-token secret
-curl -H "Authorization: Bearer secret" \
-  -H "Content-Type: application/json" \
-  -d '{"client_uid":"demo"}' \
-  http://127.0.0.1:7781/api/v1.0/running
+curl -k -H "Authorization: Bearer secret" https://127.0.0.1:7777/
 ```
 
+## Logging
+
+```bash
+./scripts/run-dev-api.sh --token secret --verbosity debug
+```
+
+With `debug`/`trace`: per-request lines plus service-flow details. Auth failures log at `warning`.
+
 OpenAPI: [`openapi/hyperpass-external.yaml`](openapi/hyperpass-external.yaml)  
-Bruno reference: AtomOS `service/` collection (port 7781).
+Bruno reference: AtomOS `service/` collection (temporarily on port 7777).
