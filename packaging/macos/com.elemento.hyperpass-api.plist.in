@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.elemento.hyperpass-api</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+      <key>HYPERPASS_API_LISTEN</key>
+      <string>127.0.0.1:51052</string>
+    </dict>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/hyperpass-api</string>
+      <string>--verbosity</string>
+      <string>info</string>
+      <string>--insecure-no-auth</string>
+    </array>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Library/Logs/Hyperpass/hyperpass-api.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Library/Logs/Hyperpass/hyperpass-api.log</string>
+
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+</dict>
+
+</plist>

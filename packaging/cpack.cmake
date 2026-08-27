@@ -29,6 +29,9 @@ set(CPACK_WARN_ON_ABSOLUTE_INSTALL_DESTINATION ON) # helps avoid errors
 
 set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
 set(CPACK_COMPONENTS_ALL hyperpassd hyperpass hyperpass_gui)
+if(HYPERPASS_ENABLE_API)
+  list(APPEND CPACK_COMPONENTS_ALL hyperpass_api)
+endif()
 
 set(CPACK_COMPONENT_HYPERPASSD_DISPLAY_NAME "Hyperpass Daemon")
 set(CPACK_COMPONENT_HYPERPASSD_DESCRIPTION
@@ -39,10 +42,16 @@ set(CPACK_COMPONENT_HYPERPASS_DESCRIPTION
 set(CPACK_COMPONENT_HYPERPASS_GUI_DISPLAY_NAME "Hyperpass Desktop GUI")
 set(CPACK_COMPONENT_HYPERPASS_GUI_DESCRIPTION
     "Desktop client for Hyperpass")
+set(CPACK_COMPONENT_HYPERPASS_API_DISPLAY_NAME "Hyperpass REST API")
+set(CPACK_COMPONENT_HYPERPASS_API_DESCRIPTION
+    "REST API sidecar that translates HTTP to the Hyperpass daemon")
 
 set(CPACK_COMPONENT_HYPERPASSD_REQUIRED TRUE)
 set(CPACK_COMPONENT_HYPERPASS_REQUIRED TRUE)
 set(CPACK_COMPONENT_HYPERPASS_GUI_REQUIRED TRUE)
+if(HYPERPASS_ENABLE_API)
+  set(CPACK_COMPONENT_HYPERPASS_API_REQUIRED TRUE)
+endif()
 
 # set default CPack Packaging options
 set(CPACK_PACKAGE_NAME              "hyperpass")
@@ -122,6 +131,16 @@ if(APPLE)
   set(CPACK_POSTFLIGHT_HYPERPASSD_SCRIPT "${CMAKE_BINARY_DIR}/postinstall-hyperpassd.sh")
   set(CPACK_POSTFLIGHT_HYPERPASS_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass.sh")
   set(CPACK_POSTFLIGHT_HYPERPASS_GUI_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass-gui.sh")
+
+  if(HYPERPASS_ENABLE_API)
+    set(HYPERPASS_API_PLIST "com.elemento.hyperpass-api.plist")
+    configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${HYPERPASS_API_PLIST}.in"
+                   "${CMAKE_BINARY_DIR}/${HYPERPASS_API_PLIST}" @ONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpass-api.sh.in"
+                   "${CMAKE_BINARY_DIR}/postinstall-hyperpass-api.sh" @ONLY)
+    install(FILES "${CMAKE_BINARY_DIR}/${HYPERPASS_API_PLIST}" DESTINATION Resources COMPONENT hyperpass_api)
+    set(CPACK_POSTFLIGHT_HYPERPASS_API_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass-api.sh")
+  endif()
 
   # Cleans up the installed package
   set(CPACK_PRE_BUILD_SCRIPTS "${CMAKE_SOURCE_DIR}/packaging/cleanup.cmake")

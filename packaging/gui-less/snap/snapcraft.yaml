@@ -81,6 +81,22 @@ apps:
     plugs:
     - all-home
     - network
+  hyperpass-api:
+    command: bin/hyperpass-api --listen 127.0.0.1:51052 --insecure-no-auth --verbosity info
+    environment:
+      LD_LIBRARY_PATH: *library-path
+      PATH: *path
+      QT_PLUGIN_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/qt6/plugins
+      XDG_DATA_HOME: $SNAP_COMMON/data
+      XDG_CACHE_HOME: $SNAP_COMMON/cache
+      XDG_CONFIG_HOME: *daemon-config
+      DAEMON_CONFIG_HOME: *daemon-config
+      HYPERPASS_API_LISTEN: 127.0.0.1:51052
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+    - network
+    - network-bind
 parts:
   qt-ssl-plugin:
     plugin: nil

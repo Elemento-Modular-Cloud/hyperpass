@@ -109,7 +109,7 @@ with tempfile.TemporaryDirectory() as workdir:
     # Recreate the package
     pkgs = dest_work / "Packages"
     pkgs.mkdir()
-    for component in ("hyperpass", "hyperpassd"):
+    for component in ("hyperpass", "hyperpassd", "hyperpass_api"):
         pkg = dest_work / f"hyperpass-{version}-Darwin-{component}.pkg"
         subprocess.check_call(["pkgbuild", "--root", pkg / "Payload.unpacked",
                                "--identifier", f"com.elemento.hyperpass.{component}",

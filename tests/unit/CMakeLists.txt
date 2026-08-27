@@ -186,6 +186,12 @@ target_link_libraries(multipass_cpp_tests
   yaml-cpp::yaml-cpp
 )
 
+if(HYPERPASS_ENABLE_API)
+  target_sources(multipass_cpp_tests PRIVATE test_api.cpp)
+  target_link_libraries(multipass_cpp_tests hyperpass_api)
+  target_include_directories(multipass_cpp_tests PRIVATE ${CMAKE_SOURCE_DIR}/src/api)
+endif()
+
 add_test(NAME multipass_cpp_tests
   COMMAND multipass_cpp_tests
 )

@@ -29,7 +29,8 @@
             ]
         },
         "premock",
-        "out-ptr"
+        "out-ptr",
+        "cpp-httplib"
     ],
     "overrides": [
         {

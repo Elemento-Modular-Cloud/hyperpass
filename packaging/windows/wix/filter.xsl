@@ -13,6 +13,8 @@
         match="wix:Component[wix:File[contains(@Source, 'hyperpass.exe')]]" use="@Id" />
     <xsl:key name="FilterHyperpassGUI"
         match="wix:Component[wix:File[contains(@Source, 'hyperpass.gui.exe')]]" use="@Id" />
+    <xsl:key name="FilterHyperpassApi"
+        match="wix:Component[wix:File[contains(@Source, 'hyperpass-api.exe')]]" use="@Id" />
 
     <!-- Copy all elements and their attributes. -->
     <xsl:template match="@*|node()">
@@ -28,4 +30,6 @@
         match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpass', @Id ) ]" />
     <xsl:template
         match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpassGUI', @Id ) ]" />
+    <xsl:template
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpassApi', @Id ) ]" />
 </xsl:stylesheet>

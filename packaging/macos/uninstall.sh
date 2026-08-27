@@ -33,10 +33,14 @@ if [ $DELETE_VMS -eq 1 ]; then
 fi
 
 LAUNCH_AGENT_DEST="/Library/LaunchDaemons/com.elemento.hyperpassd.plist"
+API_LAUNCH_AGENT_DEST="/Library/LaunchDaemons/com.elemento.hyperpass-api.plist"
 
 echo .
 echo "Removing the Hyperpass daemon launch agent:"
-launchctl unload -w "$LAUNCH_AGENT_DEST"
+launchctl unload -w "$LAUNCH_AGENT_DEST" || true
+
+echo "Removing the Hyperpass API launch agent:"
+launchctl unload -w "$API_LAUNCH_AGENT_DEST" || true
 
 if [ $DELETE_VMS -eq 1 ]; then
     echo "Removing daemon data:"
@@ -50,6 +54,7 @@ fi
 echo .
 echo "Removing Hyperpass:"
 rm -fv "$LAUNCH_AGENT_DEST"
+rm -fv "$API_LAUNCH_AGENT_DEST"
 
 rm -fv /usr/local/bin/hyperpass
 rm -rfv /Applications/Hyperpass.app
@@ -78,6 +83,8 @@ rm -fv "/private/var/db/receipts/com.elemento.hyperpass.hyperpassd.bom"
 rm -fv "/private/var/db/receipts/com.elemento.hyperpass.hyperpassd.plist"
 rm -fv "/private/var/db/receipts/com.elemento.hyperpass.hyperpass.bom"
 rm -fv "/private/var/db/receipts/com.elemento.hyperpass.hyperpass.plist"
+rm -fv "/private/var/db/receipts/com.elemento.hyperpass.hyperpass_api.bom"
+rm -fv "/private/var/db/receipts/com.elemento.hyperpass.hyperpass_api.plist"
 
 echo .
 echo "Uninstall complete"

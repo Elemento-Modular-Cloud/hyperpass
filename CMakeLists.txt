@@ -21,6 +21,7 @@ include(CMakeDependentOption)
 
 option(MULTIPASS_VCPKG_BUILD_DEFAULT "Enable or disable building the dependencies in the default configuration, which includes both debug and release variants." OFF)
 option(MULTIPASS_ENABLE_TESTS "Build tests" ON)
+option(HYPERPASS_ENABLE_API "Build the hyperpass-api REST sidecar" ON)
 cmake_dependent_option(FORCE_ENABLE_VIRTUALBOX "Enable VirtualBox" ON UNIX OFF)
 
 is_running_in_ci(IS_RUNNING_IN_CI)

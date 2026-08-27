@@ -183,6 +183,7 @@
         <Feature Id="Main">
             <ComponentGroupRef Id="CLIClientComponents" />
             <ComponentGroupRef Id="DaemonComponents" />
+            <ComponentGroupRef Id="ApiComponents" />
             <ComponentGroupRef Id="GUIComponents" />
             <ComponentGroupRef Id="AdditionalComponents" />
             <ComponentGroupRef Id="HyperpassSupportComponents" />

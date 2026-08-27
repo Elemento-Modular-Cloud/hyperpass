@@ -54,6 +54,14 @@ constexpr auto multipass_storage_env_var = "HYPERPASS_STORAGE";
 constexpr auto driver_env_var = "HYPERPASS_VM_DRIVER";
 constexpr auto distributions_url_env_var = "HYPERPASS_DISTRIBUTIONS_URL";
 constexpr auto server_address_env_var = "HYPERPASS_SERVER_ADDRESS";
+constexpr auto api_listen_env_var = "HYPERPASS_API_LISTEN";
+constexpr auto api_token_env_var = "HYPERPASS_API_TOKEN";
+constexpr auto multipass_address_env_var = "HYPERPASS_MULTIPASS_ADDRESS";
+
+constexpr auto api_name = "hyperpass-api";
+constexpr auto default_api_listen = "127.0.0.1:51052";
+constexpr auto instance_source_hyperpass = "hyperpass";
+constexpr auto instance_source_multipass = "multipass";
 
 constexpr auto winterm_profile_guid =
     "{bbbb9e6d-1e09-4be6-b76c-82b4ba1885fb}"; // identifies the primary Hyperpass profile in Windows
