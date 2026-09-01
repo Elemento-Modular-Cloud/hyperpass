@@ -92,6 +92,17 @@ mp::ModelSuggestion suggestion_from_json(const QJsonObject& obj)
         s.set_hf_repo(obj.value("hf_repo").toString().toStdString());
     if (obj.contains("filename"))
         s.set_filename(obj.value("filename").toString().toStdString());
+    if (s.hf_repo().empty())
+    {
+        for (const auto& candidate : {name, QString::fromStdString(s.id())})
+        {
+            if (candidate.contains("-GGUF", Qt::CaseInsensitive))
+            {
+                s.set_hf_repo(candidate.toStdString());
+                break;
+            }
+        }
+    }
     return s;
 }
 
@@ -110,7 +121,7 @@ QByteArray run_llmfit(const QString& binary, const QStringList& args, int timeou
     return out;
 }
 
-QString gguf_search_query(QString model_id)
+QString gguf_base_name(QString model_id)
 {
     if (model_id.contains('/'))
         model_id = model_id.section('/', -1);
@@ -130,8 +141,10 @@ QString gguf_search_query(QString model_id)
                                "-3bit",
                                "-2bit",
                                "-FP8",
+                               "-FP16",
                                "-bf16",
-                               "-BF16"};
+                               "-BF16",
+                               "-NVFP4A16"};
     bool stripped = true;
     while (stripped)
     {
@@ -145,8 +158,84 @@ QString gguf_search_query(QString model_id)
                 break;
             }
         }
+        static const QRegularExpression trailing_patterns[] = {
+            QRegularExpression{R"(-OptQ-\d+bit$)", QRegularExpression::CaseInsensitiveOption},
+            QRegularExpression{R"(-aQ[\d.]+$)", QRegularExpression::CaseInsensitiveOption},
+        };
+        for (const auto& pattern : trailing_patterns)
+        {
+            const auto match = pattern.match(model_id);
+            if (match.hasMatch())
+            {
+                model_id.chop(match.capturedLength(0));
+                stripped = true;
+                break;
+            }
+        }
     }
     return model_id;
+}
+
+void append_unique_query(QStringList& queries, const QString& query)
+{
+    const auto trimmed = query.trimmed();
+    if (!trimmed.isEmpty() && !queries.contains(trimmed))
+        queries << trimmed;
+}
+
+QStringList download_resolution_queries(const QString& model_id, const QString& hf_repo_hint)
+{
+    QStringList queries;
+    append_unique_query(queries, hf_repo_hint);
+    append_unique_query(queries, model_id);
+
+    const auto base = gguf_base_name(model_id);
+    append_unique_query(queries, base);
+
+    if (!base.isEmpty() && !base.contains("-GGUF", Qt::CaseInsensitive))
+    {
+        append_unique_query(queries, base + "-GGUF");
+        if (model_id.contains('/'))
+        {
+            const auto org = model_id.section('/', 0, 0);
+            append_unique_query(queries, org + "/" + base + "-GGUF");
+        }
+        if (base.startsWith("NVIDIA-", Qt::CaseInsensitive))
+            append_unique_query(queries, "nvidia/" + base + "-GGUF");
+    }
+
+    if (model_id.contains("-GGUF", Qt::CaseInsensitive))
+        append_unique_query(queries, model_id);
+
+    return queries;
+}
+
+void enrich_gguf_repo_hints(std::vector<mp::ModelSuggestion>& models)
+{
+    for (auto& model : models)
+    {
+        if (!model.hf_repo().empty())
+            continue;
+
+        for (const auto& candidate : {QString::fromStdString(model.name()),
+                                       QString::fromStdString(model.id())})
+        {
+            if (candidate.contains("-GGUF", Qt::CaseInsensitive))
+            {
+                model.set_hf_repo(candidate.toStdString());
+                break;
+            }
+        }
+        if (!model.hf_repo().empty())
+            continue;
+
+        const auto id = QString::fromStdString(model.id());
+        const auto base = gguf_base_name(id);
+        if (base.isEmpty() || base.contains("-GGUF", Qt::CaseInsensitive))
+            continue;
+        if (base.startsWith("NVIDIA-", Qt::CaseInsensitive))
+            model.set_hf_repo(QString("nvidia/%1-GGUF").arg(base).toStdString());
+    }
 }
 
 bool is_mlx_quant(const QString& quant)
@@ -579,6 +668,7 @@ std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::recommend(MemorySize availab
     mpl::info(category, "running {} {}", binary, args.join(' '));
     const auto doc = parse_json_payload(run_llmfit(binary, args, 60000));
     auto models = models_from_json(doc);
+    enrich_gguf_repo_hints(models);
 
     cache = CacheEntry{available_ram.in_bytes(), runtime, use_case, now, models};
     return models;
@@ -674,12 +764,14 @@ std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::browse(MemorySize available_
     }
 
     sort_by_metadata(filtered);
+    enrich_gguf_repo_hints(filtered);
 
     return slice_models(std::move(filtered), offset, limit > 0 ? limit : 100);
 }
 
 std::optional<mp::ResolvedGguf> mp::LlmfitAdvisor::resolve(const std::string& model_id,
-                                                           const std::string& quant)
+                                                           const std::string& quant,
+                                                           const std::string& hf_repo)
 {
     const auto binary = binary_path();
     if (binary.isEmpty())
@@ -720,11 +812,8 @@ std::optional<mp::ResolvedGguf> mp::LlmfitAdvisor::resolve(const std::string& mo
         }
     };
 
-    QStringList queries{QString::fromStdString(model_id)};
-    const auto search = gguf_search_query(QString::fromStdString(model_id));
-    if (!search.isEmpty() && !queries.contains(search))
-        queries << search;
-
+    const auto queries = download_resolution_queries(QString::fromStdString(model_id),
+                                                     QString::fromStdString(hf_repo));
     for (const auto& query : queries)
     {
         if (auto resolved = try_list(query))

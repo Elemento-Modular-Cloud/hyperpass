@@ -694,6 +694,7 @@ message PullModelRequest {
     string model_id = 1;
     string quant = 2;
     int32 verbosity_level = 3;
+    string hf_repo = 4;
 }
 
 message PullModelReply {

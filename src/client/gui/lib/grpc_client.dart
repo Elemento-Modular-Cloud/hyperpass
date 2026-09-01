@@ -290,9 +290,9 @@ class GrpcClient {
     );
   }
 
-  Stream<PullModelReply> pullModel(String modelId, {String quant = ''}) {
+  Stream<PullModelReply> pullModel(String modelId, {String quant = '', String hfRepo = ''}) {
     return _client.pull_model(
-      Stream.value(PullModelRequest(modelId: modelId, quant: quant)),
+      Stream.value(PullModelRequest(modelId: modelId, quant: quant, hfRepo: hfRepo)),
     );
   }
 

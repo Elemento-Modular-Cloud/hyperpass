@@ -118,8 +118,11 @@ private:
     bool wait_until_ready(int port) const;
     ModelArtifact ensure_pulled(const std::string& model_id,
                                 const std::string& quant,
+                                const std::string& hf_repo,
                                 const ProgressMonitor& monitor);
-    ResolvedGguf resolve_or_throw(const std::string& model_id, const std::string& quant);
+    ResolvedGguf resolve_or_throw(const std::string& model_id,
+                                  const std::string& quant,
+                                  const std::string& hf_repo = {});
     std::string hf_token() const;
     std::chrono::seconds idle_ttl() const;
     void persist_sessions() const;

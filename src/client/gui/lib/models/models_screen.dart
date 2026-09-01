@@ -137,8 +137,11 @@ final apiKeysProvider = FutureProvider((ref) async {
 
 enum ModelJobStatus { queued, running, done, error }
 
+String modelDownloadRepo(ModelSuggestion model) => model.hfRepo;
+
 class ModelDownloadJob {
   final String id;
+  final String hfRepo;
   final String quant;
   final bool loadAfter;
   final ModelJobStatus status;
@@ -147,6 +150,7 @@ class ModelDownloadJob {
 
   const ModelDownloadJob({
     required this.id,
+    this.hfRepo = '',
     required this.quant,
     required this.loadAfter,
     this.status = ModelJobStatus.queued,
@@ -161,6 +165,7 @@ class ModelDownloadJob {
   }) {
     return ModelDownloadJob(
       id: id,
+      hfRepo: hfRepo,
       quant: quant,
       loadAfter: loadAfter,
       status: status ?? this.status,
@@ -179,14 +184,14 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
   int get activeCount =>
       state.where((j) => j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running).length;
 
-  void enqueue(String id, String quant, {bool loadAfter = false}) {
+  void enqueue(String id, String quant, {String hfRepo = '', bool loadAfter = false}) {
     final busy = state.any((j) =>
         j.id == id &&
         (j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running));
     if (busy) return;
     state = [
       ...state.where((j) => j.id != id),
-      ModelDownloadJob(id: id, quant: quant, loadAfter: loadAfter),
+      ModelDownloadJob(id: id, hfRepo: hfRepo, quant: quant, loadAfter: loadAfter),
     ];
     _pump ??= _run();
   }
@@ -207,7 +212,7 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
         _patch(job.id, (j) => j.copyWith(status: ModelJobStatus.running));
         try {
           final client = ref.read(grpcClientProvider);
-          await for (final reply in client.pullModel(job.id, quant: job.quant)) {
+          await for (final reply in client.pullModel(job.id, quant: job.quant, hfRepo: job.hfRepo)) {
             final raw = int.tryParse(reply.launchProgress.percentComplete) ?? 0;
             _patch(job.id, (j) => j.copyWith(percent: raw.clamp(0, 100)));
           }
@@ -467,6 +472,7 @@ class _RecommendedChip extends ConsumerWidget {
       onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
             model.id,
             model.bestQuant,
+            hfRepo: modelDownloadRepo(model),
             loadAfter: true,
           ),
     );
@@ -663,6 +669,7 @@ class _CatalogTable extends ConsumerWidget {
               onTap: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
                     m.id,
                     m.bestQuant,
+                    hfRepo: modelDownloadRepo(m),
                   ),
             ),
             _CatalogAction(
@@ -671,6 +678,7 @@ class _CatalogTable extends ConsumerWidget {
               onTap: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
                     m.id,
                     m.bestQuant,
+                    hfRepo: modelDownloadRepo(m),
                     loadAfter: true,
                   ),
             ),
@@ -753,6 +761,7 @@ class _DownloadsPane extends ConsumerWidget {
                       onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
                             model.id,
                             model.bestQuant,
+                            hfRepo: modelDownloadRepo(model),
                             loadAfter: true,
                           ),
                       child: Text(l10n.modelsLoadCached),

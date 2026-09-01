@@ -60,7 +60,9 @@ public:
                                         bool include_too_tight,
                                         bool unified_memory);
 
-    std::optional<ResolvedGguf> resolve(const std::string& model_id, const std::string& quant);
+    std::optional<ResolvedGguf> resolve(const std::string& model_id,
+                                        const std::string& quant,
+                                        const std::string& hf_repo = {});
 
     QString binary_path() const;
     std::string missing_binary_hint() const;

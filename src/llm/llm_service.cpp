@@ -260,9 +260,10 @@ std::string mp::LlmService::openai_id_for(const std::string& model_id) const
 }
 
 mp::ResolvedGguf mp::LlmService::resolve_or_throw(const std::string& model_id,
-                                                  const std::string& quant)
+                                                  const std::string& quant,
+                                                  const std::string& hf_repo)
 {
-    if (auto resolved = advisor.resolve(model_id, quant))
+    if (auto resolved = advisor.resolve(model_id, quant, hf_repo))
         return *resolved;
 
     throw std::runtime_error(fmt::format(
@@ -274,12 +275,13 @@ mp::ResolvedGguf mp::LlmService::resolve_or_throw(const std::string& model_id,
 
 mp::ModelArtifact mp::LlmService::ensure_pulled(const std::string& model_id,
                                                 const std::string& quant,
+                                                const std::string& hf_repo,
                                                 const ProgressMonitor& monitor)
 {
     if (auto existing = vault.find(model_id))
         return *existing;
 
-    const auto resolved = resolve_or_throw(model_id, quant);
+    const auto resolved = resolve_or_throw(model_id, quant, hf_repo);
     if (resolved.filename.empty())
         throw std::runtime_error("llmfit listed the repo but did not name a GGUF file");
     return vault.pull(model_id, resolved.repo, resolved.filename, quant, hf_token(), monitor);
@@ -343,7 +345,7 @@ void mp::LlmService::pull_model(
         server->Write(progress);
         return true;
     };
-    const auto art = ensure_pulled(request->model_id(), request->quant(), monitor);
+    const auto art = ensure_pulled(request->model_id(), request->quant(), request->hf_repo(), monitor);
     PullModelReply reply;
     reply.set_model_id(art.id);
     reply.set_path(art.path);
@@ -380,7 +382,7 @@ void mp::LlmService::load_model(
         server->Write(progress);
         return true;
     };
-    const auto art = ensure_pulled(model_id, request->quant(), monitor);
+    const auto art = ensure_pulled(model_id, request->quant(), "", monitor);
     const auto ctx = request->ctx_size() > 0 ? request->ctx_size() : 4096;
     const auto claim = estimate_claim(art, ctx);
     const auto kind = select_backend();
