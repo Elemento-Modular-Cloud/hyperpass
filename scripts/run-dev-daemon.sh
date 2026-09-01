@@ -45,9 +45,9 @@ EOF
 stop_dev_daemon() {
   echo "==> Stopping dev hyperpassd (if any)"
   if [[ -x "$DAEMON" ]]; then
-    sudo pkill -f "$DAEMON" 2>/dev/null || true
+    sudo pkill -9 -f "$DAEMON" 2>/dev/null || true
   fi
-  sudo pkill -f "unix:${HYPERPASS_SOCKET}" 2>/dev/null || true
+  sudo pkill -9 -f "unix:${HYPERPASS_SOCKET}" 2>/dev/null || true
   if [[ -e "$HYPERPASS_SOCKET" ]]; then
     sudo rm -f "$HYPERPASS_SOCKET"
   fi
