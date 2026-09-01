@@ -596,6 +596,7 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon)
     QObject::connect(&rpc, &mp::DaemonRpc::on_load_model, &daemon, &mp::Daemon::load_model);
     QObject::connect(&rpc, &mp::DaemonRpc::on_unload_model, &daemon, &mp::Daemon::unload_model);
     QObject::connect(&rpc, &mp::DaemonRpc::on_list_models, &daemon, &mp::Daemon::list_models);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_list_llm_backends, &daemon, &mp::Daemon::list_llm_backends);
     QObject::connect(&rpc, &mp::DaemonRpc::on_create_api_key, &daemon, &mp::Daemon::create_api_key);
     QObject::connect(&rpc, &mp::DaemonRpc::on_list_api_keys, &daemon, &mp::Daemon::list_api_keys);
     QObject::connect(&rpc, &mp::DaemonRpc::on_revoke_api_key, &daemon, &mp::Daemon::revoke_api_key);
@@ -4290,6 +4291,14 @@ void mp::Daemon::list_models(
     DaemonRpcContext* context)
 {
     run_llm_rpc(llm_service.get(), context, [&] { llm_service->list_models(request, server); });
+}
+
+void mp::Daemon::list_llm_backends(
+    const ListLlmBackendsRequest* request,
+    grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->list_llm_backends(request, server); });
 }
 
 void mp::Daemon::create_api_key(

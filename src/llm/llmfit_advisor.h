@@ -49,6 +49,17 @@ public:
                                            int limit,
                                            bool unified_memory);
 
+    std::vector<ModelSuggestion> browse(MemorySize available_ram,
+                                        int cpu_cores,
+                                        const std::string& runtime,
+                                        const std::string& use_case,
+                                        const std::string& min_fit,
+                                        const std::string& query,
+                                        int limit,
+                                        int offset,
+                                        bool include_too_tight,
+                                        bool unified_memory);
+
     std::optional<ResolvedGguf> resolve(const std::string& model_id, const std::string& quant);
 
     QString binary_path() const;

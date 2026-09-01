@@ -29,6 +29,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QSet>
 
 #include <algorithm>
 #include <mutex>
@@ -69,6 +70,14 @@ mp::ModelSuggestion suggestion_from_json(const QJsonObject& obj)
         runtime = "llamacpp";
     s.set_runtime(runtime.toStdString());
     s.set_use_case(obj.value("use_case").toString().toLower().toStdString());
+    s.set_disk_size_gb(obj.value("disk_size_gb").toDouble());
+    s.set_run_mode(obj.value("run_mode").toString().toStdString());
+    s.set_utilization_pct(obj.value("utilization_pct").toDouble());
+    s.set_context_length(static_cast<int64_t>(obj.value("context_length").toDouble()));
+    s.set_usable_context(static_cast<int64_t>(obj.value("usable_context").toDouble()));
+    if (obj.contains("release_date") && !obj.value("release_date").isNull())
+        s.set_release_date(obj.value("release_date").toString().toStdString());
+    s.set_category(obj.value("category").toString().toStdString());
 
     const auto sources = obj.value("gguf_sources").toArray();
     if (!sources.isEmpty())
@@ -229,6 +238,306 @@ QJsonDocument parse_json_payload(const QByteArray& raw)
         throw std::runtime_error(fmt::format("llmfit JSON parse error: {}", err.errorString().toStdString()));
     return doc;
 }
+
+QStringList hardware_args(const mp::MemorySize& available_ram, int cpu_cores, bool unified_memory)
+{
+    QStringList args{"--json",
+                     "--no-dashboard",
+                     "--ram",
+                     ram_flag(available_ram),
+                     "--cpu-cores",
+                     QString::number(std::max(cpu_cores, 1))};
+    if (unified_memory)
+        args << "--memory" << ram_flag(available_ram);
+    return args;
+}
+
+void append_recommend_runtime_filters(QStringList& args, const std::string& runtime)
+{
+    const auto rt = QString::fromStdString(runtime).toLower();
+    if (rt.contains("mlx"))
+        args << "--runtime" << "mlx";
+    else if (!rt.isEmpty())
+        args << "--force-runtime" << "llamacpp";
+}
+
+void append_recommend_catalog_filters(QStringList& args,
+                                      const std::string& use_case,
+                                      const std::string& min_fit)
+{
+    if (!use_case.empty())
+        args << "--use-case" << QString::fromStdString(use_case);
+    if (!min_fit.empty())
+        args << "--min-fit" << QString::fromStdString(min_fit);
+}
+
+void append_fit_cli_filters(QStringList& args, const std::string& min_fit)
+{
+    if (min_fit == "perfect")
+        args << "--perfect";
+}
+
+std::vector<mp::ModelSuggestion> models_from_json(const QJsonDocument& doc)
+{
+    QJsonArray models_json;
+    if (doc.isObject())
+        models_json = doc.object().value("models").toArray();
+    else if (doc.isArray())
+        models_json = doc.array();
+
+    std::vector<mp::ModelSuggestion> models;
+    for (const auto& item : models_json)
+    {
+        if (item.isObject())
+            models.push_back(suggestion_from_json(item.toObject()));
+    }
+    return models;
+}
+
+bool model_matches_query(const mp::ModelSuggestion& model, const QString& query)
+{
+    const auto trimmed = query.trimmed();
+    if (trimmed.isEmpty())
+        return true;
+
+    const auto haystack = QStringList{
+                                QString::fromStdString(model.name()),
+                                QString::fromStdString(model.provider()),
+                                QString::fromStdString(model.id()),
+                                QString::fromStdString(model.hf_repo()),
+                            }
+                                .join(' ')
+                                .toLower();
+
+    const auto tokens =
+        trimmed.toLower().split(QRegularExpression{R"(\s+)"}, Qt::SkipEmptyParts);
+    for (const auto& token : tokens)
+    {
+        if (!haystack.contains(token))
+            return false;
+    }
+    return true;
+}
+
+bool is_too_tight_fit(const mp::ModelSuggestion& model)
+{
+    const auto fit = QString::fromStdString(model.fit_level()).toLower();
+    return fit.contains("too") || fit.contains("tight") || fit.contains("incompat");
+}
+
+bool model_matches_runtime(const mp::ModelSuggestion& model, const std::string& runtime)
+{
+    if (runtime.empty())
+        return true;
+    const auto model_rt = QString::fromStdString(model.runtime()).toLower();
+    if (model_rt.isEmpty())
+        return true;
+    const auto rt = QString::fromStdString(runtime).toLower();
+    if (rt.contains("mlx"))
+        return model_rt.contains("mlx");
+    if (rt.contains("llama"))
+        return model_rt.contains("llama");
+    return true;
+}
+
+bool model_matches_use_case(const mp::ModelSuggestion& model, const std::string& use_case)
+{
+    if (use_case.empty())
+        return true;
+    const auto model_use = QString::fromStdString(model.use_case()).toLower();
+    if (model_use.isEmpty())
+        return true;
+    return model_use == QString::fromStdString(use_case).toLower();
+}
+
+bool model_matches_min_fit(const mp::ModelSuggestion& model, const std::string& min_fit)
+{
+    if (min_fit.empty())
+        return true;
+    const auto fit = QString::fromStdString(model.fit_level()).toLower();
+    if (fit.isEmpty())
+        return true;
+    if (min_fit == "perfect")
+        return fit.contains("perfect");
+    if (min_fit == "good")
+        return fit.contains("perfect") || fit.contains("good");
+    if (min_fit == "marginal")
+        return !is_too_tight_fit(model);
+    return true;
+}
+
+void merge_models(std::vector<mp::ModelSuggestion>& into, const std::vector<mp::ModelSuggestion>& extra)
+{
+    for (const auto& model : extra)
+    {
+        const auto id = model.id();
+        const auto found = std::find_if(into.begin(), into.end(), [&](const mp::ModelSuggestion& existing) {
+            return existing.id() == id;
+        });
+        if (found == into.end())
+            into.push_back(model);
+    }
+}
+
+void enrich_models(std::vector<mp::ModelSuggestion>& into, const std::vector<mp::ModelSuggestion>& fit)
+{
+    auto repo_suffix = [](const std::string& id) {
+        const auto qid = QString::fromStdString(id).toLower();
+        return qid.contains('/') ? qid.section('/', -1) : qid;
+    };
+
+    auto find_fit_match = [&](const mp::ModelSuggestion& model) -> const mp::ModelSuggestion* {
+        for (const auto& candidate : fit)
+        {
+            if (candidate.id() == model.id())
+                return &candidate;
+        }
+        const auto suffix = repo_suffix(model.id());
+        if (suffix.size() < 4)
+            return nullptr;
+        for (const auto& candidate : fit)
+        {
+            if (repo_suffix(candidate.id()) == suffix)
+                return &candidate;
+        }
+        return nullptr;
+    };
+
+    for (auto& model : into)
+    {
+        if (model.memory_required_gb() > 0 && !model.runtime().empty())
+            continue;
+        const auto* match = find_fit_match(model);
+        if (!match)
+            continue;
+        const auto id = model.id();
+        const auto name = model.name();
+        model = *match;
+        if (!id.empty())
+            model.set_id(id);
+        if (!name.empty())
+            model.set_name(name);
+    }
+}
+
+int model_metadata_score(const mp::ModelSuggestion& model)
+{
+    int score = 0;
+    if (!model.parameter_count().empty())
+        score += 1;
+    if (model.memory_required_gb() > 0)
+        score += 2;
+    if (!model.runtime().empty())
+        score += 2;
+    if (!model.best_quant().empty())
+        score += 1;
+    if (!model.fit_level().empty())
+        score += 1;
+    return score;
+}
+
+void sort_by_metadata(std::vector<mp::ModelSuggestion>& models)
+{
+    std::stable_sort(models.begin(), models.end(), [](const mp::ModelSuggestion& a, const mp::ModelSuggestion& b) {
+        if (a.score() != b.score())
+            return a.score() > b.score();
+        const auto score_a = model_metadata_score(a);
+        const auto score_b = model_metadata_score(b);
+        if (score_a != score_b)
+            return score_a > score_b;
+        return a.name() < b.name();
+    });
+}
+
+std::vector<mp::ModelSuggestion> parse_search_table(const QString& text)
+{
+    std::vector<mp::ModelSuggestion> models;
+    static const QRegularExpression line_repo_re{
+        R"(^\s*([\w\.\-]+/[\w\.\-]+|[A-Za-z][\w\.\-]*(?:-[\w\.]+)+)\s+)"};
+    static const QRegularExpression hf_id_re{
+        R"((?:^|[\s│|])([\w\.\-]+/[\w\.\-]+|[A-Za-z][\w\.\-]*(?:-[\w\.]+)+)(?:[\s│|]|$))"};
+    QSet<QString> seen;
+    for (const auto& line : text.split('\n'))
+    {
+        const auto trimmed = line.trimmed();
+        if (trimmed.isEmpty() || trimmed.startsWith('-') || trimmed.startsWith("Repository") ||
+            trimmed.startsWith("No local models") || trimmed.startsWith("To download") ||
+            trimmed.startsWith("Tip:"))
+            continue;
+
+        QString captured;
+        const auto line_match = line_repo_re.match(trimmed);
+        if (line_match.hasMatch())
+            captured = line_match.captured(1).trimmed();
+
+        if (captured.isEmpty())
+        {
+            const auto id_match = hf_id_re.match(trimmed);
+            if (id_match.hasMatch())
+                captured = id_match.captured(1).trimmed();
+        }
+
+        if (captured.isEmpty() || seen.contains(captured))
+            continue;
+        seen.insert(captured);
+        mp::ModelSuggestion s;
+        s.set_id(captured.toStdString());
+        s.set_name(captured.toStdString());
+        if (captured.contains('/'))
+            s.set_provider(captured.section('/', 0, 0).toStdString());
+        models.push_back(std::move(s));
+    }
+    return models;
+}
+
+std::vector<mp::ModelSuggestion> run_fit_catalog(const QString& binary,
+                                                 const mp::MemorySize& available_ram,
+                                                 int cpu_cores,
+                                                 bool unified_memory,
+                                                 const std::string& min_fit,
+                                                 int fit_n)
+{
+    auto args = hardware_args(available_ram, cpu_cores, unified_memory);
+    args << "fit" << "--limit" << QString::number(fit_n);
+    append_fit_cli_filters(args, min_fit);
+    mpl::info(category, "running {} {}", binary, args.join(' '));
+    return models_from_json(parse_json_payload(run_llmfit(binary, args, 120000)));
+}
+
+std::vector<mp::ModelSuggestion> run_search_catalog(const QString& binary,
+                                                    const mp::MemorySize& available_ram,
+                                                    int cpu_cores,
+                                                    bool unified_memory,
+                                                    const QString& query)
+{
+    auto search_args = hardware_args(available_ram, cpu_cores, unified_memory);
+    search_args << "search" << query;
+    mpl::info(category, "running {} {}", binary, search_args.join(' '));
+    const auto raw = run_llmfit(binary, search_args, 120000);
+    try
+    {
+        return models_from_json(parse_json_payload(raw));
+    }
+    catch (const std::exception&)
+    {
+        return parse_search_table(QString::fromUtf8(raw));
+    }
+}
+
+std::vector<mp::ModelSuggestion> slice_models(std::vector<mp::ModelSuggestion> models,
+                                              int offset,
+                                              int limit)
+{
+    if (offset > 0)
+    {
+        if (offset >= static_cast<int>(models.size()))
+            return {};
+        models.erase(models.begin(), models.begin() + offset);
+    }
+    if (limit > 0 && static_cast<int>(models.size()) > limit)
+        models.resize(static_cast<size_t>(limit));
+    return models;
+}
 } // namespace
 
 QString mp::LlmfitAdvisor::binary_path() const
@@ -261,45 +570,112 @@ std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::recommend(MemorySize availab
         return cache->models;
 
     // --ram/--cpu-cores/--memory are global flags; clap rejects them after `recommend`.
-    QStringList args{"--json",
-                     "--no-dashboard",
-                     "--ram",
-                     ram_flag(available_ram),
-                     "--cpu-cores",
-                     QString::number(std::max(cpu_cores, 1))};
-    if (unified_memory)
-        args << "--memory" << ram_flag(available_ram);
-
+    auto args = hardware_args(available_ram, cpu_cores, unified_memory);
     args << "recommend" << "--limit" << QString::number(limit > 0 ? limit : 10);
 
-    const auto rt = QString::fromStdString(runtime).toLower();
-    if (rt.contains("mlx"))
-        args << "--runtime" << "mlx";
-    else if (!rt.isEmpty())
-        args << "--force-runtime" << "llamacpp";
-
-    if (!use_case.empty())
-        args << "--use-case" << QString::fromStdString(use_case);
-    if (!min_fit.empty())
-        args << "--min-fit" << QString::fromStdString(min_fit);
+    append_recommend_runtime_filters(args, runtime);
+    append_recommend_catalog_filters(args, use_case, min_fit);
 
     mpl::info(category, "running {} {}", binary, args.join(' '));
     const auto doc = parse_json_payload(run_llmfit(binary, args, 60000));
-    QJsonArray models_json;
-    if (doc.isObject())
-        models_json = doc.object().value("models").toArray();
-    else if (doc.isArray())
-        models_json = doc.array();
-
-    std::vector<ModelSuggestion> models;
-    for (const auto& item : models_json)
-    {
-        if (item.isObject())
-            models.push_back(suggestion_from_json(item.toObject()));
-    }
+    auto models = models_from_json(doc);
 
     cache = CacheEntry{available_ram.in_bytes(), runtime, use_case, now, models};
     return models;
+}
+
+std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::browse(MemorySize available_ram,
+                                                             int cpu_cores,
+                                                             const std::string& runtime,
+                                                             const std::string& use_case,
+                                                             const std::string& min_fit,
+                                                             const std::string& query,
+                                                             int limit,
+                                                             int offset,
+                                                             bool include_too_tight,
+                                                             bool unified_memory)
+{
+    const auto binary = binary_path();
+    if (binary.isEmpty())
+        throw std::runtime_error(missing_binary_hint());
+
+    std::lock_guard lock{mutex};
+    const auto q = QString::fromStdString(query).trimmed();
+    const int fetch_limit = std::max(limit + offset, limit);
+    const int fit_n = q.isEmpty() ? std::max(fetch_limit, 500) : 2000;
+
+    std::vector<ModelSuggestion> models;
+    if (q.isEmpty())
+    {
+        try
+        {
+            models = run_fit_catalog(binary,
+                                     available_ram,
+                                     cpu_cores,
+                                     unified_memory,
+                                     min_fit,
+                                     fit_n);
+        }
+        catch (const std::exception& e)
+        {
+            mpl::warn(category, "llmfit fit browse failed: {}", e.what());
+        }
+    }
+    else
+    {
+        std::vector<ModelSuggestion> fit_models;
+        try
+        {
+            fit_models = run_fit_catalog(binary,
+                                         available_ram,
+                                         cpu_cores,
+                                         unified_memory,
+                                         min_fit,
+                                         2000);
+            for (const auto& fit_model : fit_models)
+            {
+                if (!model_matches_query(fit_model, q))
+                    continue;
+                models.push_back(fit_model);
+            }
+        }
+        catch (const std::exception& e)
+        {
+            mpl::warn(category, "llmfit fit enrichment for '{}' failed: {}", query, e.what());
+        }
+
+        try
+        {
+            auto searched = run_search_catalog(binary, available_ram, cpu_cores, unified_memory, q);
+            enrich_models(searched, fit_models);
+            merge_models(models, searched);
+        }
+        catch (const std::exception& e)
+        {
+            mpl::warn(category, "llmfit search '{}' failed: {}", query, e.what());
+        }
+    }
+
+    std::vector<ModelSuggestion> filtered;
+    filtered.reserve(models.size());
+    for (auto& model : models)
+    {
+        if (!model_matches_query(model, q))
+            continue;
+        if (!model_matches_runtime(model, runtime))
+            continue;
+        if (!model_matches_use_case(model, use_case))
+            continue;
+        if (!model_matches_min_fit(model, min_fit))
+            continue;
+        if (!include_too_tight && is_too_tight_fit(model))
+            continue;
+        filtered.push_back(std::move(model));
+    }
+
+    sort_by_metadata(filtered);
+
+    return slice_models(std::move(filtered), offset, limit > 0 ? limit : 100);
 }
 
 std::optional<mp::ResolvedGguf> mp::LlmfitAdvisor::resolve(const std::string& model_id,

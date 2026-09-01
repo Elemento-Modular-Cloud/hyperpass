@@ -16,6 +16,7 @@ set(CMAKE_AUTOMOC ON)
 
 add_library(llm STATIC
   api_key_store.cpp
+  backend_probe.cpp
   binary_locator.cpp
   llama_server_process_spec.cpp
   llm_service.cpp

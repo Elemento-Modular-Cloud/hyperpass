@@ -256,6 +256,10 @@ class GrpcClient {
     String useCase = '',
     String minFit = '',
     String runtime = '',
+    String query = '',
+    bool includeTooTight = true,
+    int offset = 0,
+    bool recommendOnly = false,
   }) {
     return doRpc(
       _client.find_models,
@@ -264,12 +268,20 @@ class GrpcClient {
         useCase: useCase,
         minFit: minFit,
         runtime: runtime,
+        query: query,
+        includeTooTight: includeTooTight,
+        offset: offset,
+        recommendOnly: recommendOnly,
       ),
     ).then((r) => r!);
   }
 
   Future<ListModelsReply> listModels() {
     return doRpc(_client.list_models, ListModelsRequest()).then((r) => r!);
+  }
+
+  Future<ListLlmBackendsReply> listLlmBackends() {
+    return doRpc(_client.list_llm_backends, ListLlmBackendsRequest()).then((r) => r!);
   }
 
   Stream<LoadModelReply> loadModel(String modelId, {String quant = '', int ctxSize = 4096}) {

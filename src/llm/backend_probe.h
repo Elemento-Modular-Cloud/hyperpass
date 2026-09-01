@@ -17,34 +17,24 @@
 
 #pragma once
 
-#include <multipass/cli/command.h>
+#include <string>
+#include <vector>
 
-#include <QString>
-
-namespace multipass::cmd
+namespace multipass::llm
 {
-class Llm final : public Command
+
+struct BackendProbeResult
 {
-public:
-    using Command::Command;
-    ReturnCodeVariant run(ArgParser* parser) override;
-
-    std::string name() const override;
-    QString short_help() const override;
-    QString description() const override;
-
-private:
-    ParseCode parse_args(ArgParser* parser);
-
-    QString subcommand;
-    QString model_id;
-    QString quant;
-    QString use_case;
-    QString query;
-    QString key_label;
-    QString key_id;
-    int limit{10};
-    int ctx_size{4096};
-    bool recommend_only{false};
+    std::string id;
+    std::string name;
+    std::string status;
+    std::string detail;
+    std::string binary_path;
+    std::string install_hint;
+    bool required{false};
+    bool active{false};
 };
-} // namespace multipass::cmd
+
+std::vector<BackendProbeResult> probe_backends(const std::string& selected_inference_id);
+
+} // namespace multipass::llm

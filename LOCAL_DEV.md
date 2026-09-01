@@ -39,7 +39,17 @@ Keep system Multipass on its default socket. Run Hyperpass `hyperpassd` from you
 
 Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or its platform default. Dev Hyperpass uses `/tmp/hyperpass.socket` by default.
 
-The script sets `HYPERPASS_STORAGE`, `HYPERPASS_DISTRIBUTIONS_URL`, and `--address` for you. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
+The script sets `HYPERPASS_STORAGE`, `HYPERPASS_DISTRIBUTIONS_URL`, and `--address` for you. It also auto-exports `HYPERPASS_LLMFIT` and `HYPERPASS_LLAMA_SERVER` when those binaries are on your PATH (needed for Models catalog search and loading GGUF files). Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
+
+**Models / LLM:** Download succeeded but **Load** failed with `llama-server is not installed` means the daemon cannot find [llama.cpp](https://github.com/ggerganov/llama.cpp)'s server binary. Install it (e.g. `brew install llama.cpp` if available, or build from source), then restart the dev daemon:
+
+```bash
+export HYPERPASS_LLAMA_SERVER="$(command -v llama-server)"
+./scripts/run-dev-daemon.sh --stop
+./scripts/run-dev-daemon.sh
+```
+
+Then use **Load** again on the Downloads tab for the cached model.
 
 ### Terminal 2 — CLI or GUI
 

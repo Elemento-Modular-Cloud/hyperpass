@@ -17,6 +17,7 @@
 
 #include "llm_service.h"
 
+#include "backend_probe.h"
 #include "binary_locator.h"
 #include "llama_server_process_spec.h"
 #include "mlx_server_process_spec.h"
@@ -292,7 +293,7 @@ void mp::LlmService::find_models(
     try
     {
         auto runtime = request->runtime();
-        if (runtime.empty())
+        if (runtime.empty() && request->recommend_only())
         {
             runtime = select_backend() == BackendKind::mlx ? "mlx" : "llamacpp";
         }
@@ -301,13 +302,24 @@ void mp::LlmService::find_models(
 #else
         const bool unified = false;
 #endif
-        const auto models = advisor.recommend(pool.memory_available(),
-                                              pool.host_cpus(),
-                                              runtime,
-                                              request->use_case(),
-                                              request->min_fit(),
-                                              request->limit(),
-                                              unified);
+        const auto models = request->recommend_only()
+                                ? advisor.recommend(pool.memory_available(),
+                                                    pool.host_cpus(),
+                                                    runtime,
+                                                    request->use_case(),
+                                                    request->min_fit(),
+                                                    request->limit(),
+                                                    unified)
+                                : advisor.browse(pool.memory_available(),
+                                                 pool.host_cpus(),
+                                                 runtime,
+                                                 request->use_case(),
+                                                 request->min_fit(),
+                                                 request->query(),
+                                                 request->limit(),
+                                                 request->offset(),
+                                                 request->include_too_tight(),
+                                                 unified);
         for (const auto& model : models)
             *reply.add_models() = model;
     }
@@ -508,6 +520,28 @@ void mp::LlmService::list_models(
         cached.set_filename(art.filename);
         cached.set_memory_required_gb(static_cast<double>(art.size_bytes) / (1024.0 * 1024.0 * 1024.0));
         *reply.add_cached() = cached;
+    }
+    server->Write(reply);
+}
+
+void mp::LlmService::list_llm_backends(
+    const ListLlmBackendsRequest*,
+    grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>* server)
+{
+    const auto selected = backend_name(select_backend());
+    ListLlmBackendsReply reply;
+    reply.set_selected_backend(selected);
+    for (const auto& row : llm::probe_backends(selected))
+    {
+        auto* out = reply.add_backends();
+        out->set_id(row.id);
+        out->set_name(row.name);
+        out->set_status(row.status);
+        out->set_detail(row.detail);
+        out->set_binary_path(row.binary_path);
+        out->set_install_hint(row.install_hint);
+        out->set_required(row.required);
+        out->set_active(row.active);
     }
     server->Write(reply);
 }

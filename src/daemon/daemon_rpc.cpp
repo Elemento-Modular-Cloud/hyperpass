@@ -633,6 +633,19 @@ grpc::Status mp::DaemonRpc::list_models(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::list_llm_backends(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ListLlmBackendsReply, ListLlmBackendsRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_list_llm_backends,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::create_api_key(
     grpc::ServerContext* context,
     grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server)

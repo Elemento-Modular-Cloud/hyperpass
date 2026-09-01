@@ -245,6 +245,12 @@ struct MockDaemon : public Daemon
                  DaemonRpcContext*),
                 (override));
     MOCK_METHOD(void,
+                list_llm_backends,
+                (const ListLlmBackendsRequest*,
+                 (grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
                 create_api_key,
                 (const CreateApiKeyRequest*,
                  (grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>*),

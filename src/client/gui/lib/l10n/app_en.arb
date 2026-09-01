@@ -168,6 +168,10 @@
     "@modelsSuggestedEmpty": {
         "description": "Empty or missing-llmfit state for suggestions"
     },
+    "modelsCatalogEmpty": "No models match your search and filters.",
+    "@modelsCatalogEmpty": {
+        "description": "Empty state when the catalog browse returns no rows"
+    },
     "modelsKeysHeading": "API keys",
     "@modelsKeysHeading": {
         "description": "Heading for OpenAI API keys"
@@ -216,11 +220,55 @@
     "@modelsTabDownloads": {
         "description": "Models tab: download queue and cached files"
     },
+    "modelsTabBackends": "Backends",
+    "@modelsTabBackends": {
+        "description": "Models tab: detect inference backends"
+    },
     "modelsTabRuntimes": "Runtimes",
     "@modelsTabRuntimes": {
         "description": "Models tab: loaded backends and API keys"
     },
-    "modelsSearchHint": "Search models",
+    "modelsBackendsHint": "Hyperpass probes local binaries used for catalog search and model inference. Install missing components using the hints below; automatic install will be added later.",
+    "@modelsBackendsHint": {
+        "description": "Intro text on the backends detection tab"
+    },
+    "modelsBackendsSelected": "Selected inference backend",
+    "@modelsBackendsSelected": {
+        "description": "Label for the active inference runtime"
+    },
+    "modelsBackendsRefresh": "Refresh",
+    "@modelsBackendsRefresh": {
+        "description": "Reload backend detection"
+    },
+    "modelsBackendsInstall": "Install",
+    "@modelsBackendsInstall": {
+        "description": "Install backend action (placeholder)"
+    },
+    "modelsBackendsInstallSoon": "Automatic install coming soon",
+    "@modelsBackendsInstallSoon": {
+        "description": "Tooltip when install is not available yet"
+    },
+    "modelsBackendStatusReady": "Ready",
+    "@modelsBackendStatusReady": {
+        "description": "Backend detected and usable"
+    },
+    "modelsBackendStatusMissing": "Missing",
+    "@modelsBackendStatusMissing": {
+        "description": "Backend not found"
+    },
+    "modelsBackendStatusOptional": "Optional",
+    "@modelsBackendStatusOptional": {
+        "description": "Backend not required or not integrated"
+    },
+    "modelsBackendsRequired": "Required",
+    "@modelsBackendsRequired": {
+        "description": "Badge for required backend components"
+    },
+    "modelsBackendsActive": "Active",
+    "@modelsBackendsActive": {
+        "description": "Badge for the selected inference backend"
+    },
+    "modelsSearchHint": "Search models (name, provider, id…)",
     "@modelsSearchHint": {
         "description": "Search field on the model catalog"
     },

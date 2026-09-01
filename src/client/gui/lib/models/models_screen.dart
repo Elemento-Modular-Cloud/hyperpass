@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
@@ -8,6 +10,7 @@ import '../l10n/app_localizations.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../tooltip.dart';
+import '../vm_table/table.dart' as vmtable;
 import '../vm_details/memory_usage.dart';
 
 final loadedModelsProvider = FutureProvider((ref) async {
@@ -17,28 +20,31 @@ final loadedModelsProvider = FutureProvider((ref) async {
   return ref.watch(grpcClientProvider).listModels();
 });
 
+final llmBackendsProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return ListLlmBackendsReply();
+  }
+  return ref.watch(grpcClientProvider).listLlmBackends();
+});
+
 class CatalogFilters {
   final String search;
-  final String useCase;
   final String minFit;
   final String runtime;
 
   const CatalogFilters({
     this.search = '',
-    this.useCase = 'coding',
     this.minFit = '',
     this.runtime = '',
   });
 
   CatalogFilters copyWith({
     String? search,
-    String? useCase,
     String? minFit,
     String? runtime,
   }) {
     return CatalogFilters(
       search: search ?? this.search,
-      useCase: useCase ?? this.useCase,
       minFit: minFit ?? this.minFit,
       runtime: runtime ?? this.runtime,
     );
@@ -50,7 +56,6 @@ class CatalogFiltersNotifier extends Notifier<CatalogFilters> {
   CatalogFilters build() => const CatalogFilters();
 
   void setSearch(String value) => state = state.copyWith(search: value);
-  void setUseCase(String value) => state = state.copyWith(useCase: value);
   void setMinFit(String value) => state = state.copyWith(minFit: value);
   void setRuntime(String value) => state = state.copyWith(runtime: value);
 }
@@ -60,7 +65,32 @@ final catalogFiltersProvider =
   CatalogFiltersNotifier.new,
 );
 
-final suggestedModelsProvider = FutureProvider((ref) async {
+class DebouncedCatalogQuery extends Notifier<String> {
+  Timer? _timer;
+
+  @override
+  String build() {
+    ref.onDispose(() => _timer?.cancel());
+    return '';
+  }
+
+  void set(String value) {
+    _timer?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      state = '';
+      return;
+    }
+    _timer = Timer(const Duration(milliseconds: 350), () {
+      state = trimmed;
+    });
+  }
+}
+
+final debouncedCatalogQueryProvider =
+    NotifierProvider<DebouncedCatalogQuery, String>(DebouncedCatalogQuery.new);
+
+final recommendedModelsProvider = FutureProvider((ref) async {
   if (!ref.watch(daemonAvailableProvider)) {
     return FindModelsReply();
   }
@@ -70,10 +100,31 @@ final suggestedModelsProvider = FutureProvider((ref) async {
     return bytes >> 30;
   }));
   return ref.watch(grpcClientProvider).findModels(
-        limit: 40,
-        useCase: filters.useCase,
+        limit: 8,
         minFit: filters.minFit,
         runtime: filters.runtime,
+        recommendOnly: true,
+      );
+});
+
+final catalogModelsProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return FindModelsReply();
+  }
+  final minFit = ref.watch(catalogFiltersProvider.select((f) => f.minFit));
+  final runtime = ref.watch(catalogFiltersProvider.select((f) => f.runtime));
+  final query = ref.watch(debouncedCatalogQueryProvider);
+  ref.watch(daemonInfoProvider.select((async) {
+    final bytes = async.value?.memoryAvailable.toInt() ?? 0;
+    return bytes >> 30;
+  }));
+  return ref.watch(grpcClientProvider).findModels(
+        limit: 200,
+        minFit: minFit,
+        runtime: runtime,
+        query: query,
+        includeTooTight: true,
+        recommendOnly: false,
       );
 });
 
@@ -198,7 +249,7 @@ class ModelsScreen extends ConsumerWidget {
         j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running).length;
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         body: PageSurface(
           child: Column(
@@ -225,6 +276,7 @@ class ModelsScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  Tab(text: l10n.modelsTabBackends),
                   Tab(text: l10n.modelsTabRuntimes),
                 ],
               ),
@@ -234,6 +286,7 @@ class ModelsScreen extends ConsumerWidget {
                   children: [
                     _CatalogPane(),
                     _DownloadsPane(),
+                    _BackendsPane(),
                     _RuntimesPane(),
                   ],
                 ),
@@ -266,7 +319,8 @@ class _CatalogPaneState extends ConsumerState<_CatalogPane> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final filters = ref.watch(catalogFiltersProvider);
-    final suggested = ref.watch(suggestedModelsProvider);
+    final recommended = ref.watch(recommendedModelsProvider);
+    final catalog = ref.watch(catalogModelsProvider);
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Column(
@@ -274,7 +328,10 @@ class _CatalogPaneState extends ConsumerState<_CatalogPane> {
       children: [
         TextField(
           controller: _searchController,
-          onChanged: (value) => ref.read(catalogFiltersProvider.notifier).setSearch(value),
+          onChanged: (value) {
+            ref.read(catalogFiltersProvider.notifier).setSearch(value);
+            ref.read(debouncedCatalogQueryProvider.notifier).set(value);
+          },
           style: TextStyle(fontFamily: Brand.fontFamily, fontSize: 13, color: onSurface),
           decoration: InputDecoration(
             hintText: l10n.modelsSearchHint,
@@ -283,91 +340,107 @@ class _CatalogPaneState extends ConsumerState<_CatalogPane> {
             border: const OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(l10n.modelsFilterUseCase, style: const TextStyle(fontSize: 12)),
-            for (final option in [
-              (value: '', label: l10n.modelsFilterAny),
-              (value: 'coding', label: l10n.modelsUseCaseCoding),
-              (value: 'chat', label: l10n.modelsUseCaseChat),
-              (value: 'reasoning', label: l10n.modelsUseCaseReasoning),
-              (value: 'general', label: l10n.modelsUseCaseGeneral),
-            ])
-              ChoiceChip(
-                label: Text(option.label),
-                selected: filters.useCase == option.value,
-                onSelected: (_) =>
-                    ref.read(catalogFiltersProvider.notifier).setUseCase(option.value),
-              ),
-            const SizedBox(width: 8),
-            Text(l10n.modelsFilterRuntime, style: const TextStyle(fontSize: 12)),
+            Text(l10n.modelsFilterRuntime, style: const TextStyle(fontSize: 11)),
             ChoiceChip(
-              label: Text(l10n.modelsFilterAny),
+              label: Text(l10n.modelsFilterAny, style: const TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               selected: filters.runtime.isEmpty,
               onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setRuntime(''),
             ),
             ChoiceChip(
-              label: Text(l10n.modelsRuntimeLlama),
+              label: Text(l10n.modelsRuntimeLlama, style: const TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               selected: filters.runtime == 'llamacpp',
               onSelected: (_) =>
                   ref.read(catalogFiltersProvider.notifier).setRuntime('llamacpp'),
             ),
             ChoiceChip(
-              label: Text(l10n.modelsRuntimeMlx),
+              label: Text(l10n.modelsRuntimeMlx, style: const TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               selected: filters.runtime == 'mlx',
               onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setRuntime('mlx'),
             ),
-            const SizedBox(width: 8),
-            Text(l10n.modelsFilterFit, style: const TextStyle(fontSize: 12)),
+            const SizedBox(width: 6),
+            Text(l10n.modelsFilterFit, style: const TextStyle(fontSize: 11)),
             ChoiceChip(
-              label: Text(l10n.modelsFilterAny),
+              label: Text(l10n.modelsFilterAny, style: const TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               selected: filters.minFit.isEmpty,
               onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setMinFit(''),
             ),
             ChoiceChip(
-              label: Text(l10n.modelsFitPerfect),
+              label: Text(l10n.modelsFitPerfect, style: const TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               selected: filters.minFit == 'perfect',
               onSelected: (_) =>
                   ref.read(catalogFiltersProvider.notifier).setMinFit('perfect'),
             ),
             ChoiceChip(
-              label: Text(l10n.modelsFitGood),
+              label: Text(l10n.modelsFitGood, style: const TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               selected: filters.minFit == 'good',
               onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setMinFit('good'),
             ),
             ChoiceChip(
-              label: Text(l10n.modelsFitMarginal),
+              label: Text(l10n.modelsFitMarginal, style: const TextStyle(fontSize: 11)),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               selected: filters.minFit == 'marginal',
               onSelected: (_) =>
                   ref.read(catalogFiltersProvider.notifier).setMinFit('marginal'),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
+        recommended.when(
+          data: (reply) {
+            if (reply.models.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.modelsSuggestedHeading, style: const TextStyle(fontSize: 11)),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 28,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: reply.models.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 4),
+                    itemBuilder: (context, index) =>
+                        _RecommendedChip(model: reply.models[index]),
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+            );
+          },
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
         Expanded(
-          child: suggested.when(
+          child: catalog.when(
             data: (reply) {
               if (reply.replyMessage.isNotEmpty && reply.models.isEmpty) {
                 return Text(reply.replyMessage);
               }
-              final query = filters.search.trim().toLowerCase();
-              final models = reply.models.where((model) {
-                if (query.isEmpty) return true;
-                return model.name.toLowerCase().contains(query) ||
-                    model.provider.toLowerCase().contains(query) ||
-                    model.id.toLowerCase().contains(query);
-              }).toList();
-              if (models.isEmpty) {
-                return Text(l10n.modelsSuggestedEmpty);
+              if (reply.models.isEmpty) {
+                return Text(l10n.modelsCatalogEmpty);
               }
-              return ListView.builder(
-                itemCount: models.length,
-                itemBuilder: (context, index) => _CatalogRow(model: models[index]),
-              );
+              return _CatalogTable(models: reply.models);
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text('$e'),
@@ -378,37 +451,265 @@ class _CatalogPaneState extends ConsumerState<_CatalogPane> {
   }
 }
 
-class _CatalogRow extends ConsumerWidget {
+class _RecommendedChip extends ConsumerWidget {
   final ModelSuggestion model;
-  const _CatalogRow({required this.model});
+  const _RecommendedChip({required this.model});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final label = model.name.isEmpty ? model.id : model.name;
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 10)),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      padding: EdgeInsets.zero,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+      onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
+            model.id,
+            model.bestQuant,
+            loadAfter: true,
+          ),
+    );
+  }
+}
+
+class _CatalogTable extends ConsumerWidget {
+  final List<ModelSuggestion> models;
+  const _CatalogTable({required this.models});
+
+  static Widget _header(String name) {
+    return Container(
+      alignment: Alignment.centerLeft,
+      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: Text(name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  static Widget _cell(String text, {Color? color}) {
+    return Text(
+      text.isEmpty ? '-' : text,
+      style: TextStyle(fontSize: 10, color: color),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
+  static String? _inferParamSize(String id) {
+    final match = RegExp(r'(\d+(?:\.\d+)?)[Bb](?:\b|[-_]|$)').firstMatch(id);
+    return match != null ? '${match.group(1)}B' : null;
+  }
+
+  static String _params(ModelSuggestion model) {
+    if (model.parameterCount.isNotEmpty) return model.parameterCount;
+    return _inferParamSize(model.id) ?? _inferParamSize(model.name) ?? '';
+  }
+
+  static String _disk(ModelSuggestion model) {
+    if (model.diskSizeGb <= 0) return '';
+    final gb = model.diskSizeGb;
+    return gb >= 10 ? '${gb.toStringAsFixed(0)}G' : '${gb.toStringAsFixed(1)}G';
+  }
+
+  static String _ctx(ModelSuggestion model) {
+    final tokens = model.usableContext.toInt() > 0
+        ? model.usableContext.toInt()
+        : model.contextLength.toInt();
+    if (tokens <= 0) return '';
+    if (tokens >= 1000000) return '${(tokens / 1000000).toStringAsFixed(1)}M';
+    if (tokens >= 1000) return '${(tokens / 1000).toStringAsFixed(0)}k';
+    return '$tokens';
+  }
+
+  static String _useCase(ModelSuggestion model) {
+    if (model.category.isNotEmpty) return model.category;
+    return model.useCase;
+  }
+
+  static Color? _fitColor(String fit, ColorScheme scheme) {
+    final lower = fit.toLowerCase();
+    if (lower.contains('perfect')) return Colors.green.shade400;
+    if (lower.contains('good')) return Colors.lightGreen.shade400;
+    if (lower.contains('marginal')) return Colors.orange.shade400;
+    if (lower.contains('tight') || lower.contains('too')) return scheme.error;
+    return null;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    return ListTile(
-      title: Text(model.name),
-      subtitle: Text(
-        '${model.fitLevel} · ${model.bestQuant} · ${model.memoryRequiredGb.toStringAsFixed(1)} GiB · ${model.runtime}',
+    final scheme = Theme.of(context).colorScheme;
+
+    final headers = <vmtable.TableHeader<ModelSuggestion>>[
+      vmtable.TableHeader(
+        name: 'Model',
+        childBuilder: _header,
+        width: 380,
+        minWidth: 280,
+        sortKey: (m) => m.name.isEmpty ? m.id : m.name,
+        cellBuilder: (m) {
+          final label = m.name.isEmpty ? m.id : m.name;
+          return Tooltip(message: label, child: _cell(label));
+        },
       ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextButton(
-            onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
-                  model.id,
-                  model.bestQuant,
-                ),
-            child: Text(l10n.modelsDownload),
-          ),
-          TextButton(
-            onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
-                  model.id,
-                  model.bestQuant,
-                  loadAfter: true,
-                ),
-            child: Text(l10n.modelsLoad),
-          ),
-        ],
+      vmtable.TableHeader(
+        name: 'Provider',
+        childBuilder: _header,
+        width: 100,
+        minWidth: 72,
+        sortKey: (m) => m.provider,
+        cellBuilder: (m) => _cell(m.provider),
+      ),
+      vmtable.TableHeader(
+        name: 'Params',
+        childBuilder: _header,
+        width: 64,
+        minWidth: 48,
+        sortKey: (m) => _params(m),
+        cellBuilder: (m) => _cell(_params(m)),
+      ),
+      vmtable.TableHeader(
+        name: 'Score',
+        childBuilder: _header,
+        width: 52,
+        minWidth: 44,
+        sortKey: (m) => m.score.toStringAsFixed(1).padLeft(8, '0'),
+        cellBuilder: (m) => _cell(m.score > 0 ? m.score.round().toString() : ''),
+      ),
+      vmtable.TableHeader(
+        name: 'tok/s',
+        childBuilder: _header,
+        width: 52,
+        minWidth: 44,
+        sortKey: (m) => m.estimatedTps.toStringAsFixed(1).padLeft(8, '0'),
+        cellBuilder: (m) =>
+            _cell(m.estimatedTps > 0 ? m.estimatedTps.toStringAsFixed(1) : ''),
+      ),
+      vmtable.TableHeader(
+        name: 'Quant',
+        childBuilder: _header,
+        width: 80,
+        minWidth: 56,
+        sortKey: (m) => m.bestQuant,
+        cellBuilder: (m) => _cell(m.bestQuant),
+      ),
+      vmtable.TableHeader(
+        name: 'Disk',
+        childBuilder: _header,
+        width: 52,
+        minWidth: 44,
+        sortKey: (m) => m.diskSizeGb.toStringAsFixed(2).padLeft(8, '0'),
+        cellBuilder: (m) => _cell(_disk(m)),
+      ),
+      vmtable.TableHeader(
+        name: 'Mode',
+        childBuilder: _header,
+        width: 52,
+        minWidth: 44,
+        sortKey: (m) => m.runMode,
+        cellBuilder: (m) => _cell(m.runMode),
+      ),
+      vmtable.TableHeader(
+        name: 'Mem %',
+        childBuilder: _header,
+        width: 56,
+        minWidth: 48,
+        sortKey: (m) => m.utilizationPct.toStringAsFixed(1).padLeft(8, '0'),
+        cellBuilder: (m) =>
+            _cell(m.utilizationPct > 0 ? '${m.utilizationPct.round()}%' : ''),
+      ),
+      vmtable.TableHeader(
+        name: 'Ctx',
+        childBuilder: _header,
+        width: 56,
+        minWidth: 44,
+        sortKey: (m) => _ctx(m).padLeft(8, '0'),
+        cellBuilder: (m) => _cell(_ctx(m)),
+      ),
+      vmtable.TableHeader(
+        name: 'Date',
+        childBuilder: _header,
+        width: 64,
+        minWidth: 52,
+        sortKey: (m) => m.releaseDate,
+        cellBuilder: (m) => _cell(m.releaseDate),
+      ),
+      vmtable.TableHeader(
+        name: 'Fit',
+        childBuilder: _header,
+        width: 72,
+        minWidth: 56,
+        sortKey: (m) => m.fitLevel,
+        cellBuilder: (m) => _cell(m.fitLevel, color: _fitColor(m.fitLevel, scheme)),
+      ),
+      vmtable.TableHeader(
+        name: 'Use Case',
+        childBuilder: _header,
+        width: 120,
+        minWidth: 80,
+        sortKey: (m) => _useCase(m),
+        cellBuilder: (m) => _cell(_useCase(m)),
+      ),
+      vmtable.TableHeader(
+        name: 'Actions',
+        childBuilder: _header,
+        width: 120,
+        minWidth: 96,
+        cellBuilder: (m) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _CatalogAction(
+              label: l10n.modelsDownload,
+              color: scheme.primary,
+              onTap: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
+                    m.id,
+                    m.bestQuant,
+                  ),
+            ),
+            _CatalogAction(
+              label: l10n.modelsLoad,
+              color: scheme.primary,
+              onTap: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
+                    m.id,
+                    m.bestQuant,
+                    loadAfter: true,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    ];
+
+    return vmtable.Table<ModelSuggestion>(
+      headers: headers,
+      data: models,
+      rowExtent: 28,
+      cellMargin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      finalRow: List.generate(headers.length, (_) => const SizedBox.shrink()),
+    );
+  }
+}
+
+class _CatalogAction extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _CatalogAction({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 10, color: color, height: 1.0),
+        ),
       ),
     );
   }
@@ -497,6 +798,118 @@ class _DownloadJobTile extends StatelessWidget {
         ],
       ),
       trailing: job.status == ModelJobStatus.running ? Text('${job.percent}%') : null,
+    );
+  }
+}
+
+class _BackendsPane extends ConsumerWidget {
+  const _BackendsPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final backends = ref.watch(llmBackendsProvider);
+    final scheme = Theme.of(context).colorScheme;
+
+    return ListView(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(l10n.modelsBackendsHint, style: const TextStyle(fontSize: 14)),
+            ),
+            TextButton.icon(
+              onPressed: () => ref.invalidate(llmBackendsProvider),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(l10n.modelsBackendsRefresh),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        backends.when(
+          data: (reply) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (reply.selectedBackend.isNotEmpty) ...[
+                  Text(
+                    '${l10n.modelsBackendsSelected}: ${reply.selectedBackend}',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                for (final backend in reply.backends) _BackendRow(backend: backend, scheme: scheme),
+              ],
+            );
+          },
+          loading: () => const LinearProgressIndicator(),
+          error: (e, _) => Text('$e'),
+        ),
+      ],
+    );
+  }
+}
+
+class _BackendRow extends StatelessWidget {
+  final LlmBackendInfo backend;
+  final ColorScheme scheme;
+
+  const _BackendRow({required this.backend, required this.scheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final status = backend.status;
+    final (icon, color, statusLabel) = switch (status) {
+      'ready' => (Icons.check_circle, scheme.primary, l10n.modelsBackendStatusReady),
+      'missing' => (Icons.error, scheme.error, l10n.modelsBackendStatusMissing),
+      _ => (Icons.info_outline, scheme.onSurfaceVariant, l10n.modelsBackendStatusOptional),
+    };
+
+    final subtitle = [
+      if (backend.detail.isNotEmpty) backend.detail,
+      if (backend.binaryPath.isNotEmpty) backend.binaryPath,
+      if (backend.installHint.isNotEmpty) backend.installHint,
+    ].join('\n');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(icon, color: color),
+        title: Row(
+          children: [
+            Expanded(child: Text(backend.name.isEmpty ? backend.id : backend.name)),
+            if (backend.required)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Chip(
+                  label: Text(l10n.modelsBackendsRequired, style: const TextStyle(fontSize: 11)),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            if (backend.active)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Chip(
+                  label: Text(l10n.modelsBackendsActive, style: const TextStyle(fontSize: 11)),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
+        ),
+        subtitle: subtitle.isEmpty ? null : Text(subtitle),
+        trailing: backend.status == 'missing' && backend.installHint.isNotEmpty
+            ? Tooltip(
+                message: l10n.modelsBackendsInstallSoon,
+                child: TextButton(
+                  onPressed: null,
+                  child: Text(l10n.modelsBackendsInstall),
+                ),
+              )
+            : Text(statusLabel, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+      ),
     );
   }
 }

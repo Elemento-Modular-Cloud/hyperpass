@@ -213,6 +213,10 @@ public slots:
         const ListModelsRequest* request,
         grpc::ServerReaderWriterInterface<ListModelsReply, ListModelsRequest>* server,
         DaemonRpcContext* context);
+    virtual void list_llm_backends(
+        const ListLlmBackendsRequest* request,
+        grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>* server,
+        DaemonRpcContext* context);
     virtual void create_api_key(
         const CreateApiKeyRequest* request,
         grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server,

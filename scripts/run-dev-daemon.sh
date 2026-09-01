@@ -34,6 +34,8 @@ Environment:
   HYPERPASS_STORAGE           Instance/image storage (default: ${HYPERPASS_STORAGE})
   HYPERPASS_DISTRIBUTIONS_URL Catalog JSON path or URL
   VERBOSITY                   Log level (default: debug)
+  HYPERPASS_LLMFIT            Path to llmfit (auto-detected when possible)
+  HYPERPASS_LLAMA_SERVER      Path to llama-server for GGUF inference
 
 Examples:
   $(basename "$0")
@@ -81,11 +83,54 @@ mkdir -p "$HYPERPASS_STORAGE"
 export HYPERPASS_STORAGE
 export HYPERPASS_DISTRIBUTIONS_URL
 
+resolve_tool() {
+  local name="$1"
+  local env_var="$2"
+  if [[ -n "${!env_var:-}" ]]; then
+    echo "${!env_var}"
+    return
+  fi
+  local found=""
+  found="$(command -v "$name" 2>/dev/null || true)"
+  if [[ -n "$found" ]]; then
+    echo "$found"
+    return
+  fi
+  for candidate in \
+    "/opt/homebrew/bin/${name}" \
+    "/usr/local/bin/${name}"; do
+    if [[ -x "$candidate" ]]; then
+      echo "$candidate"
+      return
+    fi
+  done
+}
+
+if [[ -z "${HYPERPASS_LLMFIT:-}" ]]; then
+  HYPERPASS_LLMFIT="$(resolve_tool llmfit HYPERPASS_LLMFIT)"
+  [[ -n "$HYPERPASS_LLMFIT" ]] && export HYPERPASS_LLMFIT
+fi
+
+if [[ -z "${HYPERPASS_LLAMA_SERVER:-}" ]]; then
+  HYPERPASS_LLAMA_SERVER="$(resolve_tool llama-server HYPERPASS_LLAMA_SERVER)"
+  [[ -n "$HYPERPASS_LLAMA_SERVER" ]] && export HYPERPASS_LLAMA_SERVER
+fi
+
 echo "==> Dev hyperpassd"
 echo "    binary:      ${DAEMON}"
 echo "    socket:      unix:${HYPERPASS_SOCKET}"
 echo "    storage:     ${HYPERPASS_STORAGE}"
 echo "    catalog:     ${HYPERPASS_DISTRIBUTIONS_URL}"
+if [[ -n "${HYPERPASS_LLMFIT:-}" ]]; then
+  echo "    llmfit:      ${HYPERPASS_LLMFIT}"
+else
+  echo "    llmfit:      (not found — catalog suggestions need llmfit on PATH)"
+fi
+if [[ -n "${HYPERPASS_LLAMA_SERVER:-}" ]]; then
+  echo "    llama-server:${HYPERPASS_LLAMA_SERVER}"
+else
+  echo "    llama-server:(not found — set HYPERPASS_LLAMA_SERVER to load GGUF models)"
+fi
 echo
 echo "    CLI/GUI:     export HYPERPASS_SERVER_ADDRESS=unix:${HYPERPASS_SOCKET}"
 echo "                 export PATH=\"${BUILD_DIR}/bin:\$PATH\""

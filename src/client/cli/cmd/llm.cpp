@@ -50,6 +50,10 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         request.set_verbosity_level(verbosity);
         request.set_limit(limit);
         request.set_use_case(use_case.toStdString());
+        request.set_query(query.toStdString());
+        request.set_recommend_only(recommend_only);
+        if (!recommend_only)
+            request.set_include_too_tight(true);
         auto on_success = [this](FindModelsReply& reply) -> ReturnCodeVariant {
             if (!reply.reply_message().empty())
                 cerr << reply.reply_message() << "\n";
@@ -307,11 +311,16 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     parser->addPositionalArgument("args", "Subcommand arguments", "[<args>...]");
     QCommandLineOption use_case_opt{"use-case", "Recommendation use case", "use-case"};
     QCommandLineOption limit_opt{"limit", "Number of suggestions", "limit", "10"};
+    QCommandLineOption query_opt{"query", "Catalog search query", "query"};
+    QCommandLineOption recommend_only_opt{
+        "recommend-only", "Return llmfit recommendations only (default: browse catalog)"};
     QCommandLineOption quant_opt{"quant", "GGUF quantization", "quant"};
     QCommandLineOption ctx_opt{"ctx", "Context size", "ctx", "4096"};
     QCommandLineOption label_opt{"label", "API key label", "label"};
     parser->addOption(use_case_opt);
     parser->addOption(limit_opt);
+    parser->addOption(query_opt);
+    parser->addOption(recommend_only_opt);
     parser->addOption(quant_opt);
     parser->addOption(ctx_opt);
     parser->addOption(label_opt);
@@ -343,6 +352,9 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         use_case = parser->value(use_case_opt);
     if (parser->isSet(limit_opt))
         limit = parser->value(limit_opt).toInt();
+    if (parser->isSet(query_opt))
+        query = parser->value(query_opt);
+    recommend_only = parser->isSet(recommend_only_opt);
     if (parser->isSet(quant_opt))
         quant = parser->value(quant_opt);
     if (parser->isSet(ctx_opt))

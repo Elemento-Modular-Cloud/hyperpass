@@ -663,5 +663,20 @@ public:
                 PrepareAsynctouch_modelRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListLlmBackendsRequest,
+                                                   multipass::ListLlmBackendsReply>*),
+                list_llm_backendsRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListLlmBackendsRequest,
+                                                        multipass::ListLlmBackendsReply>*),
+                Asynclist_llm_backendsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListLlmBackendsRequest,
+                                                        multipass::ListLlmBackendsReply>*),
+                PrepareAsynclist_llm_backendsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
 };
 } // namespace multipass::test

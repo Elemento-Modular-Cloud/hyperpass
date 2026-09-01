@@ -167,6 +167,10 @@ signals:
     void on_list_models(const ListModelsRequest* request,
                         grpc::ServerReaderWriter<ListModelsReply, ListModelsRequest>* server,
                         DaemonRpcContext* context);
+    void on_list_llm_backends(
+        const ListLlmBackendsRequest* request,
+        grpc::ServerReaderWriter<ListLlmBackendsReply, ListLlmBackendsRequest>* server,
+        DaemonRpcContext* context);
     void on_create_api_key(const CreateApiKeyRequest* request,
                            grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server,
                            DaemonRpcContext* context);
@@ -283,6 +287,9 @@ protected:
     grpc::Status list_models(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<ListModelsReply, ListModelsRequest>* server) override;
+    grpc::Status list_llm_backends(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ListLlmBackendsReply, ListLlmBackendsRequest>* server) override;
     grpc::Status create_api_key(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server) override;

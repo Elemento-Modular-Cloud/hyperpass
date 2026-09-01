@@ -132,14 +132,6 @@ message(STATUS "Bootstrapping vcpkg...")
 set(MULTIPASS_VCPKG_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/3rd-party/vcpkg" CACHE PATH
   "Root vcpkg location, where the top bootstrap scripts are located")
 
-set(VCPKG_CMD "${MULTIPASS_VCPKG_LOCATION}/bootstrap-vcpkg.")
-if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
-  string(APPEND VCPKG_CMD "bat")
-  list(PREPEND VCPKG_CMD "cmd" "/c") # run in cmd; otherwise, we'd fail when called from PowerShell
-else ()
-  string(APPEND VCPKG_CMD "sh")
-endif ()
-
 # GCC is unreliable on ppc64le and can cause internal compiler errors during vcpkg bootstrap
 set(VCPKG_BOOTSTRAP_ENV)
 if(${VCPKG_HOST_ARCH} STREQUAL "ppc64le")
@@ -150,7 +142,16 @@ if(${VCPKG_HOST_ARCH} STREQUAL "ppc64le")
     "CMAKE_CXX_COMPILER=clang++")
 endif()
 
-execute_process(COMMAND ${CMAKE_COMMAND} -E env ${VCPKG_BOOTSTRAP_ENV} ${VCPKG_CMD} RESULT_VARIABLE VCPKG_BOOTSTRAP_RESULT)
+if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+  set(VCPKG_CMD "${MULTIPASS_VCPKG_LOCATION}/bootstrap-vcpkg.bat")
+  list(PREPEND VCPKG_CMD "cmd" "/c") # run in cmd; otherwise, we'd fail when called from PowerShell
+  execute_process(COMMAND ${CMAKE_COMMAND} -E env ${VCPKG_BOOTSTRAP_ENV} ${VCPKG_CMD}
+                  RESULT_VARIABLE VCPKG_BOOTSTRAP_RESULT)
+else()
+  set(VCPKG_BOOTSTRAP_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/bootstrap-vcpkg.sh")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E env ${VCPKG_BOOTSTRAP_ENV} ${VCPKG_BOOTSTRAP_SCRIPT}
+                  RESULT_VARIABLE VCPKG_BOOTSTRAP_RESULT)
+endif()
 
 if(NOT VCPKG_BOOTSTRAP_RESULT EQUAL 0)
   message(FATAL_ERROR "Bootstrapping vcpkg failed with exit code: ${VCPKG_BOOTSTRAP_RESULT}")

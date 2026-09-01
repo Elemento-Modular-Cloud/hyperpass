@@ -38,6 +38,8 @@ class Table<T> extends StatefulWidget {
   final List<T> data;
   final List<Widget> finalRow;
   final bool Function(T entry)? isSelected;
+  final double rowExtent;
+  final EdgeInsets cellMargin;
 
   const Table({
     super.key,
@@ -45,6 +47,8 @@ class Table<T> extends StatefulWidget {
     required this.data,
     required this.finalRow,
     this.isSelected,
+    this.rowExtent = 50,
+    this.cellMargin = const EdgeInsets.all(10),
   });
 
   @override
@@ -144,7 +148,7 @@ class _TableState<T> extends State<Table<T>> {
       for (final header in widget.headers)
         Container(
           alignment: Alignment.centerLeft,
-          margin: const EdgeInsets.all(10),
+          margin: widget.cellMargin,
           child: header.cellBuilder(entry),
         ),
     ];
@@ -160,15 +164,16 @@ class _TableState<T> extends State<Table<T>> {
 
   List<double> _columnWidths(double viewportWidth) {
     final headers = widget.headers;
-    final weightSum = headers.fold<double>(0, (sum, h) => sum + h.width);
-    if (weightSum <= 0 || viewportWidth <= 0) {
-      return headers.map((h) => h.width).toList();
+    final natural = [
+      for (final h in headers) max(h.minWidth, h.width),
+    ];
+    final total = natural.fold<double>(0, (sum, w) => sum + w);
+    if (viewportWidth <= 0 || total >= viewportWidth) {
+      return natural;
     }
 
-    final scale = viewportWidth / weightSum;
-    return [
-      for (final h in headers) max(h.minWidth, h.width * scale),
-    ];
+    final scale = viewportWidth / total;
+    return [for (final w in natural) w * scale];
   }
 
   @override
@@ -195,14 +200,6 @@ class _TableState<T> extends State<Table<T>> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final widths = _columnWidths(constraints.maxWidth);
-        // If mins pushed total over viewport, re-normalize down to fit.
-        final total = widths.fold<double>(0, (a, b) => a + b);
-        final fitted = total <= constraints.maxWidth || total == 0
-            ? widths
-            : [
-                for (final w in widths)
-                  w * (constraints.maxWidth / total),
-              ];
 
         final table = TableView.builder(
           horizontalDetails:
@@ -212,9 +209,9 @@ class _TableState<T> extends State<Table<T>> {
           rowCount: cells.length,
           columnCount: widget.headers.length,
           rowBuilder: (_) =>
-              const TableSpan(extent: FixedTableSpanExtent(50)),
+              TableSpan(extent: FixedTableSpanExtent(widget.rowExtent)),
           columnBuilder: (i) => TableSpan(
-            extent: FixedTableSpanExtent(fitted[i]),
+            extent: FixedTableSpanExtent(widths[i]),
           ),
           cellBuilder: (_, v) {
             final rowColor = _rowColor(v.row, dataList);

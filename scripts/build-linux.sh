@@ -84,6 +84,7 @@ fi
 mkdir -p "${BUILD_DIR}"
 
 if [[ "${DO_CONFIGURE}" -eq 1 ]]; then
+  "${ROOT}/scripts/bootstrap-vcpkg.sh"
   echo "==> Configuring (${BUILD_TYPE}) in ${BUILD_DIR}"
   # Bash 3.2 treats empty "${arr[@]}" as unbound under set -u.
   cmake -S "${ROOT}" -B "${BUILD_DIR}" \
