@@ -65,6 +65,41 @@ struct VersionResult : GrpcResult
     VersionReply reply;
 };
 
+struct FindModelsResult : GrpcResult
+{
+    FindModelsReply reply;
+};
+
+struct PullModelResult : GrpcResult
+{
+    PullModelReply reply;
+};
+
+struct LoadModelResult : GrpcResult
+{
+    LoadModelReply reply;
+};
+
+struct ListModelsResult : GrpcResult
+{
+    ListModelsReply reply;
+};
+
+struct CreateApiKeyResult : GrpcResult
+{
+    CreateApiKeyReply reply;
+};
+
+struct ListApiKeysResult : GrpcResult
+{
+    ListApiKeysReply reply;
+};
+
+struct VerifyApiKeyResult : GrpcResult
+{
+    VerifyApiKeyReply reply;
+};
+
 struct LaunchSpec
 {
     std::string instance_name;
@@ -105,6 +140,29 @@ public:
     InfoResult info(const std::string& instance_name,
                     std::chrono::seconds deadline = info_rpc_deadline);
     VersionResult version(std::chrono::seconds deadline = quick_rpc_deadline);
+
+    FindModelsResult find_models(int limit,
+                                 const std::string& use_case,
+                                 std::chrono::seconds deadline = std::chrono::seconds{60});
+    PullModelResult pull_model(const std::string& model_id,
+                               const std::string& quant,
+                               std::chrono::seconds deadline = std::chrono::seconds{3600});
+    LoadModelResult load_model(const std::string& model_id,
+                               const std::string& quant,
+                               int ctx_size,
+                               std::chrono::seconds deadline = std::chrono::seconds{3600});
+    GrpcResult unload_model(const std::string& model_id,
+                            std::chrono::seconds deadline = std::chrono::seconds{60});
+    ListModelsResult list_models(std::chrono::seconds deadline = std::chrono::seconds{30});
+    CreateApiKeyResult create_api_key(const std::string& label,
+                                      std::chrono::seconds deadline = std::chrono::seconds{30});
+    ListApiKeysResult list_api_keys(std::chrono::seconds deadline = std::chrono::seconds{30});
+    GrpcResult revoke_api_key(const std::string& id,
+                              std::chrono::seconds deadline = std::chrono::seconds{30});
+    VerifyApiKeyResult verify_api_key(const std::string& secret,
+                                      std::chrono::seconds deadline = std::chrono::seconds{10});
+    GrpcResult touch_model(const std::string& model_id,
+                           std::chrono::seconds deadline = std::chrono::seconds{10});
 
     Rpc::StubInterface& stub()
     {

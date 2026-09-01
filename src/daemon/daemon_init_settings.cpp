@@ -18,6 +18,9 @@
 #include "daemon_init_settings.h"
 
 #include <multipass/constants.h>
+#include <multipass/exceptions/invalid_memory_size_exception.h>
+#include <multipass/exceptions/settings_exceptions.h>
+#include <multipass/memory_size.h>
 #include <multipass/platform.h>
 #include <multipass/settings/basic_setting_spec.h>
 #include <multipass/settings/bool_setting_spec.h>
@@ -92,6 +95,65 @@ QString image_mirror_interpreter(QString val)
     return val;
 }
 
+QString memory_reserve_interpreter(QString val)
+{
+    try
+    {
+        const auto size = mp::MemorySize{val.toStdString()};
+        if (size.in_bytes() < 0)
+            throw mp::InvalidSettingException(mp::host_memory_reserve_key, val, "Need a size");
+        return val;
+    }
+    catch (const mp::InvalidMemorySizeException& e)
+    {
+        throw mp::InvalidSettingException(mp::host_memory_reserve_key, val, e.what());
+    }
+}
+
+QString memory_policy_interpreter(QString val)
+{
+    val = val.toLower();
+    if (val == mp::memory_policy_strict || val == mp::memory_policy_best_effort)
+        return val;
+    throw mp::InvalidSettingException(mp::host_memory_policy_key,
+                                      val,
+                                      "Must be 'strict' or 'best-effort'");
+}
+
+QString llm_backend_interpreter(QString val)
+{
+    val = val.toLower();
+    if (val.isEmpty() || val == "auto" || val == "llamacpp" || val == "llama.cpp" || val == "mlx" ||
+        val == "cuda")
+    {
+        if (val == "llama.cpp")
+            return "llamacpp";
+        return val.isEmpty() ? "auto" : val;
+    }
+    throw mp::InvalidSettingException(mp::llm_backend_key,
+                                      val,
+                                      "Must be auto, llamacpp, mlx, or cuda");
+}
+
+QString llm_idle_unload_interpreter(QString val)
+{
+    val = val.toLower().trimmed();
+    if (val.isEmpty() || val == "off" || val == "0" || val == "0s" || val == "0m")
+        return "off";
+
+    if (val.back() != QLatin1Char('s') && val.back() != QLatin1Char('m') &&
+        val.back() != QLatin1Char('h'))
+        val.append('m');
+
+    bool ok = false;
+    const auto num = val.left(val.size() - 1).toInt(&ok);
+    if (!ok || num < 0)
+        throw mp::InvalidSettingException(mp::llm_idle_unload_key,
+                                          val,
+                                          "Must be off, or a duration like 30m, 1h, 0");
+    return val;
+}
+
 } // namespace
 
 void mp::daemon::monitor_and_quit_on_settings_change() // temporary
@@ -123,6 +185,18 @@ void mp::daemon::register_global_settings_handlers()
     }));
     settings.insert(
         std::make_unique<CustomSettingSpec>(mp::mirror_key, "", image_mirror_interpreter));
+    settings.insert(std::make_unique<CustomSettingSpec>(mp::host_memory_reserve_key,
+                                                        mp::default_host_memory_reserve,
+                                                        memory_reserve_interpreter));
+    settings.insert(std::make_unique<CustomSettingSpec>(mp::host_memory_policy_key,
+                                                        mp::default_host_memory_policy,
+                                                        memory_policy_interpreter));
+    settings.insert(
+        std::make_unique<CustomSettingSpec>(mp::llm_backend_key, "auto", llm_backend_interpreter));
+    settings.insert(std::make_unique<BasicSettingSpec>(mp::llm_hf_token_key, ""));
+    settings.insert(std::make_unique<CustomSettingSpec>(mp::llm_idle_unload_key,
+                                                        mp::default_llm_idle_unload,
+                                                        llm_idle_unload_interpreter));
 
     MP_SETTINGS.register_handler(
         std::make_unique<PersistentSettingsHandler>(persistent_settings_filename(),

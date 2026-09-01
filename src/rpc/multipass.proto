@@ -50,6 +50,17 @@ service Rpc {
     rpc zones_state (stream ZonesStateRequest) returns (stream ZonesStateReply);
     rpc cache_info (stream CacheInfoRequest) returns (stream CacheInfoReply);
     rpc cache_delete (stream CacheDeleteRequest) returns (stream CacheDeleteReply);
+
+    rpc find_models (stream FindModelsRequest) returns (stream FindModelsReply);
+    rpc pull_model (stream PullModelRequest) returns (stream PullModelReply);
+    rpc load_model (stream LoadModelRequest) returns (stream LoadModelReply);
+    rpc unload_model (stream UnloadModelRequest) returns (stream UnloadModelReply);
+    rpc list_models (stream ListModelsRequest) returns (stream ListModelsReply);
+    rpc create_api_key (stream CreateApiKeyRequest) returns (stream CreateApiKeyReply);
+    rpc list_api_keys (stream ListApiKeysRequest) returns (stream ListApiKeysReply);
+    rpc revoke_api_key (stream RevokeApiKeyRequest) returns (stream RevokeApiKeyReply);
+    rpc verify_api_key (stream VerifyApiKeyRequest) returns (stream VerifyApiKeyReply);
+    rpc touch_model (stream TouchModelRequest) returns (stream TouchModelReply);
 }
 
 message LaunchRequest {
@@ -556,6 +567,20 @@ message DaemonInfoReply {
     uint64 available_space = 2;
     uint32 cpus = 3;
     uint64 memory = 4;
+    uint64 memory_reserved = 5;
+    uint64 memory_claimed = 6;
+    uint64 memory_available = 7;
+    uint64 memory_used_host = 8;
+    uint32 cpus_claimed = 9;
+    uint32 cpu_usage_permille = 10;
+    repeated ResourceClaimInfo claims = 11;
+}
+
+message ResourceClaimInfo {
+    string name = 1;
+    string kind = 2;
+    uint64 memory_bytes = 3;
+    uint32 cpus = 4;
 }
 
 message WaitReadyRequest {
@@ -621,4 +646,156 @@ message CacheDeleteRequest {
 message CacheDeleteReply {
     string log_line = 1;
     uint64 freed_bytes = 2;
+}
+
+message ModelSuggestion {
+    string id = 1;
+    string name = 2;
+    string provider = 3;
+    string parameter_count = 4;
+    string fit_level = 5;
+    double score = 6;
+    string best_quant = 7;
+    double memory_required_gb = 8;
+    double estimated_tps = 9;
+    string runtime = 10;
+    string use_case = 11;
+    string hf_repo = 12;
+    string filename = 13;
+}
+
+message FindModelsRequest {
+    int32 verbosity_level = 1;
+    int32 limit = 2;
+    string use_case = 3;
+    string min_fit = 4;
+    string runtime = 5;
+}
+
+message FindModelsReply {
+    string log_line = 1;
+    string reply_message = 2;
+    repeated ModelSuggestion models = 3;
+}
+
+message PullModelRequest {
+    string model_id = 1;
+    string quant = 2;
+    int32 verbosity_level = 3;
+}
+
+message PullModelReply {
+    string log_line = 1;
+    string reply_message = 2;
+    LaunchProgress launch_progress = 3;
+    string model_id = 4;
+    string path = 5;
+}
+
+message LoadModelRequest {
+    string model_id = 1;
+    string quant = 2;
+    int32 ctx_size = 3;
+    int32 verbosity_level = 4;
+}
+
+message LoadModelReply {
+    string log_line = 1;
+    string reply_message = 2;
+    LaunchProgress launch_progress = 3;
+    string model_id = 4;
+    string openai_id = 5;
+    uint32 port = 6;
+    uint64 memory_claimed = 7;
+}
+
+message UnloadModelRequest {
+    string model_id = 1;
+    int32 verbosity_level = 2;
+}
+
+message UnloadModelReply {
+    string log_line = 1;
+    string model_id = 2;
+}
+
+message LoadedModelInfo {
+    string model_id = 1;
+    string openai_id = 2;
+    string backend = 3;
+    string path = 4;
+    uint32 port = 5;
+    uint64 memory_claimed = 6;
+    string state = 7;
+}
+
+message ListModelsRequest {
+    int32 verbosity_level = 1;
+}
+
+message ListModelsReply {
+    string log_line = 1;
+    repeated LoadedModelInfo models = 2;
+    repeated ModelSuggestion cached = 3;
+}
+
+message CreateApiKeyRequest {
+    string label = 1;
+    int32 verbosity_level = 2;
+}
+
+message CreateApiKeyReply {
+    string log_line = 1;
+    string id = 2;
+    string prefix = 3;
+    string secret = 4;
+    string label = 5;
+}
+
+message ApiKeyInfo {
+    string id = 1;
+    string prefix = 2;
+    string label = 3;
+    int64 created_at = 4;
+}
+
+message ListApiKeysRequest {
+    int32 verbosity_level = 1;
+}
+
+message ListApiKeysReply {
+    string log_line = 1;
+    repeated ApiKeyInfo keys = 2;
+}
+
+message RevokeApiKeyRequest {
+    string id = 1;
+    string prefix = 2;
+    int32 verbosity_level = 3;
+}
+
+message RevokeApiKeyReply {
+    string log_line = 1;
+    string id = 2;
+}
+
+message VerifyApiKeyRequest {
+    string secret = 1;
+    int32 verbosity_level = 2;
+}
+
+message VerifyApiKeyReply {
+    string log_line = 1;
+    bool valid = 2;
+    string id = 3;
+    string prefix = 4;
+}
+
+message TouchModelRequest {
+    string model_id = 1;
+    int32 verbosity_level = 2;
+}
+
+message TouchModelReply {
+    string log_line = 1;
 }

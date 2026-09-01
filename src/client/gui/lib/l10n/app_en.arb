@@ -140,6 +140,194 @@
     "@sidebarInstances": {
         "description": "Sidebar navigation label for the Instances screen"
     },
+    "modelsLabel": "Models",
+    "@modelsLabel": {
+        "description": "Sidebar and page title for local LLM models"
+    },
+    "modelsOpenaiHint": "Clients use this OpenAI-compatible base URL with an sk-hp- API key. Backends bind localhost only.",
+    "@modelsOpenaiHint": {
+        "description": "Explains the OpenAI API contract on the Models screen"
+    },
+    "modelsBaseUrl": "Base URL",
+    "@modelsBaseUrl": {
+        "description": "Label for the copyable OpenAI base URL"
+    },
+    "modelsLoadedHeading": "Loaded",
+    "@modelsLoadedHeading": {
+        "description": "Heading for currently loaded inference sessions"
+    },
+    "modelsLoadedEmpty": "No models loaded.",
+    "@modelsLoadedEmpty": {
+        "description": "Empty state when no LLM is in memory"
+    },
+    "modelsSuggestedHeading": "Suggested for this host",
+    "@modelsSuggestedHeading": {
+        "description": "Heading for llmfit recommendations against remaining RAM"
+    },
+    "modelsSuggestedEmpty": "No suggestions. Install llmfit or free RAM by stopping VMs.",
+    "@modelsSuggestedEmpty": {
+        "description": "Empty or missing-llmfit state for suggestions"
+    },
+    "modelsKeysHeading": "API keys",
+    "@modelsKeysHeading": {
+        "description": "Heading for OpenAI API keys"
+    },
+    "modelsKeysEmpty": "No API keys yet.",
+    "@modelsKeysEmpty": {
+        "description": "Empty state for the API key list"
+    },
+    "modelsCreateKey": "Create key",
+    "@modelsCreateKey": {
+        "description": "Button to create an OpenAI API key"
+    },
+    "modelsRevokeKey": "Revoke",
+    "@modelsRevokeKey": {
+        "description": "Button to revoke an API key"
+    },
+    "modelsKeyCreatedTitle": "API key created",
+    "@modelsKeyCreatedTitle": {
+        "description": "Dialog title after creating an API key"
+    },
+    "modelsKeyCreatedBody": "Copy this secret now. Hyperpass stores only a hash.",
+    "@modelsKeyCreatedBody": {
+        "description": "Dialog body after creating an API key"
+    },
+    "modelsClose": "Close",
+    "@modelsClose": {
+        "description": "Close dialog button"
+    },
+    "modelsLoad": "Load",
+    "@modelsLoad": {
+        "description": "Load a suggested model into the OpenAI gateway"
+    },
+    "modelsUnload": "Unload",
+    "@modelsUnload": {
+        "description": "Unload a running model"
+    },
+    "modelsDownload": "Download",
+    "@modelsDownload": {
+        "description": "Queue a GGUF download without loading it"
+    },
+    "modelsTabCatalog": "Catalog",
+    "@modelsTabCatalog": {
+        "description": "Models tab: recommendations and search"
+    },
+    "modelsTabDownloads": "Downloads",
+    "@modelsTabDownloads": {
+        "description": "Models tab: download queue and cached files"
+    },
+    "modelsTabRuntimes": "Runtimes",
+    "@modelsTabRuntimes": {
+        "description": "Models tab: loaded backends and API keys"
+    },
+    "modelsSearchHint": "Search models",
+    "@modelsSearchHint": {
+        "description": "Search field on the model catalog"
+    },
+    "modelsFilterUseCase": "Use case",
+    "@modelsFilterUseCase": {
+        "description": "Filter label for llmfit use case"
+    },
+    "modelsFilterRuntime": "Runtime",
+    "@modelsFilterRuntime": {
+        "description": "Filter label for inference runtime"
+    },
+    "modelsFilterFit": "Fit",
+    "@modelsFilterFit": {
+        "description": "Filter label for llmfit fit level"
+    },
+    "modelsFilterAny": "Any",
+    "@modelsFilterAny": {
+        "description": "Unset filter option"
+    },
+    "modelsUseCaseCoding": "Coding",
+    "@modelsUseCaseCoding": {
+        "description": "llmfit coding use case"
+    },
+    "modelsUseCaseChat": "Chat",
+    "@modelsUseCaseChat": {
+        "description": "llmfit chat use case"
+    },
+    "modelsUseCaseReasoning": "Reasoning",
+    "@modelsUseCaseReasoning": {
+        "description": "llmfit reasoning use case"
+    },
+    "modelsUseCaseGeneral": "General",
+    "@modelsUseCaseGeneral": {
+        "description": "llmfit general use case"
+    },
+    "modelsRuntimeLlama": "llama.cpp",
+    "@modelsRuntimeLlama": {
+        "description": "llama.cpp runtime filter"
+    },
+    "modelsRuntimeMlx": "MLX",
+    "@modelsRuntimeMlx": {
+        "description": "MLX runtime filter"
+    },
+    "modelsFitPerfect": "Perfect",
+    "@modelsFitPerfect": {
+        "description": "Perfect fit filter"
+    },
+    "modelsFitGood": "Good",
+    "@modelsFitGood": {
+        "description": "Good fit filter"
+    },
+    "modelsFitMarginal": "Marginal",
+    "@modelsFitMarginal": {
+        "description": "Marginal fit filter"
+    },
+    "modelsQueueEmpty": "No downloads in progress.",
+    "@modelsQueueEmpty": {
+        "description": "Empty download queue"
+    },
+    "modelsCachedHeading": "On disk",
+    "@modelsCachedHeading": {
+        "description": "Heading for downloaded GGUF files"
+    },
+    "modelsCachedEmpty": "No models downloaded yet.",
+    "@modelsCachedEmpty": {
+        "description": "Empty cached-model list"
+    },
+    "modelsJobQueued": "Queued",
+    "@modelsJobQueued": {
+        "description": "Download job waiting to start"
+    },
+    "modelsJobRunning": "Downloading",
+    "@modelsJobRunning": {
+        "description": "Download job in progress"
+    },
+    "modelsJobDone": "Downloaded",
+    "@modelsJobDone": {
+        "description": "Download job finished"
+    },
+    "modelsJobError": "Failed",
+    "@modelsJobError": {
+        "description": "Download job failed"
+    },
+    "modelsLoadCached": "Load",
+    "@modelsLoadCached": {
+        "description": "Load a model that is already on disk"
+    },
+    "hostRamScheduler": "RAM (scheduler)",
+    "@hostRamScheduler": {
+        "description": "Label for Hyperpass RAM reservations"
+    },
+    "hostCpuScheduler": "CPU (scheduler)",
+    "@hostCpuScheduler": {
+        "description": "Label for claimed vCPUs versus host CPUs"
+    },
+    "hostPressureTooltip": "Host RAM used {ramPct}% · CPU {cpuPct}%",
+    "@hostPressureTooltip": {
+        "description": "Tooltip showing OS-level host pressure",
+        "placeholders": {
+            "ramPct": {"type": "String"},
+            "cpuPct": {"type": "String"}
+        }
+    },
+    "vmTableHostPressure": "HOST",
+    "@vmTableHostPressure": {
+        "description": "Compact host-pressure label on the instance table"
+    },
     "sidebarDaemonService": "Hyperpass daemon",
     "@sidebarDaemonService": {
         "description": "Sidebar footer label for Hyperpass daemon connectivity status"

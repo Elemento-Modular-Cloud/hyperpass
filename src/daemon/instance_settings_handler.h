@@ -19,6 +19,7 @@
 
 #include <multipass/exceptions/settings_exceptions.h>
 #include <multipass/network_interface_info.h>
+#include <multipass/resource_pool.h>
 #include <multipass/settings/settings_handler.h>
 #include <multipass/user_messages.h>
 #include <multipass/virtual_machine.h>
@@ -44,7 +45,8 @@ public:
         const std::unordered_set<std::string>& preparing_instances,
         std::function<void()> instance_persister,
         std::function<bool(const std::string&)> is_bridged,
-        std::function<void(const std::string&)> add_interface);
+        std::function<void(const std::string&)> add_interface,
+        ResourcePool* resource_pool = nullptr);
 
     std::set<QString> keys() const override;
     QString get(const QString& key) const override;
@@ -64,6 +66,7 @@ private:
     std::function<void()> instance_persister;
     std::function<bool(const std::string&)> is_bridged;
     std::function<void(const std::string&)> add_interface;
+    ResourcePool* resource_pool{nullptr};
 };
 
 class InstanceSettingsException : public SettingsException

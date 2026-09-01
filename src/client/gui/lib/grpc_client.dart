@@ -248,7 +248,65 @@ class GrpcClient {
   }
 
   Future<DaemonInfoReply> daemonInfo() {
-    return doRpc(_client.daemon_info, DaemonInfoRequest()).then((r) => r!);
+    return doRpc(_client.daemon_info, DaemonInfoRequest(), log: false).then((r) => r!);
+  }
+
+  Future<FindModelsReply> findModels({
+    int limit = 10,
+    String useCase = '',
+    String minFit = '',
+    String runtime = '',
+  }) {
+    return doRpc(
+      _client.find_models,
+      FindModelsRequest(
+        limit: limit,
+        useCase: useCase,
+        minFit: minFit,
+        runtime: runtime,
+      ),
+    ).then((r) => r!);
+  }
+
+  Future<ListModelsReply> listModels() {
+    return doRpc(_client.list_models, ListModelsRequest()).then((r) => r!);
+  }
+
+  Stream<LoadModelReply> loadModel(String modelId, {String quant = '', int ctxSize = 4096}) {
+    return _client.load_model(
+      Stream.value(LoadModelRequest(modelId: modelId, quant: quant, ctxSize: ctxSize)),
+    );
+  }
+
+  Stream<PullModelReply> pullModel(String modelId, {String quant = ''}) {
+    return _client.pull_model(
+      Stream.value(PullModelRequest(modelId: modelId, quant: quant)),
+    );
+  }
+
+  Future<UnloadModelReply> unloadModel(String modelId) {
+    return doRpc(
+      _client.unload_model,
+      UnloadModelRequest(modelId: modelId),
+    ).then((r) => r!);
+  }
+
+  Future<CreateApiKeyReply> createApiKey({String label = ''}) {
+    return doRpc(
+      _client.create_api_key,
+      CreateApiKeyRequest(label: label),
+    ).then((r) => r!);
+  }
+
+  Future<ListApiKeysReply> listApiKeys() {
+    return doRpc(_client.list_api_keys, ListApiKeysRequest()).then((r) => r!);
+  }
+
+  Future<RevokeApiKeyReply> revokeApiKey(String id) {
+    return doRpc(
+      _client.revoke_api_key,
+      RevokeApiKeyRequest(id: id),
+    ).then((r) => r!);
   }
 
   Future<CacheInfoReply> cacheInfo() {

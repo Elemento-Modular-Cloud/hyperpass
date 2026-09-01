@@ -106,7 +106,7 @@ void mp::api::ApiServer::register_routes()
                      req.body.size(),
                      req.remote_addr);
 
-            if (is_public_path(req.path))
+            if (is_public_path(req.path) || is_openai_inference_path(req.path))
                 return httplib::Server::HandlerResponse::Unhandled;
 
             const auto auth = check_bearer_auth(req.get_header_value("Authorization"), config);
@@ -187,6 +187,8 @@ void mp::api::ApiServer::register_routes()
     register_health_handlers(*server, *hyperpass_backend, multipass_backend.get());
     register_instance_handlers(*server, *hyperpass_backend, multipass_backend.get());
     register_operation_handlers(*server, tracker);
+    register_model_control_handlers(*server, *hyperpass_backend);
+    register_openai_handlers(*server, *hyperpass_backend);
 }
 
 bool mp::api::ApiServer::listen()

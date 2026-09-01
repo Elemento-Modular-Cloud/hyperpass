@@ -568,6 +568,136 @@ grpc::Status mp::DaemonRpc::zones_state(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::find_models(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<FindModelsReply, FindModelsRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_find_models,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::pull_model(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<PullModelReply, PullModelRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_pull_model,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::load_model(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<LoadModelReply, LoadModelRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_load_model,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::unload_model(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<UnloadModelReply, UnloadModelRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_unload_model,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::list_models(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ListModelsReply, ListModelsRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_list_models,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::create_api_key(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_create_api_key,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::list_api_keys(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ListApiKeysReply, ListApiKeysRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_list_api_keys,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::revoke_api_key(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<RevokeApiKeyReply, RevokeApiKeyRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_revoke_api_key,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::verify_api_key(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<VerifyApiKeyReply, VerifyApiKeyRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_verify_api_key,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::touch_model(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<TouchModelReply, TouchModelRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_touch_model,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 template <typename T, typename U, typename OperationSignal>
 grpc::Status
 mp::DaemonRpc::verify_client_and_dispatch_operation(OperationSignal signal,

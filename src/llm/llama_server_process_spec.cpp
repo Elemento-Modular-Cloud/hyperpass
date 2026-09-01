@@ -1,0 +1,66 @@
+/*
+ * Copyright (C) Elemento.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#include "llama_server_process_spec.h"
+
+namespace mp = multipass;
+
+mp::LlamaServerProcessSpec::LlamaServerProcessSpec(QString program,
+                                                   QString model_path,
+                                                   QString openai_id,
+                                                   int port,
+                                                   int ctx_size,
+                                                   int n_gpu_layers)
+    : program_{std::move(program)},
+      model_path{std::move(model_path)},
+      openai_id{std::move(openai_id)},
+      port{port},
+      ctx_size{ctx_size},
+      n_gpu_layers{n_gpu_layers}
+{
+}
+
+QString mp::LlamaServerProcessSpec::program() const
+{
+    return program_;
+}
+
+QStringList mp::LlamaServerProcessSpec::arguments() const
+{
+    return {"-m",
+            model_path,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            QString::number(port),
+            "--ctx-size",
+            QString::number(ctx_size),
+            "--alias",
+            openai_id,
+            "--n-gpu-layers",
+            QString::number(n_gpu_layers)};
+}
+
+QString mp::LlamaServerProcessSpec::apparmor_profile() const
+{
+    return QString();
+}
+
+QString mp::LlamaServerProcessSpec::identifier() const
+{
+    return openai_id;
+}

@@ -30,6 +30,7 @@ add_library(commands STATIC
   info.cpp
   launch.cpp
   list.cpp
+  llm.cpp
   mount.cpp
   networks.cpp
   prefer.cpp
@@ -38,6 +39,7 @@ add_library(commands STATIC
   remote_settings_handler.cpp
   restart.cpp
   restore.cpp
+  resources.cpp
   set.cpp
   shell.cpp
   snapshot.cpp

@@ -214,6 +214,66 @@ struct MockDaemon : public Daemon
                  (grpc::ServerReaderWriterInterface<WaitReadyReply, WaitReadyRequest>*),
                  DaemonRpcContext*),
                 (override));
+    MOCK_METHOD(void,
+                find_models,
+                (const FindModelsRequest*,
+                 (grpc::ServerReaderWriterInterface<FindModelsReply, FindModelsRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                pull_model,
+                (const PullModelRequest*,
+                 (grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                load_model,
+                (const LoadModelRequest*,
+                 (grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                unload_model,
+                (const UnloadModelRequest*,
+                 (grpc::ServerReaderWriterInterface<UnloadModelReply, UnloadModelRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                list_models,
+                (const ListModelsRequest*,
+                 (grpc::ServerReaderWriterInterface<ListModelsReply, ListModelsRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                create_api_key,
+                (const CreateApiKeyRequest*,
+                 (grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                list_api_keys,
+                (const ListApiKeysRequest*,
+                 (grpc::ServerReaderWriterInterface<ListApiKeysReply, ListApiKeysRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                revoke_api_key,
+                (const RevokeApiKeyRequest*,
+                 (grpc::ServerReaderWriterInterface<RevokeApiKeyReply, RevokeApiKeyRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                verify_api_key,
+                (const VerifyApiKeyRequest*,
+                 (grpc::ServerReaderWriterInterface<VerifyApiKeyReply, VerifyApiKeyRequest>*),
+                 DaemonRpcContext*),
+                (override));
+    MOCK_METHOD(void,
+                touch_model,
+                (const TouchModelRequest*,
+                 (grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>*),
+                 DaemonRpcContext*),
+                (override));
 
     template <typename Request, typename Reply>
     void set_promise_value(const Request*,

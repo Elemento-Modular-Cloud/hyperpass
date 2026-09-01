@@ -265,8 +265,19 @@ final daemonAvailableProvider = Provider((ref) {
   return false;
 });
 
-final daemonInfoProvider = FutureProvider((ref) {
-  return ref.watch(grpcClientProvider).daemonInfo();
+final daemonInfoProvider = StreamProvider<DaemonInfoReply>((ref) async* {
+  final grpcClient = ref.watch(grpcClientProvider);
+  while (true) {
+    final timer = Future.delayed(1900.milliseconds);
+    try {
+      yield await grpcClient.daemonInfo();
+    } catch (error, stackTrace) {
+      logger.e('Error on polling daemon_info', error: error, stackTrace: stackTrace);
+      yield* Stream.error(error, stackTrace);
+    }
+    await timer;
+    await Future.delayed(100.milliseconds);
+  }
 });
 
 class AllVmInfosNotifier extends Notifier<List<TaggedVmInfo>> {

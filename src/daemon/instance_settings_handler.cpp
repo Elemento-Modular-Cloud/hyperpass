@@ -20,6 +20,7 @@
 #include <multipass/cli/prompters.h>
 #include <multipass/constants.h>
 #include <multipass/exceptions/invalid_memory_size_exception.h>
+#include <multipass/resource_pool.h>
 #include <multipass/settings/bool_setting_spec.h>
 
 #include <QRegularExpression>
@@ -148,7 +149,10 @@ void update_mem(const QString& key,
                 const QString& val,
                 mp::VirtualMachine& instance,
                 mp::VMSpecs& spec,
-                const mp::MemorySize& size)
+                const mp::MemorySize& size,
+                mp::ResourcePool* pool,
+                const std::string& instance_name,
+                mp::UserMessages& messages)
 {
     if (size < mp::MemorySize{mp::min_memory_size})
         throw mp::InvalidSettingException{
@@ -157,6 +161,18 @@ void update_mem(const QString& key,
             QString("Memory less than %1 minimum not allowed").arg(mp::min_memory_size)};
     else if (size != spec.mem_size) // NOOP if equal
     {
+        if (pool)
+        {
+            mp::TryClaimResult result;
+            if (pool->has_claim(instance_name))
+                result = pool->try_claim(instance_name, mp::WorkloadKind::vm, size, spec.num_cores);
+            else
+                result = pool->check_admit(size, spec.num_cores);
+            if (!result.accepted)
+                throw mp::InvalidSettingException{key, val, QString::fromStdString(result.message)};
+            if (!result.message.empty())
+                messages.add_message(result.message);
+        }
         instance.resize_memory(size);
         spec.mem_size = size;
     }
@@ -212,14 +228,16 @@ mp::InstanceSettingsHandler::InstanceSettingsHandler(
     const std::unordered_set<std::string>& preparing_instances,
     std::function<void()> instance_persister,
     std::function<bool(const std::string&)> is_bridged,
-    std::function<void(const std::string&)> add_interface)
+    std::function<void(const std::string&)> add_interface,
+    ResourcePool* resource_pool)
     : vm_instance_specs{vm_instance_specs},
       operative_instances{operative_instances},
       deleted_instances{deleted_instances},
       preparing_instances{preparing_instances},
       instance_persister{std::move(instance_persister)},
       is_bridged{is_bridged},
-      add_interface{add_interface}
+      add_interface{add_interface},
+      resource_pool{resource_pool}
 {
 }
 
@@ -281,7 +299,7 @@ void mp::InstanceSettingsHandler::set(const QString& key,
     {
         auto size = get_memory_size(key, val);
         if (property == mem_suffix)
-            update_mem(key, val, instance, spec, size);
+            update_mem(key, val, instance, spec, size, resource_pool, instance_name, messages);
         else
         {
             assert(property == disk_suffix);

@@ -33,7 +33,12 @@
 
 #include <cerrno>
 #include <cstring>
+#include <fstream>
 #include <system_error>
+
+#ifdef __APPLE__
+#include <mach/mach.h>
+#endif
 
 namespace mp = multipass;
 
@@ -275,6 +280,64 @@ int mp::platform::Platform::get_cpus() const
 long long mp::platform::Platform::get_total_ram() const
 {
     return static_cast<long long>(sysconf(_SC_PHYS_PAGES)) * sysconf(_SC_PAGESIZE);
+}
+
+long long mp::platform::Platform::get_available_ram() const
+{
+#ifdef __APPLE__
+    vm_size_t page_size = 0;
+    mach_port_t port = mach_host_self();
+    host_page_size(port, &page_size);
+    vm_statistics64_data_t stats{};
+    mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+    if (host_statistics64(port, HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&stats), &count) !=
+        KERN_SUCCESS)
+        return get_total_ram();
+    const auto free_pages =
+        static_cast<long long>(stats.free_count) + static_cast<long long>(stats.inactive_count);
+    return free_pages * static_cast<long long>(page_size);
+#else
+    return static_cast<long long>(sysconf(_SC_AVPHYS_PAGES)) * sysconf(_SC_PAGESIZE);
+#endif
+}
+
+int mp::platform::Platform::get_cpu_usage_permille() const
+{
+#ifdef __APPLE__
+    host_cpu_load_info_data_t load{};
+    mach_msg_type_number_t count = HOST_CPU_LOAD_INFO_COUNT;
+    if (host_statistics(mach_host_self(),
+                        HOST_CPU_LOAD_INFO,
+                        reinterpret_cast<host_info_t>(&load),
+                        &count) != KERN_SUCCESS)
+        return 0;
+    const auto user = static_cast<unsigned long long>(load.cpu_ticks[CPU_STATE_USER]);
+    const auto system = static_cast<unsigned long long>(load.cpu_ticks[CPU_STATE_SYSTEM]);
+    const auto nice = static_cast<unsigned long long>(load.cpu_ticks[CPU_STATE_NICE]);
+    const auto idle = static_cast<unsigned long long>(load.cpu_ticks[CPU_STATE_IDLE]);
+    const auto total = user + system + nice + idle;
+    if (total == 0)
+        return 0;
+    return static_cast<int>(((user + system + nice) * 1000ull) / total);
+#else
+    static unsigned long long prev_idle = 0;
+    static unsigned long long prev_total = 0;
+    std::ifstream stat{"/proc/stat"};
+    std::string cpu;
+    unsigned long long user = 0, nice = 0, system = 0, idle = 0, iowait = 0, irq = 0, softirq = 0,
+                       steal = 0;
+    if (!(stat >> cpu >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal))
+        return 0;
+    const auto idle_all = idle + iowait;
+    const auto total = user + nice + system + idle_all + irq + softirq + steal;
+    const auto idle_delta = idle_all - prev_idle;
+    const auto total_delta = total - prev_total;
+    prev_idle = idle_all;
+    prev_total = total;
+    if (total_delta == 0)
+        return 0;
+    return static_cast<int>(((total_delta - idle_delta) * 1000ull) / total_delta);
+#endif
 }
 
 std::filesystem::path mp::platform::Platform::qstr_to_path(const QString& qstr) const

@@ -83,11 +83,25 @@ constexpr auto bridged_interface_key = "local.bridged-network";
 constexpr auto mounts_key = "local.privileged-mounts";
 constexpr auto winterm_key = "client.apps.windows-terminal.profiles";
 constexpr auto mirror_key = "local.image.mirror"; // the mirror of simple streams
+constexpr auto host_memory_reserve_key = "local.host.memory-reserve";
+constexpr auto host_memory_policy_key = "local.host.memory-policy";
+constexpr auto llm_backend_key = "local.llm.backend";
+constexpr auto llm_hf_token_key = "local.llm.hf-token";
+constexpr auto llm_idle_unload_key = "local.llm.idle-unload";
+
+constexpr auto default_host_memory_reserve = "4G";
+constexpr auto default_host_memory_policy = "strict";
+constexpr auto memory_policy_strict = "strict";
+constexpr auto memory_policy_best_effort = "best-effort";
+constexpr auto default_llm_idle_unload = "30m";
+constexpr auto llama_server_env_var = "HYPERPASS_LLAMA_SERVER";
+constexpr auto llmfit_env_var = "HYPERPASS_LLMFIT";
+constexpr auto hf_token_env_var = "HF_TOKEN";
 
 constexpr auto cloud_init_file_name = "cloud-init-config.iso";
 
 [[maybe_unused]] // hands off clang-format
-constexpr auto key_examples = {petenv_key, driver_key, mounts_key};
+constexpr auto key_examples = {petenv_key, driver_key, mounts_key, host_memory_reserve_key};
 constexpr auto petenv_default = "primary";
 constexpr auto timeout_exit_code = 5;
 constexpr auto authenticated_certs_dir = "authenticated-certs";

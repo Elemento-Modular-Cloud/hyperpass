@@ -17,6 +17,7 @@ import 'cloud_init/cloud_init_screen.dart';
 import 'daemon_unavailable.dart';
 import 'help.dart';
 import 'logger.dart';
+import 'models/models_screen.dart';
 import 'multipass_auth_banner.dart';
 import 'notifications.dart';
 import 'platform/platform.dart';
@@ -103,6 +104,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
     final widgets = {
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
       VmTableScreen.sidebarKey: const VmTableScreen(),
+      ModelsScreen.sidebarKey: const ModelsScreen(),
       CacheScreen.sidebarKey: const CacheScreen(),
       CloudInitScreen.sidebarKey: const CloudInitScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),

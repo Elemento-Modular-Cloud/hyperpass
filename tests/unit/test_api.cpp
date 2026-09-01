@@ -55,6 +55,11 @@ TEST(ApiAuth, publicPathsAreUnauthenticated)
     EXPECT_FALSE(api::is_public_path("/api/v1.0/create_machine"));
     EXPECT_FALSE(api::is_public_path("/api/v1.0/delete_machine"));
     EXPECT_FALSE(api::is_public_path("/v1/instances"));
+    EXPECT_FALSE(api::is_public_path("/v1/chat/completions"));
+    EXPECT_TRUE(api::is_openai_inference_path("/v1/chat/completions"));
+    EXPECT_TRUE(api::is_openai_inference_path("/v1/models"));
+    EXPECT_FALSE(api::is_openai_inference_path("/v1/instances"));
+    EXPECT_FALSE(api::is_openai_inference_path("/api/v1.0/models"));
 }
 
 TEST(ApiConfig, defaultListenAddressIsMatcherPort)
@@ -267,4 +272,21 @@ TEST(ApiVmRegistry, upsertFindAndListByClient)
     api::VmRegistry reloaded{path};
     EXPECT_FALSE(reloaded.find_by_uid("uid-1").has_value());
     std::filesystem::remove(path);
+}
+
+TEST(ApiCanallocate, emptyBodyMeansAnyRemainingRam)
+{
+    EXPECT_EQ(api::requested_mib_from_canallocate_body(""), 0);
+    EXPECT_TRUE(api::can_allocate_from_available(1024, 0));
+    EXPECT_FALSE(api::can_allocate_from_available(0, 0));
+}
+
+TEST(ApiCanallocate, matcherMemCapacityAndAliases)
+{
+    EXPECT_EQ(api::requested_mib_from_canallocate_body(R"({"req":{"mem":{"capacity":4096}}})"),
+              4096);
+    EXPECT_EQ(api::requested_mib_from_canallocate_body(R"({"memory_mib":2048})"), 2048);
+    EXPECT_EQ(api::requested_mib_from_canallocate_body(R"({"ram":512})"), 512);
+    EXPECT_TRUE(api::can_allocate_from_available(4096, 4096));
+    EXPECT_FALSE(api::can_allocate_from_available(1024, 2048));
 }

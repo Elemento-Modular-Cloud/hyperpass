@@ -243,7 +243,14 @@ TEST_F(TestGlobalSettingsHandlers, daemonRegistersPersistentHandlerForDaemonSett
     inject_default_returning_mock_qsettings();
 
     expect_setting_values(
-        {{mp::driver_key, driver}, {mp::bridged_interface_key, ""}, {mp::mounts_key, mount}});
+        {{mp::driver_key, driver},
+         {mp::bridged_interface_key, ""},
+         {mp::mounts_key, mount},
+         {mp::host_memory_reserve_key, mp::default_host_memory_reserve},
+         {mp::host_memory_policy_key, mp::default_host_memory_policy},
+         {mp::llm_backend_key, "auto"},
+         {mp::llm_hf_token_key, ""},
+         {mp::llm_idle_unload_key, mp::default_llm_idle_unload}});
 }
 
 TEST_F(TestGlobalSettingsHandlers, daemonRegistersPersistentHandlerForDaemonPlatformSettings)

@@ -40,6 +40,7 @@ struct DaemonWaitReady : public mpt::DaemonTestFixture
         EXPECT_CALL(mock_settings, register_handler).WillRepeatedly(Return(nullptr));
         EXPECT_CALL(mock_settings, unregister_handler).Times(AnyNumber());
         EXPECT_CALL(mock_settings, get(Eq(mp::winterm_key))).WillRepeatedly(Return("none"));
+        mpt::expect_default_host_resource_settings(mock_settings);
         ON_CALL(mock_utils, contents_of(_)).WillByDefault(Return(mpt::root_cert));
     }
 

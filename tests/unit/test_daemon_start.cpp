@@ -43,6 +43,7 @@ struct TestDaemonStart : public mpt::DaemonTestFixture
         EXPECT_CALL(mock_settings, register_handler).WillRepeatedly(Return(nullptr));
         EXPECT_CALL(mock_settings, unregister_handler).Times(AnyNumber());
         EXPECT_CALL(mock_settings, get(Eq(mp::mounts_key))).WillRepeatedly(Return("true"));
+        mpt::expect_default_host_resource_settings(mock_settings);
     }
 
     const std::string mock_instance_name{"real-zebraphant"};
@@ -160,7 +161,7 @@ TEST_F(TestDaemonStart, unknownStateDoesNotStart)
     request.mutable_instance_names()->add_instance_name(mock_instance_name);
 
     StrictMock<mpt::MockServerReaderWriter<mp::StartReply, mp::StartRequest>> mock_server;
-    EXPECT_CALL(mock_server, Write(_, _)).Times(1);
+    EXPECT_CALL(mock_server, Write(_, _)).Times(0);
 
     auto status = call_daemon_slot(daemon, &mp::Daemon::start, request, std::move(mock_server));
 
@@ -192,7 +193,7 @@ TEST_F(TestDaemonStart, suspendingStateDoesNotStartHasError)
     request.mutable_instance_names()->add_instance_name(mock_instance_name);
 
     StrictMock<mpt::MockServerReaderWriter<mp::StartReply, mp::StartRequest>> mock_server;
-    EXPECT_CALL(mock_server, Write(_, _)).Times(1);
+    EXPECT_CALL(mock_server, Write(_, _)).Times(0);
 
     auto status = call_daemon_slot(daemon, &mp::Daemon::start, request, std::move(mock_server));
 
@@ -293,4 +294,42 @@ TEST_F(TestDaemonStart, removingMountOnFailedStart)
 
     auto status = call_daemon_slot(daemon, &mp::Daemon::start, request, std::move(server));
     EXPECT_TRUE(status.ok());
+}
+
+TEST_F(TestDaemonStart, strictPolicyRejectsStartWhenOverBudget)
+{
+    auto mock_factory = use_a_mock_vm_factory();
+    mpt::fake_vm_properties props;
+    props.name = mock_instance_name;
+    props.default_mac = mac_addr;
+    props.state = mp::VirtualMachine::State::off;
+    const auto [temp_dir, filename] = plant_instance_json(fake_json_contents(props));
+
+    EXPECT_CALL(*mock_platform, get_total_ram())
+        .WillRepeatedly(Return(4LL * 1024 * 1024 * 1024));
+
+    auto instance_ptr = std::make_unique<NiceMock<mpt::MockVirtualMachine>>();
+    EXPECT_CALL(*mock_factory, create_virtual_machine).WillOnce([&instance_ptr](auto&&...) {
+        return std::move(instance_ptr);
+    });
+    EXPECT_CALL(*instance_ptr, get_name).WillRepeatedly(ReturnRef(mock_instance_name));
+    EXPECT_CALL(*instance_ptr, current_state())
+        .WillRepeatedly(Return(mp::VirtualMachine::State::off));
+    EXPECT_CALL(*instance_ptr, start()).Times(0);
+
+    config_builder.data_directory = temp_dir->path();
+    config_builder.vault = std::make_unique<NiceMock<mpt::MockVMImageVault>>();
+
+    mp::Daemon daemon{config_builder.build()};
+
+    mp::StartRequest request;
+    request.mutable_instance_names()->add_instance_name(mock_instance_name);
+
+    StrictMock<mpt::MockServerReaderWriter<mp::StartReply, mp::StartRequest>> mock_server{};
+    EXPECT_CALL(mock_server, Write(_, _)).Times(0);
+
+    auto status = call_daemon_slot(daemon, &mp::Daemon::start, request, std::move(mock_server));
+
+    EXPECT_EQ(status.error_code(), grpc::StatusCode::RESOURCE_EXHAUSTED);
+    EXPECT_THAT(status.error_message(), HasSubstr("Not enough host memory"));
 }

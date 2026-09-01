@@ -28,7 +28,7 @@ require `Authorization: Bearer <token>` unless `--insecure-no-auth`.
 |--------|------|------|-------|
 | GET | `/` | yes | Ping (503 if hyperpassd down) |
 | GET | `/version` | yes | Service + backend version |
-| GET | `/api/v1.0/canallocate` | yes | Matcher capacity probe (Electros discovery) |
+| GET | `/api/v1.0/canallocate` | yes | Remaining ResourcePool RAM (MiB); body can request `req.mem.capacity` |
 | POST | `/api/v1.0/register` | yes | Launch VM (returns `uniqueID` + `vm_uid`) |
 | POST | `/api/v1.0/create_machine` | yes | Meson alias of `register` |
 | GET | `/api/v1.0/running` | yes | List VMs: `{"vms":[{uniqueID,req_json,xml,…}]}` |
@@ -39,9 +39,20 @@ require `Authorization: Bearer <token>` unless `--insecure-no-auth`.
 | POST | `/api/v1.0/stop` | yes | Stop |
 | POST | `/api/v1.0/reboot` | yes | Restart |
 | GET | `/api/v1.0/images/find` | yes | Image catalog helper |
+| GET | `/api/v1.0/models` | yes | Loaded models (control plane; matcher Bearer) |
+| POST | `/api/v1.0/models/suggested\|pull\|load\|unload` | yes | llmfit suggestions and vault load |
+
+OpenAI inference (`sk-hp-` keys only; matcher token is rejected):
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/v1/models` | `Bearer sk-hp-…` | Loaded models |
+| POST | `/v1/chat/completions` | `Bearer sk-hp-…` | Proxied to localhost llama-server |
+| POST | `/v1/completions` | `Bearer sk-hp-…` | Proxied to localhost llama-server |
+| POST | `/v1/embeddings` | `Bearer sk-hp-…` | Proxied to localhost llama-server |
 
 Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/api/v1/authenticate/cert`.  
-Extra (auth): `/v1/instances`.
+Extra (matcher auth): `/v1/instances`.
 
 ## HTTPS + fingerprint
 
@@ -85,6 +96,9 @@ Matches AtomOS Bruno collection headers (`Authorization: Bearer {{auth_token}}`)
 ./build/bin/hyperpass-api --api-token secret
 curl -k -H "Authorization: Bearer secret" https://127.0.0.1:7777/
 ```
+
+OpenAI `/v1/*` does **not** accept this matcher token. Create a dedicated key with
+`hyperpass llm key create` and pass `Authorization: Bearer sk-hp-…`.
 
 ## Logging
 

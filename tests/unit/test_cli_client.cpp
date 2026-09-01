@@ -198,6 +198,38 @@ struct MockDaemonRpc : public mp::DaemonRpc
                 (grpc::ServerContext * context,
                  (grpc::ServerReaderWriter<mp::ZonesStateReply, mp::ZonesStateRequest> * server)),
                 (override));
+    MOCK_METHOD(grpc::Status,
+                daemon_info,
+                (grpc::ServerContext * context,
+                 (grpc::ServerReaderWriter<mp::DaemonInfoReply, mp::DaemonInfoRequest> * server)),
+                (override));
+    MOCK_METHOD(grpc::Status,
+                find_models,
+                (grpc::ServerContext * context,
+                 (grpc::ServerReaderWriter<mp::FindModelsReply, mp::FindModelsRequest> * server)),
+                (override));
+    MOCK_METHOD(grpc::Status,
+                list_models,
+                (grpc::ServerContext * context,
+                 (grpc::ServerReaderWriter<mp::ListModelsReply, mp::ListModelsRequest> * server)),
+                (override));
+    MOCK_METHOD(grpc::Status,
+                create_api_key,
+                (grpc::ServerContext * context,
+                 (grpc::ServerReaderWriter<mp::CreateApiKeyReply, mp::CreateApiKeyRequest> *
+                  server)),
+                (override));
+    MOCK_METHOD(grpc::Status,
+                list_api_keys,
+                (grpc::ServerContext * context,
+                 (grpc::ServerReaderWriter<mp::ListApiKeysReply, mp::ListApiKeysRequest> * server)),
+                (override));
+    MOCK_METHOD(grpc::Status,
+                revoke_api_key,
+                (grpc::ServerContext * context,
+                 (grpc::ServerReaderWriter<mp::RevokeApiKeyReply, mp::RevokeApiKeyRequest> *
+                  server)),
+                (override));
 };
 
 struct Client : public Test
@@ -2105,6 +2137,33 @@ TEST_F(Client, infoCmdSucceedsWithMultipleArgs)
 TEST_F(Client, infoCmdHelpOk)
 {
     EXPECT_THAT(send_command({"info", "-h"}), Eq(mp::ReturnCode::Ok));
+}
+
+TEST_F(Client, resourcesCmdHelpOk)
+{
+    EXPECT_THAT(send_command({"resources", "-h"}), Eq(mp::ReturnCode::Ok));
+}
+
+TEST_F(Client, resourcesCmdOk)
+{
+    EXPECT_CALL(mock_daemon, daemon_info(_, _));
+    EXPECT_THAT(send_command({"resources"}), Eq(mp::ReturnCode::Ok));
+}
+
+TEST_F(Client, llmCmdHelpOk)
+{
+    EXPECT_THAT(send_command({"llm", "-h"}), Eq(mp::ReturnCode::Ok));
+}
+
+TEST_F(Client, llmCmdFailsWithoutSubcommand)
+{
+    EXPECT_THAT(send_command({"llm"}), Eq(mp::ReturnCode::CommandLineError));
+}
+
+TEST_F(Client, llmListCmdOk)
+{
+    EXPECT_CALL(mock_daemon, list_models(_, _));
+    EXPECT_THAT(send_command({"llm", "list"}), Eq(mp::ReturnCode::Ok));
 }
 
 TEST_F(Client, infoCmdFailsWithAll)

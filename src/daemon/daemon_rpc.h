@@ -152,6 +152,36 @@ signals:
     void on_zones_state(const ZonesStateRequest* request,
                         grpc::ServerReaderWriter<ZonesStateReply, ZonesStateRequest>* server,
                         DaemonRpcContext* context);
+    void on_find_models(const FindModelsRequest* request,
+                        grpc::ServerReaderWriter<FindModelsReply, FindModelsRequest>* server,
+                        DaemonRpcContext* context);
+    void on_pull_model(const PullModelRequest* request,
+                       grpc::ServerReaderWriter<PullModelReply, PullModelRequest>* server,
+                       DaemonRpcContext* context);
+    void on_load_model(const LoadModelRequest* request,
+                       grpc::ServerReaderWriter<LoadModelReply, LoadModelRequest>* server,
+                       DaemonRpcContext* context);
+    void on_unload_model(const UnloadModelRequest* request,
+                         grpc::ServerReaderWriter<UnloadModelReply, UnloadModelRequest>* server,
+                         DaemonRpcContext* context);
+    void on_list_models(const ListModelsRequest* request,
+                        grpc::ServerReaderWriter<ListModelsReply, ListModelsRequest>* server,
+                        DaemonRpcContext* context);
+    void on_create_api_key(const CreateApiKeyRequest* request,
+                           grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server,
+                           DaemonRpcContext* context);
+    void on_list_api_keys(const ListApiKeysRequest* request,
+                          grpc::ServerReaderWriter<ListApiKeysReply, ListApiKeysRequest>* server,
+                          DaemonRpcContext* context);
+    void on_revoke_api_key(const RevokeApiKeyRequest* request,
+                           grpc::ServerReaderWriter<RevokeApiKeyReply, RevokeApiKeyRequest>* server,
+                           DaemonRpcContext* context);
+    void on_verify_api_key(const VerifyApiKeyRequest* request,
+                           grpc::ServerReaderWriter<VerifyApiKeyReply, VerifyApiKeyRequest>* server,
+                           DaemonRpcContext* context);
+    void on_touch_model(const TouchModelRequest* request,
+                        grpc::ServerReaderWriter<TouchModelReply, TouchModelRequest>* server,
+                        DaemonRpcContext* context);
 
 private:
     template <typename T, typename U, typename OperationSignal>
@@ -238,5 +268,35 @@ protected:
     grpc::Status zones_state(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<ZonesStateReply, ZonesStateRequest>* server) override;
+    grpc::Status find_models(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<FindModelsReply, FindModelsRequest>* server) override;
+    grpc::Status pull_model(grpc::ServerContext* context,
+                            grpc::ServerReaderWriter<PullModelReply, PullModelRequest>* server)
+        override;
+    grpc::Status load_model(grpc::ServerContext* context,
+                            grpc::ServerReaderWriter<LoadModelReply, LoadModelRequest>* server)
+        override;
+    grpc::Status unload_model(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<UnloadModelReply, UnloadModelRequest>* server) override;
+    grpc::Status list_models(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ListModelsReply, ListModelsRequest>* server) override;
+    grpc::Status create_api_key(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server) override;
+    grpc::Status list_api_keys(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ListApiKeysReply, ListApiKeysRequest>* server) override;
+    grpc::Status revoke_api_key(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<RevokeApiKeyReply, RevokeApiKeyRequest>* server) override;
+    grpc::Status verify_api_key(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<VerifyApiKeyReply, VerifyApiKeyRequest>* server) override;
+    grpc::Status touch_model(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<TouchModelReply, TouchModelRequest>* server) override;
 };
 } // namespace multipass

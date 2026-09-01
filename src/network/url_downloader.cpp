@@ -80,6 +80,13 @@ QString multipass_user_agent()
     return user_agent;
 }
 
+void apply_extra_headers(QNetworkRequest& request,
+                         const std::vector<std::pair<QByteArray, QByteArray>>& extra_headers)
+{
+    for (const auto& [name, value] : extra_headers)
+        request.setRawHeader(name, value);
+}
+
 void wait_for_reply(QNetworkReply* reply, QTimer& download_timeout)
 {
     QEventLoop event_loop;
@@ -103,7 +110,8 @@ QByteArray download(QNetworkAccessManager* manager,
                     ErrorAction&& on_error,
                     const std::atomic_bool& abort_download,
                     const QNetworkRequest::CacheLoadControl cache_load_control =
-                        QNetworkRequest::CacheLoadControl::PreferNetwork)
+                        QNetworkRequest::CacheLoadControl::PreferNetwork,
+                    const std::vector<std::pair<QByteArray, QByteArray>>& extra_headers = {})
 {
     QTimer download_timeout;
     download_timeout.setInterval(timeout);
@@ -115,6 +123,7 @@ QByteArray download(QNetworkAccessManager* manager,
     request.setAttribute(QNetworkRequest::HttpPipeliningAllowedAttribute, true);
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, cache_load_control);
     request.setHeader(QNetworkRequest::UserAgentHeader, multipass_user_agent());
+    apply_extra_headers(request, extra_headers);
 
     NetworkReplyUPtr reply{manager->get(request)};
 
@@ -168,7 +177,8 @@ QByteArray download(QNetworkAccessManager* manager,
                           on_download,
                           on_error,
                           abort_download,
-                          QNetworkRequest::CacheLoadControl::AlwaysCache);
+                          QNetworkRequest::CacheLoadControl::AlwaysCache,
+                          extra_headers);
     }
 
     mpl::trace(category,
@@ -183,7 +193,8 @@ template <typename Time>
 auto get_header(QNetworkAccessManager* manager,
                 const QUrl& url,
                 const QNetworkRequest::KnownHeaders header,
-                const Time& timeout)
+                const Time& timeout,
+                const std::vector<std::pair<QByteArray, QByteArray>>& extra_headers = {})
 {
     QTimer download_timeout;
     download_timeout.setInterval(timeout);
@@ -191,6 +202,7 @@ auto get_header(QNetworkAccessManager* manager,
     const QUrl adjusted_url = make_http_url_https(url);
     QNetworkRequest request{adjusted_url};
     request.setHeader(QNetworkRequest::UserAgentHeader, multipass_user_agent());
+    apply_extra_headers(request, extra_headers);
 
     NetworkReplyUPtr reply{manager->head(request)};
 
@@ -268,10 +280,12 @@ void mp::URLDownloader::download_to(const QUrl& url,
         if (bytes_received == 0)
             return;
 
-        if (bytes_total == -1 && size > 0)
+        if (bytes_total <= 0 && size > 0)
             bytes_total = size;
 
-        auto progress = (size < 0) ? size : (100 * bytes_received + bytes_total / 2) / bytes_total;
+        auto progress = (bytes_total > 0)
+                            ? (100 * bytes_received + bytes_total / 2) / bytes_total
+                            : -1;
 
         abort_download = abort_downloads ||
                          (last_progress_printed != progress && !monitor(progress_type, progress));
@@ -315,7 +329,9 @@ void mp::URLDownloader::download_to(const QUrl& url,
                progress_monitor,
                on_download,
                on_error,
-               abort_download);
+               abort_download,
+               QNetworkRequest::CacheLoadControl::PreferNetwork,
+               extra_headers);
 }
 
 QByteArray mp::URLDownloader::download(const QUrl& url)
@@ -351,18 +367,33 @@ QByteArray mp::URLDownloader::download(const QUrl& url, const bool force_update)
         on_download,
         [] {},
         abort_downloads,
-        cache_load_control);
+        cache_load_control,
+        extra_headers);
 }
 
 QDateTime mp::URLDownloader::last_modified(const QUrl& url)
 {
     auto manager{MP_NETMGRFACTORY.make_network_manager(cache_dir_path)};
 
-    return get_header(manager.get(), url, QNetworkRequest::LastModifiedHeader, timeout)
+    return get_header(manager.get(),
+                      url,
+                      QNetworkRequest::LastModifiedHeader,
+                      timeout,
+                      extra_headers)
         .toDateTime();
 }
 
 void mp::URLDownloader::abort_all_downloads()
 {
     abort_downloads = true;
+}
+
+void mp::URLDownloader::set_header(const QByteArray& name, const QByteArray& value)
+{
+    extra_headers.emplace_back(name, value);
+}
+
+void mp::URLDownloader::clear_headers()
+{
+    extra_headers.clear();
 }

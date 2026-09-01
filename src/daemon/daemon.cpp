@@ -21,6 +21,8 @@
 #include "runtime_instance_info_helper.h"
 #include "snapshot_settings_handler.h"
 
+#include "llm_service.h"
+
 #include <multipass/alias_definition.h>
 #include <multipass/cloud_init_iso.h>
 #include <multipass/constants.h>
@@ -46,6 +48,7 @@
 #include <multipass/network_interface.h>
 #include <multipass/platform.h>
 #include <multipass/query.h>
+#include <multipass/resource_pool.h>
 #include <multipass/settings/bool_setting_spec.h>
 #include <multipass/settings/settings.h>
 #include <multipass/snapshot.h>
@@ -73,6 +76,7 @@
 #include <QString>
 #include <QStringList>
 #include <QSysInfo>
+#include <QThreadPool>
 #include <QtConcurrent/QtConcurrent>
 
 #include <algorithm>
@@ -587,6 +591,16 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon)
     QObject::connect(&rpc, &mp::DaemonRpc::on_wait_ready, &daemon, &mp::Daemon::wait_ready);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones, &daemon, &mp::Daemon::zones);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones_state, &daemon, &mp::Daemon::zones_state);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_find_models, &daemon, &mp::Daemon::find_models);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_pull_model, &daemon, &mp::Daemon::pull_model);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_load_model, &daemon, &mp::Daemon::load_model);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_unload_model, &daemon, &mp::Daemon::unload_model);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_list_models, &daemon, &mp::Daemon::list_models);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_create_api_key, &daemon, &mp::Daemon::create_api_key);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_list_api_keys, &daemon, &mp::Daemon::list_api_keys);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_revoke_api_key, &daemon, &mp::Daemon::revoke_api_key);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_verify_api_key, &daemon, &mp::Daemon::verify_api_key);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_touch_model, &daemon, &mp::Daemon::touch_model);
 }
 
 enum class InstanceGroup
@@ -1188,7 +1202,8 @@ mp::SettingsHandler* register_instance_mod(
     const std::unordered_set<std::string>& preparing_instances,
     std::function<void()> instance_persister,
     std::function<bool(const std::string&)> is_bridged,
-    std::function<void(const std::string&)> add_interface)
+    std::function<void(const std::string&)> add_interface,
+    mp::ResourcePool* resource_pool)
 {
     return MP_SETTINGS.register_handler(
         std::make_unique<mp::InstanceSettingsHandler>(vm_instance_specs,
@@ -1197,7 +1212,8 @@ mp::SettingsHandler* register_instance_mod(
                                                       preparing_instances,
                                                       std::move(instance_persister),
                                                       is_bridged,
-                                                      add_interface));
+                                                      add_interface,
+                                                      resource_pool));
 }
 
 mp::SettingsHandler* register_snapshot_mod(
@@ -1317,10 +1333,25 @@ void populate_snapshot_info(mp::VirtualMachine& vm,
 
     populate_snapshot_fundamentals(snapshot, fundamentals);
 }
+
+bool occupies_host_memory(mp::VirtualMachine::State state)
+{
+    using S = mp::VirtualMachine::State;
+    return state == S::running || state == S::starting || state == S::restarting ||
+           state == S::delayed_shutdown || state == S::suspending || state == S::suspended;
+}
 } // namespace
 
 mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
     : config{std::move(the_config)},
+      resource_pool{std::make_unique<ResourcePool>(
+          MemorySize::from_bytes(std::max(0LL, MP_PLATFORM.get_total_ram())),
+          MP_PLATFORM.get_cpus())},
+      llm_service{config && config->url_downloader
+                      ? std::make_unique<LlmService>(*resource_pool,
+                                                     *config->url_downloader,
+                                                     config->data_directory)
+                      : nullptr},
       vm_instance_specs{
           load_db(mp::utils::backend_directory_path(config->data_directory,
                                                     config->factory->get_backend_directory_name()),
@@ -1338,7 +1369,8 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
           preparing_instances,
           [this] { persist_instances(); },
           [this](const std::string& n) { return is_bridged(n); },
-          [this](const std::string& n) { return add_bridged_interface(n); })},
+          [this](const std::string& n) { return add_bridged_interface(n); },
+          resource_pool.get())},
       snapshot_mod_handler{
           register_snapshot_mod(operative_instances, deleted_instances, preparing_instances)}
 {
@@ -1477,6 +1509,20 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
 
     if (!invalid_specs.empty())
         persist_instances();
+
+    sync_resource_pool_settings();
+    for (const auto& [name, vm] : operative_instances)
+    {
+        const auto spec_it = vm_instance_specs.find(name);
+        if (spec_it == vm_instance_specs.end())
+            continue;
+        const auto state = vm->current_state();
+        if (occupies_host_memory(state) || occupies_host_memory(spec_it->second.state))
+            resource_pool->force_claim(name,
+                                       WorkloadKind::vm,
+                                       spec_it->second.mem_size,
+                                       spec_it->second.num_cores);
+    }
 
     config->vault->prune_expired_images();
 
@@ -2159,6 +2205,7 @@ try
     starting_vms.reserve(instance_selection.operative_selection.size());
 
     fmt::memory_buffer start_errors, start_warnings;
+    bool resource_exhausted = false;
     for (auto& vm_it : instance_selection.operative_selection)
     {
         const auto& name = vm_it->first;
@@ -2216,6 +2263,16 @@ try
                 mpl::error(category, "Mounts have been disabled on this instance of Multipass");
             }
 
+            const auto claim = claim_vm(name);
+            if (!claim.accepted)
+            {
+                resource_exhausted = true;
+                fmt::format_to(std::back_inserter(start_errors), "{}\n", claim.message);
+                continue;
+            }
+            if (!claim.message.empty())
+                fmt::format_to(std::back_inserter(start_warnings), "{}\n", claim.message);
+
             vm.start();
         }
 
@@ -2223,7 +2280,10 @@ try
     }
 
     if (starting_vms.empty())
-        return context->set_value(grpc_status_for(start_errors));
+        return context->set_value(grpc_status_for(
+            start_errors,
+            resource_exhausted ? grpc::StatusCode::RESOURCE_EXHAUSTED
+                               : grpc::StatusCode::OK));
 
     auto future_watcher = create_future_watcher();
     future_watcher->setFuture(
@@ -2945,8 +3005,35 @@ try
     QStorageInfo storage_info{config->data_directory};
     response.set_available_space(storage_info.bytesTotal());
 
-    response.set_cpus(MP_PLATFORM.get_cpus());
-    response.set_memory(MP_PLATFORM.get_total_ram());
+    sync_resource_pool_settings();
+    resource_pool->set_host_memory(
+        MemorySize::from_bytes(std::max(0LL, MP_PLATFORM.get_total_ram())));
+    resource_pool->set_host_cpus(MP_PLATFORM.get_cpus());
+
+    response.set_cpus(static_cast<uint32_t>(resource_pool->host_cpus()));
+    response.set_memory(static_cast<uint64_t>(std::max(0LL, resource_pool->host_memory().in_bytes())));
+    response.set_memory_reserved(
+        static_cast<uint64_t>(std::max(0LL, resource_pool->memory_reserve().in_bytes())));
+    response.set_memory_claimed(
+        static_cast<uint64_t>(std::max(0LL, resource_pool->memory_claimed().in_bytes())));
+    response.set_memory_available(
+        static_cast<uint64_t>(std::max(0LL, resource_pool->memory_available().in_bytes())));
+    response.set_memory_used_host(
+        static_cast<uint64_t>(std::max(0LL,
+                                       resource_pool->host_memory().in_bytes() -
+                                           MP_PLATFORM.get_available_ram())));
+    response.set_cpus_claimed(static_cast<uint32_t>(std::max(0, resource_pool->cpus_claimed())));
+    response.set_cpu_usage_permille(
+        static_cast<uint32_t>(std::max(0, MP_PLATFORM.get_cpu_usage_permille())));
+
+    for (const auto& claim : resource_pool->claims())
+    {
+        auto* info = response.add_claims();
+        info->set_name(claim.name);
+        info->set_kind(workload_kind_name(claim.kind));
+        info->set_memory_bytes(static_cast<uint64_t>(std::max(0LL, claim.memory.in_bytes())));
+        info->set_cpus(static_cast<uint32_t>(std::max(0, claim.cpus)));
+    }
 
     server->Write(response);
     context->set_value(grpc::Status{});
@@ -3158,6 +3245,8 @@ void mp::Daemon::on_restart(const std::string& name)
 void mp::Daemon::persist_state_for(const std::string& name, const VirtualMachine::State& state)
 {
     vm_instance_specs[name].state = state;
+    if (!occupies_host_memory(state))
+        release_vm_claim(name);
     persist_instances();
 }
 
@@ -3184,6 +3273,7 @@ void mp::Daemon::persist_instances()
 
 void mp::Daemon::release_resources(const std::string& instance)
 {
+    release_vm_claim(instance);
     config->vault->remove(instance);
     config->factory->remove_resources_for(instance);
 
@@ -3289,8 +3379,19 @@ void mp::Daemon::create_vm(const CreateRequest* request,
 
                              if (start)
                              {
+                                 const auto claim = claim_vm(name);
+                                 if (!claim.accepted)
+                                 {
+                                     context->set_value(grpc::Status(
+                                         grpc::StatusCode::RESOURCE_EXHAUSTED, claim.message, ""));
+                                     prepare_future_watcher->deleteLater();
+                                     return;
+                                 }
+
                                  LaunchReply reply;
                                  reply.set_create_message("Starting " + name);
+                                 if (!claim.message.empty())
+                                     reply.set_reply_message(claim.message);
                                  server->Write(reply);
 
                                  operative_instances[name]->start();
@@ -3549,6 +3650,7 @@ grpc::Status mp::Daemon::switch_off_vm(VirtualMachine& vm)
     delayed_shutdown_instances.erase(name);
 
     vm.shutdown(VirtualMachine::ShutdownPolicy::Poweroff);
+    release_vm_claim(name);
 
     return grpc::Status::OK;
 }
@@ -4052,6 +4154,182 @@ mp::VMSpecs mp::Daemon::clone_spec(const VMSpecs& src_vm_spec,
                                                                       dest_name);
     }
     return dest_vm_spec;
+}
+
+void mp::Daemon::sync_resource_pool_settings()
+{
+    try
+    {
+        resource_pool->set_memory_reserve(
+            MemorySize{MP_SETTINGS.get(mp::host_memory_reserve_key).toStdString()});
+    }
+    catch (const std::exception&)
+    {
+        resource_pool->set_memory_reserve(MemorySize{mp::default_host_memory_reserve});
+    }
+
+    try
+    {
+        const auto policy = MP_SETTINGS.get(mp::host_memory_policy_key).toStdString();
+        resource_pool->set_memory_policy(policy == mp::memory_policy_best_effort
+                                             ? MemoryPolicy::best_effort
+                                             : MemoryPolicy::strict);
+    }
+    catch (const std::exception&)
+    {
+        resource_pool->set_memory_policy(MemoryPolicy::strict);
+    }
+}
+
+mp::TryClaimResult mp::Daemon::claim_vm(const std::string& name)
+{
+    sync_resource_pool_settings();
+    const auto spec_it = vm_instance_specs.find(name);
+    if (spec_it == vm_instance_specs.end())
+        return TryClaimResult{false, fmt::format("unknown instance '{}'", name)};
+
+    auto needed = spec_it->second.mem_size;
+    auto result = resource_pool->try_claim(name,
+                                           WorkloadKind::vm,
+                                           needed,
+                                           spec_it->second.num_cores);
+    if (!result.accepted)
+    {
+        const auto preempted = resource_pool->preempt_llms_to_free(needed);
+        if (!preempted.empty())
+        {
+            for (const auto& model : preempted)
+            {
+                mpl::info(category, "Preempted LLM '{}' to free RAM for VM '{}'", model, name);
+                if (llm_service)
+                    llm_service->unload_named(model);
+            }
+            result = resource_pool->try_claim(name,
+                                              WorkloadKind::vm,
+                                              needed,
+                                              spec_it->second.num_cores);
+        }
+    }
+    return result;
+}
+
+void mp::Daemon::release_vm_claim(const std::string& name)
+{
+    resource_pool->release(name);
+}
+
+namespace
+{
+template <typename Work>
+void run_llm_rpc(mp::LlmService* service,
+                 mp::DaemonRpcContext* context,
+                 Work&& work)
+{
+    if (!service)
+    {
+        context->set_value(
+            grpc::Status{grpc::StatusCode::FAILED_PRECONDITION, "LLM service is unavailable", ""});
+        return;
+    }
+    try
+    {
+        work();
+        context->set_value(grpc::Status::OK);
+    }
+    catch (const std::exception& e)
+    {
+        const std::string msg{e.what()};
+        const auto code = msg.find("Not enough host memory") != std::string::npos
+                              ? grpc::StatusCode::RESOURCE_EXHAUSTED
+                              : grpc::StatusCode::FAILED_PRECONDITION;
+        context->set_value(grpc::Status{code, msg, ""});
+    }
+}
+} // namespace
+
+void mp::Daemon::find_models(
+    const FindModelsRequest* request,
+    grpc::ServerReaderWriterInterface<FindModelsReply, FindModelsRequest>* server,
+    DaemonRpcContext* context)
+{
+    // llmfit recommend can take seconds; do not block the Qt thread (info / VM list).
+    QThreadPool::globalInstance()->start([service = llm_service.get(), request, server, context] {
+        run_llm_rpc(service, context, [service, request, server] {
+            service->find_models(request, server);
+        });
+    });
+}
+
+void mp::Daemon::pull_model(
+    const PullModelRequest* request,
+    grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->pull_model(request, server); });
+}
+
+void mp::Daemon::load_model(
+    const LoadModelRequest* request,
+    grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->load_model(request, server); });
+}
+
+void mp::Daemon::unload_model(
+    const UnloadModelRequest* request,
+    grpc::ServerReaderWriterInterface<UnloadModelReply, UnloadModelRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->unload_model(request, server); });
+}
+
+void mp::Daemon::list_models(
+    const ListModelsRequest* request,
+    grpc::ServerReaderWriterInterface<ListModelsReply, ListModelsRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->list_models(request, server); });
+}
+
+void mp::Daemon::create_api_key(
+    const CreateApiKeyRequest* request,
+    grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->create_api_key(request, server); });
+}
+
+void mp::Daemon::list_api_keys(
+    const ListApiKeysRequest* request,
+    grpc::ServerReaderWriterInterface<ListApiKeysReply, ListApiKeysRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->list_api_keys(request, server); });
+}
+
+void mp::Daemon::revoke_api_key(
+    const RevokeApiKeyRequest* request,
+    grpc::ServerReaderWriterInterface<RevokeApiKeyReply, RevokeApiKeyRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->revoke_api_key(request, server); });
+}
+
+void mp::Daemon::verify_api_key(
+    const VerifyApiKeyRequest* request,
+    grpc::ServerReaderWriterInterface<VerifyApiKeyReply, VerifyApiKeyRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->verify_api_key(request, server); });
+}
+
+void mp::Daemon::touch_model(
+    const TouchModelRequest* request,
+    grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->touch_model(request, server); });
 }
 
 bool mp::Daemon::is_bridged(const std::string& instance_name) const

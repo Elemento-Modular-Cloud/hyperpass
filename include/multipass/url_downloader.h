@@ -28,6 +28,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <utility>
+#include <vector>
 
 #define MP_NETMGRFACTORY multipass::NetworkManagerFactory::instance()
 
@@ -62,11 +64,15 @@ public:
     virtual QDateTime last_modified(const QUrl& url);
     virtual void abort_all_downloads();
 
+    void set_header(const QByteArray& name, const QByteArray& value);
+    void clear_headers();
+
 protected:
     std::atomic_bool abort_downloads{false};
 
 private:
     const Path cache_dir_path;
     std::chrono::milliseconds timeout;
+    std::vector<std::pair<QByteArray, QByteArray>> extra_headers;
 };
 } // namespace multipass

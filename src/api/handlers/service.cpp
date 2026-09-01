@@ -16,6 +16,7 @@
  */
 
 #include "service.h"
+#include "handlers.h"
 
 #include <boost/json.hpp>
 
@@ -60,6 +61,35 @@ std::int64_t json_int_field(const json::object& obj, std::string_view key, std::
     if (v.is_double())
         return static_cast<std::int64_t>(v.as_double());
     return fallback;
+}
+
+std::int64_t parse_requested_mib(std::string_view body)
+{
+    if (body.empty())
+        return 0;
+    try
+    {
+        const auto parsed = json::parse(body);
+        if (!parsed.is_object())
+            return 0;
+        const auto& obj = parsed.as_object();
+        std::int64_t requested_mib = 0;
+        if (obj.contains("req") && obj.at("req").is_object())
+        {
+            const auto& req_obj = obj.at("req").as_object();
+            if (req_obj.contains("mem") && req_obj.at("mem").is_object())
+                requested_mib = json_int_field(req_obj.at("mem").as_object(), "capacity", 0);
+        }
+        if (requested_mib == 0)
+            requested_mib = json_int_field(obj, "memory_mib", 0);
+        if (requested_mib == 0)
+            requested_mib = json_int_field(obj, "ram", 0);
+        return requested_mib;
+    }
+    catch (const std::exception&)
+    {
+        return 0;
+    }
 }
 
 bool json_truthy(const json::value& v)
@@ -490,8 +520,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
         set_json(res, 200, body);
     });
 
-    // Matcher canallocate — Electros discovery (TCP list / gateways) requires this before register.
-    // Always accept while Hyperpass is up; resource checks happen at launch time.
+    // Matcher canallocate — Electros discovery; remaining ResourcePool RAM in MiB.
     const httplib::Server::Handler canallocate_handler =
         [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
             mpl::log(mpl::Level::debug,
@@ -507,10 +536,24 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 return;
             }
 
+            const auto info = hyperpass_backend.daemon_info();
+            if (!info.status.ok())
+            {
+                set_json(res, 503, json::object{{"error", info.status.error_message()},
+                                                {"canallocate", false}});
+                return;
+            }
+
+            const auto available_mib =
+                static_cast<std::int64_t>(info.reply.memory_available() / (1024 * 1024));
+            const auto requested_mib = mp::api::requested_mib_from_canallocate_body(req.body);
+            const bool can = mp::api::can_allocate_from_available(available_mib, requested_mib);
             json::object out;
-            out["canallocate"] = true;
-            out["available_slots"] = 64;
-            out["available_ram"] = 131072;
+            out["canallocate"] = can;
+            out["available_slots"] = std::max<std::int64_t>(
+                0,
+                static_cast<std::int64_t>(info.reply.cpus()) - info.reply.cpus_claimed());
+            out["available_ram"] = available_mib;
             // Electros substitutes discovery URLs itself; include a hint for gateways.
             out["server_url"] = fmt::format("https://{}:{}",
                                             req.local_addr.empty() ? "127.0.0.1" : req.local_addr,
@@ -536,10 +579,11 @@ void mp::api::register_service_handlers(httplib::Server& server,
                                               {"canallocate", false}});
                         return;
                     }
-                    // Electros builds an allocation tree from per-server answers; a single-node
-                    // affirmative is enough for one host.
+                    const auto info = hyperpass_backend.daemon_info();
                     json::object out;
-                    out["canallocate"] = true;
+                    out["canallocate"] = info.status.ok() && info.reply.memory_available() > 0;
+                    out["available_ram"] =
+                        static_cast<std::int64_t>(info.reply.memory_available() / (1024 * 1024));
                     out["nservers"] = 1;
                     set_json(res, 200, out);
                 });
@@ -986,4 +1030,9 @@ void mp::api::register_service_handlers(httplib::Server& server,
 
                    set_json(res, 200, json::object{{"images", std::move(images)}});
                });
+}
+
+std::int64_t mp::api::requested_mib_from_canallocate_body(std::string_view body)
+{
+    return parse_requested_mib(body);
 }

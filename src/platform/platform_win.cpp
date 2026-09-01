@@ -1363,6 +1363,41 @@ long long mp::platform::Platform::get_total_ram() const
     return status.ullTotalPhys;
 }
 
+long long mp::platform::Platform::get_available_ram() const
+{
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    GlobalMemoryStatusEx(&status);
+    return static_cast<long long>(status.ullAvailPhys);
+}
+
+int mp::platform::Platform::get_cpu_usage_permille() const
+{
+    FILETIME idle_time{}, kernel_time{}, user_time{};
+    if (!GetSystemTimes(&idle_time, &kernel_time, &user_time))
+        return 0;
+
+    auto to_ull = [](const FILETIME& ft) {
+        return (static_cast<unsigned long long>(ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+    };
+
+    static unsigned long long prev_idle = 0;
+    static unsigned long long prev_kernel = 0;
+    static unsigned long long prev_user = 0;
+
+    const auto idle = to_ull(idle_time);
+    const auto kernel = to_ull(kernel_time);
+    const auto user = to_ull(user_time);
+    const auto idle_delta = idle - prev_idle;
+    const auto total_delta = (kernel - prev_kernel) + (user - prev_user);
+    prev_idle = idle;
+    prev_kernel = kernel;
+    prev_user = user;
+    if (total_delta == 0)
+        return 0;
+    return static_cast<int>(((total_delta - idle_delta) * 1000ull) / total_delta);
+}
+
 std::filesystem::path mp::platform::Platform::get_root_cert_dir() const
 {
     // FOLDERID_ProgramData returns C:\ProgramData normally

@@ -24,6 +24,7 @@
 #include <multipass/vm_specs.h>
 
 #include <src/daemon/instance_settings_handler.h>
+#include <multipass/resource_pool.h>
 
 #include <QString>
 
@@ -481,6 +482,34 @@ TEST_F(TestInstanceSettingsHandler, setRefusesDecreaseBelowMinimumMemory)
         mpt::match_what(HasSubstr("minimum not allowed")));
 
     EXPECT_EQ(actual_mem, original_mem);
+}
+
+TEST_F(TestInstanceSettingsHandler, setMemoryRefusesWhenPoolCannotAdmit)
+{
+    constexpr auto target_instance_name = "pool-full";
+    specs[target_instance_name].mem_size = mp::MemorySize{"512M"};
+    EXPECT_CALL(mock_vm(target_instance_name), resize_memory).Times(0);
+
+    mp::ResourcePool pool{mp::MemorySize{"8G"}, 4};
+    pool.set_memory_reserve(mp::MemorySize{"4G"});
+    pool.set_memory_policy(mp::MemoryPolicy::strict);
+    ASSERT_TRUE(pool.try_claim("other", mp::WorkloadKind::vm, mp::MemorySize{"4G"}, 1).accepted);
+
+    auto handler = mp::InstanceSettingsHandler{specs,
+                                               vms,
+                                               deleted_vms,
+                                               preparing_vms,
+                                               make_fake_persister(),
+                                               make_fake_is_bridged(),
+                                               make_fake_add(),
+                                               &pool};
+
+    mp::UserMessages messages{};
+    MP_EXPECT_THROW_THAT(
+        handler.set(make_key(target_instance_name, "memory"), "4G", messages),
+        mp::InvalidSettingException,
+        mpt::match_what(HasSubstr("Not enough host memory")));
+    EXPECT_EQ(specs[target_instance_name].mem_size, mp::MemorySize{"512M"});
 }
 
 TEST_F(TestInstanceSettingsHandler, setExpandsInstanceDisk)

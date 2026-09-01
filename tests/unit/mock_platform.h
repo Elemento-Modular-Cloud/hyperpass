@@ -33,6 +33,12 @@ public:
         EXPECT_CALL(*this, set_server_socket_restrictions)
             .Times(testing::AnyNumber())
             .WillRepeatedly(testing::Return());
+        ON_CALL(*this, get_cpus).WillByDefault(testing::Return(8));
+        ON_CALL(*this, get_total_ram)
+            .WillByDefault(testing::Return(32LL * 1024 * 1024 * 1024));
+        ON_CALL(*this, get_available_ram)
+            .WillByDefault(testing::Return(16LL * 1024 * 1024 * 1024));
+        ON_CALL(*this, get_cpu_usage_permille).WillByDefault(testing::Return(100));
     };
 
     MOCK_METHOD((std::map < std::string, NetworkInterfaceInfo) >,
@@ -69,6 +75,10 @@ public:
     MOCK_METHOD(std::string, bridge_nomenclature, (), (const, override));
     MOCK_METHOD(bool, subnet_used_locally, (Subnet), (const, override));
     MOCK_METHOD(Subnet, get_preferred_subnet, (const std::filesystem::path&), (const, override));
+    MOCK_METHOD(int, get_cpus, (), (const, override));
+    MOCK_METHOD(long long, get_total_ram, (), (const, override));
+    MOCK_METHOD(long long, get_available_ram, (), (const, override));
+    MOCK_METHOD(int, get_cpu_usage_permille, (), (const, override));
     MOCK_METHOD(std::filesystem::path, get_root_cert_dir, (), (const, override));
     MOCK_METHOD(void, shutdown_socket, (Socket), (const, override));
 

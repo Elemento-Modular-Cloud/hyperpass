@@ -30,7 +30,7 @@ TEST(Constants, constantsConstraints)
     EXPECT_NO_THROW(mp::MemorySize{mp::min_memory_size});
     EXPECT_NO_THROW(mp::MemorySize{mp::default_memory_size});
     EXPECT_NO_THROW(mp::MemorySize{mp::min_disk_size});
-    EXPECT_NO_THROW(mp::MemorySize{mp::default_disk_size});
+    EXPECT_NO_THROW(mp::MemorySize{mp::default_host_memory_reserve});
 }
 
 TEST(Constants, defaultsGreaterOrEqualToMinimums)

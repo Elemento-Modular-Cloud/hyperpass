@@ -39,6 +39,9 @@ enum class AuthResult
  */
 bool is_public_path(std::string_view path);
 
+/** OpenAI inference paths use dedicated sk- keys, not the matcher Bearer token. */
+bool is_openai_inference_path(std::string_view path);
+
 /**
  * Validate an Authorization header value against the API config.
  * Expects "Bearer <token>" when auth is enabled.

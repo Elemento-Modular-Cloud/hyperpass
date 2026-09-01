@@ -30,6 +30,13 @@ bool mp::api::is_public_path(std::string_view path)
            path == "/api/v1/authenticate/cert";
 }
 
+bool mp::api::is_openai_inference_path(std::string_view path)
+{
+    return path == "/v1/models" || path.rfind("/v1/models/", 0) == 0 ||
+           path == "/v1/chat/completions" || path == "/v1/completions" ||
+           path == "/v1/embeddings";
+}
+
 mp::api::AuthResult mp::api::check_bearer_auth(std::string_view authorization_header,
                                                const ApiConfig& config)
 {

@@ -26,6 +26,7 @@ add_library(hyperpass_api STATIC
   tls_fingerprint.cpp
   vm_registry.cpp
   handlers/handlers.cpp
+  handlers/openai.cpp
   handlers/service.cpp)
 
 target_include_directories(hyperpass_api

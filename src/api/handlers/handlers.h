@@ -24,6 +24,7 @@
 
 #include <boost/json.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -38,6 +39,8 @@ void register_instance_handlers(httplib::Server& server,
                                 GrpcBackend& hyperpass_backend,
                                 GrpcBackend* multipass_backend);
 void register_operation_handlers(httplib::Server& server, OperationTracker& tracker);
+void register_model_control_handlers(httplib::Server& server, GrpcBackend& hyperpass_backend);
+void register_openai_handlers(httplib::Server& server, GrpcBackend& hyperpass_backend);
 
 /** Append instances from a ListReply into a JSON array, tagging each with source. */
 void append_instances_from_reply(boost::json::array& out,
@@ -49,5 +52,13 @@ std::string list_reply_to_json(const ListReply& reply, std::string_view source);
 
 /** Map an Operation to JSON. */
 std::string operation_to_json(const Operation& op);
+
+/** Parse a matcher canallocate body; 0 means "any remaining RAM". */
+std::int64_t requested_mib_from_canallocate_body(std::string_view body);
+
+inline bool can_allocate_from_available(std::int64_t available_mib, std::int64_t requested_mib)
+{
+    return requested_mib <= 0 ? available_mib > 0 : available_mib >= requested_mib;
+}
 
 } // namespace multipass::api

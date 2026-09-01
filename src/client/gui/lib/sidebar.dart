@@ -14,6 +14,7 @@ import 'distro_branding.dart';
 import 'glass_panel.dart';
 import 'help.dart';
 import 'l10n/app_localizations.dart';
+import 'models/models_screen.dart';
 import 'multipass_auth_banner.dart';
 import 'providers.dart';
 import 'settings/settings.dart';
@@ -154,6 +155,15 @@ class SideBar extends ConsumerWidget {
       badge: vmNames.length.toString(),
       onPressed: () {
         ref.read(sidebarKeyProvider.notifier).set(VmTableScreen.sidebarKey);
+      },
+    );
+
+    final models = SidebarEntry(
+      icon: FontAwesomeIcons.brain,
+      selected: isSelected(ModelsScreen.sidebarKey),
+      label: l10n.modelsLabel,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(ModelsScreen.sidebarKey);
       },
     );
 
@@ -341,6 +351,7 @@ class SideBar extends ConsumerWidget {
         catalogue,
         cloudInit,
         instances,
+        models,
         Expanded(
           child: ListView(
             padding: EdgeInsets.zero,
@@ -352,6 +363,10 @@ class SideBar extends ConsumerWidget {
         help,
         settings,
         const SizedBox(height: 8),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: HostResourceGauges(compact: true),
+        ),
         daemonStatus,
         multipassStatusRow,
         elementoFooter,

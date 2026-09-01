@@ -84,6 +84,8 @@ public:
 
     virtual int get_cpus() const;
     virtual long long get_total_ram() const;
+    virtual long long get_available_ram() const;
+    virtual int get_cpu_usage_permille() const;
 
     [[nodiscard]] virtual std::filesystem::path get_root_cert_dir() const;
     [[nodiscard]] std::filesystem::path get_root_cert_path() const;

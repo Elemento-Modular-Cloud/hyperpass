@@ -24,6 +24,7 @@
 #include <multipass/delayed_shutdown_timer.h>
 #include <multipass/format.h>
 #include <multipass/mount_handler.h>
+#include <multipass/resource_pool.h>
 #include <multipass/virtual_machine.h>
 #include <multipass/vm_specs.h>
 #include <multipass/vm_status_monitor.h>
@@ -192,6 +193,47 @@ public slots:
         grpc::ServerReaderWriterInterface<WaitReadyReply, WaitReadyRequest>* server,
         DaemonRpcContext* context);
 
+    virtual void find_models(
+        const FindModelsRequest* request,
+        grpc::ServerReaderWriterInterface<FindModelsReply, FindModelsRequest>* server,
+        DaemonRpcContext* context);
+    virtual void pull_model(const PullModelRequest* request,
+                            grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>*
+                                server,
+                            DaemonRpcContext* context);
+    virtual void load_model(const LoadModelRequest* request,
+                            grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>*
+                                server,
+                            DaemonRpcContext* context);
+    virtual void unload_model(
+        const UnloadModelRequest* request,
+        grpc::ServerReaderWriterInterface<UnloadModelReply, UnloadModelRequest>* server,
+        DaemonRpcContext* context);
+    virtual void list_models(
+        const ListModelsRequest* request,
+        grpc::ServerReaderWriterInterface<ListModelsReply, ListModelsRequest>* server,
+        DaemonRpcContext* context);
+    virtual void create_api_key(
+        const CreateApiKeyRequest* request,
+        grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server,
+        DaemonRpcContext* context);
+    virtual void list_api_keys(
+        const ListApiKeysRequest* request,
+        grpc::ServerReaderWriterInterface<ListApiKeysReply, ListApiKeysRequest>* server,
+        DaemonRpcContext* context);
+    virtual void revoke_api_key(
+        const RevokeApiKeyRequest* request,
+        grpc::ServerReaderWriterInterface<RevokeApiKeyReply, RevokeApiKeyRequest>* server,
+        DaemonRpcContext* context);
+    virtual void verify_api_key(
+        const VerifyApiKeyRequest* request,
+        grpc::ServerReaderWriterInterface<VerifyApiKeyReply, VerifyApiKeyRequest>* server,
+        DaemonRpcContext* context);
+    virtual void touch_model(
+        const TouchModelRequest* request,
+        grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>* server,
+        DaemonRpcContext* context);
+
 private:
     void release_resources(const std::string& instance);
     void create_vm(const CreateRequest* request,
@@ -268,7 +310,13 @@ private:
                        const std::string& src_name,
                        const std::string& dest_name);
 
+    void sync_resource_pool_settings();
+    TryClaimResult claim_vm(const std::string& name);
+    void release_vm_claim(const std::string& name);
+
     std::unique_ptr<const DaemonConfig> config;
+    std::unique_ptr<ResourcePool> resource_pool;
+    std::unique_ptr<class LlmService> llm_service;
 
 protected:
     std::unordered_map<std::string, VMSpecs> vm_instance_specs;

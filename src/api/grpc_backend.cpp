@@ -232,3 +232,146 @@ mp::api::VersionResult mp::api::GrpcBackend::version(std::chrono::seconds deadli
         deadline);
     return result;
 }
+
+mp::api::FindModelsResult mp::api::GrpcBackend::find_models(int limit,
+                                                            const std::string& use_case,
+                                                            std::chrono::seconds deadline)
+{
+    FindModelsResult result;
+    FindModelsRequest request;
+    request.set_verbosity_level(0);
+    request.set_limit(limit);
+    request.set_use_case(use_case);
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->find_models(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::PullModelResult mp::api::GrpcBackend::pull_model(const std::string& model_id,
+                                                          const std::string& quant,
+                                                          std::chrono::seconds deadline)
+{
+    PullModelResult result;
+    PullModelRequest request;
+    request.set_model_id(model_id);
+    request.set_quant(quant);
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->pull_model(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::LoadModelResult mp::api::GrpcBackend::load_model(const std::string& model_id,
+                                                          const std::string& quant,
+                                                          int ctx_size,
+                                                          std::chrono::seconds deadline)
+{
+    LoadModelResult result;
+    LoadModelRequest request;
+    request.set_model_id(model_id);
+    request.set_quant(quant);
+    request.set_ctx_size(ctx_size);
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->load_model(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::GrpcResult mp::api::GrpcBackend::unload_model(const std::string& model_id,
+                                                       std::chrono::seconds deadline)
+{
+    GrpcResult result;
+    UnloadModelRequest request;
+    request.set_model_id(model_id);
+    result.status = call_streaming_rpc_noreply<UnloadModelRequest, UnloadModelReply>(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->unload_model(ctx); },
+        request,
+        deadline);
+    return result;
+}
+
+mp::api::ListModelsResult mp::api::GrpcBackend::list_models(std::chrono::seconds deadline)
+{
+    ListModelsResult result;
+    ListModelsRequest request;
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->list_models(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::CreateApiKeyResult mp::api::GrpcBackend::create_api_key(const std::string& label,
+                                                                 std::chrono::seconds deadline)
+{
+    CreateApiKeyResult result;
+    CreateApiKeyRequest request;
+    request.set_label(label);
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->create_api_key(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::ListApiKeysResult mp::api::GrpcBackend::list_api_keys(std::chrono::seconds deadline)
+{
+    ListApiKeysResult result;
+    ListApiKeysRequest request;
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->list_api_keys(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::GrpcResult mp::api::GrpcBackend::revoke_api_key(const std::string& id,
+                                                         std::chrono::seconds deadline)
+{
+    GrpcResult result;
+    RevokeApiKeyRequest request;
+    request.set_id(id);
+    request.set_prefix(id);
+    result.status = call_streaming_rpc_noreply<RevokeApiKeyRequest, RevokeApiKeyReply>(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->revoke_api_key(ctx); },
+        request,
+        deadline);
+    return result;
+}
+
+mp::api::VerifyApiKeyResult mp::api::GrpcBackend::verify_api_key(const std::string& secret,
+                                                                 std::chrono::seconds deadline)
+{
+    VerifyApiKeyResult result;
+    VerifyApiKeyRequest request;
+    request.set_secret(secret);
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->verify_api_key(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::GrpcResult mp::api::GrpcBackend::touch_model(const std::string& model_id,
+                                                      std::chrono::seconds deadline)
+{
+    GrpcResult result;
+    TouchModelRequest request;
+    request.set_model_id(model_id);
+    result.status = call_streaming_rpc_noreply<TouchModelRequest, TouchModelReply>(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->touch_model(ctx); },
+        request,
+        deadline);
+    return result;
+}

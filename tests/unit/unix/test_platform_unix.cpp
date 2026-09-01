@@ -222,6 +222,18 @@ TEST_F(TestPlatformUnix, getTotalRamReturnsGreaterThanZero)
     EXPECT_GT(MP_PLATFORM.get_total_ram(), 0LL);
 }
 
+TEST_F(TestPlatformUnix, getAvailableRamIsNonNegative)
+{
+    EXPECT_GE(MP_PLATFORM.get_available_ram(), 0LL);
+}
+
+TEST_F(TestPlatformUnix, getCpuUsagePermilleIsInRange)
+{
+    const auto permille = MP_PLATFORM.get_cpu_usage_permille();
+    EXPECT_GE(permille, 0);
+    EXPECT_LE(permille, 1000);
+}
+
 void test_sigset_empty(const sigset_t& set)
 {
     // there is no standard empty check to try a few different signals

@@ -11,8 +11,8 @@ AtomOS VM surface temporarily on matcher port **7777** (Service/Meson canonical
 | HTTPS + AtomOS TLS fingerprint | HTTPS by default (opt out with `--http`); Electros peer-TLS `:7777`; `GET /api/v1/authenticate/cert?host=` dials remote `:7777`/`:7772`; `/fingerprint` returns local cert |
 | `GET /` ping | Implemented (auth required) |
 | `GET /version` | Implemented (auth required) |
-| `GET /api/v1.0/canallocate` | Implemented (always true while hyperpassd is up; Electros discovery) |
-| `POST /api/v1.0/canallocate/multiple` | Stub affirmative for Electros multi-alloc |
+| `GET /api/v1.0/canallocate` | Implemented — remaining ResourcePool RAM in MiB; POST body `req.mem.capacity` / `memory_mib` / `ram` can make `canallocate` false |
+| `POST /api/v1.0/canallocate/multiple` | Remaining pool RAM; `canallocate` false when none left |
 | `POST /api/v1.0/register` | Implemented → gRPC `launch` + registry; returns matcher `uniqueID`/`req_json`/`xml` plus Service `vm_uid` |
 | `POST /api/v1.0/create_machine` | Alias of `register` (Meson name) |
 | `GET /api/v1.0/running` | Implemented → `{"vms":[{uniqueID,req_json,xml,…}]}` (Electros/matcher) |

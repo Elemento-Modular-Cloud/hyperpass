@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../catalogue/catalogue.dart';
 import '../daemon_source.dart';
 import '../l10n/app_localizations.dart';
+import '../models/models_screen.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import '../switch.dart';
@@ -151,7 +152,18 @@ class Vms extends ConsumerWidget {
     return Column(
       children: [
         heading,
-        const SizedBox(height: 24),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Text(
+              l10n.vmTableHostPressure,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(child: HostResourceGauges()),
+          ],
+        ),
+        const SizedBox(height: 16),
         vmFilters,
         const BulkActionsBar(),
         const SizedBox(height: 10),

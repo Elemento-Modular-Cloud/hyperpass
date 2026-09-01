@@ -20,6 +20,7 @@
 #include "common.h"
 #include "mock_singleton_helpers.h"
 
+#include <multipass/constants.h>
 #include <multipass/settings/settings.h>
 
 namespace multipass::test
@@ -37,4 +38,24 @@ public:
 
     MP_MOCK_SINGLETON_BOILERPLATE(MockSettings, Settings);
 };
+
+inline void expect_default_host_resource_settings(MockSettings& mock_settings)
+{
+    using namespace testing;
+    EXPECT_CALL(mock_settings, get(Eq(QString{multipass::host_memory_reserve_key})))
+        .Times(AnyNumber())
+        .WillRepeatedly(Return(QString{multipass::default_host_memory_reserve}));
+    EXPECT_CALL(mock_settings, get(Eq(QString{multipass::host_memory_policy_key})))
+        .Times(AnyNumber())
+        .WillRepeatedly(Return(QString{multipass::default_host_memory_policy}));
+    EXPECT_CALL(mock_settings, get(Eq(QString{multipass::llm_backend_key})))
+        .Times(AnyNumber())
+        .WillRepeatedly(Return(QString{"auto"}));
+    EXPECT_CALL(mock_settings, get(Eq(QString{multipass::llm_hf_token_key})))
+        .Times(AnyNumber())
+        .WillRepeatedly(Return(QString{}));
+    EXPECT_CALL(mock_settings, get(Eq(QString{multipass::llm_idle_unload_key})))
+        .Times(AnyNumber())
+        .WillRepeatedly(Return(QString{multipass::default_llm_idle_unload}));
+}
 } // namespace multipass::test

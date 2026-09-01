@@ -39,6 +39,7 @@ struct TestDaemonZones : public mpt::DaemonTestFixture
     {
         EXPECT_CALL(mock_settings, register_handler).WillRepeatedly(Return(nullptr));
         EXPECT_CALL(mock_settings, unregister_handler).Times(AnyNumber());
+        mpt::expect_default_host_resource_settings(mock_settings);
 
         config_builder.vault = std::make_unique<NiceMock<mpt::MockVMImageVault>>();
 

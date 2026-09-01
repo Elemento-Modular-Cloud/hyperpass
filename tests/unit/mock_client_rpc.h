@@ -513,5 +513,155 @@ public:
                 PrepareAsynczones_stateRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::FindModelsRequest,
+                                                   multipass::FindModelsReply>*),
+                find_modelsRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::FindModelsRequest,
+                                                        multipass::FindModelsReply>*),
+                Asyncfind_modelsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::FindModelsRequest,
+                                                        multipass::FindModelsReply>*),
+                PrepareAsyncfind_modelsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::PullModelRequest,
+                                                   multipass::PullModelReply>*),
+                pull_modelRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::PullModelRequest,
+                                                        multipass::PullModelReply>*),
+                Asyncpull_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::PullModelRequest,
+                                                        multipass::PullModelReply>*),
+                PrepareAsyncpull_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::LoadModelRequest,
+                                                   multipass::LoadModelReply>*),
+                load_modelRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::LoadModelRequest,
+                                                        multipass::LoadModelReply>*),
+                Asyncload_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::LoadModelRequest,
+                                                        multipass::LoadModelReply>*),
+                PrepareAsyncload_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::UnloadModelRequest,
+                                                   multipass::UnloadModelReply>*),
+                unload_modelRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::UnloadModelRequest,
+                                                        multipass::UnloadModelReply>*),
+                Asyncunload_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::UnloadModelRequest,
+                                                        multipass::UnloadModelReply>*),
+                PrepareAsyncunload_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListModelsRequest,
+                                                   multipass::ListModelsReply>*),
+                list_modelsRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListModelsRequest,
+                                                        multipass::ListModelsReply>*),
+                Asynclist_modelsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListModelsRequest,
+                                                        multipass::ListModelsReply>*),
+                PrepareAsynclist_modelsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::CreateApiKeyRequest,
+                                                   multipass::CreateApiKeyReply>*),
+                create_api_keyRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CreateApiKeyRequest,
+                                                        multipass::CreateApiKeyReply>*),
+                Asynccreate_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CreateApiKeyRequest,
+                                                        multipass::CreateApiKeyReply>*),
+                PrepareAsynccreate_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListApiKeysRequest,
+                                                   multipass::ListApiKeysReply>*),
+                list_api_keysRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListApiKeysRequest,
+                                                        multipass::ListApiKeysReply>*),
+                Asynclist_api_keysRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListApiKeysRequest,
+                                                        multipass::ListApiKeysReply>*),
+                PrepareAsynclist_api_keysRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::RevokeApiKeyRequest,
+                                                   multipass::RevokeApiKeyReply>*),
+                revoke_api_keyRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RevokeApiKeyRequest,
+                                                        multipass::RevokeApiKeyReply>*),
+                Asyncrevoke_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RevokeApiKeyRequest,
+                                                        multipass::RevokeApiKeyReply>*),
+                PrepareAsyncrevoke_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::VerifyApiKeyRequest,
+                                                   multipass::VerifyApiKeyReply>*),
+                verify_api_keyRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::VerifyApiKeyRequest,
+                                                        multipass::VerifyApiKeyReply>*),
+                Asyncverify_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::VerifyApiKeyRequest,
+                                                        multipass::VerifyApiKeyReply>*),
+                PrepareAsyncverify_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::TouchModelRequest,
+                                                   multipass::TouchModelReply>*),
+                touch_modelRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::TouchModelRequest,
+                                                        multipass::TouchModelReply>*),
+                Asynctouch_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::TouchModelRequest,
+                                                        multipass::TouchModelReply>*),
+                PrepareAsynctouch_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
 };
 } // namespace multipass::test

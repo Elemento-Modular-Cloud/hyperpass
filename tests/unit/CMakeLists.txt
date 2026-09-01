@@ -61,6 +61,7 @@ add_executable(multipass_cpp_tests
   temp_dir.cpp
   temp_file.cpp
   test_alias_dict.cpp
+  test_api_key_store.cpp
   test_argparser.cpp
   test_base_availability_zone.cpp
   test_base_availability_zone_manager.cpp
@@ -117,6 +118,7 @@ add_executable(multipass_cpp_tests
   test_qemuimg_process_spec.cpp
   test_recursive_dir_iter.cpp
   test_remote_settings_handler.cpp
+  test_resource_pool.cpp
   test_rust_integration.cpp
   test_setting_specs.cpp
   test_settings.cpp
@@ -151,6 +153,7 @@ add_executable(multipass_cpp_tests
 target_include_directories(multipass_cpp_tests
   PRIVATE ${CMAKE_SOURCE_DIR}
   PRIVATE ${CMAKE_SOURCE_DIR}/src
+  PRIVATE ${CMAKE_SOURCE_DIR}/src/llm
   PRIVATE ${CMAKE_SOURCE_DIR}/src/platform/backends
 )
 
@@ -166,6 +169,7 @@ target_link_libraries(multipass_cpp_tests
   client
   daemon
   delayed_shutdown
+  llm
   GTest::gtest_main
   GTest::gmock_main
   ip_address

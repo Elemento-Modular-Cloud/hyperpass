@@ -139,6 +139,7 @@ a few more tests for `false`, since there are different portions of code dependi
         EXPECT_CALL(mock_settings, get(Eq(mp::winterm_key))).WillRepeatedly(Return("none"));
         EXPECT_CALL(mock_settings, get(Eq(mp::bridged_interface_key)))
             .WillRepeatedly(Return("eth8"));
+        mpt::expect_default_host_resource_settings(mock_settings);
     }
 
     mpt::MockUtils::GuardedMock mock_utils_injection{mpt::MockUtils::inject<NiceMock>()};
