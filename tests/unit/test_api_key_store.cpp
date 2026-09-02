@@ -43,6 +43,24 @@ TEST(ApiKeyStore, createShowsSecretOnceAndStoresHashOnly)
     EXPECT_FALSE(store.verify("matcher-token").has_value());
 }
 
+TEST(ApiKeyStore, instanceBindingAndRevokeForInstance)
+{
+    mpt::TempDir dir;
+    mp::ApiKeyStore store{dir.path()};
+    const auto global = store.create("global");
+    const auto scoped = store.create("scoped", "inst-123");
+    ASSERT_EQ(store.list().size(), 2);
+    EXPECT_TRUE(global.record.instance_id.empty());
+    EXPECT_EQ(scoped.record.instance_id, "inst-123");
+    EXPECT_TRUE(mp::api_key_allows_instance(global.record, "inst-123"));
+    EXPECT_TRUE(mp::api_key_allows_instance(scoped.record, "inst-123"));
+    EXPECT_FALSE(mp::api_key_allows_instance(scoped.record, "other"));
+
+    store.revoke_for_instance("inst-123");
+    EXPECT_EQ(store.list().size(), 1);
+    EXPECT_EQ(store.list().front().id, global.record.id);
+}
+
 TEST(ApiKeyStore, revokeAndReload)
 {
     mpt::TempDir dir;

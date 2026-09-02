@@ -43,6 +43,7 @@ private:
     QString query;
     QString key_label;
     QString key_id;
+    QString key_instance;
     int limit{10};
     int ctx_size{4096};
     bool recommend_only{false};

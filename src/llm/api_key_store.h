@@ -34,7 +34,13 @@ struct ApiKeyRecord
     std::string label;
     std::string sha256_hex;
     long long created_at{0};
+    std::string instance_id;
 };
+
+inline bool api_key_allows_instance(const ApiKeyRecord& key, const std::string& instance_id)
+{
+    return key.instance_id.empty() || key.instance_id == instance_id;
+}
 
 class ApiKeyStore
 {
@@ -47,10 +53,11 @@ public:
         std::string secret;
     };
 
-    CreatedKey create(const std::string& label);
+    CreatedKey create(const std::string& label, const std::string& instance_id = {});
     std::vector<ApiKeyRecord> list() const;
     bool revoke_by_id(const std::string& id);
     bool revoke_by_prefix(const std::string& prefix);
+    void revoke_for_instance(const std::string& instance_id);
     std::optional<ApiKeyRecord> verify(const std::string& secret) const;
 
 private:

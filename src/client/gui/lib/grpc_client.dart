@@ -317,10 +317,10 @@ class GrpcClient {
     ).then((r) => r!);
   }
 
-  Future<CreateApiKeyReply> createApiKey({String label = ''}) {
+  Future<CreateApiKeyReply> createApiKey({String label = '', String instanceId = ''}) {
     return doRpc(
       _client.create_api_key,
-      CreateApiKeyRequest(label: label),
+      CreateApiKeyRequest(label: label, instanceId: instanceId),
     ).then((r) => r!);
   }
 

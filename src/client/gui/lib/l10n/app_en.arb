@@ -252,6 +252,35 @@
     "@modelsCreateKey": {
         "description": "Button to create an OpenAI API key"
     },
+    "modelsKeyScopeGlobal": "All loaded instances",
+    "@modelsKeyScopeGlobal": {
+        "description": "Option to create an API key valid for any loaded model"
+    },
+    "modelsKeyScopeInstance": "Specific instance",
+    "@modelsKeyScopeInstance": {
+        "description": "Option to bind an API key to one loaded instance"
+    },
+    "modelsKeyScopeLabel": "Access scope",
+    "@modelsKeyScopeLabel": {
+        "description": "Label for API key instance binding selector"
+    },
+    "modelsKeyBoundGlobal": "All instances",
+    "@modelsKeyBoundGlobal": {
+        "description": "Subtitle when an API key is not bound to a specific instance"
+    },
+    "modelsKeyBoundInstance": "Instance: {openaiId}",
+    "@modelsKeyBoundInstance": {
+        "description": "Subtitle when an API key is bound to a loaded instance",
+        "placeholders": {
+            "openaiId": {
+                "type": "String"
+            }
+        }
+    },
+    "modelsKeyNoInstances": "Load a model first to create instance-scoped keys.",
+    "@modelsKeyNoInstances": {
+        "description": "Hint when no loaded instances exist for scoped key creation"
+    },
     "modelsRevokeKey": "Revoke",
     "@modelsRevokeKey": {
         "description": "Button to revoke an API key"

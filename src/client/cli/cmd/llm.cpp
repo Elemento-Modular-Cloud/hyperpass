@@ -253,10 +253,14 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
             CreateApiKeyRequest request;
             request.set_verbosity_level(verbosity);
             request.set_label(key_label.toStdString());
+            if (!key_instance.isEmpty())
+                request.set_instance_id(key_instance.toStdString());
             auto on_success = [this](CreateApiKeyReply& reply) -> ReturnCodeVariant {
                 cout << "Save this API key; it will not be shown again.\n";
                 cout << fmt::format("id:     {}\n", reply.id());
                 cout << fmt::format("prefix: {}\n", reply.prefix());
+                if (!reply.instance_id().empty())
+                    cout << fmt::format("instance: {} ({})\n", reply.openai_id(), reply.instance_id());
                 cout << fmt::format("secret: {}\n", reply.secret());
                 cout << "Use OPENAI_BASE_URL=https://127.0.0.1:7777/v1 and OPENAI_API_KEY=<secret>\n";
                 return ReturnCode::Ok;
@@ -271,12 +275,19 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
             ListApiKeysRequest request;
             request.set_verbosity_level(verbosity);
             auto on_success = [this](ListApiKeysReply& reply) -> ReturnCodeVariant {
-                cout << fmt::format("{:<38} {:<12} {}\n", "ID", "PREFIX", "LABEL");
+                cout << fmt::format("{:<38} {:<12} {:<28} {}\n", "ID", "PREFIX", "INSTANCE", "LABEL");
                 for (const auto& key : reply.keys())
-                    cout << fmt::format("{:<38} {:<12} {}\n",
+                {
+                    const auto instance = key.instance_id().empty()
+                                              ? "global"
+                                              : (key.openai_id().empty() ? key.instance_id()
+                                                                         : key.openai_id());
+                    cout << fmt::format("{:<38} {:<12} {:<28} {}\n",
                                         key.id(),
                                         key.prefix(),
+                                        instance,
                                         key.label());
+                }
                 return ReturnCode::Ok;
             };
             return dispatch(&RpcMethod::list_api_keys,
@@ -300,6 +311,7 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                             [&](grpc::Status& s) { return fail(cerr, s, cmd_name); });
         }
         cerr << "Usage: hyperpass llm key create|list|revoke [id]\n";
+        cerr << "  create [--label NAME] [--instance INSTANCE_ID]\n";
         return ReturnCode::CommandLineError;
     }
 
@@ -338,6 +350,7 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     QCommandLineOption quant_opt{"quant", "GGUF quantization", "quant"};
     QCommandLineOption ctx_opt{"ctx", "Context size", "ctx", "4096"};
     QCommandLineOption label_opt{"label", "API key label", "label"};
+    QCommandLineOption instance_opt{"instance", "Bind key to a loaded LLM instance", "instance"};
     parser->addOption(use_case_opt);
     parser->addOption(limit_opt);
     parser->addOption(query_opt);
@@ -345,6 +358,7 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     parser->addOption(quant_opt);
     parser->addOption(ctx_opt);
     parser->addOption(label_opt);
+    parser->addOption(instance_opt);
 
     auto status = parser->commandParse(this);
     if (status != ParseCode::Ok)
@@ -382,6 +396,8 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         ctx_size = parser->value(ctx_opt).toInt();
     if (parser->isSet(label_opt))
         key_label = parser->value(label_opt);
+    if (parser->isSet(instance_opt))
+        key_instance = parser->value(instance_opt);
 
     const QStringList needs_id{"pull", "load", "unload", "delete", "rm"};
     if (needs_id.contains(subcommand) && model_id.isEmpty())

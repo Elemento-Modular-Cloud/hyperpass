@@ -310,11 +310,14 @@ mp::api::ListModelsResult mp::api::GrpcBackend::list_models(std::chrono::seconds
 }
 
 mp::api::CreateApiKeyResult mp::api::GrpcBackend::create_api_key(const std::string& label,
+                                                                 const std::string& instance_id,
                                                                  std::chrono::seconds deadline)
 {
     CreateApiKeyResult result;
     CreateApiKeyRequest request;
     request.set_label(label);
+    if (!instance_id.empty())
+        request.set_instance_id(instance_id);
     result.status = call_streaming_rpc(
         [this](grpc::ClientContext* ctx) { return rpc_stub->create_api_key(ctx); },
         request,

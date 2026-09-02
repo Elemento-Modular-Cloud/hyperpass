@@ -615,6 +615,7 @@ void mp::LlmService::unload_instance(const std::string& instance_id)
         sessions.erase(it);
         pool.release(instance_id);
     }
+    keys.revoke_for_instance(instance_id);
     if (dying)
         stop_process(dying.get());
     if (runner_thread)
@@ -713,12 +714,30 @@ void mp::LlmService::create_api_key(
     const CreateApiKeyRequest* request,
     grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server)
 {
-    const auto created = keys.create(request->label());
+    const auto& instance_id = request->instance_id();
+    if (!instance_id.empty())
+    {
+        std::lock_guard lock{mutex};
+        if (sessions.find(instance_id) == sessions.end())
+            throw std::runtime_error(fmt::format("unknown instance '{}'", instance_id));
+    }
+
+    const auto created = keys.create(request->label(), instance_id);
     CreateApiKeyReply reply;
     reply.set_id(created.record.id);
     reply.set_prefix(created.record.prefix);
     reply.set_secret(created.secret);
     reply.set_label(created.record.label);
+    reply.set_instance_id(created.record.instance_id);
+    if (!instance_id.empty())
+    {
+        std::lock_guard lock{mutex};
+        if (auto it = sessions.find(instance_id); it != sessions.end())
+        {
+            reply.set_model_id(it->second.model_id);
+            reply.set_openai_id(it->second.openai_id);
+        }
+    }
     server->Write(reply);
 }
 
@@ -727,6 +746,7 @@ void mp::LlmService::list_api_keys(
     grpc::ServerReaderWriterInterface<ListApiKeysReply, ListApiKeysRequest>* server)
 {
     ListApiKeysReply reply;
+    std::lock_guard lock{mutex};
     for (const auto& key : keys.list())
     {
         auto* info = reply.add_keys();
@@ -734,6 +754,15 @@ void mp::LlmService::list_api_keys(
         info->set_prefix(key.prefix);
         info->set_label(key.label);
         info->set_created_at(key.created_at);
+        info->set_instance_id(key.instance_id);
+        if (!key.instance_id.empty())
+        {
+            if (auto it = sessions.find(key.instance_id); it != sessions.end())
+            {
+                info->set_model_id(it->second.model_id);
+                info->set_openai_id(it->second.openai_id);
+            }
+        }
     }
     server->Write(reply);
 }
@@ -761,6 +790,7 @@ void mp::LlmService::verify_api_key(
         reply.set_valid(true);
         reply.set_id(rec->id);
         reply.set_prefix(rec->prefix);
+        reply.set_instance_id(rec->instance_id);
     }
     else
         reply.set_valid(false);

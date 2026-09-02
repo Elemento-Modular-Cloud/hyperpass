@@ -58,7 +58,12 @@ std::string bearer_secret(const httplib::Request& req)
     return {};
 }
 
-bool require_sk_key(GrpcBackend& backend, const httplib::Request& req, httplib::Response& res)
+struct SkAuth
+{
+    std::string bound_instance_id;
+};
+
+std::optional<SkAuth> require_sk_key(GrpcBackend& backend, const httplib::Request& req, httplib::Response& res)
 {
     const auto secret = bearer_secret(req);
     if (secret.rfind("sk-hp-", 0) != 0)
@@ -68,7 +73,7 @@ bool require_sk_key(GrpcBackend& backend, const httplib::Request& req, httplib::
                                      "Invalid API key. Use a Hyperpass sk-hp- key, not the matcher token.",
                                      401),
                         "application/json");
-        return false;
+        return std::nullopt;
     }
     const auto verified = backend.verify_api_key(secret);
     if (!verified.status.ok() || !verified.reply.valid())
@@ -76,9 +81,9 @@ bool require_sk_key(GrpcBackend& backend, const httplib::Request& req, httplib::
         res.status = 401;
         res.set_content(openai_error("invalid_api_key", "Incorrect API key provided", 401),
                         "application/json");
-        return false;
+        return std::nullopt;
     }
-    return true;
+    return SkAuth{verified.reply.instance_id()};
 }
 
 std::optional<mp::LoadedModelInfo> find_loaded(const mp::ListModelsReply& reply, const std::string& model)
@@ -101,7 +106,8 @@ std::optional<mp::LoadedModelInfo> find_loaded(const mp::ListModelsReply& reply,
 void proxy_to_backend(GrpcBackend& backend,
                       const httplib::Request& req,
                       httplib::Response& res,
-                      const std::string& path)
+                      const std::string& path,
+                      const SkAuth& auth)
 {
     json::value parsed;
     std::string model_id;
@@ -129,13 +135,50 @@ void proxy_to_backend(GrpcBackend& backend,
     }
 
     std::optional<mp::LoadedModelInfo> session;
+    std::optional<mp::LoadedModelInfo> forbidden_match;
+    const auto allows = [&](const mp::LoadedModelInfo& info) {
+        return auth.bound_instance_id.empty() || auth.bound_instance_id == info.instance_id();
+    };
+
     if (!model_id.empty())
-        session = find_loaded(listed.reply, model_id);
-    else if (listed.reply.models_size() == 1)
-        session = listed.reply.models(0);
+    {
+        if (auto found = find_loaded(listed.reply, model_id))
+        {
+            if (allows(*found))
+                session = found;
+            else
+                forbidden_match = found;
+        }
+    }
+    else
+    {
+        std::optional<mp::LoadedModelInfo> only_allowed;
+        for (const auto& info : listed.reply.models())
+        {
+            if (!allows(info))
+                continue;
+            if (only_allowed)
+            {
+                only_allowed = std::nullopt;
+                break;
+            }
+            only_allowed = info;
+        }
+        if (only_allowed)
+            session = only_allowed;
+    }
 
     if (!session)
     {
+        if (forbidden_match)
+        {
+            res.status = 403;
+            res.set_content(openai_error("invalid_request_error",
+                                         "This API key is not authorized for the requested model.",
+                                         403),
+                            "application/json");
+            return;
+        }
         res.status = 404;
         res.set_content(openai_error("invalid_request_error",
                                      "The model is not loaded. Load it with hyperpass llm load.",
@@ -178,7 +221,8 @@ void proxy_to_backend(GrpcBackend& backend,
 void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& hyperpass_backend)
 {
     auto models = [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
-        if (!require_sk_key(hyperpass_backend, req, res))
+        const auto auth = require_sk_key(hyperpass_backend, req, res);
+        if (!auth)
             return;
         const auto listed = hyperpass_backend.list_models();
         if (!listed.status.ok())
@@ -191,6 +235,8 @@ void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& hyp
         json::array data;
         for (const auto& model : listed.reply.models())
         {
+            if (!auth->bound_instance_id.empty() && auth->bound_instance_id != model.instance_id())
+                continue;
             json::object item;
             item["id"] = model.openai_id();
             item["object"] = "model";
@@ -208,9 +254,10 @@ void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& hyp
     server.Get("/v1/models/:id", models);
 
     auto completions = [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
-        if (!require_sk_key(hyperpass_backend, req, res))
+        const auto auth = require_sk_key(hyperpass_backend, req, res);
+        if (!auth)
             return;
-        proxy_to_backend(hyperpass_backend, req, res, req.path);
+        proxy_to_backend(hyperpass_backend, req, res, req.path, *auth);
     };
     server.Post("/v1/chat/completions", completions);
     server.Post("/v1/completions", completions);

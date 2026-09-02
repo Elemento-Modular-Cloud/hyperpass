@@ -66,7 +66,8 @@ mp::ApiKeyStore::ApiKeyStore(Path data_directory)
     load();
 }
 
-mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label)
+mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label,
+                                                    const std::string& instance_id)
 {
     std::lock_guard lock{mutex};
     CreatedKey created;
@@ -76,6 +77,7 @@ mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label)
     created.record.label = label;
     created.record.sha256_hex = sha256_hex(created.secret);
     created.record.created_at = QDateTime::currentSecsSinceEpoch();
+    created.record.instance_id = instance_id;
     keys.push_back(created.record);
     save();
     return created;
@@ -107,6 +109,17 @@ bool mp::ApiKeyStore::revoke_by_prefix(const std::string& prefix)
         return false;
     save();
     return true;
+}
+
+void mp::ApiKeyStore::revoke_for_instance(const std::string& instance_id)
+{
+    if (instance_id.empty())
+        return;
+    std::lock_guard lock{mutex};
+    const auto before = keys.size();
+    std::erase_if(keys, [&](const auto& k) { return k.instance_id == instance_id; });
+    if (keys.size() != before)
+        save();
 }
 
 std::optional<mp::ApiKeyRecord> mp::ApiKeyStore::verify(const std::string& secret) const
@@ -147,6 +160,7 @@ void mp::ApiKeyStore::load()
         rec.label = obj.value("label").toString().toStdString();
         rec.sha256_hex = obj.value("sha256").toString().toStdString();
         rec.created_at = static_cast<long long>(obj.value("created_at").toDouble());
+        rec.instance_id = obj.value("instance_id").toString().toStdString();
         if (!rec.id.empty() && !rec.sha256_hex.empty())
             keys.push_back(std::move(rec));
     }
@@ -163,6 +177,8 @@ void mp::ApiKeyStore::save() const
         obj.insert("label", QString::fromStdString(key.label));
         obj.insert("sha256", QString::fromStdString(key.sha256_hex));
         obj.insert("created_at", static_cast<double>(key.created_at));
+        if (!key.instance_id.empty())
+            obj.insert("instance_id", QString::fromStdString(key.instance_id));
         array.append(obj);
     }
     MP_FILEOPS.write_transactionally(store_path,

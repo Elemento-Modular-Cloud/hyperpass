@@ -783,6 +783,7 @@ message ListLlmBackendsReply {
 message CreateApiKeyRequest {
     string label = 1;
     int32 verbosity_level = 2;
+    string instance_id = 3;
 }
 
 message CreateApiKeyReply {
@@ -791,6 +792,9 @@ message CreateApiKeyReply {
     string prefix = 3;
     string secret = 4;
     string label = 5;
+    string instance_id = 6;
+    string model_id = 7;
+    string openai_id = 8;
 }
 
 message ApiKeyInfo {
@@ -798,6 +802,9 @@ message ApiKeyInfo {
     string prefix = 2;
     string label = 3;
     int64 created_at = 4;
+    string instance_id = 5;
+    string model_id = 6;
+    string openai_id = 7;
 }
 
 message ListApiKeysRequest {
@@ -830,6 +837,7 @@ message VerifyApiKeyReply {
     bool valid = 2;
     string id = 3;
     string prefix = 4;
+    string instance_id = 5;
 }
 
 message TouchModelRequest {

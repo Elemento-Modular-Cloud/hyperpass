@@ -155,6 +155,7 @@ public:
                             std::chrono::seconds deadline = std::chrono::seconds{60});
     ListModelsResult list_models(std::chrono::seconds deadline = std::chrono::seconds{30});
     CreateApiKeyResult create_api_key(const std::string& label,
+                                      const std::string& instance_id = {},
                                       std::chrono::seconds deadline = std::chrono::seconds{30});
     ListApiKeysResult list_api_keys(std::chrono::seconds deadline = std::chrono::seconds{30});
     GrpcResult revoke_api_key(const std::string& id,
