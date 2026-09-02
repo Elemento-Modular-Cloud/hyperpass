@@ -711,6 +711,19 @@ grpc::Status mp::DaemonRpc::touch_model(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::delete_model(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<DeleteModelReply, DeleteModelRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_delete_model,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 template <typename T, typename U, typename OperationSignal>
 grpc::Status
 mp::DaemonRpc::verify_client_and_dispatch_operation(OperationSignal signal,

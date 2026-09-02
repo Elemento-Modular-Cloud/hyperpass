@@ -186,6 +186,9 @@ signals:
     void on_touch_model(const TouchModelRequest* request,
                         grpc::ServerReaderWriter<TouchModelReply, TouchModelRequest>* server,
                         DaemonRpcContext* context);
+    void on_delete_model(const DeleteModelRequest* request,
+                         grpc::ServerReaderWriter<DeleteModelReply, DeleteModelRequest>* server,
+                         DaemonRpcContext* context);
 
 private:
     template <typename T, typename U, typename OperationSignal>
@@ -305,5 +308,8 @@ protected:
     grpc::Status touch_model(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<TouchModelReply, TouchModelRequest>* server) override;
+    grpc::Status delete_model(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<DeleteModelReply, DeleteModelRequest>* server) override;
 };
 } // namespace multipass

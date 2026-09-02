@@ -211,9 +211,13 @@ bool mp::ModelVault::remove(const std::string& model_id)
     });
     if (it == artifacts.end())
         return false;
-    QFile::remove(QString::fromStdString(it->path));
+    const auto path = QString::fromStdString(it->path);
+    const auto parent = QFileInfo{path}.absoluteDir();
+    QFile::remove(path);
     artifacts.erase(it);
     save();
+    if (parent.exists() && parent.isEmpty())
+        parent.rmdir(".");
     return true;
 }
 

@@ -303,6 +303,13 @@ class GrpcClient {
     ).then((r) => r!);
   }
 
+  Future<DeleteModelReply> deleteModel(String modelId) {
+    return doRpc(
+      _client.delete_model,
+      DeleteModelRequest(modelId: modelId),
+    ).then((r) => r!);
+  }
+
   Future<CreateApiKeyReply> createApiKey({String label = ''}) {
     return doRpc(
       _client.create_api_key,

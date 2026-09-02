@@ -96,6 +96,9 @@ public:
         grpc::ServerReaderWriterInterface<VerifyApiKeyReply, VerifyApiKeyRequest>* server);
     void touch_model(const TouchModelRequest* request,
                      grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>* server);
+    void delete_model(
+        const DeleteModelRequest* request,
+        grpc::ServerReaderWriterInterface<DeleteModelReply, DeleteModelRequest>* server);
 
     void unload_named(const std::string& model_id);
     std::optional<LoadedSession*> session_by_openai_id(const std::string& openai_id);

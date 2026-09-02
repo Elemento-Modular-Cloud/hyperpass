@@ -629,6 +629,31 @@ void mp::LlmService::touch_model(
     server->Write(reply);
 }
 
+void mp::LlmService::delete_model(
+    const DeleteModelRequest* request,
+    grpc::ServerReaderWriterInterface<DeleteModelReply, DeleteModelRequest>* server)
+{
+    const auto model_id = request->model_id();
+    if (model_id.empty())
+        throw std::runtime_error("model_id is required");
+
+    if (is_loaded(model_id))
+        unload_named(model_id);
+
+    const auto artifact = vault.find(model_id);
+    if (!artifact)
+        throw std::runtime_error(fmt::format("model '{}' is not downloaded", model_id));
+
+    const auto freed = static_cast<uint64_t>(std::max(0LL, artifact->size_bytes));
+    if (!vault.remove(model_id))
+        throw std::runtime_error(fmt::format("failed to delete model '{}'", model_id));
+
+    DeleteModelReply reply;
+    reply.set_model_id(model_id);
+    reply.set_freed_bytes(freed);
+    server->Write(reply);
+}
+
 bool mp::LlmService::is_loaded(const std::string& model_id) const
 {
     std::lock_guard lock{mutex};

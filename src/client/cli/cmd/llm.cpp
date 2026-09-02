@@ -225,6 +225,24 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                         [&](grpc::Status& s) { return fail(cerr, s, cmd_name); });
     }
 
+    if (subcommand == "delete" || subcommand == "rm")
+    {
+        DeleteModelRequest request;
+        request.set_verbosity_level(verbosity);
+        request.set_model_id(model_id.toStdString());
+        auto on_success = [this](DeleteModelReply& reply) -> ReturnCodeVariant {
+            cout << fmt::format("Deleted {} (freed {})\n",
+                                reply.model_id(),
+                                mp::MemorySize::from_bytes(static_cast<long long>(reply.freed_bytes()))
+                                    .human_readable());
+            return ReturnCode::Ok;
+        };
+        return dispatch(&RpcMethod::delete_model,
+                        request,
+                        on_success,
+                        [&](grpc::Status& s) { return fail(cerr, s, cmd_name); });
+    }
+
     if (subcommand == "key")
     {
         if (key_id == "create" || model_id == "create")
@@ -300,13 +318,13 @@ QString cmd::Llm::description() const
 {
     return QStringLiteral(
         "Manage local LLM inference behind the OpenAI-compatible /v1 API.\n\n"
-        "Subcommands: find, pull, load, unload, list, cache, key create|list|revoke");
+        "Subcommands: find, pull, load, unload, list, cache, delete, key create|list|revoke");
 }
 
 mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
 {
     parser->addPositionalArgument("subcommand",
-                                  "find | pull | load | unload | list | cache | key",
+                                  "find | pull | load | unload | list | cache | delete | key",
                                   "<subcommand>");
     parser->addPositionalArgument("args", "Subcommand arguments", "[<args>...]");
     QCommandLineOption use_case_opt{"use-case", "Recommendation use case", "use-case"};
@@ -332,7 +350,7 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     const auto pos = parser->positionalArguments();
     if (pos.isEmpty())
     {
-        cerr << "Missing subcommand. Try: find, pull, load, unload, list, cache, key\n";
+        cerr << "Missing subcommand. Try: find, pull, load, unload, list, cache, delete, key\n";
         return ParseCode::CommandLineError;
     }
     subcommand = pos.at(0);
@@ -362,7 +380,7 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     if (parser->isSet(label_opt))
         key_label = parser->value(label_opt);
 
-    const QStringList needs_id{"pull", "load", "unload"};
+    const QStringList needs_id{"pull", "load", "unload", "delete", "rm"};
     if (needs_id.contains(subcommand) && model_id.isEmpty())
     {
         cerr << "Missing model id\n";

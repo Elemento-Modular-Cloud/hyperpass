@@ -356,6 +356,22 @@
     "@modelsLoadCached": {
         "description": "Load a model that is already on disk"
     },
+    "modelsDeleteCached": "Delete",
+    "@modelsDeleteCached": {
+        "description": "Remove a downloaded model from disk"
+    },
+    "modelsDeleteCachedTitle": "Delete downloaded model?",
+    "@modelsDeleteCachedTitle": {
+        "description": "Confirmation title when deleting a cached model"
+    },
+    "modelsDeleteCachedBody": "This will permanently remove the GGUF file from disk. Loaded models are unloaded first.",
+    "@modelsDeleteCachedBody": {
+        "description": "Confirmation body when deleting a cached model"
+    },
+    "modelsDeleteCachedTooltip": "Remove from disk",
+    "@modelsDeleteCachedTooltip": {
+        "description": "Tooltip for delete cached model action"
+    },
     "hostRamScheduler": "RAM (scheduler)",
     "@hostRamScheduler": {
         "description": "Label for Hyperpass RAM reservations"

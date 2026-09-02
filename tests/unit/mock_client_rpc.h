@@ -663,6 +663,21 @@ public:
                 PrepareAsynctouch_modelRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::DeleteModelRequest,
+                                                   multipass::DeleteModelReply>*),
+                delete_modelRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::DeleteModelRequest,
+                                                        multipass::DeleteModelReply>*),
+                Asyncdelete_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::DeleteModelRequest,
+                                                        multipass::DeleteModelReply>*),
+                PrepareAsyncdelete_modelRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListLlmBackendsRequest,
                                                    multipass::ListLlmBackendsReply>*),
                 list_llm_backendsRaw,

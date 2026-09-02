@@ -602,6 +602,7 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon)
     QObject::connect(&rpc, &mp::DaemonRpc::on_revoke_api_key, &daemon, &mp::Daemon::revoke_api_key);
     QObject::connect(&rpc, &mp::DaemonRpc::on_verify_api_key, &daemon, &mp::Daemon::verify_api_key);
     QObject::connect(&rpc, &mp::DaemonRpc::on_touch_model, &daemon, &mp::Daemon::touch_model);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_delete_model, &daemon, &mp::Daemon::delete_model);
 }
 
 enum class InstanceGroup
@@ -4339,6 +4340,14 @@ void mp::Daemon::touch_model(
     DaemonRpcContext* context)
 {
     run_llm_rpc(llm_service.get(), context, [&] { llm_service->touch_model(request, server); });
+}
+
+void mp::Daemon::delete_model(
+    const DeleteModelRequest* request,
+    grpc::ServerReaderWriterInterface<DeleteModelReply, DeleteModelRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_llm_rpc(llm_service.get(), context, [&] { llm_service->delete_model(request, server); });
 }
 
 bool mp::Daemon::is_bridged(const std::string& instance_name) const

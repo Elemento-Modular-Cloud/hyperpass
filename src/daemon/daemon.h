@@ -237,6 +237,10 @@ public slots:
         const TouchModelRequest* request,
         grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>* server,
         DaemonRpcContext* context);
+    virtual void delete_model(
+        const DeleteModelRequest* request,
+        grpc::ServerReaderWriterInterface<DeleteModelReply, DeleteModelRequest>* server,
+        DaemonRpcContext* context);
 
 private:
     void release_resources(const std::string& instance);

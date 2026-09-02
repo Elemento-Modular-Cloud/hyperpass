@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
 import '../brand.dart';
+import '../confirmation_dialog.dart';
 import '../copyable_text.dart';
 import '../l10n/app_localizations.dart';
 import '../page_surface.dart';
@@ -746,27 +747,7 @@ class _DownloadsPane extends ConsumerWidget {
             }
             return Column(
               children: [
-                for (final model in reply.cached)
-                  ListTile(
-                    title: Text(model.name.isEmpty ? model.id : model.name),
-                    subtitle: Text(
-                      [
-                        if (model.bestQuant.isNotEmpty) model.bestQuant,
-                        if (model.hfRepo.isNotEmpty) model.hfRepo,
-                        if (model.memoryRequiredGb > 0)
-                          '${model.memoryRequiredGb.toStringAsFixed(1)} GiB',
-                      ].join(' · '),
-                    ),
-                    trailing: TextButton(
-                      onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
-                            model.id,
-                            model.bestQuant,
-                            hfRepo: modelDownloadRepo(model),
-                            loadAfter: true,
-                          ),
-                      child: Text(l10n.modelsLoadCached),
-                    ),
-                  ),
+                for (final model in reply.cached) _CachedModelRow(model: model),
               ],
             );
           },
@@ -774,6 +755,65 @@ class _DownloadsPane extends ConsumerWidget {
           error: (e, _) => Text('$e'),
         ),
       ],
+    );
+  }
+}
+
+class _CachedModelRow extends ConsumerWidget {
+  final ModelSuggestion model;
+  const _CachedModelRow({required this.model});
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ConfirmationDialog(
+        title: l10n.modelsDeleteCachedTitle,
+        body: Text(l10n.modelsDeleteCachedBody),
+        actionText: l10n.commonDelete,
+        onAction: () async {
+          Navigator.pop(context);
+          await ref.read(grpcClientProvider).deleteModel(model.id);
+          ref.invalidate(loadedModelsProvider);
+        },
+        inactionText: l10n.commonCancel,
+        onInaction: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      title: Text(model.name.isEmpty ? model.id : model.name),
+      subtitle: Text(
+        [
+          if (model.bestQuant.isNotEmpty) model.bestQuant,
+          if (model.hfRepo.isNotEmpty) model.hfRepo,
+          if (model.memoryRequiredGb > 0) '${model.memoryRequiredGb.toStringAsFixed(1)} GiB',
+        ].join(' · '),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton(
+            onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
+                  model.id,
+                  model.bestQuant,
+                  hfRepo: modelDownloadRepo(model),
+                  loadAfter: true,
+                ),
+            child: Text(l10n.modelsLoadCached),
+          ),
+          IconButton(
+            tooltip: l10n.modelsDeleteCachedTooltip,
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _confirmDelete(context, ref),
+          ),
+        ],
+      ),
     );
   }
 }

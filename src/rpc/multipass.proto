@@ -62,6 +62,7 @@ service Rpc {
     rpc revoke_api_key (stream RevokeApiKeyRequest) returns (stream RevokeApiKeyReply);
     rpc verify_api_key (stream VerifyApiKeyRequest) returns (stream VerifyApiKeyReply);
     rpc touch_model (stream TouchModelRequest) returns (stream TouchModelReply);
+    rpc delete_model (stream DeleteModelRequest) returns (stream DeleteModelReply);
 }
 
 message LaunchRequest {
@@ -833,4 +834,15 @@ message TouchModelRequest {
 
 message TouchModelReply {
     string log_line = 1;
+}
+
+message DeleteModelRequest {
+    string model_id = 1;
+    int32 verbosity_level = 2;
+}
+
+message DeleteModelReply {
+    string log_line = 1;
+    string model_id = 2;
+    uint64 freed_bytes = 3;
 }

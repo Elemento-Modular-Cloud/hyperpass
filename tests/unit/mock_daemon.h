@@ -280,6 +280,12 @@ struct MockDaemon : public Daemon
                  (grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>*),
                  DaemonRpcContext*),
                 (override));
+    MOCK_METHOD(void,
+                delete_model,
+                (const DeleteModelRequest*,
+                 (grpc::ServerReaderWriterInterface<DeleteModelReply, DeleteModelRequest>*),
+                 DaemonRpcContext*),
+                (override));
 
     template <typename Request, typename Reply>
     void set_promise_value(const Request*,
