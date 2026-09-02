@@ -131,6 +131,25 @@ The Hyperpass GUI can **list and manage** stock Multipass instances when Multipa
 
 ## Launch / shell troubleshooting
 
+### QEMU `Process crashed` on macOS
+
+If hyperpassd logs `Process crashed` for `qemu-system-aarch64` (including on `--version` or VM start), the build-tree QEMU likely lacks the **hypervisor** entitlement. vcpkg copies an unsigned binary into `build/bin/`; macOS kills it when HVF or Hypervisor.framework is involved.
+
+After each build, run (or rely on `./scripts/build-macos.sh`, which does this automatically):
+
+```bash
+./scripts/sign-dev-macos-binaries.sh
+```
+
+Verify:
+
+```bash
+codesign -dv --entitlements - build/bin/qemu-system-aarch64 | rg hypervisor
+build/bin/qemu-system-aarch64 --version
+```
+
+Then restart the dev daemon: `./scripts/run-dev-daemon.sh --stop` and `./scripts/run-dev-daemon.sh`.
+
 While an instance is **Starting** (boot or cloud-init in progress), do not run `hyperpass shell` or `hyperpass exec` against it. Wait until launch finishes or `hyperpass list` shows **Running**.
 
 If the CLI stops responding, a long-running `launch`/`start` may be holding the daemon busy. Use `./scripts/run-dev-daemon.sh --stop` and restart the dev daemon, or wait for the in-flight launch to complete (default timeout is five minutes per phase).

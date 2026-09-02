@@ -189,6 +189,10 @@ signals:
     void on_delete_model(const DeleteModelRequest* request,
                          grpc::ServerReaderWriter<DeleteModelReply, DeleteModelRequest>* server,
                          DaemonRpcContext* context);
+    void on_stream_model_logs(
+        const StreamModelLogsRequest* request,
+        grpc::ServerReaderWriter<StreamModelLogsReply, StreamModelLogsRequest>* server,
+        DaemonRpcContext* context);
 
 private:
     template <typename T, typename U, typename OperationSignal>
@@ -311,5 +315,8 @@ protected:
     grpc::Status delete_model(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<DeleteModelReply, DeleteModelRequest>* server) override;
+    grpc::Status stream_model_logs(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<StreamModelLogsReply, StreamModelLogsRequest>* server) override;
 };
 } // namespace multipass

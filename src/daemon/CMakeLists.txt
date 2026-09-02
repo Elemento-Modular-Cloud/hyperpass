@@ -22,6 +22,7 @@ add_library(daemon STATIC
   daemon_rpc.cpp
   default_vm_image_vault.cpp
   instance_settings_handler.cpp
+  llm_dispatcher.cpp
   resource_pool.cpp
   runtime_instance_info_helper.cpp
   snapshot_settings_handler.cpp)

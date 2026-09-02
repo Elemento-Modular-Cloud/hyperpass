@@ -10,15 +10,18 @@ import 'brand.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
 import 'cloud_init/cloud_init_screen.dart';
-import 'distro_branding.dart';
 import 'glass_panel.dart';
 import 'help.dart';
 import 'l10n/app_localizations.dart';
-import 'models/models_screen.dart';
+import 'llm/catalogue/llm_catalogue_screen.dart';
+import 'llm/credentials/llm_credentials_screen.dart';
+import 'llm/host_resource_gauges.dart';
+import 'llm/instances/llm_instances_screen.dart';
+import 'llm/llm_id.dart';
+import 'llm/providers.dart';
 import 'multipass_auth_banner.dart';
 import 'providers.dart';
 import 'settings/settings.dart';
-import 'vm_details/terminal.dart';
 import 'vm_table/vm_table_screen.dart';
 
 extension on String {
@@ -32,6 +35,12 @@ class SidebarKeyNotifier extends Notifier<String> {
       final vmId = state.sidebarVmId;
       if (vmId != null && !ids.contains(vmId)) ref.invalidateSelf();
     });
+    ref.listen(loadedLlmIdsProvider, (_, ids) {
+      final llmId = parseSidebarLlmKey(state);
+      if (llmId != null && !ids.any((id) => id.instanceId == llmId.instanceId)) {
+        ref.invalidateSelf();
+      }
+    });
 
     return CatalogueScreen.sidebarKey;
   }
@@ -39,6 +48,9 @@ class SidebarKeyNotifier extends Notifier<String> {
   void set(String key) {
     if (key.sidebarVmId != null) {
       ref.read(vmVisitedProvider(key).notifier).setVisited();
+    }
+    if (parseSidebarLlmKey(key) != null) {
+      ref.read(llmVisitedProvider(key).notifier).setVisited();
     }
     state = key;
   }
@@ -65,6 +77,23 @@ final vmVisitedProvider =
   VmVisitedNotifier.new,
 );
 
+class LlmVisitedNotifier extends Notifier<bool> {
+  LlmVisitedNotifier(this.arg);
+  final String arg;
+
+  @override
+  bool build() => false;
+
+  void setVisited() {
+    state = true;
+  }
+}
+
+final llmVisitedProvider =
+    NotifierProvider.family<LlmVisitedNotifier, bool, String>(
+  LlmVisitedNotifier.new,
+);
+
 /// Electros `navigation-item` / `nav-bar` tokens.
 abstract final class _SidebarStyle {
   static const iconColumnWidth = 32.0;
@@ -73,11 +102,9 @@ abstract final class _SidebarStyle {
   static const labelSize = 13.0;
   static const subLabelSize = 12.0;
   static const iconSize = 14.0;
-  /// Electros `.electrosNavBarLogo` is `5rem` with `1rem` margin — keep compact for two-line title.
   static const brandAreaHeight = 48.0;
   static const brandLogoSize = 32.0;
   static const brandTitleSize = 15.0;
-  /// Electros `.electrosNavBarElemento`: `1.5rem` mark / `1.25rem` text.
   static const footerLogoSize = 20.0;
   static const footerSize = 16.0;
   static const statusSize = 12.0;
@@ -105,18 +132,40 @@ abstract final class _SidebarStyle {
         AppearanceTheme.dark => Brand.crystalWhite,
         AppearanceTheme.highContrast => Brand.crystalWhite,
       };
+
+  static Color sectionColor(AppearanceTheme theme) => foreground(theme).withAlpha(140);
+}
+
+class SidebarSectionHeader extends ConsumerWidget {
+  final String label;
+
+  const SidebarSectionHeader(this.label, {super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appearanceTheme = ref.watch(
+      appearanceSettingsProvider.select((settings) => settings.theme),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: _SidebarStyle.sectionColor(appearanceTheme),
+          fontFamily: Brand.fontFamily,
+          fontSize: _SidebarStyle.subLabelSize,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
 }
 
 class SideBar extends ConsumerWidget {
   static const animationDuration = Duration(milliseconds: 200);
-
-  /// Reserved height for the borderless window title strip.
   static const titleBarHeight = 36.0;
-
-  /// Narrower than Electros `240px` so content gets more room.
   static const width = 200.0;
-
-  /// Right gutter matching Electros `nav-bar` `margin-right`.
   static const gutter = 12.0;
 
   static double get totalWidth => width + gutter;
@@ -132,11 +181,16 @@ class SideBar extends ConsumerWidget {
     final selectedSidebarKey = ref.watch(sidebarKeyProvider);
     final sidebarKeyNotifier = sidebarKeyProvider.notifier;
     final vmNames = ref.watch(vmIdsProvider);
+    final loadedCount = ref.watch(loadedLlmIdsProvider).length;
     final daemonUp = ref.watch(daemonAvailableProvider);
     final multipassStatus = ref.watch(multipassSidebarStatusProvider);
     final fg = _SidebarStyle.foreground(appearanceTheme);
 
     bool isSelected(String key) => key == selectedSidebarKey;
+
+    bool isLlmInstancesSelected() =>
+        isSelected(LlmInstancesScreen.sidebarKey) ||
+        parseSidebarLlmKey(selectedSidebarKey) != null;
 
     final catalogue = SidebarEntry(
       icon: FontAwesomeIcons.layerGroup,
@@ -144,6 +198,15 @@ class SideBar extends ConsumerWidget {
       label: l10n.catalogueLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CatalogueScreen.sidebarKey);
+      },
+    );
+
+    final cloudInit = SidebarEntry(
+      icon: FontAwesomeIcons.cloud,
+      selected: isSelected(CloudInitScreen.sidebarKey),
+      label: l10n.cloudInitLabel,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(CloudInitScreen.sidebarKey);
       },
     );
 
@@ -158,12 +221,31 @@ class SideBar extends ConsumerWidget {
       },
     );
 
-    final models = SidebarEntry(
-      icon: FontAwesomeIcons.brain,
-      selected: isSelected(ModelsScreen.sidebarKey),
-      label: l10n.modelsLabel,
+    final llmCatalogue = SidebarEntry(
+      icon: FontAwesomeIcons.book,
+      selected: isSelected(LlmCatalogueScreen.sidebarKey),
+      label: l10n.llmCatalogueLabel,
       onPressed: () {
-        ref.read(sidebarKeyNotifier).set(ModelsScreen.sidebarKey);
+        ref.read(sidebarKeyNotifier).set(LlmCatalogueScreen.sidebarKey);
+      },
+    );
+
+    final llmInstances = SidebarEntry(
+      icon: FontAwesomeIcons.microchip,
+      selected: isLlmInstancesSelected(),
+      label: l10n.llmInstancesLabel,
+      badge: loadedCount > 0 ? loadedCount.toString() : null,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(LlmInstancesScreen.sidebarKey);
+      },
+    );
+
+    final llmCredentials = SidebarEntry(
+      icon: FontAwesomeIcons.key,
+      selected: isSelected(LlmCredentialsScreen.sidebarKey),
+      label: l10n.llmCredentialsLabel,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(LlmCredentialsScreen.sidebarKey);
       },
     );
 
@@ -182,15 +264,6 @@ class SideBar extends ConsumerWidget {
       label: l10n.cacheLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CacheScreen.sidebarKey);
-      },
-    );
-
-    final cloudInit = SidebarEntry(
-      icon: FontAwesomeIcons.cloud,
-      selected: isSelected(CloudInitScreen.sidebarKey),
-      label: l10n.cloudInitLabel,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(CloudInitScreen.sidebarKey);
       },
     );
 
@@ -239,50 +312,6 @@ class SideBar extends ConsumerWidget {
         ),
       ),
     );
-
-    final vmEntries = vmNames.map((id) {
-      final key = id.sidebarKey;
-      final hasShells = ref.watch(
-        runningShellsProvider(id).select((n) => n > 0),
-      );
-      final info = ref.watch(vmInfoProvider(id));
-      final branding = distroBranding(
-        info.instanceInfo.os,
-        release: info.instanceInfo.currentRelease,
-      );
-      return SidebarEntry(
-        key: ValueKey(key),
-        icon: FontAwesomeIcons.terminal,
-        selected: isSelected(key),
-        label: id.source == DaemonSource.multipass
-            ? '${id.name} · MP'
-            : id.name,
-        subroute: true,
-        iconOpacity: hasShells ? 1 : 0.35,
-        iconColor: branding.accent,
-        onPressed: () {
-          ref.read(sidebarKeyNotifier).set(key);
-        },
-      );
-    });
-
-    final vmList = vmEntries.isEmpty
-        ? const SizedBox.shrink()
-        : Padding(
-            padding: const EdgeInsets.only(left: 14),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border(
-                  left: BorderSide(
-                    color: appearanceTheme == AppearanceTheme.light
-                        ? Brand.greyDarker.withAlpha(80)
-                        : Brand.greyBody,
-                  ),
-                ),
-              ),
-              child: Column(children: vmEntries.toList()),
-            ),
-          );
 
     final daemonStatus = _SidebarStatusRow(
       icon: FontAwesomeIcons.microchip,
@@ -348,16 +377,15 @@ class SideBar extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
+        SidebarSectionHeader(l10n.sidebarSectionVms),
         catalogue,
         cloudInit,
         instances,
-        models,
-        Expanded(
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [vmList],
-          ),
-        ),
+        SidebarSectionHeader(l10n.sidebarSectionLlms),
+        llmCatalogue,
+        llmInstances,
+        llmCredentials,
+        const Spacer(),
         Divider(color: fg.withAlpha(40), height: 1),
         cache,
         help,

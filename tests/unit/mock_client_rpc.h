@@ -678,6 +678,21 @@ public:
                 PrepareAsyncdelete_modelRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::StreamModelLogsRequest,
+                                                   multipass::StreamModelLogsReply>*),
+                stream_model_logsRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::StreamModelLogsRequest,
+                                                        multipass::StreamModelLogsReply>*),
+                Asyncstream_model_logsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::StreamModelLogsRequest,
+                                                        multipass::StreamModelLogsReply>*),
+                PrepareAsyncstream_model_logsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListLlmBackendsRequest,
                                                    multipass::ListLlmBackendsReply>*),
                 list_llm_backendsRaw,

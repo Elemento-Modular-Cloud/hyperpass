@@ -68,6 +68,7 @@ mp::ApiKeyStore::ApiKeyStore(Path data_directory)
 
 mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label)
 {
+    std::lock_guard lock{mutex};
     CreatedKey created;
     created.secret = "sk-hp-" + random_hex(24);
     created.record.id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
@@ -82,11 +83,13 @@ mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label)
 
 std::vector<mp::ApiKeyRecord> mp::ApiKeyStore::list() const
 {
+    std::lock_guard lock{mutex};
     return keys;
 }
 
 bool mp::ApiKeyStore::revoke_by_id(const std::string& id)
 {
+    std::lock_guard lock{mutex};
     const auto before = keys.size();
     std::erase_if(keys, [&](const auto& k) { return k.id == id; });
     if (keys.size() == before)
@@ -97,6 +100,7 @@ bool mp::ApiKeyStore::revoke_by_id(const std::string& id)
 
 bool mp::ApiKeyStore::revoke_by_prefix(const std::string& prefix)
 {
+    std::lock_guard lock{mutex};
     const auto before = keys.size();
     std::erase_if(keys, [&](const auto& k) { return k.prefix == prefix || k.id == prefix; });
     if (keys.size() == before)
@@ -107,6 +111,7 @@ bool mp::ApiKeyStore::revoke_by_prefix(const std::string& prefix)
 
 std::optional<mp::ApiKeyRecord> mp::ApiKeyStore::verify(const std::string& secret) const
 {
+    std::lock_guard lock{mutex};
     if (secret.rfind("sk-hp-", 0) != 0)
         return std::nullopt;
     const auto digest = sha256_hex(secret);

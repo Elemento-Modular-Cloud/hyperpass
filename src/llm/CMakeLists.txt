@@ -19,6 +19,7 @@ add_library(llm STATIC
   backend_probe.cpp
   binary_locator.cpp
   llama_server_process_spec.cpp
+  llm_activity_log.cpp
   llm_service.cpp
   llmfit_advisor.cpp
   mlx_server_process_spec.cpp

@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../catalogue/catalogue.dart';
 import '../daemon_source.dart';
 import '../l10n/app_localizations.dart';
-import '../models/models_screen.dart';
+import '../llm/host_resource_gauges.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import '../switch.dart';

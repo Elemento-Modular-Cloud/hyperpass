@@ -21,7 +21,7 @@
 #include "runtime_instance_info_helper.h"
 #include "snapshot_settings_handler.h"
 
-#include "llm_service.h"
+#include "llm_dispatcher.h"
 
 #include <multipass/alias_definition.h>
 #include <multipass/cloud_init_iso.h>
@@ -76,7 +76,7 @@
 #include <QString>
 #include <QStringList>
 #include <QSysInfo>
-#include <QThreadPool>
+#include <QThread>
 #include <QtConcurrent/QtConcurrent>
 
 #include <algorithm>
@@ -559,7 +559,7 @@ auto validate_create_arguments(const mp::LaunchRequest* request, const mp::Daemo
     return ret;
 }
 
-auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon)
+auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_dispatcher)
 {
     QObject::connect(&rpc, &mp::DaemonRpc::on_create, &daemon, &mp::Daemon::create);
     QObject::connect(&rpc, &mp::DaemonRpc::on_launch, &daemon, &mp::Daemon::launch);
@@ -591,18 +591,26 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon)
     QObject::connect(&rpc, &mp::DaemonRpc::on_wait_ready, &daemon, &mp::Daemon::wait_ready);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones, &daemon, &mp::Daemon::zones);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones_state, &daemon, &mp::Daemon::zones_state);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_find_models, &daemon, &mp::Daemon::find_models);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_pull_model, &daemon, &mp::Daemon::pull_model);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_load_model, &daemon, &mp::Daemon::load_model);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_unload_model, &daemon, &mp::Daemon::unload_model);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_list_models, &daemon, &mp::Daemon::list_models);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_list_llm_backends, &daemon, &mp::Daemon::list_llm_backends);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_create_api_key, &daemon, &mp::Daemon::create_api_key);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_list_api_keys, &daemon, &mp::Daemon::list_api_keys);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_revoke_api_key, &daemon, &mp::Daemon::revoke_api_key);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_verify_api_key, &daemon, &mp::Daemon::verify_api_key);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_touch_model, &daemon, &mp::Daemon::touch_model);
-    QObject::connect(&rpc, &mp::DaemonRpc::on_delete_model, &daemon, &mp::Daemon::delete_model);
+    if (llm_dispatcher)
+    {
+        QObject::connect(&rpc, &mp::DaemonRpc::on_find_models, llm_dispatcher, &mp::LlmDispatcher::find_models);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_pull_model, llm_dispatcher, &mp::LlmDispatcher::pull_model);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_load_model, llm_dispatcher, &mp::LlmDispatcher::load_model);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_unload_model, llm_dispatcher, &mp::LlmDispatcher::unload_model);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_list_models, llm_dispatcher, &mp::LlmDispatcher::list_models);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_list_llm_backends,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::list_llm_backends);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_create_api_key, llm_dispatcher, &mp::LlmDispatcher::create_api_key);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_list_api_keys, llm_dispatcher, &mp::LlmDispatcher::list_api_keys);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_revoke_api_key, llm_dispatcher, &mp::LlmDispatcher::revoke_api_key);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_verify_api_key, llm_dispatcher, &mp::LlmDispatcher::verify_api_key);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_touch_model, llm_dispatcher, &mp::LlmDispatcher::touch_model);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_stream_model_logs,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::stream_model_logs);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_delete_model, llm_dispatcher, &mp::LlmDispatcher::delete_model);
+    }
 }
 
 enum class InstanceGroup
@@ -1349,11 +1357,6 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
       resource_pool{std::make_unique<ResourcePool>(
           MemorySize::from_bytes(std::max(0LL, MP_PLATFORM.get_total_ram())),
           MP_PLATFORM.get_cpus())},
-      llm_service{config && config->url_downloader
-                      ? std::make_unique<LlmService>(*resource_pool,
-                                                     *config->url_downloader,
-                                                     config->data_directory)
-                      : nullptr},
       vm_instance_specs{
           load_db(mp::utils::backend_directory_path(config->data_directory,
                                                     config->factory->get_backend_directory_name()),
@@ -1378,7 +1381,16 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
 {
     using e_state = VirtualMachine::State;
 
-    connect_rpc(daemon_rpc, *this);
+    if (config && config->url_downloader)
+    {
+        llm_dispatcher = std::make_unique<LlmDispatcher>(
+            *resource_pool, *config->url_downloader, config->data_directory);
+        llm_dispatcher->moveToThread(&llm_thread);
+        llm_thread.setObjectName("llm-dispatcher");
+        llm_thread.start();
+    }
+
+    connect_rpc(daemon_rpc, *this, llm_dispatcher.get());
     std::vector<std::string> invalid_specs;
 
     try
@@ -1609,6 +1621,15 @@ mp::Daemon::~Daemon()
         // in the event loop immediately to ensure that all recipients are notified
         // before the daemon object destructs.
         QCoreApplication::processEvents(QEventLoop::AllEvents);
+
+        if (llm_dispatcher && llm_thread.isRunning())
+        {
+            QMetaObject::invokeMethod(
+                llm_dispatcher.get(), &LlmDispatcher::shutdown, Qt::BlockingQueuedConnection);
+            llm_thread.quit();
+            llm_thread.wait();
+            llm_dispatcher.reset();
+        }
     });
 }
 
@@ -4203,8 +4224,8 @@ mp::TryClaimResult mp::Daemon::claim_vm(const std::string& name)
             for (const auto& model : preempted)
             {
                 mpl::info(category, "Preempted LLM '{}' to free RAM for VM '{}'", model, name);
-                if (llm_service)
-                    llm_service->unload_named(model);
+                if (llm_dispatcher)
+                    llm_dispatcher->unload_instances_blocking({model});
             }
             result = resource_pool->try_claim(name,
                                               WorkloadKind::vm,
@@ -4218,136 +4239,6 @@ mp::TryClaimResult mp::Daemon::claim_vm(const std::string& name)
 void mp::Daemon::release_vm_claim(const std::string& name)
 {
     resource_pool->release(name);
-}
-
-namespace
-{
-template <typename Work>
-void run_llm_rpc(mp::LlmService* service,
-                 mp::DaemonRpcContext* context,
-                 Work&& work)
-{
-    if (!service)
-    {
-        context->set_value(
-            grpc::Status{grpc::StatusCode::FAILED_PRECONDITION, "LLM service is unavailable", ""});
-        return;
-    }
-    try
-    {
-        work();
-        context->set_value(grpc::Status::OK);
-    }
-    catch (const std::exception& e)
-    {
-        const std::string msg{e.what()};
-        const auto code = msg.find("Not enough host memory") != std::string::npos
-                              ? grpc::StatusCode::RESOURCE_EXHAUSTED
-                              : grpc::StatusCode::FAILED_PRECONDITION;
-        context->set_value(grpc::Status{code, msg, ""});
-    }
-}
-} // namespace
-
-void mp::Daemon::find_models(
-    const FindModelsRequest* request,
-    grpc::ServerReaderWriterInterface<FindModelsReply, FindModelsRequest>* server,
-    DaemonRpcContext* context)
-{
-    // llmfit recommend can take seconds; do not block the Qt thread (info / VM list).
-    QThreadPool::globalInstance()->start([service = llm_service.get(), request, server, context] {
-        run_llm_rpc(service, context, [service, request, server] {
-            service->find_models(request, server);
-        });
-    });
-}
-
-void mp::Daemon::pull_model(
-    const PullModelRequest* request,
-    grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->pull_model(request, server); });
-}
-
-void mp::Daemon::load_model(
-    const LoadModelRequest* request,
-    grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->load_model(request, server); });
-}
-
-void mp::Daemon::unload_model(
-    const UnloadModelRequest* request,
-    grpc::ServerReaderWriterInterface<UnloadModelReply, UnloadModelRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->unload_model(request, server); });
-}
-
-void mp::Daemon::list_models(
-    const ListModelsRequest* request,
-    grpc::ServerReaderWriterInterface<ListModelsReply, ListModelsRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->list_models(request, server); });
-}
-
-void mp::Daemon::list_llm_backends(
-    const ListLlmBackendsRequest* request,
-    grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->list_llm_backends(request, server); });
-}
-
-void mp::Daemon::create_api_key(
-    const CreateApiKeyRequest* request,
-    grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->create_api_key(request, server); });
-}
-
-void mp::Daemon::list_api_keys(
-    const ListApiKeysRequest* request,
-    grpc::ServerReaderWriterInterface<ListApiKeysReply, ListApiKeysRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->list_api_keys(request, server); });
-}
-
-void mp::Daemon::revoke_api_key(
-    const RevokeApiKeyRequest* request,
-    grpc::ServerReaderWriterInterface<RevokeApiKeyReply, RevokeApiKeyRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->revoke_api_key(request, server); });
-}
-
-void mp::Daemon::verify_api_key(
-    const VerifyApiKeyRequest* request,
-    grpc::ServerReaderWriterInterface<VerifyApiKeyReply, VerifyApiKeyRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->verify_api_key(request, server); });
-}
-
-void mp::Daemon::touch_model(
-    const TouchModelRequest* request,
-    grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->touch_model(request, server); });
-}
-
-void mp::Daemon::delete_model(
-    const DeleteModelRequest* request,
-    grpc::ServerReaderWriterInterface<DeleteModelReply, DeleteModelRequest>* server,
-    DaemonRpcContext* context)
-{
-    run_llm_rpc(llm_service.get(), context, [&] { llm_service->delete_model(request, server); });
 }
 
 bool mp::Daemon::is_bridged(const std::string& instance_name) const

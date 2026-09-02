@@ -19,6 +19,7 @@
 
 #include <multipass/path.h>
 
+#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -57,6 +58,7 @@ private:
     void save() const;
 
     Path store_path;
+    mutable std::mutex mutex;
     std::vector<ApiKeyRecord> keys;
 };
 

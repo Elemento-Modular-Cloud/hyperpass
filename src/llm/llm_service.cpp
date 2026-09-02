@@ -42,11 +42,15 @@
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QTcpServer>
+#include <QThread>
 #include <QTimer>
 #include <QUrl>
 
 #include <algorithm>
 #include <cctype>
+#include <condition_variable>
+#include <deque>
+#include <future>
 #include <stdexcept>
 
 namespace mp = multipass;
@@ -89,17 +93,24 @@ mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path d
 mp::LlmService::~LlmService()
 {
     idle_timer.stop();
-    std::lock_guard lock{mutex};
-    for (auto& [name, session] : sessions)
+    std::vector<std::pair<std::string, std::unique_ptr<Process>>> dying;
     {
-        if (session.process)
+        std::lock_guard lock{mutex};
+        for (auto& [name, session] : sessions)
         {
-            session.process->kill();
-            session.process->wait_for_finished(3000);
+            if (session.process)
+                dying.emplace_back(name, std::move(session.process));
+            if (session.runner_thread)
+            {
+                session.runner_thread->quit();
+                session.runner_thread->wait(5000);
+            }
+            pool.release(name);
         }
-        pool.release(name);
+        sessions.clear();
     }
-    sessions.clear();
+    for (auto& [_, process] : dying)
+        stop_process(process.get());
 }
 
 void mp::LlmService::restore_claims()
@@ -251,12 +262,15 @@ std::chrono::seconds mp::LlmService::idle_ttl() const
     return std::chrono::minutes{num};
 }
 
-std::string mp::LlmService::openai_id_for(const std::string& model_id) const
+std::string mp::LlmService::openai_id_for_instance(const std::string& model_id,
+                                                   const std::string& instance_id) const
 {
-    auto id = slug(model_id);
-    if (id.rfind("llama", 0) != 0 && id.find("gpt") == std::string::npos)
-        return id;
-    return id;
+    auto base = slug(model_id);
+    auto suffix = instance_id;
+    std::erase(suffix, '-');
+    if (suffix.size() > 8)
+        suffix = suffix.substr(0, 8);
+    return fmt::format("{}-{}", base, suffix);
 }
 
 mp::ResolvedGguf mp::LlmService::resolve_or_throw(const std::string& model_id,
@@ -333,53 +347,163 @@ void mp::LlmService::find_models(
     server->Write(reply);
 }
 
+void mp::LlmService::log_lifecycle(const std::string& instance_id,
+                                   const std::string& level,
+                                   const std::string& message)
+{
+    activity_log.append(instance_id, "lifecycle", level, message);
+}
+
+void mp::LlmService::attach_process_logging(const std::string& instance_id, Process* process)
+{
+    if (!process)
+        return;
+
+    QObject::connect(process,
+                     &Process::ready_read_standard_output,
+                     this,
+                     [this, instance_id, process]() {
+                         const auto chunk = process->read_all_standard_output();
+                         for (const auto& line :
+                              QString::fromUtf8(chunk).split('\n', Qt::SkipEmptyParts))
+                         {
+                             const auto trimmed = line.trimmed();
+                             if (!trimmed.isEmpty())
+                                 activity_log.append(instance_id, "process", "info", trimmed.toStdString());
+                         }
+                     });
+    QObject::connect(process,
+                     &Process::ready_read_standard_error,
+                     this,
+                     [this, instance_id, process]() {
+                         const auto chunk = process->read_all_standard_error();
+                         for (const auto& line :
+                              QString::fromUtf8(chunk).split('\n', Qt::SkipEmptyParts))
+                         {
+                             const auto trimmed = line.trimmed();
+                             if (!trimmed.isEmpty())
+                                 activity_log.append(instance_id, "process", "warn", trimmed.toStdString());
+                         }
+                     });
+}
+
 void mp::LlmService::pull_model(
     const PullModelRequest* request,
     grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server)
 {
-    auto monitor = [server](int, int percent) {
+    const auto model_id = request->model_id();
+    log_lifecycle(model_id, "info", "pull started");
+    auto monitor = [server, this, model_id](int, int percent) {
         PullModelReply progress;
         auto* lp = progress.mutable_launch_progress();
         lp->set_type(LaunchProgress::IMAGE);
         lp->set_percent_complete(std::to_string(percent));
         server->Write(progress);
+        if (percent > 0 && percent % 25 == 0)
+            log_lifecycle(model_id, "info", fmt::format("pull {}% complete", percent));
         return true;
     };
-    const auto art = ensure_pulled(request->model_id(), request->quant(), request->hf_repo(), monitor);
+    const auto art = ensure_pulled(model_id, request->quant(), request->hf_repo(), monitor);
     PullModelReply reply;
     reply.set_model_id(art.id);
     reply.set_path(art.path);
     reply.set_reply_message("downloaded");
     auto* lp = reply.mutable_launch_progress();
     lp->set_percent_complete("100");
+    log_lifecycle(art.id, "info", fmt::format("pull complete: {}", art.path));
     server->Write(reply);
+}
+
+void mp::LlmService::stop_process_on_thread(Process* process)
+{
+    if (!process)
+        return;
+    process->terminate();
+    if (!process->wait_for_finished(3000))
+        process->kill();
+}
+
+void mp::LlmService::stop_process(Process* process)
+{
+    if (!process)
+        return;
+    if (QThread::currentThread() == process->thread())
+    {
+        stop_process_on_thread(process);
+        return;
+    }
+
+    auto done = std::make_shared<std::promise<void>>();
+    QTimer::singleShot(0, process->thread(), [process, done]() {
+        stop_process_on_thread(process);
+        done->set_value();
+    });
+    done->get_future().wait();
 }
 
 void mp::LlmService::load_model(
     const LoadModelRequest* request,
     grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>* server)
 {
-    const auto model_id = request->model_id();
+    auto runner = std::make_unique<QThread>();
+    auto done = std::make_shared<std::promise<void>>();
+    auto failure = std::make_shared<std::exception_ptr>();
+    auto transferred = std::make_shared<bool>(false);
+
+    // QThread lives on the calling thread; QTimer would never fire there on a
+    // QThreadPool worker. Run the load on the runner thread when it starts.
+    QObject::connect(
+        runner.get(),
+        &QThread::started,
+        runner.get(),
+        [this, request, server, &runner, transferred, failure, done]() {
+            try
+            {
+                load_model_impl(request, server, runner, *transferred);
+            }
+            catch (...)
+            {
+                *failure = std::current_exception();
+            }
+            if (!*transferred)
+                QThread::currentThread()->quit();
+            done->set_value();
+        },
+        Qt::DirectConnection);
+
+    runner->start();
+    done->get_future().wait();
+
+    if (!*transferred)
     {
-        std::lock_guard lock{mutex};
-        if (auto it = sessions.find(model_id); it != sessions.end() && it->second.process &&
-                                               it->second.process->running())
-        {
-            LoadModelReply reply;
-            reply.set_model_id(model_id);
-            reply.set_openai_id(it->second.openai_id);
-            reply.set_port(static_cast<uint32_t>(it->second.port));
-            reply.set_memory_claimed(static_cast<uint64_t>(it->second.memory.in_bytes()));
-            server->Write(reply);
-            return;
-        }
+        runner->quit();
+        runner->wait(5000);
     }
 
-    auto monitor = [server](int, int percent) {
+    if (*failure)
+        std::rethrow_exception(*failure);
+
+    if (*transferred)
+        runner.release();
+}
+
+void mp::LlmService::load_model_impl(
+    const LoadModelRequest* request,
+    grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>* server,
+    std::unique_ptr<QThread>& runner_thread,
+    bool& runner_transferred)
+{
+    const auto model_id = request->model_id();
+    const auto instance_id = mp::utils::make_uuid();
+    log_lifecycle(instance_id, "info", fmt::format("load started for {}", model_id));
+
+    auto monitor = [server, this, instance_id](int, int percent) {
         LoadModelReply progress;
         auto* lp = progress.mutable_launch_progress();
         lp->set_percent_complete(std::to_string(percent));
         server->Write(progress);
+        if (percent > 0 && percent % 25 == 0)
+            log_lifecycle(instance_id, "info", fmt::format("load {}% complete", percent));
         return true;
     };
     const auto art = ensure_pulled(model_id, request->quant(), "", monitor);
@@ -387,13 +511,14 @@ void mp::LlmService::load_model(
     const auto claim = estimate_claim(art, ctx);
     const auto kind = select_backend();
 
-    auto result = pool.try_claim(model_id, WorkloadKind::llm, claim, 0);
+    auto result = pool.try_claim(instance_id, WorkloadKind::llm, claim, 0);
     if (!result.accepted)
         throw std::runtime_error(result.message);
 
     LoadedSession session;
+    session.instance_id = instance_id;
     session.model_id = model_id;
-    session.openai_id = openai_id_for(model_id);
+    session.openai_id = openai_id_for_instance(model_id, instance_id);
     session.backend = backend_name(kind);
     session.path = art.path;
     session.port = pick_loopback_port();
@@ -432,13 +557,20 @@ void mp::LlmService::load_model(
         if (!wait_until_ready(session.port))
             throw std::runtime_error("inference backend started but did not become ready on 127.0.0.1");
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-        pool.release(model_id);
+        if (session.process)
+            stop_process_on_thread(session.process.get());
+        pool.release(instance_id);
+        log_lifecycle(instance_id, "error", fmt::format("load failed: {}", e.what()));
         throw;
     }
 
+    session.runner_thread = std::move(runner_thread);
+    runner_transferred = true;
+
     LoadModelReply reply;
+    reply.set_instance_id(instance_id);
     reply.set_model_id(model_id);
     reply.set_openai_id(session.openai_id);
     reply.set_port(static_cast<uint32_t>(session.port));
@@ -448,49 +580,77 @@ void mp::LlmService::load_model(
 
     {
         std::lock_guard lock{mutex};
-        sessions[model_id] = std::move(session);
-        if (sessions[model_id].process)
+        sessions[instance_id] = std::move(session);
+        if (sessions[instance_id].process)
         {
-            QObject::connect(sessions[model_id].process.get(),
+            attach_process_logging(instance_id, sessions[instance_id].process.get());
+            QObject::connect(sessions[instance_id].process.get(),
                              &Process::finished,
                              this,
-                             [this, model_id](ProcessState) { unload_named(model_id); });
+                             [this, instance_id](ProcessState) { unload_instance(instance_id); });
         }
     }
     vault.touch(model_id);
+    log_lifecycle(instance_id,
+                  "info",
+                  fmt::format("load complete on port {} as {}", reply.port(), reply.openai_id()));
     server->Write(reply);
 }
 
-void mp::LlmService::unload_named(const std::string& model_id)
+void mp::LlmService::unload_instance(const std::string& instance_id)
 {
+    log_lifecycle(instance_id, "info", "unload");
     std::unique_ptr<Process> dying;
+    std::unique_ptr<QThread> runner_thread;
     {
         std::lock_guard lock{mutex};
-        auto it = sessions.find(model_id);
+        auto it = sessions.find(instance_id);
         if (it == sessions.end())
         {
-            pool.release(model_id);
+            pool.release(instance_id);
             return;
         }
         dying = std::move(it->second.process);
+        runner_thread = std::move(it->second.runner_thread);
         sessions.erase(it);
-        pool.release(model_id);
+        pool.release(instance_id);
     }
     if (dying)
+        stop_process(dying.get());
+    if (runner_thread)
     {
-        dying->terminate();
-        if (!dying->wait_for_finished(3000))
-            dying->kill();
+        runner_thread->quit();
+        runner_thread->wait(5000);
     }
+}
+
+void mp::LlmService::unload_all_for_model(const std::string& model_id)
+{
+    std::vector<std::string> instances;
+    {
+        std::lock_guard lock{mutex};
+        for (const auto& [id, session] : sessions)
+        {
+            if (session.model_id == model_id)
+                instances.push_back(id);
+        }
+    }
+    for (const auto& id : instances)
+        unload_instance(id);
 }
 
 void mp::LlmService::unload_model(
     const UnloadModelRequest* request,
     grpc::ServerReaderWriterInterface<UnloadModelReply, UnloadModelRequest>* server)
 {
-    unload_named(request->model_id());
+    if (!request->instance_id().empty())
+        unload_instance(request->instance_id());
+    else if (!request->model_id().empty())
+        unload_all_for_model(request->model_id());
+
     UnloadModelReply reply;
     reply.set_model_id(request->model_id());
+    reply.set_instance_id(request->instance_id());
     server->Write(reply);
 }
 
@@ -501,9 +661,10 @@ void mp::LlmService::list_models(
     reap_dead_sessions();
     ListModelsReply reply;
     std::lock_guard lock{mutex};
-    for (const auto& [id, session] : sessions)
+    for (const auto& [instance_id, session] : sessions)
     {
         auto* info = reply.add_models();
+        info->set_instance_id(instance_id);
         info->set_model_id(session.model_id);
         info->set_openai_id(session.openai_id);
         info->set_backend(session.backend);
@@ -610,23 +771,148 @@ void mp::LlmService::touch_model(
     const TouchModelRequest* request,
     grpc::ServerReaderWriterInterface<TouchModelReply, TouchModelRequest>* server)
 {
-    std::lock_guard lock{mutex};
-    auto it = sessions.find(request->model_id());
-    if (it == sessions.end())
+    std::string resolved_instance;
     {
-        for (auto& [_, session] : sessions)
+        std::lock_guard lock{mutex};
+        if (!request->instance_id().empty())
         {
-            if (session.openai_id == request->model_id())
+            if (auto it = sessions.find(request->instance_id()); it != sessions.end())
             {
-                session.last_used = std::chrono::steady_clock::now();
-                break;
+                it->second.last_used = std::chrono::steady_clock::now();
+                resolved_instance = request->instance_id();
+            }
+        }
+        else if (!request->model_id().empty())
+        {
+            const auto& lookup = request->model_id();
+            if (auto it = sessions.find(lookup); it != sessions.end())
+            {
+                it->second.last_used = std::chrono::steady_clock::now();
+                resolved_instance = lookup;
+            }
+            else
+            {
+                std::optional<std::string> by_model_id;
+                for (auto& [id, session] : sessions)
+                {
+                    if (session.openai_id == lookup)
+                    {
+                        session.last_used = std::chrono::steady_clock::now();
+                        resolved_instance = id;
+                        break;
+                    }
+                    if (session.model_id == lookup)
+                    {
+                        if (by_model_id)
+                        {
+                            by_model_id.reset();
+                            break;
+                        }
+                        by_model_id = id;
+                    }
+                }
+                if (resolved_instance.empty() && by_model_id)
+                {
+                    sessions[*by_model_id].last_used = std::chrono::steady_clock::now();
+                    resolved_instance = *by_model_id;
+                }
             }
         }
     }
-    else
-        it->second.last_used = std::chrono::steady_clock::now();
+
+    if (!resolved_instance.empty() && !request->method().empty())
+    {
+        const auto level = request->status_code() >= 400 ? "warn" : "info";
+        activity_log.append(resolved_instance,
+                            "gateway",
+                            level,
+                            fmt::format("{} {} {}",
+                                        request->method(),
+                                        request->path(),
+                                        request->status_code()));
+    }
+
     TouchModelReply reply;
     server->Write(reply);
+}
+
+void mp::LlmService::stream_model_logs(
+    const StreamModelLogsRequest* request,
+    grpc::ServerReaderWriterInterface<StreamModelLogsReply, StreamModelLogsRequest>* server)
+{
+    std::string instance_id = request->instance_id();
+    if (instance_id.empty())
+    {
+        if (request->model_id().empty())
+            throw std::runtime_error("instance_id is required");
+
+        std::lock_guard lock{mutex};
+        std::optional<std::string> match;
+        for (const auto& [id, session] : sessions)
+        {
+            if (session.model_id == request->model_id() || id == request->model_id() ||
+                session.openai_id == request->model_id())
+            {
+                if (match)
+                    throw std::runtime_error(
+                        "multiple instances match model_id; specify instance_id");
+                match = id;
+            }
+        }
+        if (!match)
+            throw std::runtime_error(fmt::format("no loaded instance matches '{}'",
+                                                 request->model_id()));
+        instance_id = *match;
+    }
+
+    for (const auto& entry : activity_log.snapshot(instance_id))
+    {
+        StreamModelLogsReply reply;
+        *reply.mutable_entry() = entry;
+        if (!server->Write(reply))
+            return;
+    }
+
+    std::mutex wait_mutex;
+    std::condition_variable cv;
+    std::deque<ModelActivityEntry> pending;
+    const auto sub_id = activity_log.subscribe(instance_id, [&](const ModelActivityEntry& entry) {
+        {
+            std::lock_guard lock{wait_mutex};
+            pending.push_back(entry);
+        }
+        cv.notify_one();
+    });
+
+    while (true)
+    {
+        std::unique_lock lock{wait_mutex};
+        cv.wait_for(lock, std::chrono::seconds(30));
+        if (pending.empty())
+        {
+            lock.unlock();
+            StreamModelLogsReply heartbeat;
+            if (!server->Write(heartbeat))
+            {
+                activity_log.unsubscribe(sub_id);
+                return;
+            }
+            continue;
+        }
+        while (!pending.empty())
+        {
+            StreamModelLogsReply reply;
+            *reply.mutable_entry() = pending.front();
+            pending.pop_front();
+            lock.unlock();
+            if (!server->Write(reply))
+            {
+                activity_log.unsubscribe(sub_id);
+                return;
+            }
+            lock.lock();
+        }
+    }
 }
 
 void mp::LlmService::delete_model(
@@ -638,7 +924,7 @@ void mp::LlmService::delete_model(
         throw std::runtime_error("model_id is required");
 
     if (is_loaded(model_id))
-        unload_named(model_id);
+        unload_all_for_model(model_id);
 
     const auto artifact = vault.find(model_id);
     if (!artifact)
@@ -657,14 +943,17 @@ void mp::LlmService::delete_model(
 bool mp::LlmService::is_loaded(const std::string& model_id) const
 {
     std::lock_guard lock{mutex};
-    return sessions.contains(model_id);
+    for (const auto& [_, session] : sessions)
+    {
+        if (session.model_id == model_id)
+            return true;
+    }
+    return false;
 }
 
 std::optional<mp::LoadedSession*> mp::LlmService::session_by_openai_id(const std::string& openai_id)
 {
-    auto it = sessions.find(openai_id);
-    if (it != sessions.end())
-        return &it->second;
+    std::lock_guard lock{mutex};
     for (auto& [_, session] : sessions)
     {
         if (session.openai_id == openai_id)
@@ -685,7 +974,7 @@ void mp::LlmService::reap_dead_sessions()
         }
     }
     for (const auto& id : dead)
-        unload_named(id);
+        unload_instance(id);
 }
 
 void mp::LlmService::idle_unload_tick()
@@ -706,7 +995,7 @@ void mp::LlmService::idle_unload_tick()
     for (const auto& id : idle)
     {
         mpl::info(category, "idle-unloading model '{}'", id);
-        unload_named(id);
+        unload_instance(id);
     }
 }
 

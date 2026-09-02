@@ -296,7 +296,14 @@ class GrpcClient {
     );
   }
 
-  Future<UnloadModelReply> unloadModel(String modelId) {
+  Future<UnloadModelReply> unloadModel(String instanceId) {
+    return doRpc(
+      _client.unload_model,
+      UnloadModelRequest(instanceId: instanceId),
+    ).then((r) => r!);
+  }
+
+  Future<UnloadModelReply> unloadAllForModel(String modelId) {
     return doRpc(
       _client.unload_model,
       UnloadModelRequest(modelId: modelId),
@@ -326,6 +333,12 @@ class GrpcClient {
       _client.revoke_api_key,
       RevokeApiKeyRequest(id: id),
     ).then((r) => r!);
+  }
+
+  Stream<StreamModelLogsReply> streamModelLogs(String instanceId) {
+    return _client.stream_model_logs(
+      Stream.value(StreamModelLogsRequest(instanceId: instanceId)),
+    );
   }
 
   Future<CacheInfoReply> cacheInfo() {

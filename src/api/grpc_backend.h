@@ -161,8 +161,11 @@ public:
                               std::chrono::seconds deadline = std::chrono::seconds{30});
     VerifyApiKeyResult verify_api_key(const std::string& secret,
                                       std::chrono::seconds deadline = std::chrono::seconds{10});
-    GrpcResult touch_model(const std::string& model_id,
-                           std::chrono::seconds deadline = std::chrono::seconds{10});
+    GrpcResult touch_model(const std::string& instance_id,
+                           std::chrono::seconds deadline = std::chrono::seconds{10},
+                           const std::string& method = {},
+                           const std::string& path = {},
+                           int status_code = 0);
 
     Rpc::StubInterface& stub()
     {

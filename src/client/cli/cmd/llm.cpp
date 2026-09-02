@@ -129,10 +129,11 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         spinner.start("Loading model ");
         auto on_success = [this, &spinner](LoadModelReply& reply) -> ReturnCodeVariant {
             spinner.stop();
-            cout << fmt::format("Loaded {} as {} on 127.0.0.1:{} (claimed {})\n",
+            cout << fmt::format("Loaded {} as {} on 127.0.0.1:{} (instance {}, claimed {})\n",
                                 reply.model_id(),
                                 reply.openai_id(),
                                 reply.port(),
+                                reply.instance_id(),
                                 mp::MemorySize::from_bytes(
                                     static_cast<long long>(reply.memory_claimed()))
                                     .human_readable());
@@ -176,16 +177,18 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         ListModelsRequest request;
         request.set_verbosity_level(verbosity);
         auto on_success = [this](ListModelsReply& reply) -> ReturnCodeVariant {
-            cout << fmt::format("{:<28} {:<12} {:>6} {:>10} {}\n",
+            cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {}\n",
                                 "MODEL",
+                                "INSTANCE",
                                 "BACKEND",
                                 "PORT",
                                 "RAM",
                                 "STATE");
             for (const auto& model : reply.models())
             {
-                cout << fmt::format("{:<28} {:<12} {:>6} {:>10} {}\n",
+                cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {}\n",
                                     model.openai_id(),
+                                    model.instance_id(),
                                     model.backend(),
                                     model.port(),
                                     mp::MemorySize::from_bytes(

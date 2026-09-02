@@ -83,12 +83,19 @@ bool require_sk_key(GrpcBackend& backend, const httplib::Request& req, httplib::
 
 std::optional<mp::LoadedModelInfo> find_loaded(const mp::ListModelsReply& reply, const std::string& model)
 {
+    std::optional<mp::LoadedModelInfo> by_model_id;
     for (const auto& info : reply.models())
     {
-        if (info.openai_id() == model || info.model_id() == model)
+        if (info.openai_id() == model || info.instance_id() == model)
             return info;
+        if (info.model_id() == model)
+        {
+            if (by_model_id)
+                return std::nullopt;
+            by_model_id = info;
+        }
     }
-    return std::nullopt;
+    return by_model_id;
 }
 
 void proxy_to_backend(GrpcBackend& backend,
@@ -137,8 +144,6 @@ void proxy_to_backend(GrpcBackend& backend,
         return;
     }
 
-    backend.touch_model(session->model_id());
-
     httplib::Client client{"127.0.0.1", static_cast<int>(session->port())};
     client.set_read_timeout(600);
     client.set_write_timeout(30);
@@ -147,12 +152,22 @@ void proxy_to_backend(GrpcBackend& backend,
     auto result = client.Post(path, req.body, "application/json");
     if (!result)
     {
+        backend.touch_model(session->instance_id(),
+                            std::chrono::seconds{10},
+                            req.method,
+                            path,
+                            502);
         mpl::log(mpl::Level::warning, category, "backend proxy failed");
         res.status = 502;
         res.set_content(openai_error("api_error", "inference backend unreachable", 502),
                         "application/json");
         return;
     }
+    backend.touch_model(session->instance_id(),
+                        std::chrono::seconds{10},
+                        req.method,
+                        path,
+                        result->status);
     const auto content_type = result->get_header_value("Content-Type");
     res.status = result->status;
     res.set_content(result->body,
@@ -295,6 +310,7 @@ void mp::api::register_model_control_handlers(httplib::Server& server, GrpcBacke
                             return;
                         }
                         body["model_id"] = result.reply.model_id();
+                        body["instance_id"] = result.reply.instance_id();
                         body["openai_id"] = result.reply.openai_id();
                         body["port"] = result.reply.port();
                         res.status = 200;

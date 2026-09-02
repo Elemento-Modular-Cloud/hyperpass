@@ -18,6 +18,7 @@
 #pragma once
 
 #include "api_key_store.h"
+#include "llm_activity_log.h"
 #include "llmfit_advisor.h"
 #include "model_vault.h"
 
@@ -28,6 +29,7 @@
 #include <multipass/url_downloader.h>
 
 #include <QObject>
+#include <QThread>
 #include <QTimer>
 
 #include <chrono>
@@ -49,6 +51,7 @@ namespace multipass
 
 struct LoadedSession
 {
+    std::string instance_id;
     std::string model_id;
     std::string openai_id;
     std::string backend;
@@ -56,6 +59,7 @@ struct LoadedSession
     int port{0};
     MemorySize memory;
     std::unique_ptr<Process> process;
+    std::unique_ptr<QThread> runner_thread;
     std::chrono::steady_clock::time_point last_used{std::chrono::steady_clock::now()};
 };
 
@@ -74,6 +78,10 @@ public:
                     grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server);
     void load_model(const LoadModelRequest* request,
                     grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>* server);
+    void load_model_impl(const LoadModelRequest* request,
+                         grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>* server,
+                         std::unique_ptr<QThread>& runner_thread,
+                         bool& runner_transferred);
     void unload_model(
         const UnloadModelRequest* request,
         grpc::ServerReaderWriterInterface<UnloadModelReply, UnloadModelRequest>* server);
@@ -99,8 +107,12 @@ public:
     void delete_model(
         const DeleteModelRequest* request,
         grpc::ServerReaderWriterInterface<DeleteModelReply, DeleteModelRequest>* server);
+    void stream_model_logs(
+        const StreamModelLogsRequest* request,
+        grpc::ServerReaderWriterInterface<StreamModelLogsReply, StreamModelLogsRequest>* server);
 
-    void unload_named(const std::string& model_id);
+    void unload_instance(const std::string& instance_id);
+    void unload_all_for_model(const std::string& model_id);
     std::optional<LoadedSession*> session_by_openai_id(const std::string& openai_id);
     bool is_loaded(const std::string& model_id) const;
 
@@ -131,12 +143,20 @@ private:
     void persist_sessions() const;
     void reap_dead_sessions();
     void idle_unload_tick();
-    std::string openai_id_for(const std::string& model_id) const;
+    std::string openai_id_for_instance(const std::string& model_id,
+                                       const std::string& instance_id) const;
+    void attach_process_logging(const std::string& instance_id, Process* process);
+    void log_lifecycle(const std::string& instance_id,
+                       const std::string& level,
+                       const std::string& message);
+    static void stop_process(Process* process);
+    static void stop_process_on_thread(Process* process);
 
     ResourcePool& pool;
     ModelVault vault;
     LlmfitAdvisor advisor;
     ApiKeyStore keys;
+    LlmActivityLog activity_log;
     Path data_directory;
     std::unordered_map<std::string, LoadedSession> sessions;
     mutable std::mutex mutex;

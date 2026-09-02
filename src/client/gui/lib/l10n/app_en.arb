@@ -140,6 +140,74 @@
     "@sidebarInstances": {
         "description": "Sidebar navigation label for the Instances screen"
     },
+    "sidebarSectionVms": "VMs",
+    "@sidebarSectionVms": {
+        "description": "Sidebar section heading for virtual machine navigation"
+    },
+    "sidebarSectionLlms": "LLMs",
+    "@sidebarSectionLlms": {
+        "description": "Sidebar section heading for local LLM navigation"
+    },
+    "llmCatalogueLabel": "Catalogue",
+    "@llmCatalogueLabel": {
+        "description": "Sidebar label for the LLM model catalogue"
+    },
+    "llmInstancesLabel": "Instances",
+    "@llmInstancesLabel": {
+        "description": "Sidebar label for loaded LLM instances"
+    },
+    "llmCredentialsLabel": "Credentials",
+    "@llmCredentialsLabel": {
+        "description": "Sidebar label for LLM API keys and tokens"
+    },
+    "llmTableColumnModel": "MODEL",
+    "@llmTableColumnModel": {
+        "description": "LLM instances table column for model identity"
+    },
+    "llmTableColumnBackend": "BACKEND",
+    "@llmTableColumnBackend": {
+        "description": "LLM instances table column for inference backend"
+    },
+    "llmTableColumnState": "STATE",
+    "@llmTableColumnState": {
+        "description": "LLM instances table column for runtime state"
+    },
+    "llmTableColumnPort": "PORT",
+    "@llmTableColumnPort": {
+        "description": "LLM instances table column for localhost port"
+    },
+    "llmTableColumnMemory": "MEMORY",
+    "@llmTableColumnMemory": {
+        "description": "LLM instances table column for claimed memory"
+    },
+    "llmTableColumnActivity": "ACTIVITY",
+    "@llmTableColumnActivity": {
+        "description": "LLM instances table column link to live activity log"
+    },
+    "llmActivityEmpty": "No activity yet.",
+    "@llmActivityEmpty": {
+        "description": "Empty state in the per-model activity log viewer"
+    },
+    "llmInstancesEmpty": "No models loaded.",
+    "@llmInstancesEmpty": {
+        "description": "Empty state on the LLM instances screen"
+    },
+    "llmInstancesEmptyHint": "Browse the catalogue to download and load a model.",
+    "@llmInstancesEmptyHint": {
+        "description": "Hint shown when no LLM instances are running"
+    },
+    "llmHfTokenLabel": "Hugging Face token",
+    "@llmHfTokenLabel": {
+        "description": "Label for the Hugging Face download token field"
+    },
+    "llmHfTokenHint": "Optional token for gated model downloads. Stored in the daemon settings.",
+    "@llmHfTokenHint": {
+        "description": "Hint for the Hugging Face token field on the credentials screen"
+    },
+    "vmTableColumnShell": "Shell",
+    "@vmTableColumnShell": {
+        "description": "VM instances table column that opens the shell"
+    },
     "modelsLabel": "Models",
     "@modelsLabel": {
         "description": "Sidebar and page title for local LLM models"

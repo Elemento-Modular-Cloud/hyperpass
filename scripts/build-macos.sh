@@ -164,6 +164,8 @@ fi
 if [[ "${DO_BUILD}" -eq 1 ]]; then
   echo "==> Building (jobs=${JOBS})"
   cmake --build "${BUILD_DIR}" --parallel "${JOBS}"
+  echo "==> Signing dev QEMU binaries (HVF entitlements)"
+  "${ROOT}/scripts/sign-dev-macos-binaries.sh" --build-dir "${BUILD_DIR}"
 fi
 
 if [[ "${DO_TEST}" -eq 1 ]]; then

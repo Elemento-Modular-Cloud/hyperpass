@@ -15,6 +15,7 @@ import '../tooltip.dart';
 import '../vm_details/cpu_sparkline.dart';
 import '../vm_details/ip_addresses.dart';
 import '../vm_details/memory_usage.dart';
+import '../vm_details/vm_details.dart';
 import '../vm_details/vm_status_icon.dart';
 import 'search_box.dart';
 import 'table.dart';
@@ -43,6 +44,13 @@ final headers = <TableHeader<TaggedVmInfo>>[
     minWidth: 90,
     sortKey: (info) => info.name,
     cellBuilder: (info) => VmNameLink(info.id),
+  ),
+  TableHeader(
+    name: 'SHELL',
+    childBuilder: _l10nHeader((l10n) => l10n.vmTableColumnShell),
+    width: 56,
+    minWidth: 48,
+    cellBuilder: (info) => VmShellLink(info.id),
   ),
   TableHeader(
     name: 'STATE',
@@ -189,7 +197,10 @@ class VmNameLink extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    goToVm() => ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey);
+    goToVm() {
+      ref.read(vmScreenLocationProvider(id).notifier).set(VmDetailsLocation.details);
+      ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey);
+    }
 
     return Tooltip(
       message: id.displayLabel,
@@ -203,6 +214,31 @@ class VmNameLink extends ConsumerWidget {
           ),
           DaemonSourceChip(id.source),
         ],
+      ),
+    );
+  }
+}
+
+class VmShellLink extends ConsumerWidget {
+  final VmId id;
+
+  const VmShellLink(this.id, {super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    goToShell() {
+      ref.read(vmScreenLocationProvider(id).notifier).set(VmDetailsLocation.shells);
+      ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey);
+    }
+
+    return Tooltip(
+      message: l10n.vmTableColumnShell,
+      child: IconButton(
+        icon: const Icon(Icons.terminal, size: 18),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        onPressed: goToShell,
       ),
     );
   }

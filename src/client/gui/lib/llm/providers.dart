@@ -1,0 +1,259 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grpc/grpc.dart';
+
+import '../providers.dart';
+import 'llm_id.dart';
+
+final loadedModelsProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return ListModelsReply();
+  }
+  return ref.watch(grpcClientProvider).listModels();
+});
+
+final llmBackendsProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return ListLlmBackendsReply();
+  }
+  return ref.watch(grpcClientProvider).listLlmBackends();
+});
+
+final loadedLlmIdsProvider = Provider<List<LlmInstanceId>>((ref) {
+  final loaded = ref.watch(loadedModelsProvider);
+  return loaded.when(
+    data: (reply) => reply.models
+        .map((m) => LlmInstanceId(instanceId: m.instanceId, modelId: m.modelId))
+        .toList(growable: false),
+    loading: () => const [],
+    error: (_, __) => const [],
+  );
+});
+
+class CatalogFilters {
+  final String search;
+  final String minFit;
+  final String runtime;
+
+  const CatalogFilters({
+    this.search = '',
+    this.minFit = '',
+    this.runtime = '',
+  });
+
+  CatalogFilters copyWith({
+    String? search,
+    String? minFit,
+    String? runtime,
+  }) {
+    return CatalogFilters(
+      search: search ?? this.search,
+      minFit: minFit ?? this.minFit,
+      runtime: runtime ?? this.runtime,
+    );
+  }
+}
+
+class CatalogFiltersNotifier extends Notifier<CatalogFilters> {
+  @override
+  CatalogFilters build() => const CatalogFilters();
+
+  void setSearch(String value) => state = state.copyWith(search: value);
+  void setMinFit(String value) => state = state.copyWith(minFit: value);
+  void setRuntime(String value) => state = state.copyWith(runtime: value);
+}
+
+final catalogFiltersProvider =
+    NotifierProvider<CatalogFiltersNotifier, CatalogFilters>(
+  CatalogFiltersNotifier.new,
+);
+
+class DebouncedCatalogQuery extends Notifier<String> {
+  Timer? _timer;
+
+  @override
+  String build() {
+    ref.onDispose(() => _timer?.cancel());
+    return '';
+  }
+
+  void set(String value) {
+    _timer?.cancel();
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      state = '';
+      return;
+    }
+    _timer = Timer(const Duration(milliseconds: 350), () {
+      state = trimmed;
+    });
+  }
+}
+
+final debouncedCatalogQueryProvider =
+    NotifierProvider<DebouncedCatalogQuery, String>(DebouncedCatalogQuery.new);
+
+final recommendedModelsProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return FindModelsReply();
+  }
+  final filters = ref.watch(catalogFiltersProvider);
+  ref.watch(daemonInfoProvider.select((async) {
+    final bytes = async.value?.memoryAvailable.toInt() ?? 0;
+    return bytes >> 30;
+  }));
+  return ref.watch(grpcClientProvider).findModels(
+        limit: 8,
+        minFit: filters.minFit,
+        runtime: filters.runtime,
+        recommendOnly: true,
+      );
+});
+
+final catalogModelsProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return FindModelsReply();
+  }
+  final minFit = ref.watch(catalogFiltersProvider.select((f) => f.minFit));
+  final runtime = ref.watch(catalogFiltersProvider.select((f) => f.runtime));
+  final query = ref.watch(debouncedCatalogQueryProvider);
+  ref.watch(daemonInfoProvider.select((async) {
+    final bytes = async.value?.memoryAvailable.toInt() ?? 0;
+    return bytes >> 30;
+  }));
+  return ref.watch(grpcClientProvider).findModels(
+        limit: 200,
+        minFit: minFit,
+        runtime: runtime,
+        query: query,
+        includeTooTight: true,
+        recommendOnly: false,
+      );
+});
+
+final apiKeysProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return ListApiKeysReply();
+  }
+  return ref.watch(grpcClientProvider).listApiKeys();
+});
+
+enum ModelJobStatus { queued, running, done, error }
+
+String modelDownloadRepo(ModelSuggestion model) => model.hfRepo;
+
+class ModelDownloadJob {
+  final String jobKey;
+  final String modelId;
+  final String hfRepo;
+  final String quant;
+  final bool loadAfter;
+  final ModelJobStatus status;
+  final int percent;
+  final String error;
+
+  const ModelDownloadJob({
+    required this.jobKey,
+    required this.modelId,
+    this.hfRepo = '',
+    required this.quant,
+    required this.loadAfter,
+    this.status = ModelJobStatus.queued,
+    this.percent = 0,
+    this.error = '',
+  });
+
+  ModelDownloadJob copyWith({
+    ModelJobStatus? status,
+    int? percent,
+    String? error,
+  }) {
+    return ModelDownloadJob(
+      jobKey: jobKey,
+      modelId: modelId,
+      hfRepo: hfRepo,
+      quant: quant,
+      loadAfter: loadAfter,
+      status: status ?? this.status,
+      percent: percent ?? this.percent,
+      error: error ?? this.error,
+    );
+  }
+}
+
+class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
+  Future<void>? _pump;
+
+  @override
+  List<ModelDownloadJob> build() => const [];
+
+  int get activeCount =>
+      state.where((j) => j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running).length;
+
+  void enqueue(String modelId, String quant, {String hfRepo = '', bool loadAfter = false}) {
+    if (!loadAfter) {
+      final busy = state.any((j) =>
+          j.modelId == modelId &&
+          !j.loadAfter &&
+          (j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running));
+      if (busy) return;
+    }
+    final jobKey = '${modelId}_${DateTime.now().microsecondsSinceEpoch}';
+    state = [
+      ...state.where((j) => j.loadAfter || j.modelId != modelId || j.status == ModelJobStatus.error),
+      ModelDownloadJob(
+        jobKey: jobKey,
+        modelId: modelId,
+        hfRepo: hfRepo,
+        quant: quant,
+        loadAfter: loadAfter,
+      ),
+    ];
+    _pump ??= _run();
+  }
+
+  void _patch(String jobKey, ModelDownloadJob Function(ModelDownloadJob) update) {
+    state = [
+      for (final job in state)
+        if (job.jobKey == jobKey) update(job) else job,
+    ];
+  }
+
+  Future<void> _run() async {
+    try {
+      while (true) {
+        final pending = state.where((j) => j.status == ModelJobStatus.queued).toList();
+        if (pending.isEmpty) return;
+        final job = pending.first;
+        _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.running));
+        try {
+          final client = ref.read(grpcClientProvider);
+          await for (final reply in client.pullModel(job.modelId, quant: job.quant, hfRepo: job.hfRepo)) {
+            final raw = int.tryParse(reply.launchProgress.percentComplete) ?? 0;
+            _patch(job.jobKey, (j) => j.copyWith(percent: raw.clamp(0, 100)));
+          }
+          if (job.loadAfter) {
+            await client.loadModel(job.modelId, quant: job.quant).last;
+            ref.invalidate(loadedModelsProvider);
+          }
+          _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.done, percent: 100));
+          ref.invalidate(loadedModelsProvider);
+        } catch (e) {
+          final message = e is GrpcError ? (e.message ?? '$e') : '$e';
+          _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.error, error: message));
+        }
+      }
+    } finally {
+      _pump = null;
+      if (state.any((j) => j.status == ModelJobStatus.queued)) {
+        _pump = _run();
+      }
+    }
+  }
+}
+
+final modelDownloadQueueProvider =
+    NotifierProvider<ModelDownloadQueue, List<ModelDownloadJob>>(
+  ModelDownloadQueue.new,
+);

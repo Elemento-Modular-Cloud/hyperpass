@@ -17,7 +17,12 @@ import 'cloud_init/cloud_init_screen.dart';
 import 'daemon_unavailable.dart';
 import 'help.dart';
 import 'logger.dart';
-import 'models/models_screen.dart';
+import 'llm/catalogue/llm_catalogue_screen.dart';
+import 'llm/credentials/llm_credentials_screen.dart';
+import 'llm/instances/llm_details_screen.dart';
+import 'llm/instances/llm_instances_screen.dart';
+import 'llm/llm_id.dart';
+import 'llm/providers.dart';
 import 'multipass_auth_banner.dart';
 import 'notifications.dart';
 import 'platform/platform.dart';
@@ -100,16 +105,20 @@ class _AppState extends ConsumerState<App> with WindowListener {
   Widget build(BuildContext context) {
     final currentKey = ref.watch(sidebarKeyProvider);
     final vms = ref.watch(vmIdsProvider);
+    final llmIds = ref.watch(loadedLlmIdsProvider);
 
     final widgets = {
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
       VmTableScreen.sidebarKey: const VmTableScreen(),
-      ModelsScreen.sidebarKey: const ModelsScreen(),
+      LlmCatalogueScreen.sidebarKey: const LlmCatalogueScreen(),
+      LlmInstancesScreen.sidebarKey: const LlmInstancesScreen(),
+      LlmCredentialsScreen.sidebarKey: const LlmCredentialsScreen(),
       CacheScreen.sidebarKey: const CacheScreen(),
       CloudInitScreen.sidebarKey: const CloudInitScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),
       HelpScreen.sidebarKey: const HelpScreen(),
       for (final id in vms) id.sidebarKey: VmDetailsScreen(id),
+      for (final id in llmIds) id.sidebarKey: LlmDetailsScreen(id),
     };
 
     final content = Stack(
@@ -120,6 +129,9 @@ class _AppState extends ConsumerState<App> with WindowListener {
         var maintainState = key != SettingsScreen.sidebarKey;
         if (key.startsWith('vm-')) {
           maintainState = ref.read(vmVisitedProvider(key));
+        }
+        if (parseSidebarLlmKey(key) != null) {
+          maintainState = ref.read(llmVisitedProvider(key));
         }
         return Visibility(
           key: Key(key),

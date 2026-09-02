@@ -363,12 +363,21 @@ mp::api::VerifyApiKeyResult mp::api::GrpcBackend::verify_api_key(const std::stri
     return result;
 }
 
-mp::api::GrpcResult mp::api::GrpcBackend::touch_model(const std::string& model_id,
-                                                      std::chrono::seconds deadline)
+mp::api::GrpcResult mp::api::GrpcBackend::touch_model(const std::string& instance_id,
+                                                      std::chrono::seconds deadline,
+                                                      const std::string& method,
+                                                      const std::string& path,
+                                                      int status_code)
 {
     GrpcResult result;
     TouchModelRequest request;
-    request.set_model_id(model_id);
+    request.set_instance_id(instance_id);
+    if (!method.empty())
+        request.set_method(method);
+    if (!path.empty())
+        request.set_path(path);
+    if (status_code != 0)
+        request.set_status_code(status_code);
     result.status = call_streaming_rpc_noreply<TouchModelRequest, TouchModelReply>(
         [this](grpc::ClientContext* ctx) { return rpc_stub->touch_model(ctx); },
         request,
