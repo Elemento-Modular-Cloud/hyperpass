@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
@@ -9,6 +10,7 @@ import 'instances/llm_instances_screen.dart';
 import 'providers.dart';
 
 const _inferenceBackendIds = {'mlx', 'llamacpp'};
+const _defaultMaxTokens = 2048;
 
 Future<void> loadLlmModel(
   BuildContext context,
@@ -59,19 +61,72 @@ Future<void> loadLlmModel(
     runtime = picked;
   }
 
+  if (!context.mounted) return;
+  final maxTokens = await _promptMaxTokens(context, l10n);
+  if (maxTokens == null) return;
+
   try {
     final client = ref.read(grpcClientProvider);
     if (!isModelCached(ref, modelId)) {
       await for (final _ in client.pullModel(modelId, quant: quant, hfRepo: hfRepo)) {}
       ref.invalidate(loadedModelsProvider);
     }
-    await client.loadModel(modelId, quant: quant, runtime: runtime).last;
+    await client
+        .loadModel(modelId, quant: quant, runtime: runtime, maxTokens: maxTokens)
+        .last;
     ref.invalidate(loadedModelsProvider);
     ref.read(sidebarKeyProvider.notifier).set(LlmInstancesScreen.sidebarKey);
   } catch (e) {
     final message = e is GrpcError ? (e.message ?? '$e') : '$e';
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
+}
+
+Future<int?> _promptMaxTokens(BuildContext context, AppLocalizations l10n) async {
+  final controller = TextEditingController(text: '$_defaultMaxTokens');
+  final result = await showDialog<int>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(l10n.modelsMaxTokensTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.modelsMaxTokensBody),
+          const SizedBox(height: 12),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: l10n.modelsMaxTokensLabel,
+              hintText: '$_defaultMaxTokens',
+            ),
+            onSubmitted: (_) {
+              final parsed = int.tryParse(controller.text.trim());
+              if (parsed != null && parsed >= 0) Navigator.pop(ctx, parsed);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(l10n.commonCancel),
+        ),
+        TextButton(
+          onPressed: () {
+            final parsed = int.tryParse(controller.text.trim());
+            if (parsed != null && parsed >= 0) Navigator.pop(ctx, parsed);
+          },
+          child: Text(l10n.modelsLoad),
+        ),
+      ],
+    ),
+  );
+  controller.dispose();
+  return result;
 }
 
 String _runtimeLabel(AppLocalizations l10n, String id, String name) {

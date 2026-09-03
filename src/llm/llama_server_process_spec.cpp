@@ -24,13 +24,15 @@ mp::LlamaServerProcessSpec::LlamaServerProcessSpec(QString program,
                                                    QString openai_id,
                                                    int port,
                                                    int ctx_size,
-                                                   int n_gpu_layers)
+                                                   int n_gpu_layers,
+                                                   int max_tokens)
     : program_{std::move(program)},
       model_path{std::move(model_path)},
       openai_id{std::move(openai_id)},
       port{port},
       ctx_size{ctx_size},
-      n_gpu_layers{n_gpu_layers}
+      n_gpu_layers{n_gpu_layers},
+      max_tokens{max_tokens}
 {
 }
 
@@ -41,18 +43,21 @@ QString mp::LlamaServerProcessSpec::program() const
 
 QStringList mp::LlamaServerProcessSpec::arguments() const
 {
-    return {"-m",
-            model_path,
-            "--host",
-            "127.0.0.1",
-            "--port",
-            QString::number(port),
-            "--ctx-size",
-            QString::number(ctx_size),
-            "--alias",
-            openai_id,
-            "--n-gpu-layers",
-            QString::number(n_gpu_layers)};
+    QStringList args{"-m",
+                     model_path,
+                     "--host",
+                     "127.0.0.1",
+                     "--port",
+                     QString::number(port),
+                     "--ctx-size",
+                     QString::number(ctx_size),
+                     "--alias",
+                     openai_id,
+                     "--n-gpu-layers",
+                     QString::number(n_gpu_layers)};
+    if (max_tokens > 0)
+        args << "--n-predict" << QString::number(max_tokens);
+    return args;
 }
 
 QString mp::LlamaServerProcessSpec::apparmor_profile() const

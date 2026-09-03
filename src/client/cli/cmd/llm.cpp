@@ -125,6 +125,7 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         request.set_model_id(model_id.toStdString());
         request.set_quant(quant.toStdString());
         request.set_ctx_size(ctx_size);
+        request.set_max_tokens(max_tokens);
         AnimatedSpinner spinner{cout};
         spinner.start("Loading model ");
         auto on_success = [this, &spinner](LoadModelReply& reply) -> ReturnCodeVariant {
@@ -177,16 +178,17 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         ListModelsRequest request;
         request.set_verbosity_level(verbosity);
         auto on_success = [this](ListModelsReply& reply) -> ReturnCodeVariant {
-            cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {}\n",
+            cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>10} {}\n",
                                 "MODEL",
                                 "INSTANCE",
                                 "BACKEND",
                                 "PORT",
                                 "RAM",
+                                "MAX_TOK",
                                 "STATE");
             for (const auto& model : reply.models())
             {
-                cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {}\n",
+                cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>10} {}\n",
                                     model.openai_id(),
                                     model.instance_id(),
                                     model.backend(),
@@ -194,6 +196,8 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                                     mp::MemorySize::from_bytes(
                                         static_cast<long long>(model.memory_claimed()))
                                         .human_readable(),
+                                    model.max_tokens() > 0 ? std::to_string(model.max_tokens())
+                                                           : "-",
                                     model.state());
             }
             if (reply.cached_size() > 0)
@@ -350,6 +354,10 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         "recommend-only", "Return llmfit recommendations only (default: browse catalog)"};
     QCommandLineOption quant_opt{"quant", "GGUF quantization", "quant"};
     QCommandLineOption ctx_opt{"ctx", "Context size", "ctx", "4096"};
+    QCommandLineOption max_tokens_opt{"max-tokens",
+                                      "Default/cap for OpenAI max_tokens (0 = unlimited)",
+                                      "n",
+                                      "0"};
     QCommandLineOption label_opt{"label", "API key label", "label"};
     QCommandLineOption instance_opt{"instance", "Bind key to a loaded LLM instance", "instance"};
     parser->addOption(use_case_opt);
@@ -358,6 +366,7 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     parser->addOption(recommend_only_opt);
     parser->addOption(quant_opt);
     parser->addOption(ctx_opt);
+    parser->addOption(max_tokens_opt);
     parser->addOption(label_opt);
     parser->addOption(instance_opt);
 
@@ -395,6 +404,8 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         quant = parser->value(quant_opt);
     if (parser->isSet(ctx_opt))
         ctx_size = parser->value(ctx_opt).toInt();
+    if (parser->isSet(max_tokens_opt))
+        max_tokens = parser->value(max_tokens_opt).toInt();
     if (parser->isSet(label_opt))
         key_label = parser->value(label_opt);
     if (parser->isSet(instance_opt))

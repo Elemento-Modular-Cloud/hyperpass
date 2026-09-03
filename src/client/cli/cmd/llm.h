@@ -46,6 +46,7 @@ private:
     QString key_instance;
     int limit{10};
     int ctx_size{4096};
+    int max_tokens{0};
     bool recommend_only{false};
 };
 } // namespace multipass::cmd

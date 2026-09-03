@@ -714,6 +714,8 @@ message LoadModelRequest {
     int32 ctx_size = 3;
     int32 verbosity_level = 4;
     string runtime = 5;
+    // Default/cap for OpenAI max_tokens on this instance. 0 = unlimited.
+    int32 max_tokens = 6;
 }
 
 message LoadModelReply {
@@ -748,6 +750,8 @@ message LoadedModelInfo {
     uint64 memory_claimed = 6;
     string state = 7;
     string instance_id = 8;
+    // Default/cap for OpenAI max_tokens. 0 = unlimited.
+    int32 max_tokens = 9;
 }
 
 message ListModelsRequest {

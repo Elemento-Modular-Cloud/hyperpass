@@ -289,6 +289,7 @@ class GrpcClient {
     String quant = '',
     int ctxSize = 4096,
     String runtime = '',
+    int maxTokens = 0,
   }) {
     return _client.load_model(
       Stream.value(LoadModelRequest(
@@ -296,6 +297,7 @@ class GrpcClient {
         quant: quant,
         ctxSize: ctxSize,
         runtime: runtime,
+        maxTokens: maxTokens,
       )),
     );
   }

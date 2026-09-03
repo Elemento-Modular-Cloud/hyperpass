@@ -27,6 +27,7 @@
 #include <httplib.h>
 
 #include <optional>
+#include <cstdint>
 #include <string>
 
 namespace mp = multipass;
@@ -101,6 +102,39 @@ std::optional<mp::LoadedModelInfo> find_loaded(const mp::ListModelsReply& reply,
         }
     }
     return by_model_id;
+}
+
+std::string apply_session_max_tokens(std::string body, int32_t cap)
+{
+    if (cap <= 0)
+        return body;
+    try
+    {
+        auto parsed = json::parse(body.empty() ? "{}" : body);
+        if (!parsed.is_object())
+            return body;
+        auto& obj = parsed.as_object();
+        const auto clamp_field = [&](const char* key) {
+            if (!obj.contains(key))
+                return;
+            auto& value = obj.at(key);
+            if (value.is_int64() && value.as_int64() > cap)
+                value = cap;
+            else if (value.is_uint64() && value.as_uint64() > static_cast<std::uint64_t>(cap))
+                value = cap;
+            else if (value.is_double() && value.as_double() > cap)
+                value = cap;
+        };
+        clamp_field("max_tokens");
+        clamp_field("max_completion_tokens");
+        if (!obj.contains("max_tokens") && !obj.contains("max_completion_tokens"))
+            obj["max_tokens"] = cap;
+        return json::serialize(parsed);
+    }
+    catch (const std::exception&)
+    {
+        return body;
+    }
 }
 
 void proxy_to_backend(GrpcBackend& backend,
@@ -192,7 +226,8 @@ void proxy_to_backend(GrpcBackend& backend,
     client.set_write_timeout(30);
     client.set_connection_timeout(5);
 
-    auto result = client.Post(path, req.body, "application/json");
+    const auto outbound = apply_session_max_tokens(req.body, session->max_tokens());
+    auto result = client.Post(path, outbound, "application/json");
     if (!result)
     {
         backend.touch_model(session->instance_id(),
@@ -346,7 +381,10 @@ void mp::api::register_model_control_handlers(httplib::Server& server, GrpcBacke
                         const auto ctx = parsed.contains("ctx_size")
                                              ? static_cast<int>(parsed.at("ctx_size").as_int64())
                                              : 4096;
-                        const auto result = backend.load_model(id, quant, ctx);
+                        const auto max_tokens = parsed.contains("max_tokens")
+                                                   ? static_cast<int>(parsed.at("max_tokens").as_int64())
+                                                   : 0;
+                        const auto result = backend.load_model(id, quant, ctx, max_tokens);
                         if (!result.status.ok())
                         {
                             body["error"] = result.status.error_message();

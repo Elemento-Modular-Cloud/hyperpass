@@ -184,6 +184,10 @@
     "@llmTableColumnMemory": {
         "description": "LLM instances table column for claimed memory"
     },
+    "llmTableColumnMaxTokens": "MAX TOKENS",
+    "@llmTableColumnMaxTokens": {
+        "description": "LLM instances table column for max_tokens default/cap"
+    },
     "llmTableColumnActivity": "ACTIVITY",
     "@llmTableColumnActivity": {
         "description": "LLM instances table column link to live activity log"
@@ -352,6 +356,18 @@
     "modelsPickRuntimeBody": "Multiple inference backends are available. Which runtime should load this model?",
     "@modelsPickRuntimeBody": {
         "description": "Dialog body when prompting for llama.cpp vs MLX"
+    },
+    "modelsMaxTokensTitle": "Max tokens",
+    "@modelsMaxTokensTitle": {
+        "description": "Dialog title when setting max_tokens for a loaded model"
+    },
+    "modelsMaxTokensBody": "Set the default and maximum completion length for this loaded instance. Use 0 for unlimited.",
+    "@modelsMaxTokensBody": {
+        "description": "Dialog body explaining max_tokens at load time"
+    },
+    "modelsMaxTokensLabel": "max_tokens",
+    "@modelsMaxTokensLabel": {
+        "description": "Input label for max_tokens when loading a model"
     },
     "modelsNoRuntimeAvailable": "No inference runtime is ready. Install llama-server or mlx-lm first.",
     "@modelsNoRuntimeAvailable": {

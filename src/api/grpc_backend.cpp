@@ -269,6 +269,7 @@ mp::api::PullModelResult mp::api::GrpcBackend::pull_model(const std::string& mod
 mp::api::LoadModelResult mp::api::GrpcBackend::load_model(const std::string& model_id,
                                                           const std::string& quant,
                                                           int ctx_size,
+                                                          int max_tokens,
                                                           std::chrono::seconds deadline)
 {
     LoadModelResult result;
@@ -276,6 +277,7 @@ mp::api::LoadModelResult mp::api::GrpcBackend::load_model(const std::string& mod
     request.set_model_id(model_id);
     request.set_quant(quant);
     request.set_ctx_size(ctx_size);
+    request.set_max_tokens(max_tokens);
     result.status = call_streaming_rpc(
         [this](grpc::ClientContext* ctx) { return rpc_stub->load_model(ctx); },
         request,

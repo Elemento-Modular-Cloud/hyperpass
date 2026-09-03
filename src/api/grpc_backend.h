@@ -150,6 +150,7 @@ public:
     LoadModelResult load_model(const std::string& model_id,
                                const std::string& quant,
                                int ctx_size,
+                               int max_tokens = 0,
                                std::chrono::seconds deadline = std::chrono::seconds{3600});
     GrpcResult unload_model(const std::string& model_id,
                             std::chrono::seconds deadline = std::chrono::seconds{60});

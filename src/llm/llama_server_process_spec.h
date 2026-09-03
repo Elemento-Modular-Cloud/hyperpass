@@ -33,7 +33,8 @@ public:
                            QString openai_id,
                            int port,
                            int ctx_size,
-                           int n_gpu_layers);
+                           int n_gpu_layers,
+                           int max_tokens = 0);
 
     QString program() const override;
     QStringList arguments() const override;
@@ -47,6 +48,7 @@ private:
     int port;
     int ctx_size;
     int n_gpu_layers;
+    int max_tokens;
 };
 
 } // namespace multipass

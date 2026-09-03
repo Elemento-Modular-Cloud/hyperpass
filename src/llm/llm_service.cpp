@@ -157,6 +157,7 @@ void mp::LlmService::restore_claims()
         session.port = obj.value("port").toInt();
         session.pid = obj.value("pid").toInteger();
         session.memory = MemorySize::from_bytes(obj.value("memory_bytes").toInteger());
+        session.max_tokens = obj.value("max_tokens").toInt();
         if (session.instance_id.empty())
             continue;
         if (!session_is_live(session) && live_cmds.find(session.pid) == live_cmds.end())
@@ -605,6 +606,7 @@ void mp::LlmService::load_model_impl(
     };
     const auto art = ensure_pulled(model_id, request->quant(), "", monitor);
     const auto ctx = request->ctx_size() > 0 ? request->ctx_size() : 4096;
+    const auto max_tokens = request->max_tokens() > 0 ? request->max_tokens() : 0;
     const auto claim = estimate_claim(art, ctx);
     const auto kind = resolve_backend(request);
 
@@ -620,6 +622,7 @@ void mp::LlmService::load_model_impl(
     session.path = art.path;
     session.port = pick_loopback_port();
     session.memory = claim;
+    session.max_tokens = max_tokens;
 
     try
     {
@@ -646,7 +649,8 @@ void mp::LlmService::load_model_impl(
                 QString::fromStdString(session.openai_id),
                 session.port,
                 ctx,
-                gpu_layers(kind)));
+                gpu_layers(kind),
+                max_tokens));
         }
         session.process->start();
         if (!session.process->wait_for_started(10000))
@@ -778,6 +782,7 @@ void mp::LlmService::list_models(
         info->set_port(static_cast<uint32_t>(session.port));
         info->set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
         info->set_state(session_is_live(session) ? "loaded" : "stopped");
+        info->set_max_tokens(session.max_tokens);
     }
     for (const auto& art : vault.list())
     {
@@ -1151,6 +1156,7 @@ void mp::LlmService::persist_sessions() const
             obj["port"] = session.port;
             obj["pid"] = session.pid;
             obj["memory_bytes"] = static_cast<qint64>(session.memory.in_bytes());
+            obj["max_tokens"] = session.max_tokens;
             array.append(obj);
         }
     }

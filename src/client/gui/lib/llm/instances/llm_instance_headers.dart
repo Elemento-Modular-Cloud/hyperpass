@@ -62,6 +62,14 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     },
   ),
   TableHeader(
+    name: 'MAX TOKENS',
+    childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnMaxTokens),
+    width: 96,
+    minWidth: 72,
+    sortKey: (m) => m.maxTokens.toString().padLeft(8, '0'),
+    cellBuilder: (m) => Text(m.maxTokens > 0 ? '${m.maxTokens}' : '—'),
+  ),
+  TableHeader(
     name: 'ACTIVITY',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnActivity),
     width: 56,
