@@ -129,10 +129,7 @@ class _LlmUnloadButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     return TextButton(
-      onPressed: () async {
-        await ref.read(grpcClientProvider).unloadModel(model.instanceId);
-        ref.invalidate(loadedModelsProvider);
-      },
+      onPressed: () => unloadLlmInstance(ref, model.instanceId),
       child: Text(l10n.modelsUnload, style: const TextStyle(fontSize: 11)),
     );
   }

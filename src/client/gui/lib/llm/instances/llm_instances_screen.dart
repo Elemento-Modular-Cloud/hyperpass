@@ -114,15 +114,20 @@ class _LlmRunningPane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loaded = ref.watch(loadedModelsProvider);
+    final pending = ref.watch(pendingLlmUnloadsProvider);
 
     return loaded.when(
       data: (reply) {
-        if (reply.models.isEmpty) {
+        final models = reply.models
+            .where((m) => !pending.contains(m.instanceId))
+            .toList(growable: false);
+        if (models.isEmpty) {
           return const NoLlmInstances();
         }
         return vmtable.Table<LoadedModelInfo>(
+          key: ValueKey(models.map((m) => m.instanceId).join(',')),
           headers: llmInstanceHeaders,
-          data: reply.models,
+          data: models,
           rowExtent: 36,
           cellMargin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           finalRow: List.generate(llmInstanceHeaders.length, (_) => const SizedBox.shrink()),

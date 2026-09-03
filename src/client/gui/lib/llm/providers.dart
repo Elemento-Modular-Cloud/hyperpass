@@ -7,11 +7,27 @@ import '../providers.dart';
 import '../sidebar.dart';
 import 'llm_id.dart';
 
-final loadedModelsProvider = FutureProvider((ref) async {
+/// Live list of loaded instances and cached GGUFs.
+///
+/// A one-shot [FutureProvider] stayed on the last successful reply after
+/// unload, so the Running table kept a ghost row until the GUI restarted.
+/// Poll like the VM info stream so the UI converges on daemon state.
+final loadedModelsProvider = StreamProvider<ListModelsReply>((ref) async* {
   if (!ref.watch(daemonAvailableProvider)) {
-    return ListModelsReply();
+    yield ListModelsReply();
+    return;
   }
-  return ref.watch(grpcClientProvider).listModels();
+
+  final client = ref.watch(grpcClientProvider);
+  while (true) {
+    final timer = Future.delayed(const Duration(milliseconds: 1900));
+    try {
+      yield await client.listModels();
+    } catch (_) {
+      // Keep the last successful list; the next poll will recover.
+    }
+    await timer;
+  }
 });
 
 final llmBackendsProvider = FutureProvider((ref) async {
@@ -21,10 +37,51 @@ final llmBackendsProvider = FutureProvider((ref) async {
   return ref.watch(grpcClientProvider).listLlmBackends();
 });
 
+/// Instance IDs whose unload RPC has been sent but is not yet reflected in
+/// [loadedModelsProvider]. The Running table and sidebar badge filter these
+/// out immediately so a ghost row cannot linger until the next poll.
+class PendingLlmUnloads extends Notifier<Set<String>> {
+  @override
+  Set<String> build() {
+    ref.listen(loadedModelsProvider, (_, next) {
+      final live = next.asData?.value.models.map((m) => m.instanceId).toSet();
+      if (live == null || state.isEmpty) return;
+      final leftover = state.intersection(live);
+      if (leftover.length != state.length) {
+        state = leftover;
+      }
+    });
+    return const {};
+  }
+
+  void add(String instanceId) => state = {...state, instanceId};
+
+  void remove(String instanceId) {
+    if (!state.contains(instanceId)) return;
+    state = {...state}..remove(instanceId);
+  }
+}
+
+final pendingLlmUnloadsProvider =
+    NotifierProvider<PendingLlmUnloads, Set<String>>(PendingLlmUnloads.new);
+
+Future<void> unloadLlmInstance(WidgetRef ref, String instanceId) async {
+  ref.read(pendingLlmUnloadsProvider.notifier).add(instanceId);
+  try {
+    await ref.read(grpcClientProvider).unloadModel(instanceId);
+    ref.invalidate(loadedModelsProvider);
+  } catch (_) {
+    ref.read(pendingLlmUnloadsProvider.notifier).remove(instanceId);
+    rethrow;
+  }
+}
+
 final loadedLlmIdsProvider = Provider<List<LlmInstanceId>>((ref) {
   final loaded = ref.watch(loadedModelsProvider);
+  final pending = ref.watch(pendingLlmUnloadsProvider);
   return loaded.when(
     data: (reply) => reply.models
+        .where((m) => !pending.contains(m.instanceId))
         .map((m) => LlmInstanceId(instanceId: m.instanceId, modelId: m.modelId))
         .toList(growable: false),
     loading: () => const [],

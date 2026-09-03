@@ -4,7 +4,7 @@ set -euo pipefail
 OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://127.0.0.1:7777/v1}"
 OPENAI_API_KEY="${OPENAI_API_KEY:-sk-hp-2814deb4c6293f9869f95e19fdb1140fbc128276d898be36}"
 # Catalog slug or prefix of openai_id from GET /v1/models (before the instance suffix).
-LLM_MODEL="${LLM_MODEL:-google-gemma-4-e4b-it-b38bb305}"
+LLM_MODEL="${LLM_MODEL:-google-gemma-4-e4b-it-8428b4d4}"
 
 MODELS_JSON=$(curl -sk "$OPENAI_BASE_URL/models" \
   -H "Authorization: Bearer $OPENAI_API_KEY")

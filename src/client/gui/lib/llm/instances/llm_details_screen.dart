@@ -80,8 +80,7 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
   }
 
   Future<void> _unload() async {
-    await ref.read(grpcClientProvider).unloadModel(widget.id.instanceId);
-    ref.invalidate(llm.loadedModelsProvider);
+    await llm.unloadLlmInstance(ref, widget.id.instanceId);
   }
 
   @override
@@ -89,10 +88,14 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
     final l10n = AppLocalizations.of(context)!;
     final branding = distroBranding('');
     final loaded = ref.watch(llm.loadedModelsProvider);
+    final pending = ref.watch(llm.pendingLlmUnloadsProvider);
     final modelInfo = loaded.whenOrNull(
       data: (reply) {
         for (final model in reply.models) {
-          if (model.instanceId == widget.id.instanceId) return model;
+          if (model.instanceId == widget.id.instanceId &&
+              !pending.contains(model.instanceId)) {
+            return model;
+          }
         }
         return null;
       },
