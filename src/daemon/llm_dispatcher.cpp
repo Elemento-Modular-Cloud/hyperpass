@@ -46,6 +46,13 @@ mp::LlmDispatcher::LlmDispatcher(ResourcePool& pool, URLDownloader& downloader, 
 
 mp::LlmDispatcher::~LlmDispatcher()
 {
+    try
+    {
+        shutdown();
+    }
+    catch (...)
+    {
+    }
     worker_pool_.waitForDone();
 }
 

@@ -69,6 +69,7 @@ add_executable(multipass_cpp_tests
   test_base_virtual_machine.cpp
   test_base_virtual_machine_factory.cpp
   test_basic_process.cpp
+  test_process_scan.cpp
   test_cli_client.cpp
   test_cli_prompters.cpp
   test_client_cert_store.cpp
@@ -170,6 +171,7 @@ target_link_libraries(multipass_cpp_tests
   daemon
   delayed_shutdown
   llm
+  process
   GTest::gtest_main
   GTest::gmock_main
   ip_address

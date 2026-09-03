@@ -152,9 +152,13 @@
     "@llmCatalogueLabel": {
         "description": "Sidebar label for the LLM model catalogue"
     },
-    "llmInstancesLabel": "My models",
+    "llmInstancesLabel": "Running",
     "@llmInstancesLabel": {
-        "description": "Sidebar label for loaded LLM instances"
+        "description": "Sidebar label for loaded LLM inference instances"
+    },
+    "llmDownloadedLabel": "Downloaded",
+    "@llmDownloadedLabel": {
+        "description": "Sidebar label for cached GGUF models and active downloads"
     },
     "llmCredentialsLabel": "Credentials",
     "@llmCredentialsLabel": {
@@ -192,9 +196,17 @@
     "@llmInstancesEmpty": {
         "description": "Empty state on the LLM instances screen"
     },
-    "llmInstancesEmptyHint": "Browse the model catalog to download a model, then load it from the Downloaded tab.",
+    "llmInstancesEmptyHint": "Browse the model catalog or open Downloaded to load a cached model.",
     "@llmInstancesEmptyHint": {
         "description": "Hint shown when no LLM instances are running"
+    },
+    "llmDownloadedEmpty": "No models downloaded yet.",
+    "@llmDownloadedEmpty": {
+        "description": "Empty state on the Downloaded models screen"
+    },
+    "llmDownloadedEmptyHint": "Browse the model catalog to download a GGUF, then load it from here.",
+    "@llmDownloadedEmptyHint": {
+        "description": "Hint shown when no cached LLM models are present"
     },
     "llmHfTokenLabel": "Hugging Face token",
     "@llmHfTokenLabel": {
@@ -212,13 +224,17 @@
     "@modelsLabel": {
         "description": "Sidebar and page title for local LLM models"
     },
-    "modelsOpenaiHint": "Clients use this OpenAI-compatible base URL with an sk-hp- API key. Backends bind localhost only.",
+    "modelsOpenaiHint": "Clients use these OpenAI-compatible base URLs with an sk-hp- API key. The gateway listens on all interfaces so Hyperpass VMs can reach it on 192.168.67.1; inference backends stay on localhost.",
     "@modelsOpenaiHint": {
-        "description": "Explains the OpenAI API contract on the Models screen"
+        "description": "Explains the OpenAI API contract on the Credentials screen"
     },
-    "modelsBaseUrl": "Base URL",
+    "modelsBaseUrl": "Host",
     "@modelsBaseUrl": {
-        "description": "Label for the copyable OpenAI base URL"
+        "description": "Label for the copyable OpenAI base URL used on the host"
+    },
+    "modelsBaseUrlVm": "From a VM",
+    "@modelsBaseUrlVm": {
+        "description": "Label for the OpenAI base URL VMs on 192.168.67.x should use"
     },
     "modelsLoadedHeading": "Loaded",
     "@modelsLoadedHeading": {

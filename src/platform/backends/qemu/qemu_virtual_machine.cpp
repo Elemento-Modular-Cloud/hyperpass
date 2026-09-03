@@ -26,6 +26,7 @@
 #include <multipass/exceptions/virtual_machine_state_exceptions.h>
 #include <multipass/file_ops.h>
 #include <multipass/format.h>
+#include <multipass/process/process_scan.h>
 #include <multipass/ip_address.h>
 #include <multipass/json_utils.h>
 #include <multipass/logging/log.h>
@@ -46,6 +47,7 @@
 
 namespace mp = multipass;
 namespace mpl = mp::logging;
+namespace mpu = mp::utils;
 
 using namespace std::chrono_literals;
 
@@ -216,6 +218,27 @@ QStringList extract_snapshot_tags(const QByteArray& snapshot_list_output_stream)
     return snapshot_tags;
 }
 
+// Probe suspend snapshots only when no live QEMU holds the disk. qemu-img needs a
+// shared write lock and fails hard if an orphaned guest still has the image open.
+mp::VirtualMachine::State initial_state_for(const mp::VirtualMachineDescription& desc)
+{
+    const auto image = MP_PLATFORM.path_to_qstr(desc.image.image_path);
+    if (mpu::find_pid_containing("qemu-system", image))
+        return mp::VirtualMachine::State::off;
+
+    try
+    {
+        return mp::backend::instance_image_has_snapshot(desc.image.image_path, suspend_tag)
+                   ? mp::VirtualMachine::State::suspended
+                   : mp::VirtualMachine::State::off;
+    }
+    catch (const std::exception& e)
+    {
+        mpl::warn(desc.vm_name, "Could not probe suspend snapshot (will try adopt): {}", e.what());
+        return mp::VirtualMachine::State::off;
+    }
+}
+
 } // namespace
 
 mp::QemuVirtualMachine::QemuVirtualMachine(const VirtualMachineDescription& desc,
@@ -225,10 +248,7 @@ mp::QemuVirtualMachine::QemuVirtualMachine(const VirtualMachineDescription& desc
                                            AvailabilityZone& zone,
                                            const Path& instance_dir,
                                            bool remove_snapshots)
-    : BaseVirtualMachine{mp::backend::instance_image_has_snapshot(desc.image.image_path,
-                                                                  suspend_tag)
-                             ? State::suspended
-                             : State::off,
+    : BaseVirtualMachine{initial_state_for(desc),
                          desc.vm_name,
                          desc,
                          key_provider,
@@ -239,6 +259,7 @@ mp::QemuVirtualMachine::QemuVirtualMachine(const VirtualMachineDescription& desc
       mount_args{mount_args_from_json(monitor.retrieve_metadata_for(vm_name))}
 {
     connect_vm_signals();
+    try_adopt_existing_qemu();
 
     // only for clone case where the vm recreation purges the snapshot data
     if (remove_snapshots)
@@ -268,6 +289,9 @@ mp::QemuVirtualMachine::~QemuVirtualMachine()
 
 void mp::QemuVirtualMachine::start()
 {
+    if (try_adopt_existing_qemu())
+        return;
+
     initialize_vm_process();
 
     if (state == State::suspended)
@@ -317,6 +341,7 @@ void mp::QemuVirtualMachine::start()
     }
 
     vm_process->write(QByteArray::fromStdString(serialize(qmp_execute_json("qmp_capabilities"))));
+    persist_qemu_pid(vm_process->process_id());
 }
 
 void mp::QemuVirtualMachine::shutdown(ShutdownPolicy shutdown_policy)
@@ -350,6 +375,12 @@ void mp::QemuVirtualMachine::shutdown(ShutdownPolicy shutdown_policy)
                     "The QEMU process did not finish within {} milliseconds after being killed",
                     kill_process_timeout)};
             }
+            clear_qemu_pid();
+        }
+        else if (adopted_qemu_pid > 0)
+        {
+            lock.unlock();
+            stop_adopted_qemu();
         }
         else
         {
@@ -385,6 +416,7 @@ void mp::QemuVirtualMachine::shutdown(ShutdownPolicy shutdown_policy)
             {
                 lock.lock();
                 state = State::off;
+                clear_qemu_pid();
             }
             else
             {
@@ -393,12 +425,26 @@ void mp::QemuVirtualMachine::shutdown(ShutdownPolicy shutdown_policy)
                     vm_shutdown_timeout)};
             }
         }
+        else if (adopted_qemu_pid > 0)
+        {
+            stop_adopted_qemu();
+            lock.lock();
+            state = State::off;
+        }
     }
 }
 
 void mp::QemuVirtualMachine::suspend()
 {
-    if ((state == State::running || state == State::delayed_shutdown) && vm_process->running())
+    if (adopted_qemu_pid > 0 && (!vm_process || !vm_process->running()))
+    {
+        mpl::warn(vm_name,
+                  "Cannot suspend an adopted QEMU process (no QMP); leaving the VM running");
+        return;
+    }
+
+    if ((state == State::running || state == State::delayed_shutdown) && vm_process &&
+        vm_process->running())
     {
         if (update_shutdown_status)
         {
@@ -424,6 +470,14 @@ void mp::QemuVirtualMachine::suspend()
 
 mp::VirtualMachine::State mp::QemuVirtualMachine::current_state()
 {
+    if (adopted_qemu_pid > 0)
+    {
+        if (mpu::pid_is_alive(adopted_qemu_pid))
+            return State::running;
+        adopted_qemu_pid = 0;
+        state = State::off;
+        clear_qemu_pid();
+    }
     return state;
 }
 
@@ -464,6 +518,8 @@ void mp::QemuVirtualMachine::on_shutdown()
         drop_ssh_session();
         handle_state_update();
         vm_process.reset(nullptr);
+        adopted_qemu_pid = 0;
+        clear_qemu_pid();
     }
 
     monitor->on_shutdown();
@@ -514,6 +570,75 @@ void mp::QemuVirtualMachine::wait_until_ssh_up(std::chrono::milliseconds timeout
         emit on_delete_memory_snapshot();
         emit on_synchronize_clock();
     }
+}
+
+QString mp::QemuVirtualMachine::qemu_pid_file() const
+{
+    return instance_dir.filePath("qemu.pid");
+}
+
+void mp::QemuVirtualMachine::persist_qemu_pid(qint64 pid)
+{
+    if (pid <= 0)
+        return;
+    MP_FILEOPS.write_transactionally(qemu_pid_file(), QByteArray::number(pid) + '\n');
+}
+
+void mp::QemuVirtualMachine::clear_qemu_pid()
+{
+    QFile file{qemu_pid_file()};
+    MP_FILEOPS.remove(file);
+}
+
+void mp::QemuVirtualMachine::stop_adopted_qemu()
+{
+    if (adopted_qemu_pid <= 0)
+        return;
+    mpl::info(vm_name, "Stopping adopted QEMU process {}", adopted_qemu_pid);
+    mpu::terminate_pid(adopted_qemu_pid);
+    adopted_qemu_pid = 0;
+    clear_qemu_pid();
+}
+
+bool mp::QemuVirtualMachine::try_adopt_existing_qemu()
+{
+    if (adopted_qemu_pid > 0 && mpu::pid_is_alive(adopted_qemu_pid))
+    {
+        state = State::running;
+        return true;
+    }
+
+    const auto image = MP_PLATFORM.path_to_qstr(desc.image.image_path);
+    std::optional<qint64> pid;
+
+    if (const auto contents = MP_FILEOPS.try_read_file(qemu_pid_file().toStdString()))
+    {
+        const auto stored = QString::fromStdString(*contents).trimmed().toLongLong();
+        if (mpu::pid_is_alive(stored))
+        {
+            if (auto live = mpu::find_pid_containing("qemu-system", image); live && *live == stored)
+                pid = stored;
+        }
+        else
+            clear_qemu_pid();
+    }
+
+    if (!pid)
+        pid = mpu::find_pid_containing("qemu-system", image);
+
+    if (!pid)
+        return false;
+
+    adopted_qemu_pid = *pid;
+    persist_qemu_pid(adopted_qemu_pid);
+    state = State::running;
+    update_shutdown_status = true;
+    mpl::info(vm_name,
+              "Adopting existing QEMU process {} (disk already locked by that process)",
+              adopted_qemu_pid);
+    handle_state_update();
+    monitor->on_resume();
+    return true;
 }
 
 void mp::QemuVirtualMachine::initialize_vm_process()
@@ -779,6 +904,8 @@ auto mp::QemuVirtualMachine::make_specific_snapshot(const std::string& snapshot_
 }
 bool multipass::QemuVirtualMachine::unplugged()
 {
+    if (adopted_qemu_pid > 0 && mpu::pid_is_alive(adopted_qemu_pid))
+        return false;
     return BaseVirtualMachine::unplugged() || !vm_process || !vm_process->running();
 }
 

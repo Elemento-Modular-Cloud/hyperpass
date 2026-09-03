@@ -57,6 +57,7 @@ struct LoadedSession
     std::string backend;
     std::string path;
     int port{0};
+    qint64 pid{0};
     MemorySize memory;
     std::unique_ptr<Process> process;
     std::unique_ptr<QThread> runner_thread;
@@ -142,6 +143,9 @@ private:
     std::string hf_token() const;
     std::chrono::seconds idle_ttl() const;
     void persist_sessions() const;
+    QString sessions_file() const;
+    bool session_is_live(const LoadedSession& session) const;
+    void restore_session(LoadedSession session);
     void reap_dead_sessions();
     void idle_unload_tick();
     std::string openai_id_for_instance(const std::string& model_id,

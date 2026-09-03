@@ -5,6 +5,7 @@ import 'package:grpc/grpc.dart';
 
 import '../providers.dart';
 import '../sidebar.dart';
+import 'instances/llm_downloaded_screen.dart';
 import 'llm_id.dart';
 
 /// Live list of loaded instances and cached GGUFs.
@@ -241,17 +242,6 @@ class ModelDownloadJob {
   }
 }
 
-class MyModelsTabIndex extends Notifier<int> {
-  @override
-  int build() => 0;
-
-  void setRunning() => state = 0;
-  void setDownloaded() => state = 1;
-  void set(int index) => state = index;
-}
-
-final myModelsTabProvider = NotifierProvider<MyModelsTabIndex, int>(MyModelsTabIndex.new);
-
 class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
   Future<void>? _pump;
 
@@ -277,8 +267,7 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
         quant: quant,
       ),
     ];
-    ref.read(myModelsTabProvider.notifier).setDownloaded();
-    ref.read(sidebarKeyProvider.notifier).set('llm-instances');
+    ref.read(sidebarKeyProvider.notifier).set(LlmDownloadedScreen.sidebarKey);
     _pump ??= _run();
   }
 

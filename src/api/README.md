@@ -2,7 +2,8 @@
 
 REST sidecar implementing the AtomOS VM API (temporarily on matcher port **7777**;
 Service/Meson canonical is 7781), translating to `hyperpassd` over mTLS gRPC.
-All endpoints — including fingerprint discovery — share that single listen address.
+All endpoints — including fingerprint discovery — share that listen port on
+localhost and the Hyperpass VM gateway (`192.168.67.1`).
 
 ## Build
 
@@ -78,7 +79,7 @@ Options:
 
 | Flag / env | Meaning |
 |------------|---------|
-| `--listen` / `HYPERPASS_API_LISTEN` | All endpoints (default `127.0.0.1:7777`) |
+| `--listen` / `HYPERPASS_API_LISTEN` | All endpoints (default `127.0.0.1,192.168.67.1:7777`) |
 | `--http` | Opt out of TLS (debug only; breaks Electros fingerprinting) |
 | `--cert` / `HYPERPASS_API_CERT` | Existing certificate PEM (HTTPS is default) |
 | `--key` / `HYPERPASS_API_KEY` | Matching private key PEM |

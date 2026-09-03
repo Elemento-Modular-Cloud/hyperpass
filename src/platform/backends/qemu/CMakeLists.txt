@@ -30,6 +30,7 @@ target_link_libraries(qemu_backend
   fmt::fmt-header-only
   ip_address
   logger
+  process
   qemu_platform_impl
   scope_guard
   utils

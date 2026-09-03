@@ -47,11 +47,22 @@ mp::api::ApiServer::ApiServer(ApiConfig config,
       vm_registry{std::move(registry)},
       multipass_backend{std::move(multipass_backend)}
 {
-    make_server();
-    register_routes();
+    const auto endpoint = parse_listen_endpoint(this->config.listen_address);
+    servers.reserve(endpoint.hosts.size());
+    for (size_t i = 0; i < endpoint.hosts.size(); ++i)
+    {
+        auto server = make_one_server();
+        register_routes(*server);
+        servers.push_back(std::move(server));
+    }
 }
 
-void mp::api::ApiServer::make_server()
+mp::api::ApiServer::~ApiServer()
+{
+    stop();
+}
+
+std::unique_ptr<httplib::Server> mp::api::ApiServer::make_one_server()
 {
     if (config.use_https)
     {
@@ -72,20 +83,18 @@ void mp::api::ApiServer::make_server()
                 fmt::format("failed to initialize HTTPS server (ssl error {})",
                             ssl_server->ssl_last_error()));
         }
-        server = std::move(ssl_server);
+        return ssl_server;
 #else
         throw std::runtime_error("HTTPS requested but OpenSSL support is unavailable");
 #endif
     }
-    else
-    {
-        server = std::make_unique<httplib::Server>();
-    }
+
+    return std::make_unique<httplib::Server>();
 }
 
-void mp::api::ApiServer::register_routes()
+void mp::api::ApiServer::register_routes(httplib::Server& server)
 {
-    server->set_logger([](const httplib::Request& req, const httplib::Response& res) {
+    server.set_logger([](const httplib::Request& req, const httplib::Response& res) {
         mpl::log(mpl::Level::info,
                  category,
                  "{} {} -> {} ({} bytes, from {})",
@@ -96,7 +105,7 @@ void mp::api::ApiServer::register_routes()
                  req.remote_addr);
     });
 
-    server->set_pre_routing_handler(
+    server.set_pre_routing_handler(
         [this](const httplib::Request& req, httplib::Response& res) -> httplib::Server::HandlerResponse {
             mpl::log(mpl::Level::debug,
                      category,
@@ -146,7 +155,7 @@ void mp::api::ApiServer::register_routes()
     // Electros-compatible: dial host:7777 (fallback :7772) TLS and return peer fingerprint.
     // Same listen port as the VM API; real AtomOS matcher has no such HTTP route — Electros
     // normally does this on local :47777. Hosted here so everything stays on 7777.
-    server->Get("/api/v1/authenticate/cert", [](const httplib::Request& req, httplib::Response& res) {
+    server.Get("/api/v1/authenticate/cert", [](const httplib::Request& req, httplib::Response& res) {
         const auto host = req.get_param_value("host");
         json::object body;
         if (host.empty())
@@ -181,32 +190,62 @@ void mp::api::ApiServer::register_routes()
             res.set_content(json::serialize(body), "application/json");
         }
     });
-    server->Get("/fingerprint", fingerprint_handler);
+    server.Get("/fingerprint", fingerprint_handler);
 
-    register_service_handlers(*server, *hyperpass_backend, *vm_registry);
-    register_health_handlers(*server, *hyperpass_backend, multipass_backend.get());
-    register_instance_handlers(*server, *hyperpass_backend, multipass_backend.get());
-    register_operation_handlers(*server, tracker);
-    register_model_control_handlers(*server, *hyperpass_backend);
-    register_openai_handlers(*server, *hyperpass_backend);
+    register_service_handlers(server, *hyperpass_backend, *vm_registry);
+    register_health_handlers(server, *hyperpass_backend, multipass_backend.get());
+    register_instance_handlers(server, *hyperpass_backend, multipass_backend.get());
+    register_operation_handlers(server, tracker);
+    register_model_control_handlers(server, *hyperpass_backend);
+    register_openai_handlers(server, *hyperpass_backend);
 }
 
 bool mp::api::ApiServer::listen()
 {
-    std::string host;
-    int port = 0;
-    parse_listen_address(config.listen_address, host, port);
+    const auto endpoint = parse_listen_endpoint(config.listen_address);
+    if (servers.size() != endpoint.hosts.size())
+    {
+        mpl::log(mpl::Level::error,
+                 category,
+                 "internal listen mismatch (servers={}, hosts={})",
+                 servers.size(),
+                 endpoint.hosts.size());
+        return false;
+    }
 
     const auto scheme = config.use_https ? "https" : "http";
-    mpl::log(mpl::Level::info,
-             category,
-             "listening on {}://{}:{} (hyperpass={}, multipass={}, verbosity={})",
-             scheme,
-             host,
-             port,
-             config.daemon_address,
-             multipass_backend ? "enabled" : "disabled",
-             mpl::as_string(config.verbosity_level));
+    std::vector<size_t> bound;
+    bound.reserve(endpoint.hosts.size());
+
+    for (size_t i = 0; i < endpoint.hosts.size(); ++i)
+    {
+        const auto& host = endpoint.hosts[i];
+        if (servers[i]->bind_to_port(host, endpoint.port))
+        {
+            bound.push_back(i);
+            mpl::log(mpl::Level::info,
+                     category,
+                     "listening on {}://{}:{} (hyperpass={}, multipass={}, verbosity={})",
+                     scheme,
+                     host,
+                     endpoint.port,
+                     config.daemon_address,
+                     multipass_backend ? "enabled" : "disabled",
+                     mpl::as_string(config.verbosity_level));
+        }
+        else
+        {
+            mpl::log(mpl::Level::warning,
+                     category,
+                     "failed to bind {}://{}:{} (interface may be down)",
+                     scheme,
+                     host,
+                     endpoint.port);
+        }
+    }
+
+    if (bound.empty())
+        return false;
 
     if (config.use_https)
     {
@@ -216,11 +255,26 @@ bool mp::api::ApiServer::listen()
                  config.tls_fingerprint);
     }
 
-    return server->listen(host, port);
+    for (size_t n = 1; n < bound.size(); ++n)
+    {
+        auto* server = servers[bound[n]].get();
+        listen_threads.emplace_back([server] { server->listen_after_bind(); });
+    }
+
+    return servers[bound.front()]->listen_after_bind();
 }
 
 void mp::api::ApiServer::stop()
 {
-    if (server)
-        server->stop();
+    for (auto& server : servers)
+    {
+        if (server)
+            server->stop();
+    }
+    for (auto& thread : listen_threads)
+    {
+        if (thread.joinable())
+            thread.join();
+    }
+    listen_threads.clear();
 }

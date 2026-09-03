@@ -28,6 +28,8 @@
 #include <httplib.h>
 
 #include <memory>
+#include <thread>
+#include <vector>
 
 namespace multipass::api
 {
@@ -39,8 +41,9 @@ public:
               std::shared_ptr<GrpcBackend> hyperpass_backend,
               std::shared_ptr<VmRegistry> registry,
               std::shared_ptr<GrpcBackend> multipass_backend = nullptr);
+    ~ApiServer();
 
-    /** Blocking listen. Returns false if bind/listen failed. */
+    /** Blocking listen. Returns false if bind/listen failed on every host. */
     bool listen();
 
     void stop();
@@ -56,15 +59,16 @@ public:
     }
 
 private:
-    void make_server();
-    void register_routes();
+    std::unique_ptr<httplib::Server> make_one_server();
+    void register_routes(httplib::Server& server);
 
     ApiConfig config;
     std::shared_ptr<GrpcBackend> hyperpass_backend;
     std::shared_ptr<VmRegistry> vm_registry;
     std::shared_ptr<GrpcBackend> multipass_backend;
     OperationTracker tracker;
-    std::unique_ptr<httplib::Server> server;
+    std::vector<std::unique_ptr<httplib::Server>> servers;
+    std::vector<std::thread> listen_threads;
 };
 
 } // namespace multipass::api

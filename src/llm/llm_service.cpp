@@ -23,14 +23,19 @@
 #include "mlx_server_process_spec.h"
 
 #include <multipass/constants.h>
+#include <multipass/file_ops.h>
 #include <multipass/format.h>
 #include <multipass/logging/log.h>
+#include <multipass/memory_size.h>
 #include <multipass/platform.h>
 #include <multipass/process/simple_process_spec.h>
+#include <multipass/process/process_scan.h>
 #include <multipass/settings/settings.h>
 #include <multipass/utils.h>
 
 #include <QEventLoop>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QHostAddress>
 #include <QJsonArray>
@@ -52,9 +57,11 @@
 #include <deque>
 #include <future>
 #include <stdexcept>
+#include <unordered_set>
 
 namespace mp = multipass;
 namespace mpl = multipass::logging;
+namespace mpu = mp::utils;
 
 namespace
 {
@@ -88,6 +95,7 @@ mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path d
     idle_timer.setInterval(15000);
     QObject::connect(&idle_timer, &QTimer::timeout, this, [this] { idle_unload_tick(); });
     idle_timer.start();
+    restore_claims();
 }
 
 mp::LlmService::~LlmService()
@@ -115,7 +123,80 @@ mp::LlmService::~LlmService()
 
 void mp::LlmService::restore_claims()
 {
-    // Sessions are not persisted across daemon restarts; claims live only while processes run.
+    std::vector<LoadedSession> recovered;
+    std::unordered_map<qint64, QString> live_cmds;
+    for (const auto& proc : mpu::list_processes())
+    {
+        if (proc.command_line.contains("llama-server") || proc.command_line.contains("llama_server") ||
+            proc.command_line.contains("mlx_lm.server"))
+        {
+            live_cmds[proc.pid] = proc.command_line;
+        }
+    }
+
+    QFile file{sessions_file()};
+    QJsonArray persisted;
+    if (MP_FILEOPS.open(file, QIODevice::ReadOnly))
+    {
+        const auto doc = QJsonDocument::fromJson(MP_FILEOPS.read_all(file));
+        if (doc.isObject())
+            persisted = doc.object().value("sessions").toArray();
+        file.close();
+    }
+
+    std::unordered_set<qint64> claimed_pids;
+    for (const auto& value : persisted)
+    {
+        const auto obj = value.toObject();
+        LoadedSession session;
+        session.instance_id = obj.value("instance_id").toString().toStdString();
+        session.model_id = obj.value("model_id").toString().toStdString();
+        session.openai_id = obj.value("openai_id").toString().toStdString();
+        session.backend = obj.value("backend").toString().toStdString();
+        session.path = obj.value("path").toString().toStdString();
+        session.port = obj.value("port").toInt();
+        session.pid = obj.value("pid").toInteger();
+        session.memory = MemorySize::from_bytes(obj.value("memory_bytes").toInteger());
+        if (session.instance_id.empty())
+            continue;
+        if (!session_is_live(session) && live_cmds.find(session.pid) == live_cmds.end())
+            continue;
+        if (session.pid > 0)
+            claimed_pids.insert(session.pid);
+        recovered.push_back(std::move(session));
+    }
+
+    for (const auto& [pid, cmdline] : live_cmds)
+    {
+        if (claimed_pids.contains(pid))
+            continue;
+        LoadedSession session;
+        session.pid = pid;
+        session.port = mpu::cli_flag_value(cmdline, {"--port"}).toInt();
+        session.path = mpu::cli_flag_value(cmdline, {"-m", "--model"}).toStdString();
+        session.openai_id = mpu::cli_flag_value(cmdline, {"--alias"}).toStdString();
+        session.backend = cmdline.contains("mlx_lm") ? "mlx" : "llamacpp";
+        if (session.openai_id.empty())
+            session.openai_id = fmt::format("recovered-{}", pid);
+        session.instance_id = session.openai_id;
+        session.model_id = session.path.empty()
+                               ? session.openai_id
+                               : QFileInfo{QString::fromStdString(session.path)}.completeBaseName().toStdString();
+        for (const auto& art : vault.list())
+        {
+            if (art.path == session.path)
+            {
+                session.model_id = art.id;
+                session.memory = MemorySize::from_bytes(art.size_bytes);
+                break;
+            }
+        }
+        recovered.push_back(std::move(session));
+    }
+
+    for (auto& session : recovered)
+        restore_session(std::move(session));
+    persist_sessions();
 }
 
 mp::LlmService::BackendKind mp::LlmService::select_backend() const
@@ -570,6 +651,7 @@ void mp::LlmService::load_model_impl(
         session.process->start();
         if (!session.process->wait_for_started(10000))
             throw std::runtime_error("inference backend failed to start");
+        session.pid = session.process->process_id();
         if (!wait_until_ready(session.port))
             throw std::runtime_error("inference backend started but did not become ready on 127.0.0.1");
     }
@@ -607,6 +689,7 @@ void mp::LlmService::load_model_impl(
         }
     }
     vault.touch(model_id);
+    persist_sessions();
     log_lifecycle(instance_id,
                   "info",
                   fmt::format("load complete on port {} as {}", reply.port(), reply.openai_id()));
@@ -618,27 +701,33 @@ void mp::LlmService::unload_instance(const std::string& instance_id)
     log_lifecycle(instance_id, "info", "unload");
     std::unique_ptr<Process> dying;
     std::unique_ptr<QThread> runner_thread;
+    qint64 adopted_pid = 0;
     {
         std::lock_guard lock{mutex};
         auto it = sessions.find(instance_id);
         if (it == sessions.end())
         {
             pool.release(instance_id);
+            persist_sessions();
             return;
         }
         dying = std::move(it->second.process);
         runner_thread = std::move(it->second.runner_thread);
+        adopted_pid = it->second.pid;
         sessions.erase(it);
         pool.release(instance_id);
     }
     keys.revoke_for_instance(instance_id);
     if (dying)
         stop_process(dying.get());
+    else if (adopted_pid > 0)
+        mpu::terminate_pid(adopted_pid);
     if (runner_thread)
     {
         runner_thread->quit();
         runner_thread->wait(5000);
     }
+    persist_sessions();
 }
 
 void mp::LlmService::unload_all_for_model(const std::string& model_id)
@@ -688,7 +777,7 @@ void mp::LlmService::list_models(
         info->set_path(session.path);
         info->set_port(static_cast<uint32_t>(session.port));
         info->set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
-        info->set_state(session.process && session.process->running() ? "loaded" : "stopped");
+        info->set_state(session_is_live(session) ? "loaded" : "stopped");
     }
     for (const auto& art : vault.list())
     {
@@ -1016,7 +1105,7 @@ void mp::LlmService::reap_dead_sessions()
         std::lock_guard lock{mutex};
         for (const auto& [id, session] : sessions)
         {
-            if (!session.process || !session.process->running())
+            if (!session_is_live(session))
                 dead.push_back(id);
         }
     }
@@ -1048,4 +1137,56 @@ void mp::LlmService::idle_unload_tick()
 
 void mp::LlmService::persist_sessions() const
 {
+    QJsonArray array;
+    {
+        std::lock_guard lock{mutex};
+        for (const auto& [id, session] : sessions)
+        {
+            QJsonObject obj;
+            obj["instance_id"] = QString::fromStdString(session.instance_id);
+            obj["model_id"] = QString::fromStdString(session.model_id);
+            obj["openai_id"] = QString::fromStdString(session.openai_id);
+            obj["backend"] = QString::fromStdString(session.backend);
+            obj["path"] = QString::fromStdString(session.path);
+            obj["port"] = session.port;
+            obj["pid"] = session.pid;
+            obj["memory_bytes"] = static_cast<qint64>(session.memory.in_bytes());
+            array.append(obj);
+        }
+    }
+    QJsonObject root;
+    root["sessions"] = array;
+    MP_FILEOPS.write_transactionally(
+        sessions_file(),
+        QJsonDocument{root}.toJson(QJsonDocument::Compact));
+}
+
+QString mp::LlmService::sessions_file() const
+{
+    return QDir{data_directory}.filePath("llm-sessions.json");
+}
+
+bool mp::LlmService::session_is_live(const LoadedSession& session) const
+{
+    if (session.process && session.process->running())
+        return true;
+    return mpu::pid_is_alive(session.pid);
+}
+
+void mp::LlmService::restore_session(LoadedSession session)
+{
+    if (session.instance_id.empty())
+        return;
+    const auto id = session.instance_id;
+    const auto claim = session.memory.in_bytes() > 0 ? session.memory : MemorySize{"512M"};
+    pool.force_claim(id, WorkloadKind::llm, claim, 0);
+    session.memory = claim;
+    mpl::info(category,
+              "Restored LLM instance '{}' ({}) pid={} port={}",
+              id,
+              session.openai_id,
+              session.pid,
+              session.port);
+    std::lock_guard lock{mutex};
+    sessions[id] = std::move(session);
 }

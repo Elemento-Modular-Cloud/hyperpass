@@ -89,8 +89,27 @@ class LlmCredentialsScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Text('${l10n.modelsBaseUrl}: ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                SizedBox(
+                  width: 100,
+                  child: Text(
+                    '${l10n.modelsBaseUrl}:',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
                 const Expanded(child: CopyableText(openaiBaseUrl)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                SizedBox(
+                  width: 100,
+                  child: Text(
+                    '${l10n.modelsBaseUrlVm}:',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const Expanded(child: CopyableText(openaiVmBaseUrl)),
               ],
             ),
             const SizedBox(height: 24),

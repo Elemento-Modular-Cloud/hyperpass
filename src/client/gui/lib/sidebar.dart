@@ -16,6 +16,7 @@ import 'l10n/app_localizations.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
 import 'llm/credentials/llm_credentials_screen.dart';
 import 'llm/host_resource_gauges.dart';
+import 'llm/instances/llm_downloaded_screen.dart';
 import 'llm/instances/llm_instances_screen.dart';
 import 'llm/llm_id.dart';
 import 'llm/providers.dart';
@@ -241,6 +242,20 @@ class SideBar extends ConsumerWidget {
       },
     );
 
+    final activeDownloads = ref.watch(modelDownloadQueueProvider).where((j) =>
+        j.status == ModelJobStatus.queued ||
+        j.status == ModelJobStatus.running).length;
+
+    final llmDownloaded = SidebarEntry(
+      icon: FontAwesomeIcons.download,
+      selected: isSelected(LlmDownloadedScreen.sidebarKey),
+      label: l10n.llmDownloadedLabel,
+      badge: activeDownloads > 0 ? activeDownloads.toString() : null,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(LlmDownloadedScreen.sidebarKey);
+      },
+    );
+
     final llmCredentials = SidebarEntry(
       icon: FontAwesomeIcons.key,
       selected: isSelected(LlmCredentialsScreen.sidebarKey),
@@ -394,6 +409,7 @@ class SideBar extends ConsumerWidget {
         SidebarSectionHeader(l10n.sidebarSectionLlms),
         llmCatalogue,
         llmInstances,
+        llmDownloaded,
         llmCredentials,
         SidebarSectionHeader(l10n.sidebarSectionServices),
         services,

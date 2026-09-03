@@ -20,13 +20,14 @@
 #include <multipass/logging/level.h>
 
 #include <string>
+#include <vector>
 
 namespace multipass::api
 {
 
 struct ApiConfig
 {
-    std::string listen_address;   // host:port
+    std::string listen_address;   // host[,host…]:port
     std::string daemon_address;   // unix:… or host:port
     std::string api_token;        // empty when insecure_no_auth
     bool insecure_no_auth{false};
@@ -43,6 +44,12 @@ struct ApiConfig
     std::string tls_fingerprint;  // AtomOS SHA-256 colon form
 };
 
+struct ListenEndpoint
+{
+    std::vector<std::string> hosts;
+    int port{0};
+};
+
 /**
  * Parse CLI args and environment into an ApiConfig.
  * Requires a live QCoreApplication (for argument/env access). Throws on invalid input.
@@ -55,7 +62,12 @@ ApiConfig parse_config();
  */
 void prepare_tls(ApiConfig& config);
 
-/** Split "host:port" into host and port. Throws if malformed. */
+/**
+ * Parse "host:port" or "host1,host2:port" into hosts + port. Throws if malformed.
+ */
+ListenEndpoint parse_listen_endpoint(const std::string& listen);
+
+/** Split a single "host:port" into host and port. Throws if malformed. */
 void parse_listen_address(const std::string& listen, std::string& host, int& port);
 
 } // namespace multipass::api

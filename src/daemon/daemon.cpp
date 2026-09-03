@@ -69,6 +69,8 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <exception>
+
 #include <QDir>
 #include <QEventLoop>
 #include <QFutureSynchronizer>
@@ -1390,6 +1392,26 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
         llm_thread.start();
     }
 
+    // If construction fails after starting llm_thread, ~Daemon is not run — only member
+    // destructors are. Quit the thread here so QThread::~QThread does not abort.
+    auto stop_llm_thread_on_error = sg::make_scope_guard([this]() noexcept {
+        if (!std::uncaught_exceptions() || !llm_thread.isRunning())
+            return;
+        try
+        {
+            if (llm_dispatcher)
+            {
+                QMetaObject::invokeMethod(
+                    llm_dispatcher.get(), &LlmDispatcher::shutdown, Qt::BlockingQueuedConnection);
+            }
+            llm_thread.quit();
+            llm_thread.wait(5000);
+        }
+        catch (...)
+        {
+        }
+    });
+
     connect_rpc(daemon_rpc, *this, llm_dispatcher.get());
     std::vector<std::string> invalid_specs;
 
@@ -1456,61 +1478,73 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
                                               {},
                                               {}};
 
-        auto& instance_record = spec.deleted ? deleted_instances : operative_instances;
-        auto instance = instance_record[name] =
-            config->factory->create_virtual_machine(vm_desc, *config->ssh_key_provider, *this);
-        instance->load_snapshots();
-
-        // Add the new macs to the daemon's list only if we got this far
-        allocated_mac_addrs = std::move(new_macs);
-
-        // FIXME: somehow we're writing contradictory state to disk.
-        if (spec.deleted && spec.state != e_state::stopped && spec.state != e_state::off)
+        try
         {
-            mpl::warn(
-                category,
-                "{} is deleted but has incompatible state {}, resetting state to {} (stopped)",
-                name,
-                static_cast<int>(spec.state),
-                static_cast<int>(e_state::stopped));
-            spec.state = e_state::stopped;
+            auto& instance_record = spec.deleted ? deleted_instances : operative_instances;
+            auto instance = instance_record[name] =
+                config->factory->create_virtual_machine(vm_desc, *config->ssh_key_provider, *this);
+            instance->load_snapshots();
+
+            // Add the new macs to the daemon's list only if we got this far
+            allocated_mac_addrs = std::move(new_macs);
+
+            // FIXME: somehow we're writing contradictory state to disk.
+            if (spec.deleted && spec.state != e_state::stopped && spec.state != e_state::off)
+            {
+                mpl::warn(
+                    category,
+                    "{} is deleted but has incompatible state {}, resetting state to {} (stopped)",
+                    name,
+                    static_cast<int>(spec.state),
+                    static_cast<int>(e_state::stopped));
+                spec.state = e_state::stopped;
+            }
+
+            if (!spec.deleted)
+                init_mounts(name);
+            std::unique_lock lock{start_mutex};
+
+            if (spec.state == e_state::running)
+            {
+                // If the VM was in running state before, we need to do some additional
+                // work to ensure everything is in sync.
+                switch (operative_instances[name]->current_state())
+                {
+                case e_state::running:
+                case e_state::starting:
+                {
+                    mpl::info(category, "{} needs syncing. Syncing now...", name);
+                    // We don't need to start the instance, but we need to ensure that
+                    // the daemon side resources for the VM are initialized.
+                    multipass::top_catch_all(name, [this, &name, &lock] {
+                        lock.unlock();
+                        on_restart(name);
+                    });
+                }
+                break;
+                default:
+                {
+                    assert(!spec.deleted);
+                    mpl::info(category, "{} needs starting. Starting now...", name);
+
+                    multipass::top_catch_all(name, [this, &name, &lock]() {
+                        operative_instances[name]->start();
+                        lock.unlock();
+                        on_restart(name);
+                    });
+                }
+                break;
+                }
+            }
         }
-
-        if (!spec.deleted)
-            init_mounts(name);
-        std::unique_lock lock{start_mutex};
-
-        if (spec.state == e_state::running)
+        catch (const std::exception& e)
         {
-            // If the VM was in running state before, we need to do some additional
-            // work to ensure everything is in sync.
-            switch (operative_instances[name]->current_state())
-            {
-            case e_state::running:
-            case e_state::starting:
-            {
-                mpl::info(category, "{} needs syncing. Syncing now...", name);
-                // We don't need to start the instance, but we need to ensure that
-                // the daemon side resources for the VM are initialized.
-                multipass::top_catch_all(name, [this, &name, &lock] {
-                    lock.unlock();
-                    on_restart(name);
-                });
-            }
-            break;
-            default:
-            {
-                assert(!spec.deleted);
-                mpl::info(category, "{} needs starting. Starting now...", name);
-
-                multipass::top_catch_all(name, [this, &name, &lock]() {
-                    operative_instances[name]->start();
-                    lock.unlock();
-                    on_restart(name);
-                });
-            }
-            break;
-            }
+            mpl::error(category,
+                       "Failed to recreate instance '{}' (kept on disk for next restart): {}",
+                       name,
+                       e.what());
+            operative_instances.erase(name);
+            deleted_instances.erase(name);
         }
     }
 

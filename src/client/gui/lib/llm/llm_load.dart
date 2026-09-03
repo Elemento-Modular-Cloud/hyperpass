@@ -67,7 +67,6 @@ Future<void> loadLlmModel(
     }
     await client.loadModel(modelId, quant: quant, runtime: runtime).last;
     ref.invalidate(loadedModelsProvider);
-    ref.read(myModelsTabProvider.notifier).setRunning();
     ref.read(sidebarKeyProvider.notifier).set(LlmInstancesScreen.sidebarKey);
   } catch (e) {
     final message = e is GrpcError ? (e.message ?? '$e') : '$e';

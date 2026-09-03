@@ -62,9 +62,19 @@ TEST(ApiAuth, publicPathsAreUnauthenticated)
     EXPECT_FALSE(api::is_openai_inference_path("/api/v1.0/models"));
 }
 
-TEST(ApiConfig, defaultListenAddressIsMatcherPort)
+TEST(ApiConfig, defaultListenAddressIsLocalhostAndVmGateway)
 {
-    EXPECT_EQ(mp::default_api_listen, "127.0.0.1:7777");
+    EXPECT_EQ(mp::default_api_vm_gateway, "192.168.67.1");
+    EXPECT_EQ(mp::default_api_listen, "127.0.0.1,192.168.67.1:7777");
+}
+
+TEST(ApiConfig, parseListenEndpointAcceptsMultipleHosts)
+{
+    const auto endpoint = api::parse_listen_endpoint("127.0.0.1,192.168.67.1:7777");
+    ASSERT_EQ(endpoint.hosts.size(), 2);
+    EXPECT_EQ(endpoint.hosts[0], "127.0.0.1");
+    EXPECT_EQ(endpoint.hosts[1], "192.168.67.1");
+    EXPECT_EQ(endpoint.port, 7777);
 }
 
 TEST(ApiAuth, insecureSkipsTokenCheck)

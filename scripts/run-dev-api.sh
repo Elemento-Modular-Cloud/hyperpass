@@ -7,7 +7,8 @@ BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 API_BIN="${BUILD_DIR}/bin/hyperpass-api"
 HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
 # Temporary: matcher VM port. Service/Meson canonical is 7781.
-HYPERPASS_API_LISTEN="${HYPERPASS_API_LISTEN:-127.0.0.1:7777}"
+# Bind localhost + VM gateway (not 0.0.0.0) so guests reach https://192.168.67.1:7777.
+HYPERPASS_API_LISTEN="${HYPERPASS_API_LISTEN:-127.0.0.1,192.168.67.1:7777}"
 HYPERPASS_API_TOKEN="${HYPERPASS_API_TOKEN:-}"
 INSECURE=0
 HTTP=0
@@ -26,7 +27,7 @@ scripts/run-dev-daemon.sh first. HTTPS is on by default (AtomOS/Electros).
 Options:
   --stop              Stop a running hyperpass-api started from this build tree
   --build-dir DIR     Build directory (default: ${BUILD_DIR})
-  --listen ADDR       HTTPS listen host:port (default: ${HYPERPASS_API_LISTEN})
+  --listen ADDR       HTTPS listen host[,host…]:port (default: ${HYPERPASS_API_LISTEN})
   --token TOKEN       Bearer API token (or set HYPERPASS_API_TOKEN)
   --insecure-no-auth  Disable REST auth (local development only)
   --http              Plain HTTP instead of HTTPS (breaks Electros fingerprinting)

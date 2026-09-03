@@ -20,6 +20,7 @@ import 'logger.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
 import 'llm/credentials/llm_credentials_screen.dart';
 import 'llm/instances/llm_details_screen.dart';
+import 'llm/instances/llm_downloaded_screen.dart';
 import 'llm/instances/llm_instances_screen.dart';
 import 'llm/llm_id.dart';
 import 'llm/providers.dart';
@@ -113,6 +114,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
       VmTableScreen.sidebarKey: const VmTableScreen(),
       LlmCatalogueScreen.sidebarKey: const LlmCatalogueScreen(),
       LlmInstancesScreen.sidebarKey: const LlmInstancesScreen(),
+      LlmDownloadedScreen.sidebarKey: const LlmDownloadedScreen(),
       LlmCredentialsScreen.sidebarKey: const LlmCredentialsScreen(),
       ServicesScreen.sidebarKey: const ServicesScreen(),
       CacheScreen.sidebarKey: const CacheScreen(),

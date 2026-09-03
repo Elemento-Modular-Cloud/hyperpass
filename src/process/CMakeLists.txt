@@ -16,6 +16,7 @@ set(CMAKE_AUTOMOC ON)
 
 add_library(process STATIC
   basic_process.cpp
+  process_scan.cpp
   process_spec.cpp
   qemuimg_process_spec.cpp
   simple_process_spec.cpp

@@ -62,7 +62,10 @@ constexpr auto multipass_address_env_var = "HYPERPASS_MULTIPASS_ADDRESS";
 
 constexpr auto api_name = "hyperpass-api";
 // Temporary: sit on matcher VM port (7777). Service/Meson canonical is 7781.
-constexpr auto default_api_listen = "127.0.0.1:7777";
+// Bind loopback for host clients and the Hyperpass vmnet gateway so guests on
+// 192.168.67.0/24 can reach https://192.168.67.1:7777 — not all interfaces.
+constexpr auto default_api_vm_gateway = "192.168.67.1";
+constexpr auto default_api_listen = "127.0.0.1,192.168.67.1:7777";
 constexpr auto instance_source_hyperpass = "hyperpass";
 constexpr auto instance_source_multipass = "multipass";
 

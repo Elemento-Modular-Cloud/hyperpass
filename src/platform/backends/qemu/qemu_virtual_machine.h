@@ -102,12 +102,18 @@ private:
     void on_suspend();
     void on_restart();
     void initialize_vm_process();
+    bool try_adopt_existing_qemu();
+    QString qemu_pid_file() const;
+    void persist_qemu_pid(qint64 pid);
+    void clear_qemu_pid();
+    void stop_adopted_qemu();
 
     void connect_vm_signals();
     void disconnect_vm_signals();
     void remove_snapshots_from_backend() const;
 
     std::unique_ptr<Process> vm_process{nullptr};
+    qint64 adopted_qemu_pid{0};
     QemuPlatform* qemu_platform;
     VMStatusMonitor* monitor;
     MountArgs mount_args;

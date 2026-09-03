@@ -82,15 +82,52 @@ bool try_load_atomos_certs(mp::api::ApiConfig& config)
 
 void mp::api::parse_listen_address(const std::string& listen, std::string& host, int& port)
 {
+    const auto endpoint = parse_listen_endpoint(listen);
+    if (endpoint.hosts.size() != 1)
+    {
+        throw std::runtime_error(
+            fmt::format("invalid listen address '{}'; expected a single host:port", listen));
+    }
+    host = endpoint.hosts.front();
+    port = endpoint.port;
+}
+
+mp::api::ListenEndpoint mp::api::parse_listen_endpoint(const std::string& listen)
+{
     const auto colon = listen.rfind(':');
     if (colon == std::string::npos || colon == 0 || colon + 1 >= listen.size())
+    {
         throw std::runtime_error(
-            fmt::format("invalid listen address '{}'; expected host:port", listen));
+            fmt::format("invalid listen address '{}'; expected host[,host…]:port", listen));
+    }
 
-    host = listen.substr(0, colon);
+    ListenEndpoint endpoint;
+    const auto hosts_part = listen.substr(0, colon);
+    std::string host;
+    for (char c : hosts_part)
+    {
+        if (c == ',')
+        {
+            if (host.empty())
+            {
+                throw std::runtime_error(
+                    fmt::format("invalid listen address '{}'; empty host", listen));
+            }
+            endpoint.hosts.push_back(std::move(host));
+            host.clear();
+            continue;
+        }
+        host.push_back(c);
+    }
+    if (host.empty())
+    {
+        throw std::runtime_error(fmt::format("invalid listen address '{}'; empty host", listen));
+    }
+    endpoint.hosts.push_back(std::move(host));
+
     try
     {
-        port = std::stoi(listen.substr(colon + 1));
+        endpoint.port = std::stoi(listen.substr(colon + 1));
     }
     catch (const std::exception&)
     {
@@ -98,9 +135,13 @@ void mp::api::parse_listen_address(const std::string& listen, std::string& host,
             fmt::format("invalid listen address '{}'; port is not a number", listen));
     }
 
-    if (port <= 0 || port > 65535)
+    if (endpoint.port <= 0 || endpoint.port > 65535)
+    {
         throw std::runtime_error(
             fmt::format("invalid listen address '{}'; port out of range", listen));
+    }
+
+    return endpoint;
 }
 
 void mp::api::prepare_tls(ApiConfig& config)
@@ -151,7 +192,7 @@ mp::api::ApiConfig mp::api::parse_config()
 
     QCommandLineOption listen_option{
         "listen",
-        "HTTP(S) listen address (host:port); temporary default is matcher port 7777",
+        "HTTP(S) listen address (host[,host…]:port); default binds localhost and the VM gateway",
         "address",
         mp::default_api_listen};
     QCommandLineOption daemon_option{"daemon-address",
@@ -202,9 +243,7 @@ mp::api::ApiConfig mp::api::parse_config()
         config.listen_address = mp::default_api_listen;
 
     // Validate early so misconfiguration fails fast.
-    std::string host;
-    int port = 0;
-    parse_listen_address(config.listen_address, host, port);
+    parse_listen_endpoint(config.listen_address);
 
     if (parser.isSet(daemon_option))
     {
