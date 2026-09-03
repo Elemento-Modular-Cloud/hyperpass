@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
 import '../providers.dart';
+import '../sidebar.dart';
 import 'llm_id.dart';
 
 final loadedModelsProvider = FutureProvider((ref) async {
@@ -148,39 +149,51 @@ class ModelDownloadJob {
   final String modelId;
   final String hfRepo;
   final String quant;
-  final bool loadAfter;
   final ModelJobStatus status;
   final int percent;
   final String error;
+  final String path;
 
   const ModelDownloadJob({
     required this.jobKey,
     required this.modelId,
     this.hfRepo = '',
     required this.quant,
-    required this.loadAfter,
     this.status = ModelJobStatus.queued,
     this.percent = 0,
     this.error = '',
+    this.path = '',
   });
 
   ModelDownloadJob copyWith({
     ModelJobStatus? status,
     int? percent,
     String? error,
+    String? path,
   }) {
     return ModelDownloadJob(
       jobKey: jobKey,
       modelId: modelId,
       hfRepo: hfRepo,
       quant: quant,
-      loadAfter: loadAfter,
       status: status ?? this.status,
       percent: percent ?? this.percent,
       error: error ?? this.error,
+      path: path ?? this.path,
     );
   }
 }
+
+class MyModelsTabIndex extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void setRunning() => state = 0;
+  void setDownloaded() => state = 1;
+  void set(int index) => state = index;
+}
+
+final myModelsTabProvider = NotifierProvider<MyModelsTabIndex, int>(MyModelsTabIndex.new);
 
 class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
   Future<void>? _pump;
@@ -191,25 +204,24 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
   int get activeCount =>
       state.where((j) => j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running).length;
 
-  void enqueue(String modelId, String quant, {String hfRepo = '', bool loadAfter = false}) {
-    if (!loadAfter) {
-      final busy = state.any((j) =>
-          j.modelId == modelId &&
-          !j.loadAfter &&
-          (j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running));
-      if (busy) return;
-    }
+  void enqueueDownload(String modelId, String quant, {String hfRepo = ''}) {
+    final busy = state.any((j) =>
+        j.modelId == modelId &&
+        (j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running));
+    if (busy) return;
+
     final jobKey = '${modelId}_${DateTime.now().microsecondsSinceEpoch}';
     state = [
-      ...state.where((j) => j.loadAfter || j.modelId != modelId || j.status == ModelJobStatus.error),
+      ...state.where((j) => j.modelId != modelId || j.status == ModelJobStatus.error),
       ModelDownloadJob(
         jobKey: jobKey,
         modelId: modelId,
         hfRepo: hfRepo,
         quant: quant,
-        loadAfter: loadAfter,
       ),
     ];
+    ref.read(myModelsTabProvider.notifier).setDownloaded();
+    ref.read(sidebarKeyProvider.notifier).set('llm-instances');
     _pump ??= _run();
   }
 
@@ -229,15 +241,13 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
         _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.running));
         try {
           final client = ref.read(grpcClientProvider);
+          var savedPath = '';
           await for (final reply in client.pullModel(job.modelId, quant: job.quant, hfRepo: job.hfRepo)) {
             final raw = int.tryParse(reply.launchProgress.percentComplete) ?? 0;
-            _patch(job.jobKey, (j) => j.copyWith(percent: raw.clamp(0, 100)));
+            if (reply.path.isNotEmpty) savedPath = reply.path;
+            _patch(job.jobKey, (j) => j.copyWith(percent: raw.clamp(0, 100), path: savedPath));
           }
-          if (job.loadAfter) {
-            await client.loadModel(job.modelId, quant: job.quant).last;
-            ref.invalidate(loadedModelsProvider);
-          }
-          _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.done, percent: 100));
+          _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.done, percent: 100, path: savedPath));
           ref.invalidate(loadedModelsProvider);
         } catch (e) {
           final message = e is GrpcError ? (e.message ?? '$e') : '$e';

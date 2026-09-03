@@ -148,11 +148,11 @@
     "@sidebarSectionLlms": {
         "description": "Sidebar section heading for local LLM navigation"
     },
-    "llmCatalogueLabel": "Catalogue",
+    "llmCatalogueLabel": "Model catalog",
     "@llmCatalogueLabel": {
         "description": "Sidebar label for the LLM model catalogue"
     },
-    "llmInstancesLabel": "Instances",
+    "llmInstancesLabel": "My models",
     "@llmInstancesLabel": {
         "description": "Sidebar label for loaded LLM instances"
     },
@@ -192,7 +192,7 @@
     "@llmInstancesEmpty": {
         "description": "Empty state on the LLM instances screen"
     },
-    "llmInstancesEmptyHint": "Browse the catalogue to download and load a model.",
+    "llmInstancesEmptyHint": "Browse the model catalog to download a model, then load it from the Downloaded tab.",
     "@llmInstancesEmptyHint": {
         "description": "Hint shown when no LLM instances are running"
     },
@@ -312,6 +312,34 @@
     "modelsTabCatalog": "Catalog",
     "@modelsTabCatalog": {
         "description": "Models tab: recommendations and search"
+    },
+    "modelsTabRunning": "Running",
+    "@modelsTabRunning": {
+        "description": "My models tab listing loaded inference instances"
+    },
+    "modelsTabDownloaded": "Downloaded",
+    "@modelsTabDownloaded": {
+        "description": "My models tab listing cached GGUF files and active downloads"
+    },
+    "modelsActiveDownloadsHeading": "Active downloads",
+    "@modelsActiveDownloadsHeading": {
+        "description": "Heading above in-progress model downloads"
+    },
+    "modelsOpenPath": "Show",
+    "@modelsOpenPath": {
+        "description": "Button to reveal a downloaded model file in the file manager"
+    },
+    "modelsPickRuntimeTitle": "Choose runtime",
+    "@modelsPickRuntimeTitle": {
+        "description": "Dialog title when multiple inference runtimes are available"
+    },
+    "modelsPickRuntimeBody": "Multiple inference backends are available. Which runtime should load this model?",
+    "@modelsPickRuntimeBody": {
+        "description": "Dialog body when prompting for llama.cpp vs MLX"
+    },
+    "modelsNoRuntimeAvailable": "No inference runtime is ready. Install llama-server or mlx-lm first.",
+    "@modelsNoRuntimeAvailable": {
+        "description": "Error when neither llama.cpp nor MLX is available to load a model"
     },
     "modelsTabDownloads": "Downloads",
     "@modelsTabDownloads": {
@@ -1784,6 +1812,231 @@
             "n": {
                 "type": "String",
                 "description": "The number to spell out, passed as a string"
+            }
+        }
+    },
+    "commonClose": "Close",
+    "@commonClose": {
+        "description": "Generic button label that dismisses a dialog"
+    },
+    "sidebarSectionServices": "Services",
+    "@sidebarSectionServices": {
+        "description": "Sidebar section heading for deployable service navigation"
+    },
+    "servicesLabel": "Service catalog",
+    "@servicesLabel": {
+        "description": "Sidebar entry and page title for the deployable service catalog"
+    },
+    "servicesSubtitle": "Deploy a ready-made tool into its own VM. Each service is configured on first boot with cloud-init.",
+    "@servicesSubtitle": {
+        "description": "Subtitle under the service catalog heading"
+    },
+    "servicesSearchHint": "Search services…",
+    "@servicesSearchHint": {
+        "description": "Placeholder text for the service catalog search field"
+    },
+    "servicesNoResults": "No services match your search",
+    "@servicesNoResults": {
+        "description": "Message shown when the service catalog search returns no results"
+    },
+    "servicesLoadError": "Could not load the service library: {error}",
+    "@servicesLoadError": {
+        "description": "Error shown when the bundled service library cannot be read",
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "servicesCardDetails": "Details",
+    "@servicesCardDetails": {
+        "description": "Service card button that opens the service detail page"
+    },
+    "serviceDeployAction": "Deploy",
+    "@serviceDeployAction": {
+        "description": "Button label that starts deploying a service into a new VM"
+    },
+    "serviceVersion": "Version {version}",
+    "@serviceVersion": {
+        "description": "Displays a service template version",
+        "placeholders": {
+            "version": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceBackToCatalog": "All services",
+    "@serviceBackToCatalog": {
+        "description": "Back button on the service detail page returning to the catalog grid"
+    },
+    "serviceRequirementsTitle": "Requirements",
+    "@serviceRequirementsTitle": {
+        "description": "Heading for the resources a service asks for"
+    },
+    "serviceRequirementCpus": "{count, plural, =1{1 vCPU} other{{count} vCPUs}}",
+    "@serviceRequirementCpus": {
+        "description": "Minimum number of virtual CPUs a service requires",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "serviceRequirementMemory": "{size} RAM",
+    "@serviceRequirementMemory": {
+        "description": "Minimum memory a service requires, already formatted",
+        "placeholders": {
+            "size": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceRequirementDisk": "{size} disk",
+    "@serviceRequirementDisk": {
+        "description": "Disk size that will be requested for a service, already formatted",
+        "placeholders": {
+            "size": {
+                "type": "String"
+            }
+        }
+    },
+    "servicePortsTitle": "Ingress ports",
+    "@servicePortsTitle": {
+        "description": "Heading for the ports a service listens on"
+    },
+    "servicePortsNone": "No ingress ports declared",
+    "@servicePortsNone": {
+        "description": "Shown when a service manifest declares no ingress firewall rules"
+    },
+    "serviceStorageTitle": "Persistent storage",
+    "@serviceStorageTitle": {
+        "description": "Heading for the guest paths a service stores data in"
+    },
+    "serviceStorageEntry": "{path} · {size} GiB",
+    "@serviceStorageEntry": {
+        "description": "One storage requirement: guest path and minimum size",
+        "placeholders": {
+            "path": {
+                "type": "String"
+            },
+            "size": {
+                "type": "int"
+            }
+        }
+    },
+    "serviceRuntimeTitle": "On-VM helpers",
+    "@serviceRuntimeTitle": {
+        "description": "Heading for healthcheck and connection-info helper scripts"
+    },
+    "serviceRuntimeHealthcheck": "Healthcheck · {path}",
+    "@serviceRuntimeHealthcheck": {
+        "description": "Guest path of the service healthcheck script",
+        "placeholders": {
+            "path": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceRuntimeServiceInfo": "Connection info · {path}",
+    "@serviceRuntimeServiceInfo": {
+        "description": "Guest path of the service connection-info script",
+        "placeholders": {
+            "path": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceParametersTitle": "Parameters",
+    "@serviceParametersTitle": {
+        "description": "Heading for the settings a service accepts at deploy time"
+    },
+    "serviceParametersCount": "{count, plural, =1{1 optional setting} other{{count} optional settings}}",
+    "@serviceParametersCount": {
+        "description": "Number of placeholders a service accepts",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "serviceParametersOptional": "Anything left blank is generated inside the VM on first boot.",
+    "@serviceParametersOptional": {
+        "description": "Explains that unset service parameters become values generated on the guest"
+    },
+    "serviceParameterGeneratedHint": "generated",
+    "@serviceParameterGeneratedHint": {
+        "description": "Placeholder text for a service parameter field that is left blank"
+    },
+    "serviceDocsTitle": "Documentation",
+    "@serviceDocsTitle": {
+        "description": "Heading above a service's bundled README"
+    },
+    "serviceFilesTitle": "{count, plural, =1{1 file written to the VM} other{{count} files written to the VM}}",
+    "@serviceFilesTitle": {
+        "description": "Heading listing the files a service writes onto the guest",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "serviceViewCloudInit": "View cloud-init",
+    "@serviceViewCloudInit": {
+        "description": "Button that shows the rendered cloud-init for a service"
+    },
+    "serviceCloudInitTitle": "{service} cloud-init",
+    "@serviceCloudInitTitle": {
+        "description": "Title of the dialog showing a service's rendered cloud-init",
+        "placeholders": {
+            "service": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceSaveCloudInit": "Save to cloud-init library",
+    "@serviceSaveCloudInit": {
+        "description": "Button that stores a service's rendered cloud-init as a named config"
+    },
+    "serviceSaveCloudInitSuccess": "Saved cloud-init config “{name}”",
+    "@serviceSaveCloudInitSuccess": {
+        "description": "Confirmation that a service's cloud-init was added to the library",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceSaveCloudInitFailure": "Could not save cloud-init config: {error}",
+    "@serviceSaveCloudInitFailure": {
+        "description": "Error shown when a service's cloud-init could not be stored",
+        "placeholders": {
+            "error": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceDeployTitle": "Deploy {service}",
+    "@serviceDeployTitle": {
+        "description": "Title of the dialog that launches a VM for a service",
+        "placeholders": {
+            "service": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceDeployBody": "Launches a new Ubuntu VM and configures it with this service's cloud-init. Resources are prefilled from the service requirements.",
+    "@serviceDeployBody": {
+        "description": "Body text of the service deploy dialog"
+    },
+    "serviceDeployFailure": "Could not deploy {service}: {error}",
+    "@serviceDeployFailure": {
+        "description": "Error shown when rendering or launching a service fails",
+        "placeholders": {
+            "service": {
+                "type": "String"
+            },
+            "error": {
+                "type": "String"
             }
         }
     }

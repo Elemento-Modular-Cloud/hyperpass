@@ -21,6 +21,7 @@ import 'llm/llm_id.dart';
 import 'llm/providers.dart';
 import 'multipass_auth_banner.dart';
 import 'providers.dart';
+import 'services/services_screen.dart';
 import 'settings/settings.dart';
 import 'vm_table/vm_table_screen.dart';
 
@@ -249,6 +250,15 @@ class SideBar extends ConsumerWidget {
       },
     );
 
+    final services = SidebarEntry(
+      icon: FontAwesomeIcons.cubes,
+      selected: isSelected(ServicesScreen.sidebarKey),
+      label: l10n.servicesLabel,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(ServicesScreen.sidebarKey);
+      },
+    );
+
     final help = SidebarEntry(
       icon: FontAwesomeIcons.circleQuestion,
       selected: isSelected(HelpScreen.sidebarKey),
@@ -385,6 +395,8 @@ class SideBar extends ConsumerWidget {
         llmCatalogue,
         llmInstances,
         llmCredentials,
+        SidebarSectionHeader(l10n.sidebarSectionServices),
+        services,
         const Spacer(),
         Divider(color: fg.withAlpha(40), height: 1),
         cache,

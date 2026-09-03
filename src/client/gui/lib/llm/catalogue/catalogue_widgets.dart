@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../confirmation_dialog.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 import '../../tooltip.dart';
 import '../../vm_table/table.dart' as vmtable;
+import '../llm_load.dart';
 import '../providers.dart';
 
 class LlmCatalogFilters extends ConsumerWidget {
@@ -90,11 +90,12 @@ class LlmRecommendedChip extends ConsumerWidget {
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       padding: EdgeInsets.zero,
       labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-      onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
-            model.id,
-            model.bestQuant,
+      onPressed: () => loadLlmModel(
+            context,
+            ref,
+            modelId: model.id,
+            quant: model.bestQuant,
             hfRepo: modelDownloadRepo(model),
-            loadAfter: true,
           ),
     );
   }
@@ -285,7 +286,7 @@ class LlmCatalogTable extends ConsumerWidget {
             _CatalogAction(
               label: l10n.modelsDownload,
               color: scheme.primary,
-              onTap: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
+              onTap: () => ref.read(modelDownloadQueueProvider.notifier).enqueueDownload(
                     m.id,
                     m.bestQuant,
                     hfRepo: modelDownloadRepo(m),
@@ -294,11 +295,12 @@ class LlmCatalogTable extends ConsumerWidget {
             _CatalogAction(
               label: l10n.modelsLoad,
               color: scheme.primary,
-              onTap: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
-                    m.id,
-                    m.bestQuant,
+              onTap: () => loadLlmModel(
+                    context,
+                    ref,
+                    modelId: m.id,
+                    quant: m.bestQuant,
                     hfRepo: modelDownloadRepo(m),
-                    loadAfter: true,
                   ),
             ),
           ],
@@ -337,98 +339,6 @@ class _CatalogAction extends StatelessWidget {
           label,
           style: TextStyle(fontSize: 10, color: color, height: 1.0),
         ),
-      ),
-    );
-  }
-}
-
-class LlmDownloadJobTile extends StatelessWidget {
-  final ModelDownloadJob job;
-  const LlmDownloadJobTile({required this.job, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final label = switch (job.status) {
-      ModelJobStatus.queued => l10n.modelsJobQueued,
-      ModelJobStatus.running => l10n.modelsJobRunning,
-      ModelJobStatus.done => l10n.modelsJobDone,
-      ModelJobStatus.error => l10n.modelsJobError,
-    };
-    return ListTile(
-      title: Text(job.modelId),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(job.quant.isEmpty ? label : '$label · ${job.quant}'),
-          if (job.status == ModelJobStatus.running) ...[
-            const SizedBox(height: 6),
-            LinearProgressIndicator(
-              value: job.percent > 0 ? job.percent / 100 : null,
-            ),
-          ],
-          if (job.error.isNotEmpty) Text(job.error),
-        ],
-      ),
-      trailing: job.status == ModelJobStatus.running ? Text('${job.percent}%') : null,
-    );
-  }
-}
-
-class LlmCachedModelRow extends ConsumerWidget {
-  final ModelSuggestion model;
-  const LlmCachedModelRow({required this.model, super.key});
-
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final l10n = AppLocalizations.of(context)!;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => ConfirmationDialog(
-        title: l10n.modelsDeleteCachedTitle,
-        body: Text(l10n.modelsDeleteCachedBody),
-        actionText: l10n.commonDelete,
-        onAction: () async {
-          Navigator.pop(context);
-          await ref.read(grpcClientProvider).deleteModel(model.id);
-          ref.invalidate(loadedModelsProvider);
-        },
-        inactionText: l10n.commonCancel,
-        onInaction: () => Navigator.pop(context),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    return ListTile(
-      title: Text(model.name.isEmpty ? model.id : model.name),
-      subtitle: Text(
-        [
-          if (model.bestQuant.isNotEmpty) model.bestQuant,
-          if (model.hfRepo.isNotEmpty) model.hfRepo,
-          if (model.memoryRequiredGb > 0) '${model.memoryRequiredGb.toStringAsFixed(1)} GiB',
-        ].join(' · '),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextButton(
-            onPressed: () => ref.read(modelDownloadQueueProvider.notifier).enqueue(
-                  model.id,
-                  model.bestQuant,
-                  hfRepo: modelDownloadRepo(model),
-                  loadAfter: true,
-                ),
-            child: Text(l10n.modelsLoadCached),
-          ),
-          IconButton(
-            tooltip: l10n.modelsDeleteCachedTooltip,
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmDelete(context, ref),
-          ),
-        ],
       ),
     );
   }

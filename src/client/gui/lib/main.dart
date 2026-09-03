@@ -27,6 +27,7 @@ import 'multipass_auth_banner.dart';
 import 'notifications.dart';
 import 'platform/platform.dart';
 import 'providers.dart';
+import 'services/services_screen.dart';
 import 'settings/hotkey.dart';
 import 'settings/settings.dart';
 import 'sidebar.dart';
@@ -113,6 +114,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
       LlmCatalogueScreen.sidebarKey: const LlmCatalogueScreen(),
       LlmInstancesScreen.sidebarKey: const LlmInstancesScreen(),
       LlmCredentialsScreen.sidebarKey: const LlmCredentialsScreen(),
+      ServicesScreen.sidebarKey: const ServicesScreen(),
       CacheScreen.sidebarKey: const CacheScreen(),
       CloudInitScreen.sidebarKey: const CloudInitScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),

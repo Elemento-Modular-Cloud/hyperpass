@@ -126,6 +126,7 @@ private:
     };
 
     BackendKind select_backend() const;
+    BackendKind resolve_backend(const LoadModelRequest* request) const;
     std::string backend_name(BackendKind kind) const;
     int gpu_layers(BackendKind kind) const;
     MemorySize estimate_claim(const ModelArtifact& artifact, int ctx_size) const;

@@ -606,9 +606,10 @@ Future<bool> initiateLaunchFlow(
   LaunchRequest launchRequest, {
   List<MountRequest> mountRequests = const [],
   String os = '',
+  bool confirmLargeDisk = true,
 }) async {
   final disk = diskBytesFromRequest(launchRequest);
-  if (disk != null && disk > defaultDisk) {
+  if (confirmLargeDisk && disk != null && disk > defaultDisk) {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,

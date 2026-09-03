@@ -15,52 +15,21 @@ class LlmCatalogueScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final activeDownloads = ref.watch(modelDownloadQueueProvider).where((j) =>
-        j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running).length;
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        body: PageSurface(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.llmCatalogueLabel,
-                style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
-              ),
-              const SizedBox(height: 12),
-              TabBar(
-                isScrollable: true,
-                tabs: [
-                  Tab(text: l10n.modelsTabCatalog),
-                  Tab(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(l10n.modelsTabDownloads),
-                        if (activeDownloads > 0) ...[
-                          const SizedBox(width: 8),
-                          Badge(label: Text('$activeDownloads')),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Expanded(
-                child: TabBarView(
-                  children: [
-                    LlmCatalogPane(),
-                    LlmDownloadsPane(),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              const LlmBackendsStrip(),
-            ],
-          ),
+    return Scaffold(
+      body: PageSurface(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.llmCatalogueLabel,
+              style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
+            ),
+            const SizedBox(height: 16),
+            const Expanded(child: LlmCatalogPane()),
+            const SizedBox(height: 12),
+            const LlmBackendsStrip(),
+          ],
         ),
       ),
     );
@@ -152,41 +121,6 @@ class _LlmCatalogPaneState extends ConsumerState<LlmCatalogPane> {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Text('$e'),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class LlmDownloadsPane extends ConsumerWidget {
-  const LlmDownloadsPane({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final jobs = ref.watch(modelDownloadQueueProvider);
-    final cached = ref.watch(loadedModelsProvider);
-
-    return ListView(
-      children: [
-        if (jobs.isEmpty) Text(l10n.modelsQueueEmpty),
-        for (final job in jobs.reversed) LlmDownloadJobTile(job: job),
-        const SizedBox(height: 24),
-        Text(l10n.modelsCachedHeading, style: const TextStyle(fontSize: 20)),
-        const SizedBox(height: 8),
-        cached.when(
-          data: (reply) {
-            if (reply.cached.isEmpty) {
-              return Text(l10n.modelsCachedEmpty);
-            }
-            return Column(
-              children: [
-                for (final model in reply.cached) LlmCachedModelRow(model: model),
-              ],
-            );
-          },
-          loading: () => const LinearProgressIndicator(),
-          error: (e, _) => Text('$e'),
         ),
       ],
     );

@@ -672,6 +672,7 @@ message ModelSuggestion {
     int64 usable_context = 18;
     string release_date = 19;
     string category = 20;
+    string path = 21;
 }
 
 message FindModelsRequest {
@@ -712,6 +713,7 @@ message LoadModelRequest {
     string quant = 2;
     int32 ctx_size = 3;
     int32 verbosity_level = 4;
+    string runtime = 5;
 }
 
 message LoadModelReply {

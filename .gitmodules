@@ -10,3 +10,7 @@
 [submodule "3rd-party/protobuf.dart"]
 	path = 3rd-party/protobuf.dart
 	url = https://github.com/google/protobuf.dart
+[submodule "3rd-party/elemento-marketplace"]
+	path = 3rd-party/elemento-marketplace
+	url = https://github.com/Elemento-Modular-Cloud/elemento-marketplace.git
+	branch = feat-cloudinit-imp

@@ -284,9 +284,19 @@ class GrpcClient {
     return doRpc(_client.list_llm_backends, ListLlmBackendsRequest()).then((r) => r!);
   }
 
-  Stream<LoadModelReply> loadModel(String modelId, {String quant = '', int ctxSize = 4096}) {
+  Stream<LoadModelReply> loadModel(
+    String modelId, {
+    String quant = '',
+    int ctxSize = 4096,
+    String runtime = '',
+  }) {
     return _client.load_model(
-      Stream.value(LoadModelRequest(modelId: modelId, quant: quant, ctxSize: ctxSize)),
+      Stream.value(LoadModelRequest(
+        modelId: modelId,
+        quant: quant,
+        ctxSize: ctxSize,
+        runtime: runtime,
+      )),
     );
   }
 

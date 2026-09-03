@@ -151,6 +151,22 @@ mp::LlmService::BackendKind mp::LlmService::select_backend() const
 #endif
 }
 
+mp::LlmService::BackendKind mp::LlmService::resolve_backend(const LoadModelRequest* request) const
+{
+    const auto& runtime = request->runtime();
+    if (runtime == "mlx")
+        return BackendKind::mlx;
+    if (runtime == "llamacpp")
+    {
+#ifdef Q_OS_MACOS
+        return BackendKind::llamacpp_metal;
+#else
+        return cuda_present() ? BackendKind::llamacpp_cuda : BackendKind::llamacpp_cpu;
+#endif
+    }
+    return select_backend();
+}
+
 std::string mp::LlmService::backend_name(BackendKind kind) const
 {
     switch (kind)
@@ -509,7 +525,7 @@ void mp::LlmService::load_model_impl(
     const auto art = ensure_pulled(model_id, request->quant(), "", monitor);
     const auto ctx = request->ctx_size() > 0 ? request->ctx_size() : 4096;
     const auto claim = estimate_claim(art, ctx);
-    const auto kind = select_backend();
+    const auto kind = resolve_backend(request);
 
     auto result = pool.try_claim(instance_id, WorkloadKind::llm, claim, 0);
     if (!result.accepted)
@@ -683,6 +699,7 @@ void mp::LlmService::list_models(
         cached.set_hf_repo(art.repo);
         cached.set_filename(art.filename);
         cached.set_memory_required_gb(static_cast<double>(art.size_bytes) / (1024.0 * 1024.0 * 1024.0));
+        cached.set_path(art.path);
         *reply.add_cached() = cached;
     }
     server->Write(reply);
