@@ -188,6 +188,10 @@
     "@llmTableColumnMaxTokens": {
         "description": "LLM instances table column for max_tokens default/cap"
     },
+    "llmTableColumnCtxSize": "CONTEXT",
+    "@llmTableColumnCtxSize": {
+        "description": "LLM instances table column for context window size"
+    },
     "llmTableColumnActivity": "ACTIVITY",
     "@llmTableColumnActivity": {
         "description": "LLM instances table column link to live activity log"
@@ -365,9 +369,29 @@
     "@modelsMaxTokensBody": {
         "description": "Dialog body explaining max_tokens at load time"
     },
-    "modelsMaxTokensLabel": "max_tokens",
+    "modelsMaxTokensLabel": "Max completion tokens",
     "@modelsMaxTokensLabel": {
         "description": "Input label for max_tokens when loading a model"
+    },
+    "modelsMaxTokensHelper": "Caps each reply. 0 = unlimited (within context).",
+    "@modelsMaxTokensHelper": {
+        "description": "Helper text under max completion tokens field"
+    },
+    "modelsLoadLimitsTitle": "Load settings",
+    "@modelsLoadLimitsTitle": {
+        "description": "Dialog title for context size and max tokens when loading"
+    },
+    "modelsLoadLimitsBody": "Context size is the model window (what Open WebUI shows as max context). Max completion tokens only caps each reply.",
+    "@modelsLoadLimitsBody": {
+        "description": "Dialog body distinguishing context size from max_tokens"
+    },
+    "modelsCtxSizeLabel": "Context size",
+    "@modelsCtxSizeLabel": {
+        "description": "Input label for KV context window when loading a model"
+    },
+    "modelsCtxSizeHelper": "Passed to llama-server as --ctx-size. Larger values use more RAM.",
+    "@modelsCtxSizeHelper": {
+        "description": "Helper text under context size field"
     },
     "modelsNoRuntimeAvailable": "No inference runtime is ready. Install llama-server or mlx-lm first.",
     "@modelsNoRuntimeAvailable": {

@@ -27,6 +27,7 @@
 #endif
 #include <httplib.h>
 
+#include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -61,6 +62,7 @@ public:
 private:
     std::unique_ptr<httplib::Server> make_one_server();
     void register_routes(httplib::Server& server);
+    void retry_bind_until_stopped(size_t server_index, std::string host, int port);
 
     ApiConfig config;
     std::shared_ptr<GrpcBackend> hyperpass_backend;
@@ -69,6 +71,7 @@ private:
     OperationTracker tracker;
     std::vector<std::unique_ptr<httplib::Server>> servers;
     std::vector<std::thread> listen_threads;
+    std::atomic<bool> stopping{false};
 };
 
 } // namespace multipass::api

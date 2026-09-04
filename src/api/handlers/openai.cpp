@@ -276,6 +276,13 @@ void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& hyp
             item["id"] = model.openai_id();
             item["object"] = "model";
             item["owned_by"] = "hyperpass";
+            if (model.ctx_size() > 0)
+            {
+                item["context_length"] = model.ctx_size();
+                item["max_model_len"] = model.ctx_size();
+            }
+            if (model.max_tokens() > 0)
+                item["max_tokens"] = model.max_tokens();
             data.push_back(item);
         }
         json::object body;

@@ -158,6 +158,9 @@ void mp::LlmService::restore_claims()
         session.pid = obj.value("pid").toInteger();
         session.memory = MemorySize::from_bytes(obj.value("memory_bytes").toInteger());
         session.max_tokens = obj.value("max_tokens").toInt();
+        session.ctx_size = obj.value("ctx_size").toInt(4096);
+        if (session.ctx_size <= 0)
+            session.ctx_size = 4096;
         if (session.instance_id.empty())
             continue;
         if (!session_is_live(session) && live_cmds.find(session.pid) == live_cmds.end())
@@ -176,6 +179,12 @@ void mp::LlmService::restore_claims()
         session.port = mpu::cli_flag_value(cmdline, {"--port"}).toInt();
         session.path = mpu::cli_flag_value(cmdline, {"-m", "--model"}).toStdString();
         session.openai_id = mpu::cli_flag_value(cmdline, {"--alias"}).toStdString();
+        session.ctx_size = mpu::cli_flag_value(cmdline, {"--ctx-size", "-c"}).toInt();
+        if (session.ctx_size <= 0)
+            session.ctx_size = 4096;
+        session.max_tokens = mpu::cli_flag_value(cmdline, {"--n-predict"}).toInt();
+        if (session.max_tokens < 0)
+            session.max_tokens = 0;
         session.backend = cmdline.contains("mlx_lm") ? "mlx" : "llamacpp";
         if (session.openai_id.empty())
             session.openai_id = fmt::format("recovered-{}", pid);
@@ -622,6 +631,7 @@ void mp::LlmService::load_model_impl(
     session.path = art.path;
     session.port = pick_loopback_port();
     session.memory = claim;
+    session.ctx_size = ctx;
     session.max_tokens = max_tokens;
 
     try
@@ -783,6 +793,7 @@ void mp::LlmService::list_models(
         info->set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
         info->set_state(session_is_live(session) ? "loaded" : "stopped");
         info->set_max_tokens(session.max_tokens);
+        info->set_ctx_size(session.ctx_size);
     }
     for (const auto& art : vault.list())
     {
@@ -1157,6 +1168,7 @@ void mp::LlmService::persist_sessions() const
             obj["pid"] = session.pid;
             obj["memory_bytes"] = static_cast<qint64>(session.memory.in_bytes());
             obj["max_tokens"] = session.max_tokens;
+            obj["ctx_size"] = session.ctx_size;
             array.append(obj);
         }
     }

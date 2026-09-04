@@ -752,6 +752,8 @@ message LoadedModelInfo {
     string instance_id = 8;
     // Default/cap for OpenAI max_tokens. 0 = unlimited.
     int32 max_tokens = 9;
+    // KV / context window passed to the backend (--ctx-size).
+    int32 ctx_size = 10;
 }
 
 message ListModelsRequest {

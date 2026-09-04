@@ -16,6 +16,7 @@ CERT_FILE="${HYPERPASS_API_CERT:-}"
 KEY_FILE="${HYPERPASS_API_KEY:-}"
 VERBOSITY="${VERBOSITY:-info}"
 ACTION=start
+WAIT_GATEWAY_SECS="${WAIT_GATEWAY_SECS:-30}"
 
 usage() {
   cat <<EOF
@@ -44,6 +45,7 @@ Environment:
   HYPERPASS_API_TOKEN
   HYPERPASS_API_CERT
   HYPERPASS_API_KEY
+  WAIT_GATEWAY_SECS           Seconds to wait for non-loopback listen IPs (default: 30)
   VERBOSITY
 
 Examples:
@@ -59,6 +61,59 @@ stop_dev_api() {
   if [[ -x "$API_BIN" ]]; then
     pkill -f "$API_BIN" 2>/dev/null || true
   fi
+}
+
+host_is_local() {
+  case "$1" in
+    127.0.0.1|0.0.0.0|::1|localhost|"*") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+host_is_present() {
+  local host="$1"
+  if command -v ifconfig >/dev/null 2>&1; then
+    ifconfig 2>/dev/null | grep -Eq "inet ${host}( |$)" && return 0
+  fi
+  if command -v ip >/dev/null 2>&1; then
+    ip -4 addr show 2>/dev/null | grep -Eq "inet ${host}/" && return 0
+  fi
+  return 1
+}
+
+wait_for_listen_hosts() {
+  local listen="$1"
+  local timeout_secs="$2"
+  local hosts_part="${listen%:*}"
+  local host
+  local IFS=','
+
+  for host in $hosts_part; do
+    host="${host#"${host%%[![:space:]]*}"}"
+    host="${host%"${host##*[![:space:]]}"}"
+    host="${host#https://}"
+    host="${host#http://}"
+    if host_is_local "$host"; then
+      continue
+    fi
+    if host_is_present "$host"; then
+      echo "    gateway ${host} is up"
+      continue
+    fi
+    echo "==> Waiting up to ${timeout_secs}s for ${host} (start hyperpassd / bring up the VM bridge)"
+    local waited=0
+    while (( waited < timeout_secs )); do
+      if host_is_present "$host"; then
+        echo "    gateway ${host} is up"
+        break
+      fi
+      sleep 1
+      waited=$((waited + 1))
+    done
+    if ! host_is_present "$host"; then
+      echo "    warning: ${host} not found yet; hyperpass-api will keep retrying the bind" >&2
+    fi
+  done
 }
 
 EXTRA_ARGS=()
@@ -122,6 +177,7 @@ echo "==> Dev hyperpass-api"
 echo "    binary:  ${API_BIN}"
 echo "    listen:  ${SCHEME}://${HYPERPASS_API_LISTEN}"
 echo "    daemon:  ${HYPERPASS_SERVER_ADDRESS}"
+wait_for_listen_hosts "$HYPERPASS_API_LISTEN" "$WAIT_GATEWAY_SECS"
 echo
 echo "    Stop:    Ctrl-C, or: $(basename "$0") --stop"
 echo

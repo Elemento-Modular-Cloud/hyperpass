@@ -58,6 +58,7 @@ struct LoadedSession
     std::string path;
     int port{0};
     qint64 pid{0};
+    int ctx_size{4096};
     int max_tokens{0}; // 0 = unlimited
     MemorySize memory;
     std::unique_ptr<Process> process;

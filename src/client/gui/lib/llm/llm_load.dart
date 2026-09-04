@@ -10,7 +10,14 @@ import 'instances/llm_instances_screen.dart';
 import 'providers.dart';
 
 const _inferenceBackendIds = {'mlx', 'llamacpp'};
-const _defaultMaxTokens = 2048;
+const _defaultCtxSize = 8192;
+const _defaultMaxTokens = 0;
+
+class _LoadLimits {
+  const _LoadLimits({required this.ctxSize, required this.maxTokens});
+  final int ctxSize;
+  final int maxTokens;
+}
 
 Future<void> loadLlmModel(
   BuildContext context,
@@ -62,8 +69,8 @@ Future<void> loadLlmModel(
   }
 
   if (!context.mounted) return;
-  final maxTokens = await _promptMaxTokens(context, l10n);
-  if (maxTokens == null) return;
+  final limits = await _promptLoadLimits(context, l10n);
+  if (limits == null) return;
 
   try {
     final client = ref.read(grpcClientProvider);
@@ -72,7 +79,13 @@ Future<void> loadLlmModel(
       ref.invalidate(loadedModelsProvider);
     }
     await client
-        .loadModel(modelId, quant: quant, runtime: runtime, maxTokens: maxTokens)
+        .loadModel(
+          modelId,
+          quant: quant,
+          runtime: runtime,
+          ctxSize: limits.ctxSize,
+          maxTokens: limits.maxTokens,
+        )
         .last;
     ref.invalidate(loadedModelsProvider);
     ref.read(sidebarKeyProvider.notifier).set(LlmInstancesScreen.sidebarKey);
@@ -82,31 +95,43 @@ Future<void> loadLlmModel(
   }
 }
 
-Future<int?> _promptMaxTokens(BuildContext context, AppLocalizations l10n) async {
-  final controller = TextEditingController(text: '$_defaultMaxTokens');
-  final result = await showDialog<int>(
+Future<_LoadLimits?> _promptLoadLimits(
+  BuildContext context,
+  AppLocalizations l10n,
+) async {
+  final ctxController = TextEditingController(text: '$_defaultCtxSize');
+  final maxController = TextEditingController(text: '$_defaultMaxTokens');
+  final result = await showDialog<_LoadLimits>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(l10n.modelsMaxTokensTitle),
+      title: Text(l10n.modelsLoadLimitsTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l10n.modelsMaxTokensBody),
+          Text(l10n.modelsLoadLimitsBody),
           const SizedBox(height: 12),
           TextField(
-            controller: controller,
+            controller: ctxController,
             autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: l10n.modelsCtxSizeLabel,
+              hintText: '$_defaultCtxSize',
+              helperText: l10n.modelsCtxSizeHelper,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: maxController,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: InputDecoration(
               labelText: l10n.modelsMaxTokensLabel,
               hintText: '$_defaultMaxTokens',
+              helperText: l10n.modelsMaxTokensHelper,
             ),
-            onSubmitted: (_) {
-              final parsed = int.tryParse(controller.text.trim());
-              if (parsed != null && parsed >= 0) Navigator.pop(ctx, parsed);
-            },
           ),
         ],
       ),
@@ -117,15 +142,20 @@ Future<int?> _promptMaxTokens(BuildContext context, AppLocalizations l10n) async
         ),
         TextButton(
           onPressed: () {
-            final parsed = int.tryParse(controller.text.trim());
-            if (parsed != null && parsed >= 0) Navigator.pop(ctx, parsed);
+            final ctxSize = int.tryParse(ctxController.text.trim());
+            final maxTokens = int.tryParse(maxController.text.trim());
+            if (ctxSize == null || ctxSize <= 0 || maxTokens == null || maxTokens < 0) {
+              return;
+            }
+            Navigator.pop(ctx, _LoadLimits(ctxSize: ctxSize, maxTokens: maxTokens));
           },
           child: Text(l10n.modelsLoad),
         ),
       ],
     ),
   );
-  controller.dispose();
+  ctxController.dispose();
+  maxController.dispose();
   return result;
 }
 

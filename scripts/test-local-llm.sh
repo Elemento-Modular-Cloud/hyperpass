@@ -2,9 +2,9 @@
 set -euo pipefail
 
 OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://127.0.0.1:7777/v1}"
-OPENAI_API_KEY="${OPENAI_API_KEY:-sk-hp-2814deb4c6293f9869f95e19fdb1140fbc128276d898be36}"
+OPENAI_API_KEY="${OPENAI_API_KEY:-sk-hp-418898fce49726b056994b42c1bedd251615f0618aff5921}"
 # Catalog slug or prefix of openai_id from GET /v1/models (before the instance suffix).
-LLM_MODEL="${LLM_MODEL:-sakamakismile-huihui-gemma-4-12b-it-abliterated-nvfp4a16-0e69b6ff}"
+LLM_MODEL="${LLM_MODEL:-nvidia-nvidia-nemotron-3-nano-4b-fp8-966e1b06}"
 
 MODELS_JSON=$(curl -sk "$OPENAI_BASE_URL/models" \
   -H "Authorization: Bearer $OPENAI_API_KEY")

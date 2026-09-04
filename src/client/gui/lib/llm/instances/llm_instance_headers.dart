@@ -62,6 +62,14 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     },
   ),
   TableHeader(
+    name: 'CONTEXT',
+    childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnCtxSize),
+    width: 96,
+    minWidth: 72,
+    sortKey: (m) => m.ctxSize.toString().padLeft(8, '0'),
+    cellBuilder: (m) => Text(m.ctxSize > 0 ? '${m.ctxSize}' : '4096'),
+  ),
+  TableHeader(
     name: 'MAX TOKENS',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnMaxTokens),
     width: 96,

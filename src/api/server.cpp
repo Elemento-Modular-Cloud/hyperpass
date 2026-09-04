@@ -27,7 +27,9 @@
 
 #include <boost/json.hpp>
 
+#include <chrono>
 #include <stdexcept>
+#include <thread>
 
 namespace mp = multipass;
 namespace mpl = multipass::logging;
@@ -202,6 +204,7 @@ void mp::api::ApiServer::register_routes(httplib::Server& server)
 
 bool mp::api::ApiServer::listen()
 {
+    stopping = false;
     const auto endpoint = parse_listen_endpoint(config.listen_address);
     if (servers.size() != endpoint.hosts.size())
     {
@@ -215,7 +218,9 @@ bool mp::api::ApiServer::listen()
 
     const auto scheme = config.use_https ? "https" : "http";
     std::vector<size_t> bound;
+    std::vector<size_t> pending;
     bound.reserve(endpoint.hosts.size());
+    pending.reserve(endpoint.hosts.size());
 
     for (size_t i = 0; i < endpoint.hosts.size(); ++i)
     {
@@ -235,16 +240,17 @@ bool mp::api::ApiServer::listen()
         }
         else
         {
+            pending.push_back(i);
             mpl::log(mpl::Level::warning,
                      category,
-                     "failed to bind {}://{}:{} (interface may be down)",
+                     "failed to bind {}://{}:{} (interface may be down); will retry",
                      scheme,
                      host,
                      endpoint.port);
         }
     }
 
-    if (bound.empty())
+    if (bound.empty() && pending.empty())
         return false;
 
     if (config.use_https)
@@ -253,6 +259,30 @@ bool mp::api::ApiServer::listen()
                  category,
                  "TLS fingerprint (AtomOS verify/trust): {}",
                  config.tls_fingerprint);
+    }
+
+    // If nothing is bound yet, keep retrying the first pending host on this thread until one
+    // succeeds (or stop() is requested). Remaining hosts retry in the background.
+    if (bound.empty())
+    {
+        const auto first = pending.front();
+        pending.erase(pending.begin());
+        for (const auto index : pending)
+        {
+            listen_threads.emplace_back(
+                [this, index, host = endpoint.hosts[index], port = endpoint.port] {
+                    retry_bind_until_stopped(index, host, port);
+                });
+        }
+        retry_bind_until_stopped(first, endpoint.hosts[first], endpoint.port);
+        return !stopping;
+    }
+
+    for (const auto index : pending)
+    {
+        listen_threads.emplace_back([this, index, host = endpoint.hosts[index], port = endpoint.port] {
+            retry_bind_until_stopped(index, host, port);
+        });
     }
 
     for (size_t n = 1; n < bound.size(); ++n)
@@ -264,8 +294,46 @@ bool mp::api::ApiServer::listen()
     return servers[bound.front()]->listen_after_bind();
 }
 
+void mp::api::ApiServer::retry_bind_until_stopped(size_t server_index, std::string host, int port)
+{
+    const auto scheme = config.use_https ? "https" : "http";
+    auto* server = servers[server_index].get();
+    auto next_log = std::chrono::steady_clock::now();
+
+    while (!stopping)
+    {
+        if (server->bind_to_port(host, port))
+        {
+            mpl::log(mpl::Level::info,
+                     category,
+                     "listening on {}://{}:{} (deferred bind succeeded)",
+                     scheme,
+                     host,
+                     port);
+            server->listen_after_bind();
+            return;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        if (now >= next_log)
+        {
+            mpl::log(mpl::Level::warning,
+                     category,
+                     "still waiting to bind {}://{}:{}",
+                     scheme,
+                     host,
+                     port);
+            next_log = now + std::chrono::seconds{15};
+        }
+
+        for (int i = 0; i < 20 && !stopping; ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    }
+}
+
 void mp::api::ApiServer::stop()
 {
+    stopping = true;
     for (auto& server : servers)
     {
         if (server)

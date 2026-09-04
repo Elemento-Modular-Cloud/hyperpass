@@ -77,6 +77,15 @@ TEST(ApiConfig, parseListenEndpointAcceptsMultipleHosts)
     EXPECT_EQ(endpoint.port, 7777);
 }
 
+TEST(ApiConfig, parseListenEndpointStripsSchemeAndWhitespace)
+{
+    const auto endpoint = api::parse_listen_endpoint("https://127.0.0.1, 192.168.67.1:7777");
+    ASSERT_EQ(endpoint.hosts.size(), 2);
+    EXPECT_EQ(endpoint.hosts[0], "127.0.0.1");
+    EXPECT_EQ(endpoint.hosts[1], "192.168.67.1");
+    EXPECT_EQ(endpoint.port, 7777);
+}
+
 TEST(ApiAuth, insecureSkipsTokenCheck)
 {
     api::ApiConfig config;

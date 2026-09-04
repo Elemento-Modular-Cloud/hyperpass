@@ -94,40 +94,55 @@ void mp::api::parse_listen_address(const std::string& listen, std::string& host,
 
 mp::api::ListenEndpoint mp::api::parse_listen_endpoint(const std::string& listen)
 {
-    const auto colon = listen.rfind(':');
-    if (colon == std::string::npos || colon == 0 || colon + 1 >= listen.size())
+    auto normalized = listen;
+    for (const auto* prefix : {"https://", "http://"})
+    {
+        const auto len = std::char_traits<char>::length(prefix);
+        if (normalized.size() > len &&
+            normalized.compare(0, static_cast<std::string::size_type>(len), prefix) == 0)
+        {
+            normalized.erase(0, static_cast<std::string::size_type>(len));
+            break;
+        }
+    }
+
+    const auto colon = normalized.rfind(':');
+    if (colon == std::string::npos || colon == 0 || colon + 1 >= normalized.size())
     {
         throw std::runtime_error(
             fmt::format("invalid listen address '{}'; expected host[,host…]:port", listen));
     }
 
     ListenEndpoint endpoint;
-    const auto hosts_part = listen.substr(0, colon);
+    const auto hosts_part = normalized.substr(0, colon);
     std::string host;
+    auto flush_host = [&] {
+        // Trim whitespace around each host.
+        const auto begin = host.find_first_not_of(" \t");
+        if (begin == std::string::npos)
+        {
+            throw std::runtime_error(
+                fmt::format("invalid listen address '{}'; empty host", listen));
+        }
+        const auto end = host.find_last_not_of(" \t");
+        endpoint.hosts.push_back(host.substr(begin, end - begin + 1));
+        host.clear();
+    };
+
     for (char c : hosts_part)
     {
         if (c == ',')
         {
-            if (host.empty())
-            {
-                throw std::runtime_error(
-                    fmt::format("invalid listen address '{}'; empty host", listen));
-            }
-            endpoint.hosts.push_back(std::move(host));
-            host.clear();
+            flush_host();
             continue;
         }
         host.push_back(c);
     }
-    if (host.empty())
-    {
-        throw std::runtime_error(fmt::format("invalid listen address '{}'; empty host", listen));
-    }
-    endpoint.hosts.push_back(std::move(host));
+    flush_host();
 
     try
     {
-        endpoint.port = std::stoi(listen.substr(colon + 1));
+        endpoint.port = std::stoi(normalized.substr(colon + 1));
     }
     catch (const std::exception&)
     {

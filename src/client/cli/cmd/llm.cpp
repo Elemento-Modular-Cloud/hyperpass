@@ -178,17 +178,18 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         ListModelsRequest request;
         request.set_verbosity_level(verbosity);
         auto on_success = [this](ListModelsReply& reply) -> ReturnCodeVariant {
-            cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>10} {}\n",
+            cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>8} {:>10} {}\n",
                                 "MODEL",
                                 "INSTANCE",
                                 "BACKEND",
                                 "PORT",
                                 "RAM",
+                                "CTX",
                                 "MAX_TOK",
                                 "STATE");
             for (const auto& model : reply.models())
             {
-                cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>10} {}\n",
+                cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>8} {:>10} {}\n",
                                     model.openai_id(),
                                     model.instance_id(),
                                     model.backend(),
@@ -196,6 +197,7 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                                     mp::MemorySize::from_bytes(
                                         static_cast<long long>(model.memory_claimed()))
                                         .human_readable(),
+                                    model.ctx_size() > 0 ? model.ctx_size() : 4096,
                                     model.max_tokens() > 0 ? std::to_string(model.max_tokens())
                                                            : "-",
                                     model.state());
@@ -353,7 +355,7 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     QCommandLineOption recommend_only_opt{
         "recommend-only", "Return llmfit recommendations only (default: browse catalog)"};
     QCommandLineOption quant_opt{"quant", "GGUF quantization", "quant"};
-    QCommandLineOption ctx_opt{"ctx", "Context size", "ctx", "4096"};
+    QCommandLineOption ctx_opt{"ctx", "Context window size (--ctx-size)", "ctx", "4096"};
     QCommandLineOption max_tokens_opt{"max-tokens",
                                       "Default/cap for OpenAI max_tokens (0 = unlimited)",
                                       "n",
