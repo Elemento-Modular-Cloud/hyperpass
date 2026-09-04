@@ -89,8 +89,10 @@ bool inference_uses_llamacpp(const std::string& selected)
 std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::string& selected_inference_id)
 {
     std::vector<BackendProbeResult> rows;
-    const bool mlx_selected = selected_inference_id == "mlx";
-    const bool llamacpp_selected = inference_uses_llamacpp(selected_inference_id);
+    const bool mlx_enabled = mp::enable_mlx_backend;
+    const bool mlx_selected = mlx_enabled && selected_inference_id == "mlx";
+    const bool llamacpp_selected = inference_uses_llamacpp(selected_inference_id) ||
+                                   (!mlx_enabled && selected_inference_id == "mlx");
 
     const auto llmfit = locate_binary(mp::llmfit_env_var, {"llmfit"});
     if (binary_ready(llmfit))
@@ -118,74 +120,77 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
     }
 
 #ifdef Q_OS_MACOS
-    const bool mlx_platform = true;
+    const bool mlx_platform = mlx_enabled;
 #else
     const bool mlx_platform = false;
 #endif
 
-    const auto mlx_server = locate_binary(nullptr, {"mlx_lm.server"});
-    const auto python = locate_binary(nullptr, {"python3", "python"});
-    const bool mlx_via_server = binary_ready(mlx_server);
-    const bool mlx_via_python = python_imports_mlx_lm(python);
-
-    if (mlx_platform)
+    if (mlx_enabled)
     {
-        if (mlx_via_server)
+        const auto mlx_server = locate_binary(nullptr, {"mlx_lm.server"});
+        const auto python = locate_binary(nullptr, {"python3", "python"});
+        const bool mlx_via_server = binary_ready(mlx_server);
+        const bool mlx_via_python = python_imports_mlx_lm(python);
+
+        if (mlx_platform)
         {
-            const auto version = run_version_line(mlx_server, {"--help"});
-            rows.push_back(make_result("mlx",
-                                       "MLX (mlx_lm)",
-                                       "ready",
-                                       version.isEmpty() ? "mlx_lm.server found" : "mlx_lm.server available",
-                                       mlx_server,
-                                       {},
-                                       false,
-                                       mlx_selected));
-        }
-        else if (mlx_via_python)
-        {
-            rows.push_back(make_result("mlx",
-                                       "MLX (mlx_lm)",
-                                       "ready",
-                                       "Python mlx-lm package available",
-                                       python,
-                                       {},
-                                       false,
-                                       mlx_selected));
-        }
-        else if (!python.isEmpty())
-        {
-            rows.push_back(make_result("mlx",
-                                       "MLX (mlx_lm)",
-                                       "missing",
-                                       "Python found but mlx-lm is not installed",
-                                       python,
-                                       "pip install mlx-lm",
-                                       false,
-                                       mlx_selected));
+            if (mlx_via_server)
+            {
+                const auto version = run_version_line(mlx_server, {"--help"});
+                rows.push_back(make_result("mlx",
+                                           "MLX (mlx_lm)",
+                                           "ready",
+                                           version.isEmpty() ? "mlx_lm.server found" : "mlx_lm.server available",
+                                           mlx_server,
+                                           {},
+                                           false,
+                                           mlx_selected));
+            }
+            else if (mlx_via_python)
+            {
+                rows.push_back(make_result("mlx",
+                                           "MLX (mlx_lm)",
+                                           "ready",
+                                           "Python mlx-lm package available",
+                                           python,
+                                           {},
+                                           false,
+                                           mlx_selected));
+            }
+            else if (!python.isEmpty())
+            {
+                rows.push_back(make_result("mlx",
+                                           "MLX (mlx_lm)",
+                                           "missing",
+                                           "Python found but mlx-lm is not installed",
+                                           python,
+                                           "pip install mlx-lm",
+                                           false,
+                                           mlx_selected));
+            }
+            else
+            {
+                rows.push_back(make_result("mlx",
+                                           "MLX (mlx_lm)",
+                                           "missing",
+                                           "Recommended inference backend on Apple Silicon",
+                                           {},
+                                           "pip install mlx-lm",
+                                           false,
+                                           mlx_selected));
+            }
         }
         else
         {
             rows.push_back(make_result("mlx",
                                        "MLX (mlx_lm)",
-                                       "missing",
-                                       "Recommended inference backend on Apple Silicon",
+                                       "optional",
+                                       "Apple Silicon only; not used on this platform",
                                        {},
-                                       "pip install mlx-lm",
+                                       {},
                                        false,
-                                       mlx_selected));
+                                       false));
         }
-    }
-    else
-    {
-        rows.push_back(make_result("mlx",
-                                   "MLX (mlx_lm)",
-                                   "optional",
-                                   "Apple Silicon only; not used on this platform",
-                                   {},
-                                   {},
-                                   false,
-                                   false));
     }
 
     const auto llama = locate_binary(mp::llama_server_env_var, {"llama-server", "llama_server"});

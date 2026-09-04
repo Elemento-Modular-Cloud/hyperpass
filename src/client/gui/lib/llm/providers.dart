@@ -6,7 +6,13 @@ import 'package:grpc/grpc.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import 'instances/llm_downloaded_screen.dart';
+import 'llm_features.dart';
 import 'llm_id.dart';
+
+String effectiveCatalogRuntime(String runtime) {
+  if (!enableMlxBackend && runtime == 'mlx') return '';
+  return runtime;
+}
 
 /// Live list of loaded instances and cached GGUFs.
 ///
@@ -165,7 +171,7 @@ final recommendedModelsProvider = FutureProvider((ref) async {
   return ref.watch(grpcClientProvider).findModels(
         limit: 8,
         minFit: filters.minFit,
-        runtime: filters.runtime,
+        runtime: effectiveCatalogRuntime(filters.runtime),
         recommendOnly: true,
       );
 });
@@ -184,7 +190,7 @@ final catalogModelsProvider = FutureProvider((ref) async {
   return ref.watch(grpcClientProvider).findModels(
         limit: 200,
         minFit: minFit,
-        runtime: runtime,
+        runtime: effectiveCatalogRuntime(runtime),
         query: query,
         includeTooTight: true,
         recommendOnly: false,

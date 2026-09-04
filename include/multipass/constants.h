@@ -101,6 +101,10 @@ constexpr auto llama_server_env_var = "HYPERPASS_LLAMA_SERVER";
 constexpr auto llmfit_env_var = "HYPERPASS_LLMFIT";
 constexpr auto hf_token_env_var = "HF_TOKEN";
 
+// Temporary: MLX paths stay in the tree but are hidden from probe/UI/load selection.
+// Flip to true (and Dart `enableMlxBackend`) to restore MLX.
+constexpr bool enable_mlx_backend = false;
+
 constexpr auto cloud_init_file_name = "cloud-init-config.iso";
 
 [[maybe_unused]] // hands off clang-format

@@ -7,9 +7,13 @@ import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import 'instances/llm_instances_screen.dart';
+import 'llm_features.dart';
 import 'providers.dart';
 
-const _inferenceBackendIds = {'mlx', 'llamacpp'};
+const _inferenceBackendIds = {
+  'llamacpp',
+  if (enableMlxBackend) 'mlx',
+};
 const _defaultCtxSize = 8192;
 const _defaultMaxTokens = 0;
 

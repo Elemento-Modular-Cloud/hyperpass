@@ -123,16 +123,23 @@ QString memory_policy_interpreter(QString val)
 QString llm_backend_interpreter(QString val)
 {
     val = val.toLower();
-    if (val.isEmpty() || val == "auto" || val == "llamacpp" || val == "llama.cpp" || val == "mlx" ||
-        val == "cuda")
+    if (val.isEmpty() || val == "auto" || val == "llamacpp" || val == "llama.cpp" || val == "cuda" ||
+        (mp::enable_mlx_backend && val == "mlx"))
     {
         if (val == "llama.cpp")
             return "llamacpp";
         return val.isEmpty() ? "auto" : val;
     }
+    if (!mp::enable_mlx_backend && val == "mlx")
+    {
+        throw mp::InvalidSettingException(mp::llm_backend_key,
+                                          val,
+                                          "MLX is temporarily disabled; use auto or llamacpp");
+    }
     throw mp::InvalidSettingException(mp::llm_backend_key,
                                       val,
-                                      "Must be auto, llamacpp, mlx, or cuda");
+                                      mp::enable_mlx_backend ? "Must be auto, llamacpp, mlx, or cuda"
+                                                             : "Must be auto, llamacpp, or cuda");
 }
 
 QString llm_idle_unload_interpreter(QString val)

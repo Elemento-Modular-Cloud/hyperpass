@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 import '../../tooltip.dart';
 import '../../vm_table/table.dart' as vmtable;
+import '../llm_features.dart';
 import '../llm_load.dart';
 import '../providers.dart';
 
@@ -15,6 +16,7 @@ class LlmCatalogFilters extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final runtime = (!enableMlxBackend && filters.runtime == 'mlx') ? '' : filters.runtime;
     return Wrap(
       spacing: 6,
       runSpacing: 4,
@@ -25,23 +27,24 @@ class LlmCatalogFilters extends ConsumerWidget {
           label: Text(l10n.modelsFilterAny, style: const TextStyle(fontSize: 11)),
           visualDensity: VisualDensity.compact,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          selected: filters.runtime.isEmpty,
+          selected: runtime.isEmpty,
           onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setRuntime(''),
         ),
         ChoiceChip(
           label: Text(l10n.modelsRuntimeLlama, style: const TextStyle(fontSize: 11)),
           visualDensity: VisualDensity.compact,
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          selected: filters.runtime == 'llamacpp',
+          selected: runtime == 'llamacpp',
           onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setRuntime('llamacpp'),
         ),
-        ChoiceChip(
-          label: Text(l10n.modelsRuntimeMlx, style: const TextStyle(fontSize: 11)),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          selected: filters.runtime == 'mlx',
-          onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setRuntime('mlx'),
-        ),
+        if (enableMlxBackend)
+          ChoiceChip(
+            label: Text(l10n.modelsRuntimeMlx, style: const TextStyle(fontSize: 11)),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            selected: runtime == 'mlx',
+            onSelected: (_) => ref.read(catalogFiltersProvider.notifier).setRuntime('mlx'),
+          ),
         const SizedBox(width: 6),
         Text(l10n.modelsFilterFit, style: const TextStyle(fontSize: 11)),
         ChoiceChip(

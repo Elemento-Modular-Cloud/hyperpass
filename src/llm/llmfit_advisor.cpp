@@ -343,7 +343,9 @@ QStringList hardware_args(const mp::MemorySize& available_ram, int cpu_cores, bo
 
 void append_recommend_runtime_filters(QStringList& args, const std::string& runtime)
 {
-    const auto rt = QString::fromStdString(runtime).toLower();
+    auto rt = QString::fromStdString(runtime).toLower();
+    if (!mp::enable_mlx_backend && rt.contains("mlx"))
+        rt = "llamacpp";
     if (rt.contains("mlx"))
         args << "--runtime" << "mlx";
     else if (!rt.isEmpty())
@@ -421,7 +423,9 @@ bool model_matches_runtime(const mp::ModelSuggestion& model, const std::string& 
     const auto model_rt = QString::fromStdString(model.runtime()).toLower();
     if (model_rt.isEmpty())
         return true;
-    const auto rt = QString::fromStdString(runtime).toLower();
+    auto rt = QString::fromStdString(runtime).toLower();
+    if (!mp::enable_mlx_backend && rt.contains("mlx"))
+        rt = "llamacpp";
     if (rt.contains("mlx"))
         return model_rt.contains("mlx");
     if (rt.contains("llama"))

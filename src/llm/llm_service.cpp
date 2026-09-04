@@ -221,7 +221,11 @@ mp::LlmService::BackendKind mp::LlmService::select_backend() const
     }
 
     if (setting == "mlx")
-        return BackendKind::mlx;
+    {
+        if constexpr (mp::enable_mlx_backend)
+            return BackendKind::mlx;
+        // MLX temporarily hidden: fall through to llama.cpp selection.
+    }
     if (setting == "cuda")
         return BackendKind::llamacpp_cuda;
     if (setting == "llamacpp")
@@ -246,7 +250,11 @@ mp::LlmService::BackendKind mp::LlmService::resolve_backend(const LoadModelReque
 {
     const auto& runtime = request->runtime();
     if (runtime == "mlx")
-        return BackendKind::mlx;
+    {
+        if constexpr (mp::enable_mlx_backend)
+            return BackendKind::mlx;
+        // Ignore stale MLX requests while the backend is hidden.
+    }
     if (runtime == "llamacpp")
     {
 #ifdef Q_OS_MACOS
@@ -416,6 +424,11 @@ void mp::LlmService::find_models(
     try
     {
         auto runtime = request->runtime();
+        if (!mp::enable_mlx_backend &&
+            QString::fromStdString(runtime).contains("mlx", Qt::CaseInsensitive))
+        {
+            runtime = "llamacpp";
+        }
         if (runtime.empty() && request->recommend_only())
         {
             runtime = select_backend() == BackendKind::mlx ? "mlx" : "llamacpp";
