@@ -1608,11 +1608,11 @@
     "@catalogueRefresh": {
         "description": "Button label to refresh the image catalogue"
     },
-    "catalogueWelcomeTitle": "Welcome to AtomOS Workstation",
+    "catalogueWelcomeTitle": "Welcome to Electros Launchpad",
     "@catalogueWelcomeTitle": {
         "description": "Welcome screen heading in the image catalogue"
     },
-    "catalogueWelcomeBody": "Get an instant VM in seconds. AtomOS Workstation can launch and run virtual machines and configure them like a public cloud.",
+    "catalogueWelcomeBody": "Get an instant VM in seconds. Electros Launchpad can launch and run virtual machines and configure them like a public cloud.",
     "@catalogueWelcomeBody": {
         "description": "Welcome screen body text in the image catalogue"
     },

@@ -197,8 +197,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
           height: SideBar.titleBarHeight,
           child: DragToMoveArea(
             child: Center(
-              child: Text(
-                Brand.appName,
+              child: BrandAppName(
                 style: TextStyle(
                   color: titleColor,
                   decoration: TextDecoration.none,

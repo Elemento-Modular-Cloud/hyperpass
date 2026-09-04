@@ -235,7 +235,7 @@ class _CardActionBar extends StatelessWidget {
             borderRadius: BorderRadius.only(bottomLeft: radius.bottomLeft),
             color: Brand.accent,
             weight: FontWeight.w600,
-            textColor: Brand.crystalWhite,
+            textColor: Brand.voidBlack,
           ),
           Container(width: 1, color: divider),
           action(

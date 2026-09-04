@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
 
-/// AtomOS Workstation brand identity (Elemento-powered).
+/// Electros Launchpad brand identity (Elemento-powered).
 abstract final class Brand {
-  static const appName = 'AtomOS Workstation';
+  static const appNamePrimary = 'Electros';
+  static const appNameSecondary = 'Launchpad';
+  static const appName = '$appNamePrimary $appNameSecondary';
   static const companyName = 'Elemento';
   static const logoAsset = 'assets/atomos.svg';
   static const elementoLogoAsset = 'assets/elemento.svg';
   static final docsUrl = Uri.parse('https://www.elemento.cloud');
   static final installUrl = Uri.parse('https://www.elemento.cloud');
 
-  /// AtomOS brand accent.
-  static const accent = Color(0xFF118ACB);
+  /// Electros / Elemento Starter Yellow accent.
+  static const accent = Color(0xFFFFA600);
 
   /// Light tint for active sidebar rows on light theme.
-  static const accentLight = Color(0xFFD6EBF7);
+  static const accentLight = Color(0xFFFFE8B8);
 
   /// Darker accent for hover / pressed CTAs.
-  static const accentDark = Color(0xFF0E6FA3);
+  static const accentDark = Color(0xFFF28E00);
 
-  /// Elemento Starter Yellow — footer chrome only.
+  /// Elemento Starter Yellow — footer chrome (same as [accent]).
   static const yellow = Color(0xFFFFA600);
 
   /// Status / online indicator (Electros `--green`).
@@ -61,6 +63,51 @@ abstract final class Brand {
   static const glassBlurSigma = 10.0;
 
   static const fontFamily = 'RedHatDisplay';
+}
+
+/// Renders [Brand.appName] with a lighter weight on the product suffix.
+class BrandAppName extends StatelessWidget {
+  const BrandAppName({
+    super.key,
+    required this.style,
+    this.maxLines,
+    this.overflow,
+    this.textAlign,
+  });
+
+  final TextStyle style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    final primaryWeight = style.fontWeight ?? FontWeight.w700;
+    final secondaryWeight = switch (primaryWeight) {
+      FontWeight.w700 || FontWeight.w800 || FontWeight.w900 => FontWeight.w400,
+      FontWeight.w600 => FontWeight.w400,
+      _ => FontWeight.w300,
+    };
+
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(
+            text: Brand.appNamePrimary,
+            style: TextStyle(fontWeight: primaryWeight),
+          ),
+          TextSpan(
+            text: ' ${Brand.appNameSecondary}',
+            style: TextStyle(fontWeight: secondaryWeight),
+          ),
+        ],
+      ),
+      maxLines: maxLines,
+      overflow: overflow ?? TextOverflow.clip,
+      textAlign: textAlign,
+    );
+  }
 }
 
 /// Hidden render-time boost so Flutter matches Electron/CSS compositing.

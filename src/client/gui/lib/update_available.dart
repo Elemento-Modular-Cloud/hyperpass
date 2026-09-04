@@ -89,7 +89,7 @@ class UpdateAvailable extends StatelessWidget {
         Brand.logoAsset,
         width: 25,
         colorFilter: const ColorFilter.mode(
-          Brand.crystalWhite,
+          Brand.voidBlack,
           BlendMode.srcIn,
         ),
       ),

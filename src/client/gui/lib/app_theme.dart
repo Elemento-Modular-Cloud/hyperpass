@@ -47,9 +47,9 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     colorScheme: ColorScheme(
       brightness: brightness,
       primary: Brand.accent,
-      onPrimary: Brand.crystalWhite,
+      onPrimary: Brand.voidBlack,
       secondary: Brand.accentDark,
-      onSecondary: Brand.crystalWhite,
+      onSecondary: Brand.voidBlack,
       error: const Color(0xffC7162B),
       onError: Brand.crystalWhite,
       surface: surface,
@@ -128,8 +128,8 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         backgroundColor: Brand.accent,
-        disabledForegroundColor: Brand.crystalWhite.withAlpha(128),
-        foregroundColor: Brand.crystalWhite,
+        disabledForegroundColor: Brand.voidBlack.withAlpha(128),
+        foregroundColor: Brand.voidBlack,
         padding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Brand.radius),
@@ -190,7 +190,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
         if (states.contains(WidgetState.selected)) return Brand.accent;
         return Colors.transparent;
       }),
-      checkColor: WidgetStateProperty.all(Brand.crystalWhite),
+      checkColor: WidgetStateProperty.all(Brand.voidBlack),
       side: BorderSide(color: onSurface),
     ),
   );

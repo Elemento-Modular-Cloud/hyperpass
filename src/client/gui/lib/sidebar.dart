@@ -365,8 +365,7 @@ class SideBar extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  Brand.appName,
+                child: BrandAppName(
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
