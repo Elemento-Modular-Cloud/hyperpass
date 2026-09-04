@@ -24,6 +24,7 @@
 #include <exception>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <variant>
 
 namespace multipass
@@ -37,7 +38,7 @@ public:
                     const std::string& cmd,
                     std::unique_lock<std::mutex> session_lock);
 
-    ~PlainSSHProcess() override = default; // releases session lock
+    ~PlainSSHProcess() override = default; // closes channel (if any) then releases session lock
 
     // Attempt to verify process completion within the given timeout. For this to return true, two
     // conditions are necessary:
@@ -73,6 +74,8 @@ private:
     ssh_session session;
     std::string cmd;
     ChannelUPtr channel;
+    std::optional<std::string> cached_stdout;
+    std::optional<std::string> cached_stderr;
     std::variant<std::monostate, int, std::exception_ptr> exit_result;
 
     friend class SftpServer;

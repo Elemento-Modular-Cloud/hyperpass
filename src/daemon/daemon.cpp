@@ -73,7 +73,10 @@
 
 #include <QDir>
 #include <QEventLoop>
+#include <QFile>
 #include <QFutureSynchronizer>
+#include <QHostInfo>
+#include <QIODevice>
 #include <QStorageInfo>
 #include <QString>
 #include <QStringList>
@@ -81,8 +84,16 @@
 #include <QThread>
 #include <QtConcurrent/QtConcurrent>
 
+#if defined(Q_OS_MACOS) || defined(Q_OS_DARWIN)
+#include <sys/sysctl.h>
+#include <sys/time.h>
+#elif defined(Q_OS_WIN)
+#include <windows.h>
+#endif
+
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <functional>
 #include <optional>
 #include <stdexcept>
@@ -102,6 +113,38 @@ namespace
 using namespace std::chrono_literals;
 
 using error_string = std::string;
+
+uint64_t host_uptime_seconds()
+{
+#if defined(Q_OS_LINUX)
+    QFile file{"/proc/uptime"};
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        const auto line = file.readLine();
+        bool ok = false;
+        const auto seconds = QString::fromUtf8(line).section(' ', 0, 0).toDouble(&ok);
+        if (ok && seconds >= 0)
+            return static_cast<uint64_t>(seconds);
+    }
+#elif defined(Q_OS_MACOS) || defined(Q_OS_DARWIN)
+    struct timeval boottime
+    {
+    };
+    size_t len = sizeof(boottime);
+    int mib[2] = {CTL_KERN, KERN_BOOTTIME};
+    if (sysctl(mib, 2, &boottime, &len, nullptr, 0) == 0 && boottime.tv_sec != 0)
+    {
+        const auto now = std::chrono::system_clock::now().time_since_epoch();
+        const auto now_sec =
+            std::chrono::duration_cast<std::chrono::seconds>(now).count();
+        if (now_sec > boottime.tv_sec)
+            return static_cast<uint64_t>(now_sec - boottime.tv_sec);
+    }
+#elif defined(Q_OS_WIN)
+    return static_cast<uint64_t>(GetTickCount64() / 1000ULL);
+#endif
+    return 0;
+}
 
 QString remap_mount_target_for_user(QString target, const std::string& username)
 {
@@ -3074,7 +3117,14 @@ try
     DaemonInfoReply response;
 
     QStorageInfo storage_info{config->data_directory};
-    response.set_available_space(storage_info.bytesTotal());
+    storage_info.refresh();
+    const auto disk_total = std::max(0LL, storage_info.bytesTotal());
+    const auto disk_free = std::max(0LL, storage_info.bytesFree());
+    const auto disk_used = std::max(0LL, disk_total - disk_free);
+    // Legacy field: upper bound for VM disk sizing in the GUI.
+    response.set_available_space(static_cast<uint64_t>(disk_total));
+    response.set_disk_total(static_cast<uint64_t>(disk_total));
+    response.set_disk_used(static_cast<uint64_t>(disk_used));
 
     sync_resource_pool_settings();
     resource_pool->set_host_memory(
@@ -3096,6 +3146,11 @@ try
     response.set_cpus_claimed(static_cast<uint32_t>(std::max(0, resource_pool->cpus_claimed())));
     response.set_cpu_usage_permille(
         static_cast<uint32_t>(std::max(0, MP_PLATFORM.get_cpu_usage_permille())));
+
+    response.set_host_name(QHostInfo::localHostName().toStdString());
+    response.set_host_os(QSysInfo::prettyProductName().toStdString());
+    response.set_host_arch(QSysInfo::currentCpuArchitecture().toStdString());
+    response.set_host_uptime_seconds(host_uptime_seconds());
 
     for (const auto& claim : resource_pool->claims())
     {

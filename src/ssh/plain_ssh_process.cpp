@@ -99,8 +99,7 @@ auto make_channel(ssh_session session, const std::string& cmd)
 mp::PlainSSHProcess::PlainSSHProcess(ssh_session_struct& session,
                                      const std::string& cmd,
                                      std::unique_lock<std::mutex> session_lock)
-    : session_lock{std::move(
-          session_lock)}, // this is held until the exit code is requested or this is destroyed
+    : session_lock{std::move(session_lock)}, // held until the channel is closed or this is destroyed
       session{&session},
       cmd{cmd},
       channel{make_channel(this->session, cmd)},
@@ -132,8 +131,18 @@ int mp::PlainSSHProcess::exit_code(std::chrono::milliseconds timeout)
     if (auto exit_status = std::get_if<int>(&exit_result))
         return *exit_status;
 
-    auto local_lock = std::move(session_lock); // unlock at the end
+    // Keep the session lock across wait + channel teardown. Releasing it before ssh_channel_free
+    // (previous behavior) races with PlainSSHSession replacement during reboot and can SIGSEGV
+    // inside libssh. On timeout we also keep the lock until this process is destroyed.
     read_exit_code(timeout, /* save_exception = */ true);
+
+    if (session_lock.owns_lock() && channel)
+    {
+        cached_stdout = read_stream(StreamType::out);
+        cached_stderr = read_stream(StreamType::err);
+        channel.reset();
+        session_lock = {};
+    }
 
     assert(std::holds_alternative<int>(exit_result));
     return std::get<int>(exit_result);
@@ -206,11 +215,15 @@ void mp::PlainSSHProcess::read_exit_code(std::chrono::milliseconds timeout, bool
 
 std::string mp::PlainSSHProcess::read_std_output()
 {
+    if (cached_stdout)
+        return *cached_stdout;
     return read_stream(StreamType::out);
 }
 
 std::string mp::PlainSSHProcess::read_std_error()
 {
+    if (cached_stderr)
+        return *cached_stderr;
     return read_stream(StreamType::err);
 }
 

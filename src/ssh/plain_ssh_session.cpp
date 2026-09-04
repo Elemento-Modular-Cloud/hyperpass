@@ -120,6 +120,8 @@ multipass::PlainSSHSession::~PlainSSHSession()
             MP_LIBSSH.ssh_disconnect(session.get());
             PlainSSHSession::force_shutdown(); // Shutdown I/O on manually open sockets.
                                                // The socket is still closed by libssh in ssh_free.
+            // Free under the session lock so a lingering channel teardown cannot race ssh_free.
+            session.reset();
         }
     });
 }
