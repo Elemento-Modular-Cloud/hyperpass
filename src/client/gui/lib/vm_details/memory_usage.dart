@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../brand.dart';
+import '../widgets/resource_meter.dart';
 
 class MemoryUsage extends StatelessWidget {
   final String used;
@@ -8,47 +8,25 @@ class MemoryUsage extends StatelessWidget {
 
   const MemoryUsage({super.key, required this.used, required this.total});
 
-  static const normalColor = Brand.accent;
-  static const almostFullColor = Color(0xffEC6C04);
+  static Color get normalColor => ResourceMeter.fillFor(0);
+  static Color get almostFullColor => ResourceMeter.fillFor(0.85);
   static const backgroundColor = Color(0x3dFFA600);
 
   @override
   Widget build(BuildContext context) {
-    var value = (double.tryParse(used) ?? 0) / (double.tryParse(total) ?? 1);
-    value = value.isFinite ? value : 0.0;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final usedValue = double.tryParse(used) ?? 0;
+    final totalValue = double.tryParse(total) ?? 1;
+    var progress = usedValue / totalValue;
+    progress = progress.isFinite ? progress : 0.0;
+    final valueText =
+        progress != 0 ? '${formatResourceBytes(used)} / ${formatResourceBytes(total)}' : '-';
 
-    final indicator = LinearProgressIndicator(
-      value: value,
-      backgroundColor: backgroundColor,
-      color: value < 0.8 ? normalColor : almostFullColor,
-    );
-
-    final label = Text(
-      value != 0 ? '${_formatMemory(used)} / ${_formatMemory(total)}' : '-',
-      style: TextStyle(fontSize: 11, color: onSurface),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [indicator, const SizedBox(height: 2), label],
+    return ResourceMeter(
+      label: '',
+      valueText: valueText,
+      progress: progress,
+      compact: true,
+      showLabel: false,
     );
   }
-}
-
-String _formatMemory(String data) {
-  const divider = 1024;
-  const units = {
-    'GiB': divider * divider * divider,
-    'MiB': divider * divider,
-    'KiB': divider,
-  };
-
-  final size = int.parse(data);
-  for (final MapEntry(key: suffix, value: unit) in units.entries) {
-    if (size >= unit) return '${(size / unit).toStringAsFixed(1)}$suffix';
-  }
-
-  return '${size}B';
 }

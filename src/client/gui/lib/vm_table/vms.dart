@@ -153,16 +153,7 @@ class Vms extends ConsumerWidget {
       children: [
         heading,
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Text(
-              l10n.vmTableHostPressure,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 16),
-            const Expanded(child: HostResourceGauges()),
-          ],
-        ),
+        const HostResourceGauges(),
         const SizedBox(height: 16),
         vmFilters,
         const BulkActionsBar(),

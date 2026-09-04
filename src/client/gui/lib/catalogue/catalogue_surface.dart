@@ -10,6 +10,7 @@ class CatalogueSurface extends StatelessWidget {
     this.borderColor,
     this.borderWidth = 1,
     this.padding,
+    this.baseColor,
     super.key,
   });
 
@@ -17,6 +18,8 @@ class CatalogueSurface extends StatelessWidget {
   final Color? borderColor;
   final double borderWidth;
   final EdgeInsetsGeometry? padding;
+  /// Opaque underlay so text stays readable over wallpapers.
+  final Color? baseColor;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +29,7 @@ class CatalogueSurface extends StatelessWidget {
     return GlassPanel(
       border: Border.all(color: border, width: borderWidth),
       padding: padding,
+      baseColor: baseColor,
       child: child,
     );
   }

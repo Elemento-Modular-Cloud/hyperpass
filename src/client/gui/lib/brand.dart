@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xterm/xterm.dart';
 
 /// Electros Launchpad brand identity (Elemento-powered).
 abstract final class Brand {
@@ -63,6 +64,33 @@ abstract final class Brand {
   static const glassBlurSigma = 10.0;
 
   static const fontFamily = 'RedHatDisplay';
+
+  /// Terminal / log palette matching Electros Launchpad (not distro themes).
+  static TerminalTheme get terminalTheme => const TerminalTheme(
+        cursor: accent,
+        selection: Color(0x66FFA600),
+        foreground: crystalWhite,
+        background: voidBlack,
+        black: Color(0xFF000000),
+        red: Color(0xFFE35D6A),
+        green: green,
+        yellow: accent,
+        blue: Color(0xFF6CB6FF),
+        magenta: Color(0xFFC792EA),
+        cyan: Color(0xFF89DDFF),
+        white: crystalWhite,
+        brightBlack: greyBody,
+        brightRed: Color(0xFFFF7B72),
+        brightGreen: Color(0xFF3DD68C),
+        brightYellow: yellowLight,
+        brightBlue: Color(0xFF79C0FF),
+        brightMagenta: Color(0xFFD2A8FF),
+        brightCyan: Color(0xFFA5F3FC),
+        brightWhite: whiteLight,
+        searchHitBackground: Color(0xFFFFFF2B),
+        searchHitBackgroundCurrent: Color(0xFF31FF26),
+        searchHitForeground: Color(0xFF000000),
+      );
 }
 
 /// Renders [Brand.appName] with a lighter weight on the product suffix.

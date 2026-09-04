@@ -21,6 +21,7 @@ import 'llm/instances/llm_instances_screen.dart';
 import 'llm/llm_id.dart';
 import 'llm/providers.dart';
 import 'multipass_auth_banner.dart';
+import 'overview/overview_screen.dart';
 import 'providers.dart';
 import 'services/service_bindings.dart';
 import 'services/service_instance_id.dart';
@@ -53,7 +54,7 @@ class SidebarKeyNotifier extends Notifier<String> {
       }
     });
 
-    return CatalogueScreen.sidebarKey;
+    return OverviewScreen.sidebarKey;
   }
 
   void set(String key) {
@@ -229,6 +230,15 @@ class SideBar extends ConsumerWidget {
     bool isServiceInstancesSelected() =>
         isSelected(ServiceInstancesScreen.sidebarKey) ||
         parseServiceInstanceSidebarKey(selectedSidebarKey) != null;
+
+    final overview = SidebarEntry(
+      icon: FontAwesomeIcons.house,
+      selected: isSelected(OverviewScreen.sidebarKey),
+      label: l10n.overviewLabel,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(OverviewScreen.sidebarKey);
+      },
+    );
 
     final catalogue = SidebarEntry(
       icon: FontAwesomeIcons.layerGroup,
@@ -447,14 +457,15 @@ class SideBar extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
+        overview,
         SidebarSectionHeader(l10n.sidebarSectionVms),
         catalogue,
         cloudInit,
         instances,
         SidebarSectionHeader(l10n.sidebarSectionLlms),
         llmCatalogue,
-        llmInstances,
         llmDownloaded,
+        llmInstances,
         llmCredentials,
         SidebarSectionHeader(l10n.sidebarSectionServices),
         services,
@@ -466,7 +477,7 @@ class SideBar extends ConsumerWidget {
         settings,
         const SizedBox(height: 8),
         const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
           child: HostResourceGauges(compact: true),
         ),
         daemonStatus,

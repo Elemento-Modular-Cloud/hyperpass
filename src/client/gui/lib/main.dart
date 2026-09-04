@@ -26,6 +26,7 @@ import 'llm/llm_id.dart';
 import 'llm/providers.dart';
 import 'multipass_auth_banner.dart';
 import 'notifications.dart';
+import 'overview/overview_screen.dart';
 import 'platform/platform.dart';
 import 'providers.dart';
 import 'services/service_instance_details.dart';
@@ -114,6 +115,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
     final serviceInstances = ref.watch(serviceInstanceIdsProvider);
 
     final widgets = {
+      OverviewScreen.sidebarKey: const OverviewScreen(),
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
       VmTableScreen.sidebarKey: const VmTableScreen(),
       LlmCatalogueScreen.sidebarKey: const LlmCatalogueScreen(),

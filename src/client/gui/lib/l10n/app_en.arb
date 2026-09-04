@@ -2200,5 +2200,30 @@
     "serviceInstanceOpenUrl": "Open in browser",
     "@serviceInstanceOpenUrl": {
         "description": "Tooltip for opening a service endpoint URL"
+    },
+    "overviewLabel": "Overview",
+    "@overviewLabel": {
+        "description": "Sidebar label and page title for the home overview dashboard"
+    },
+    "overviewSubtitle": "Status across VMs, local models, and marketplace services.",
+    "@overviewSubtitle": {
+        "description": "Subtitle under the overview dashboard heading"
+    },
+    "overviewVmsHint": "Plain virtual machine instances",
+    "@overviewVmsHint": {
+        "description": "Hint under the VM count on the overview dashboard"
+    },
+    "overviewLlmsHint": "{downloaded} downloaded on disk",
+    "@overviewLlmsHint": {
+        "description": "Hint under the running LLM count showing downloaded GGUF count",
+        "placeholders": {
+            "downloaded": {
+                "type": "int"
+            }
+        }
+    },
+    "overviewServicesHint": "Marketplace service instances",
+    "@overviewServicesHint": {
+        "description": "Hint under the service instance count on the overview dashboard"
     }
 }

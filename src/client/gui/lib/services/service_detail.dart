@@ -5,6 +5,7 @@ import '../brand.dart';
 import '../catalogue/catalogue_surface.dart';
 import '../catalogue/launch_form.dart' show formatDiskSize;
 import '../l10n/app_localizations.dart';
+import '../page_surface.dart';
 import 'service_branding.dart';
 import 'service_cloud_init.dart';
 import 'service_deploy.dart';
@@ -26,8 +27,7 @@ class ServiceDetailView extends ConsumerWidget {
     final branding = serviceBranding(service.id);
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 24, 32, 20),
+    return PageSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

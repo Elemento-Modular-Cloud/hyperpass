@@ -5,6 +5,7 @@ import 'package:grpc/grpc.dart';
 
 import '../confirmation_dialog.dart';
 import '../copyable_text.dart';
+import '../distro_branding.dart';
 import '../extensions.dart';
 import '../ffi.dart';
 import '../l10n/app_localizations.dart';
@@ -164,23 +165,20 @@ class CacheScreen extends ConsumerWidget {
         childBuilder: (_) => TableHeader.defaultHeaderBuilder(l10n.cacheStatImage),
         width: 280,
         minWidth: 160,
-        sortKey: (image) {
-          final release = image.release;
-          return release.isNotBlank ? release : image.os;
-        },
+        sortKey: (image) => _cacheImageLabel(image),
         cellBuilder: (image) {
-          final release = image.release;
+          final label = _cacheImageLabel(image);
           return Row(
             children: [
               DistroLogo(
                 image.os,
-                release: release,
+                release: image.release,
                 aliases: image.aliases,
               ),
               const SizedBox(width: 8),
               Flexible(
                 child: CopyableText(
-                  release.isNotBlank ? release.nonBreaking : '-',
+                  label.isNotBlank ? label.nonBreaking : '-',
                 ),
               ),
             ],
@@ -242,4 +240,20 @@ class CacheScreen extends ConsumerWidget {
       finalRow: totalRow,
     );
   }
+}
+
+/// Prefer "Ubuntu 24.04 LTS" / "Alpine Linux 3.24.1" over bare version strings.
+String _cacheImageLabel(CacheImageInfo image) {
+  final os = image.os.trim();
+  final release = image.release.trim();
+  final family = distroDisplayName(os, release: release);
+
+  if (release.isEmpty) return family == '-' ? os : family;
+  if (family == '-' || family.isEmpty) return release;
+
+  final releaseLower = release.toLowerCase();
+  final familyToken = family.toLowerCase().split(RegExp(r'\s+')).first;
+  if (releaseLower.contains(familyToken)) return release;
+
+  return '$family $release';
 }

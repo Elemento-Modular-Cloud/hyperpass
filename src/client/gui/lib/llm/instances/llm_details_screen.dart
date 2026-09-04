@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 
 import '../../brand.dart';
-import '../../distro_branding.dart';
 import '../../l10n/app_localizations.dart';
 import '../../page_surface.dart';
 import '../../providers.dart';
@@ -70,9 +69,10 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
     final time = DateTime.fromMillisecondsSinceEpoch(entry.timestampMs.toInt());
     final stamp =
         '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
+    // ANSI mapped through Brand.terminalTheme (yellow accent, not Ubuntu).
     final color = switch (entry.source) {
-      'gateway' => '\x1b[94m',
-      'lifecycle' => '\x1b[95m',
+      'gateway' => '\x1b[93m',
+      'lifecycle' => '\x1b[33m',
       'process' => '\x1b[37m',
       _ => '\x1b[90m',
     };
@@ -86,7 +86,6 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final branding = distroBranding('');
     final loaded = ref.watch(llm.loadedModelsProvider);
     final pending = ref.watch(llm.pendingLlmUnloadsProvider);
     final modelInfo = loaded.whenOrNull(
@@ -137,7 +136,7 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
                   borderRadius: BorderRadius.circular(Brand.radius),
                   child: _hasContent
                       ? ColoredBox(
-                          color: branding.background,
+                          color: Brand.terminalTheme.background,
                           child: RawScrollbar(
                             controller: _scrollController,
                             thickness: 9,
@@ -147,11 +146,15 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
                               alwaysShowCursor: false,
                               padding: const EdgeInsets.all(4),
                               scrollController: _scrollController,
-                              theme: branding.terminalTheme,
+                              theme: Brand.terminalTheme,
                               textStyle: TerminalStyle(
                                 fontFamily: 'UbuntuMono',
-                                fontFamilyFallback: const ['NotoColorEmoji', 'FreeSans'],
-                                fontSize: ref.watch(sessionTerminalFontSizeProvider),
+                                fontFamilyFallback: const [
+                                  'NotoColorEmoji',
+                                  'FreeSans',
+                                ],
+                                fontSize:
+                                    ref.watch(sessionTerminalFontSizeProvider),
                               ),
                             ),
                           ),
