@@ -35,12 +35,14 @@ class GlassPanel extends StatelessWidget {
     final radius = borderRadius ?? BorderRadius.circular(Brand.radius);
     final edge = border ?? Border.all(color: glass.border);
     final useBlur = blurSigma > 0;
+    // Same underlay for sidebar, cards, and pages unless a caller overrides.
+    final underlay = baseColor ?? glass.panelUnderlay;
 
     Widget panel = Stack(
       children: [
-        if (baseColor != null)
+        if (underlay != null)
           Positioned.fill(
-            child: ColoredBox(color: baseColor!),
+            child: ColoredBox(color: underlay),
           ),
         Positioned.fill(
           child: ColoredBox(color: glass.fill),

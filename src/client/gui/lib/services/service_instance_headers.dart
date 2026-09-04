@@ -9,6 +9,7 @@ import '../vm_details/ip_addresses.dart';
 import '../vm_details/vm_status_icon.dart';
 import '../vm_table/table.dart';
 import 'service_branding.dart';
+import 'service_instance_details.dart';
 import 'service_instance_id.dart';
 import 'service_library.dart';
 import 'service_status.dart';
@@ -28,6 +29,13 @@ final serviceInstanceHeaders = <TableHeader<TaggedVmInfo>>[
     minWidth: 100,
     sortKey: (info) => info.name,
     cellBuilder: (info) => ServiceInstanceNameLink(info),
+  ),
+  TableHeader(
+    name: 'SHELL',
+    childBuilder: _l10nHeader((l10n) => l10n.vmTableColumnShell),
+    width: 56,
+    minWidth: 48,
+    cellBuilder: (info) => ServiceShellLink(info.name),
   ),
   TableHeader(
     name: 'SERVICE',
@@ -68,6 +76,33 @@ final serviceInstanceHeaders = <TableHeader<TaggedVmInfo>>[
     cellBuilder: (info) => IpAddresses(info.instanceInfo.ipv4),
   ),
 ];
+
+class ServiceShellLink extends ConsumerWidget {
+  const ServiceShellLink(this.instanceName, {super.key});
+
+  final String instanceName;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    return Tooltip(
+      message: l10n.terminalOpenShell,
+      child: IconButton(
+        icon: const Icon(Icons.terminal, size: 18),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        onPressed: () {
+          ref
+              .read(serviceScreenLocationProvider(instanceName).notifier)
+              .set(ServiceDetailsLocation.shell);
+          ref
+              .read(sidebarKeyProvider.notifier)
+              .set(serviceInstanceSidebarKey(instanceName));
+        },
+      ),
+    );
+  }
+}
 
 class ServiceInstanceNameLink extends ConsumerWidget {
   const ServiceInstanceNameLink(this.info, {super.key});

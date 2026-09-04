@@ -32,8 +32,9 @@ class OverviewMetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final glass = context.glass;
     final child = Material(
-      color: baseColor.withValues(alpha: 0.55),
+      color: glass.panelUnderlay ?? baseColor,
       borderRadius: BorderRadius.circular(Brand.radius),
       child: InkWell(
         onTap: onTap,

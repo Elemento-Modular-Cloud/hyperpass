@@ -144,7 +144,7 @@ class _HostMetersPanel extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: glass.cardSolid.withValues(alpha: 0.35),
+        color: glass.panelUnderlay ?? glass.fill,
         borderRadius: BorderRadius.circular(Brand.radius),
         border: Border.all(color: onSurface.withValues(alpha: 0.12)),
       ),

@@ -6,6 +6,7 @@ import '../page_surface.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import '../vm_table/table.dart' as vmtable;
+import '../widgets/running_list_header.dart';
 import 'service_instance_headers.dart';
 import 'service_instance_id.dart';
 import 'services_screen.dart';
@@ -25,18 +26,14 @@ class ServiceInstancesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.serviceInstancesLabel,
-              style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              l10n.serviceInstancesSubtitle,
-              style: TextStyle(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.7),
+            RunningListHeader(
+              title: l10n.serviceInstancesLabel,
+              subtitle: l10n.serviceInstancesSubtitle,
+              action: TextButton(
+                onPressed: () => ref
+                    .read(sidebarKeyProvider.notifier)
+                    .set(ServicesScreen.sidebarKey),
+                child: Text(l10n.serviceDeployAction),
               ),
             ),
             const SizedBox(height: 16),

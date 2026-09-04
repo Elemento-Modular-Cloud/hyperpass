@@ -9,20 +9,16 @@ import '../catalogue/catalogue.dart';
 import '../catalogue/catalogue_surface.dart';
 import '../l10n/app_localizations.dart';
 import '../llm/catalogue/llm_catalogue_screen.dart';
-import '../llm/instances/llm_instances_screen.dart';
 import '../llm/providers.dart';
 import '../providers.dart';
 import '../services/service_branding.dart';
 import '../services/service_instance_id.dart';
-import '../services/service_instances_screen.dart';
 import '../services/service_library.dart';
 import '../services/service_status.dart';
 import '../services/services_screen.dart';
 import '../sidebar.dart';
 import '../vm_details/cpu_sparkline.dart';
-import '../vm_details/vm_status_icon.dart';
 import '../vm_table/vm_table_headers.dart';
-import '../vm_table/vm_table_screen.dart';
 import '../widgets/resource_meter.dart';
 
 enum OverviewRunningTab { all, vms, llms, services }
@@ -41,7 +37,6 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final glass = context.glass;
     final runningVms = ref
         .watch(vmInfosProvider)
         .where((info) => info.instanceStatus.status == Status.RUNNING)
@@ -66,39 +61,18 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
         (showServices && runningServices.isNotEmpty);
 
     return CatalogueSurface(
-      baseColor: glass.cardSolid.withValues(alpha: 0.6),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l10n.overviewRunningTitle,
-                  style: TextStyle(
-                    fontFamily: Brand.fontFamily,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  final key = switch (_tab) {
-                    OverviewRunningTab.llms => LlmInstancesScreen.sidebarKey,
-                    OverviewRunningTab.services =>
-                      ServiceInstancesScreen.sidebarKey,
-                    OverviewRunningTab.vms ||
-                    OverviewRunningTab.all =>
-                      VmTableScreen.sidebarKey,
-                  };
-                  ref.read(sidebarKeyProvider.notifier).set(key);
-                },
-                child: Text(l10n.overviewRunningViewAll),
-              ),
-            ],
+          Text(
+            l10n.overviewRunningTitle,
+            style: TextStyle(
+              fontFamily: Brand.fontFamily,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 8),
           SingleChildScrollView(
@@ -128,40 +102,41 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
           else
             LayoutBuilder(
               builder: (context, constraints) {
-                const minWidth = 280.0;
+                const minWidth = 260.0;
                 const spacing = 16.0;
-                final n = max(1, constraints.maxWidth ~/ minWidth);
-                final width =
-                    (constraints.maxWidth - spacing * (n - 1)) / n;
-                return Wrap(
-                  spacing: spacing,
-                  runSpacing: spacing,
-                  children: [
-                    if (showVms)
-                      for (final vm in runningVms)
-                        SizedBox(
-                          width: width,
-                          child: _VmCard(vm: vm),
-                        ),
-                    if (showLlms)
-                      for (final model in llmModels)
-                        SizedBox(
-                          width: width,
-                          child: _LlmCard(model: model),
-                        ),
-                    if (showServices)
-                      for (final service in runningServices)
-                        SizedBox(
-                          width: width,
-                          child: _ServiceCard(
-                            service: service,
-                            displayName: library
-                                    ?.byId(service.info.serviceId)
-                                    ?.displayName ??
-                                service.info.serviceId,
-                          ),
-                        ),
-                  ],
+                const tileHeight = 148.0;
+                final columns = max(
+                  1,
+                  ((constraints.maxWidth + spacing) / (minWidth + spacing))
+                      .floor(),
+                );
+                final tiles = <Widget>[
+                  if (showVms)
+                    for (final vm in runningVms) _VmCard(vm: vm),
+                  if (showLlms)
+                    for (final model in llmModels) _LlmCard(model: model),
+                  if (showServices)
+                    for (final service in runningServices)
+                      _ServiceCard(
+                        service: service,
+                        displayName: library
+                                ?.byId(service.info.serviceId)
+                                ?.displayName ??
+                            service.info.serviceId,
+                      ),
+                ];
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: tiles.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
+                    mainAxisExtent: tileHeight,
+                  ),
+                  itemBuilder: (context, index) => tiles[index],
                 );
               },
             ),
@@ -194,8 +169,9 @@ class _VmCard extends ConsumerWidget {
         size: 28,
       ),
       title: vm.name,
+      titleMaxLines: 2,
       meta: Text(
-        'VM · ${l10n.overviewRunningStateRunning}',
+        'VM',
         style: TextStyle(
           fontFamily: Brand.fontFamily,
           fontSize: 12,
@@ -206,7 +182,10 @@ class _VmCard extends ConsumerWidget {
         'CPU ${cpu.round()}% · RAM ${_shortMem(memUsed)}',
         ip,
       ],
-      trailing: VmStatusIcon(vm.instanceStatus.status, isLaunching: false),
+      trailing: _StatusBadge(
+        label: l10n.overviewRunningStateRunning,
+        color: Brand.green,
+      ),
     );
   }
 }
@@ -235,7 +214,7 @@ class _LlmCard extends ConsumerWidget {
       title: name,
       titleMaxLines: 2,
       meta: Text(
-        'LLM · ${l10n.overviewRunningStateRunning}',
+        'LLM',
         style: TextStyle(
           fontFamily: Brand.fontFamily,
           fontSize: 12,
@@ -246,7 +225,10 @@ class _LlmCard extends ConsumerWidget {
         model.backend.isNotEmpty ? model.backend : '—',
         mem,
       ],
-      trailing: const Icon(Icons.circle, size: 10, color: Brand.accent),
+      trailing: _StatusBadge(
+        label: l10n.overviewRunningStateRunning,
+        color: Brand.green,
+      ),
     );
   }
 }
@@ -279,14 +261,15 @@ class _ServiceCard extends ConsumerWidget {
       ServiceHealthState.healthy => Brand.green,
       ServiceHealthState.unhealthy => const Color(0xFFE35D6A),
       ServiceHealthState.unreachable => Brand.accentDark,
-      ServiceHealthState.unknown => onSurface.withValues(alpha: 0.45),
+      ServiceHealthState.unknown => onSurface.withValues(alpha: 0.55),
     };
-    final openDetails = () {
+    void openDetails() {
       ref
           .read(sidebarKeyProvider.notifier)
           .set(serviceInstanceSidebarKey(service.name));
-    };
-    final unhealthy = health == ServiceHealthState.unhealthy ||
+    }
+
+    final attention = health == ServiceHealthState.unhealthy ||
         health == ServiceHealthState.unreachable;
 
     return _WorkloadCard(
@@ -296,62 +279,60 @@ class _ServiceCard extends ConsumerWidget {
         size: 28,
       ),
       title: service.name,
+      titleMaxLines: 2,
       meta: Text(
-        displayName.isNotEmpty ? displayName : 'Service',
+        'Service',
         style: TextStyle(
           fontFamily: Brand.fontFamily,
           fontSize: 12,
           color: onSurface.withValues(alpha: 0.65),
         ),
       ),
-      lines: [endpoint],
-      trailing: _HealthStatus(
+      lines: [
+        displayName.isNotEmpty ? displayName : '—',
+        endpoint,
+      ],
+      trailing: _StatusBadge(
         label: healthLabel,
         color: healthColor,
-        emphasize: unhealthy,
-        onTap: unhealthy ? openDetails : null,
+        onTap: attention ? openDetails : null,
       ),
     );
   }
 }
 
-class _HealthStatus extends StatelessWidget {
-  const _HealthStatus({
+/// Shared status chip for VM / LLM / service running cards.
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({
     required this.label,
     required this.color,
-    required this.emphasize,
     this.onTap,
   });
 
   final String label;
   final Color color;
-  final bool emphasize;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final child = Container(
-      padding: emphasize
-          ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
-          : EdgeInsets.zero,
-      decoration: emphasize
-          ? BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: color.withValues(alpha: 0.45)),
-            )
-          : null,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.circle, size: 8, color: color),
+          Icon(Icons.circle, size: 7, color: color),
           const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
               fontFamily: Brand.fontFamily,
               fontSize: 11,
-              fontWeight: emphasize ? FontWeight.w600 : FontWeight.w500,
+              fontWeight: FontWeight.w600,
               color: color,
             ),
           ),
@@ -403,7 +384,7 @@ class _WorkloadCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(Brand.radius),
             border: Border.all(color: onSurface.withValues(alpha: 0.12)),
           ),
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -441,10 +422,11 @@ class _WorkloadCard extends StatelessWidget {
                   trailing,
                 ],
               ),
-              const SizedBox(height: 14),
-              for (final line in lines) ...[
+              const Spacer(),
+              for (var i = 0; i < lines.length; i++) ...[
+                if (i > 0) const SizedBox(height: 3),
                 Text(
-                  line,
+                  lines[i],
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -453,7 +435,6 @@ class _WorkloadCard extends StatelessWidget {
                     color: onSurface.withValues(alpha: 0.7),
                   ),
                 ),
-                const SizedBox(height: 3),
               ],
             ],
           ),

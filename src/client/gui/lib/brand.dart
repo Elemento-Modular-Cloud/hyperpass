@@ -144,6 +144,10 @@ class BrandAppName extends StatelessWidget {
 /// is adjusted.
 const double kFlutterOpacityCompensationPercent = 5;
 
+/// Shared underlay alpha for sidebar, cards, and full-page surfaces so they
+/// read at the same opacity over wallpapers.
+const double kPanelUnderlayAlpha = 0.52;
+
 double renderOpacityAlpha(double storedOpacityPercent) {
   return ((storedOpacityPercent + kFlutterOpacityCompensationPercent) / 100)
       .clamp(0.0, 1.0);
@@ -253,6 +257,16 @@ class GlassTokens extends ThemeExtension<GlassTokens> {
       shadows: const [],
       cardSolid: fill,
     );
+  }
+
+  /// Underlay shared by sidebar, cards, and pages.
+  ///
+  /// Glass themes keep an opaque [cardSolid] and need this tint for readability.
+  /// Solid (non-glass) mode already encodes opacity in [fill]/[cardSolid], so
+  /// no extra underlay is applied.
+  Color? get panelUnderlay {
+    if (cardSolid.a < 1.0) return null;
+    return cardSolid.withValues(alpha: kPanelUnderlayAlpha);
   }
 
   /// Apply [kFlutterOpacityCompensationPercent] to semi-transparent tokens.

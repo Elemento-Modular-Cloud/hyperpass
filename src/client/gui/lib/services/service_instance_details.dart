@@ -13,11 +13,31 @@ import '../providers.dart';
 import '../sidebar.dart';
 import '../vm_action.dart';
 import '../vm_details/ip_addresses.dart';
+import '../vm_details/terminal_tabs.dart';
 import '../vm_details/vm_status_icon.dart';
 import 'service_branding.dart';
 import 'service_instances_screen.dart';
 import 'service_library.dart';
 import 'service_status.dart';
+
+enum ServiceDetailsLocation { overview, shell }
+
+final serviceScreenLocationProvider = NotifierProvider.autoDispose
+    .family<ServiceScreenLocationNotifier, ServiceDetailsLocation, String>(
+  ServiceScreenLocationNotifier.new,
+);
+
+class ServiceScreenLocationNotifier extends Notifier<ServiceDetailsLocation> {
+  ServiceScreenLocationNotifier(this.instanceName);
+  final String instanceName;
+
+  @override
+  ServiceDetailsLocation build() => ServiceDetailsLocation.overview;
+
+  void set(ServiceDetailsLocation location) {
+    state = location;
+  }
+}
 
 class ServiceInstanceDetailsScreen extends ConsumerWidget {
   const ServiceInstanceDetailsScreen(this.instanceName, {super.key});
@@ -34,6 +54,7 @@ class ServiceInstanceDetailsScreen extends ConsumerWidget {
         .firstOrNull;
     final launching = ref.watch(isLaunchingProvider(id));
     final guestStatus = ref.watch(serviceGuestStatusProvider(instanceName));
+    final location = ref.watch(serviceScreenLocationProvider(instanceName));
 
     if (info == null) {
       return Scaffold(
@@ -63,106 +84,169 @@ class ServiceInstanceDetailsScreen extends ConsumerWidget {
     final branding = serviceBranding(serviceId);
     final displayName = template?.displayName ?? serviceId;
     final status = info.instanceStatus.status;
+    final buttonStyle = Theme.of(context).outlinedButtonTheme.style;
+
+    OutlinedButton locationButton(ServiceDetailsLocation tab) {
+      final selected = location == tab;
+      final label = switch (tab) {
+        ServiceDetailsLocation.overview => l10n.serviceDetailsOverview,
+        ServiceDetailsLocation.shell => l10n.serviceDetailsShell,
+      };
+      return OutlinedButton(
+        style: buttonStyle?.copyWith(
+          shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+          backgroundColor: selected
+              ? const WidgetStatePropertyAll(Color(0xff333333))
+              : null,
+          foregroundColor:
+              selected ? const WidgetStatePropertyAll(Colors.white) : null,
+        ),
+        onPressed: () => ref
+            .read(serviceScreenLocationProvider(instanceName).notifier)
+            .set(tab),
+        child: Text(label),
+      );
+    }
+
+    final header = Row(
+      children: [
+        IconButton(
+          tooltip: l10n.serviceInstancesLabel,
+          onPressed: () => ref
+              .read(sidebarKeyProvider.notifier)
+              .set(ServiceInstancesScreen.sidebarKey),
+          icon: const Icon(Icons.arrow_back),
+        ),
+        ServiceIconBadge(branding: branding, size: 36),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                instanceName,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+              Text(
+                displayName,
+                style: TextStyle(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            locationButton(ServiceDetailsLocation.overview),
+            locationButton(ServiceDetailsLocation.shell),
+          ],
+        ),
+        const SizedBox(width: 16),
+        TextButton(
+          onPressed: () => ref
+              .read(serviceScreenLocationProvider(instanceName).notifier)
+              .set(ServiceDetailsLocation.shell),
+          child: Text(l10n.terminalOpenShell),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 140,
+          child: VmStatusIcon(status, isLaunching: launching),
+        ),
+      ],
+    );
+
+    final overview = ListView(
+      children: [
+        _ServiceInstanceActions(id: id, status: status),
+        const Divider(height: 32),
+        Text(
+          l10n.serviceInstanceHealthTitle,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        guestStatus.when(
+          loading: () => Text(l10n.serviceHealthChecking),
+          error: (e, _) => Text('$e'),
+          data: (s) => _HealthSummary(status: s),
+        ),
+        const Divider(height: 32),
+        Text(
+          l10n.serviceInstanceConnectionTitle,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        guestStatus.when(
+          loading: () => Text(l10n.serviceHealthChecking),
+          error: (e, _) => Text('$e'),
+          data: (s) => _ConnectionInfoSection(status: s),
+        ),
+        const Divider(height: 32),
+        Text(
+          l10n.serviceInstanceVmTitle,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        _LabeledCopyable(
+          label: l10n.serviceInstancesColumnName,
+          value: instanceName,
+        ),
+        _LabeledCopyable(
+          label: l10n.serviceInstancesColumnService,
+          value: serviceId,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 140,
+                child: Text(
+                  l10n.serviceInstancesColumnIpv4,
+                  style: TextStyle(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.65),
+                  ),
+                ),
+              ),
+              Expanded(child: IpAddresses(info.instanceInfo.ipv4)),
+            ],
+          ),
+        ),
+      ],
+    );
 
     return Scaffold(
       body: PageSurface(
-        child: ListView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                IconButton(
-                  tooltip: l10n.serviceInstancesLabel,
-                  onPressed: () => ref
-                      .read(sidebarKeyProvider.notifier)
-                      .set(ServiceInstancesScreen.sidebarKey),
-                  icon: const Icon(Icons.arrow_back),
-                ),
-                ServiceIconBadge(branding: branding, size: 36),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        instanceName,
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                      Text(
-                        displayName,
-                        style: TextStyle(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: 140,
-                  child: VmStatusIcon(status, isLaunching: launching),
-                ),
-              ],
-            ),
+            header,
             const SizedBox(height: 16),
-            _ServiceInstanceActions(id: id, status: status),
-            const Divider(height: 32),
-            Text(
-              l10n.serviceInstanceHealthTitle,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            guestStatus.when(
-              loading: () => Text(l10n.serviceHealthChecking),
-              error: (e, _) => Text('$e'),
-              data: (s) => _HealthSummary(status: s),
-            ),
-            const Divider(height: 32),
-            Text(
-              l10n.serviceInstanceConnectionTitle,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            guestStatus.when(
-              loading: () => Text(l10n.serviceHealthChecking),
-              error: (e, _) => Text('$e'),
-              data: (s) => _ConnectionInfoSection(status: s),
-            ),
-            const Divider(height: 32),
-            Text(
-              l10n.serviceInstanceVmTitle,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            _LabeledCopyable(
-              label: l10n.serviceInstancesColumnName,
-              value: instanceName,
-            ),
-            _LabeledCopyable(
-              label: l10n.serviceInstancesColumnService,
-              value: serviceId,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  SizedBox(
-                    width: 140,
-                    child: Text(
-                      l10n.serviceInstancesColumnIpv4,
-                      style: TextStyle(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.65),
-                      ),
-                    ),
+                  Visibility(
+                    visible: location == ServiceDetailsLocation.overview,
+                    maintainState: true,
+                    child: overview,
                   ),
-                  Expanded(child: IpAddresses(info.instanceInfo.ipv4)),
+                  Visibility(
+                    visible: location == ServiceDetailsLocation.shell,
+                    maintainState: true,
+                    child: TerminalTabs(id),
+                  ),
                 ],
               ),
             ),

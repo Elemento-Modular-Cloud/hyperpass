@@ -441,13 +441,21 @@ final vmInfosMapProvider = Provider((ref) {
   return {for (final i in ref.watch(vmInfosProvider)) i.id: i};
 });
 
+/// All active Hyperpass/Multipass VMs, including marketplace service instances.
+/// Used by shell/status lookups that need any VM by id.
+final allVmInfosMapProvider = Provider((ref) {
+  return {
+    for (final i in ref.watch(allActiveVmInfosWithServicesProvider)) i.id: i,
+  };
+});
+
 class VmInfoNotifier extends Notifier<DetailedInfoItem> {
   VmInfoNotifier(this.arg);
   final VmId arg;
 
   @override
   DetailedInfoItem build() {
-    return ref.watch(vmInfosMapProvider)[arg]?.info ?? DetailedInfoItem();
+    return ref.watch(allVmInfosMapProvider)[arg]?.info ?? DetailedInfoItem();
   }
 }
 

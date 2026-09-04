@@ -187,7 +187,7 @@ class _LocalWorkloadsCard extends StatelessWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Material(
-      color: baseColor.withValues(alpha: 0.55),
+      color: context.glass.panelUnderlay ?? baseColor,
       borderRadius: BorderRadius.circular(Brand.radius),
       child: InkWell(
         onTap: onOpenAll,

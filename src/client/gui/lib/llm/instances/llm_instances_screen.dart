@@ -5,6 +5,7 @@ import '../../l10n/app_localizations.dart';
 import '../../page_surface.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
+import '../../widgets/running_list_header.dart';
 import '../catalogue/llm_catalogue_screen.dart';
 import '../providers.dart';
 import 'llm_downloaded_screen.dart';
@@ -27,9 +28,15 @@ class LlmInstancesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              l10n.llmInstancesLabel,
-              style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
+            RunningListHeader(
+              title: l10n.llmInstancesLabel,
+              subtitle: l10n.llmInstancesSubtitle,
+              action: TextButton(
+                onPressed: () => ref
+                    .read(sidebarKeyProvider.notifier)
+                    .set(LlmCatalogueScreen.sidebarKey),
+                child: Text(l10n.llmLoadAction),
+              ),
             ),
             const SizedBox(height: 16),
             Expanded(

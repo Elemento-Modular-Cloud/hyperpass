@@ -144,7 +144,6 @@ class _ActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final glass = context.glass;
 
     return Material(
       color: Colors.transparent,
@@ -152,33 +151,45 @@ class _ActionCard extends StatelessWidget {
         onTap: onOpen,
         borderRadius: BorderRadius.circular(Brand.radius),
         child: CatalogueSurface(
-          baseColor: glass.cardSolid.withValues(alpha: 0.6),
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FaIcon(icon, size: 16, color: Brand.accent),
-              const SizedBox(height: 12),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Brand.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Brand.accent.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Center(
+                  child: FaIcon(icon, size: 22, color: Brand.accent),
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 title,
                 style: TextStyle(
                   fontFamily: Brand.fontFamily,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
                   color: onSurface,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 body,
                 style: TextStyle(
                   fontFamily: Brand.fontFamily,
-                  fontSize: 12,
-                  height: 1.4,
-                  color: onSurface.withValues(alpha: 0.65),
+                  fontSize: 13,
+                  height: 1.45,
+                  color: onSurface.withValues(alpha: 0.72),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               for (final action in actions) ...[
                 InkWell(
                   onTap: action.onTap,
@@ -188,7 +199,7 @@ class _ActionCard extends StatelessWidget {
                       action.label,
                       style: const TextStyle(
                         fontFamily: Brand.fontFamily,
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Brand.accent,
                       ),

@@ -192,9 +192,17 @@
     "@llmCatalogueLabel": {
         "description": "Sidebar label for the LLM model catalogue"
     },
-    "llmInstancesLabel": "Running",
+    "llmInstancesLabel": "Runtime",
     "@llmInstancesLabel": {
-        "description": "Sidebar label for loaded LLM inference instances"
+        "description": "Page title for loaded LLM inference instances"
+    },
+    "llmInstancesSubtitle": "Local models currently loaded for inference.",
+    "@llmInstancesSubtitle": {
+        "description": "Subtitle under the Runtime page title"
+    },
+    "llmLoadAction": "Load",
+    "@llmLoadAction": {
+        "description": "Primary CTA on the Runtime list page"
     },
     "llmDownloadedLabel": "Downloaded",
     "@llmDownloadedLabel": {
@@ -1565,9 +1573,13 @@
     "@vmTableColumnsButton": {
         "description": "Label on the button that opens the column show/hide menu"
     },
-    "vmTableAllInstances": "All Instances",
+    "vmTableAllInstances": "Instances",
     "@vmTableAllInstances": {
         "description": "Page heading above the VM table"
+    },
+    "instancesSubtitle": "Virtual machines managed on this host.",
+    "@instancesSubtitle": {
+        "description": "Subtitle under the Instances page title"
     },
     "commonLaunch": "Launch",
     "@commonLaunch": {
@@ -2136,13 +2148,21 @@
             }
         }
     },
-    "serviceInstancesLabel": "Running",
+    "serviceInstancesLabel": "Deployments",
     "@serviceInstancesLabel": {
-        "description": "Sidebar entry and page title for deployed service instances"
+        "description": "Page title for deployed service instances"
     },
-    "serviceInstancesSubtitle": "Marketplace services running as Hyperpass instances. Health and connection details come from the guest healthcheck and service-info helpers.",
+    "serviceInstancesSubtitle": "Marketplace services running as managed instances.",
     "@serviceInstancesSubtitle": {
-        "description": "Subtitle under the service instances heading"
+        "description": "Subtitle under the Deployments page title"
+    },
+    "serviceDetailsOverview": "Overview",
+    "@serviceDetailsOverview": {
+        "description": "Service details tab for health and connection info"
+    },
+    "serviceDetailsShell": "Shell",
+    "@serviceDetailsShell": {
+        "description": "Service details tab for an SSH shell"
     },
     "serviceInstancesEmpty": "No service instances yet",
     "@serviceInstancesEmpty": {
@@ -2741,7 +2761,7 @@
     "@overviewActionCreateTitle": {
         "description": "Home action card title for launching infrastructure"
     },
-    "overviewActionCreateBody": "Launch infrastructure locally.",
+    "overviewActionCreateBody": "Spin up virtual machines from curated images, or bring your own. Configure CPU, memory, and cloud-init like a public cloud — entirely on this host.",
     "@overviewActionCreateBody": {
         "description": "Home action card body for launching infrastructure"
     },
@@ -2757,7 +2777,7 @@
     "@overviewActionAiTitle": {
         "description": "Home action card title for local models"
     },
-    "overviewActionAiBody": "Run open models directly on your hardware.",
+    "overviewActionAiBody": "Browse, download, and run open models with llama.cpp or other local runtimes. Keep inference private and close to your data.",
     "@overviewActionAiBody": {
         "description": "Home action card body for local models"
     },
@@ -2773,7 +2793,7 @@
     "@overviewActionServicesTitle": {
         "description": "Home action card title for marketplace services"
     },
-    "overviewActionServicesBody": "Deploy ready-to-use applications and infrastructure services.",
+    "overviewActionServicesBody": "Deploy databases, dashboards, and other marketplace packs in one step. Each service gets networking, health checks, and a managed lifecycle.",
     "@overviewActionServicesBody": {
         "description": "Home action card body for marketplace services"
     },

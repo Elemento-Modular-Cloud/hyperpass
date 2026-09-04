@@ -20,7 +20,6 @@ class OverviewSystemRail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final glass = context.glass;
     final daemon = ref.watch(daemonInfoProvider).asData?.value;
     final daemonUp = ref.watch(daemonAvailableProvider);
     final multipass = ref.watch(multipassSidebarStatusProvider);
@@ -73,7 +72,6 @@ class OverviewSystemRail extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         CatalogueSurface(
-          baseColor: glass.cardSolid.withValues(alpha: 0.5),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -197,7 +195,6 @@ class OverviewSystemRail extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         CatalogueSurface(
-          baseColor: glass.cardSolid.withValues(alpha: 0.5),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -248,7 +245,6 @@ class OverviewSystemRail extends ConsumerWidget {
         ),
         const SizedBox(height: 14),
         CatalogueSurface(
-          baseColor: glass.cardSolid.withValues(alpha: 0.5),
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           child: _RecentActivityPanel(
             // Event store not wired yet — keep empty shell ready for ≤4 items.

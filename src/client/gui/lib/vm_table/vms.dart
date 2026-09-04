@@ -12,6 +12,7 @@ import '../providers.dart';
 import '../sidebar.dart';
 import '../switch.dart';
 import '../vm_details/memory_usage.dart';
+import '../widgets/running_list_header.dart';
 import 'bulk_actions.dart';
 import 'header_selection.dart';
 import 'search_box.dart';
@@ -72,18 +73,13 @@ class Vms extends ConsumerWidget {
       ref.read(sidebarKeyProvider.notifier).set(CatalogueScreen.sidebarKey);
     }
 
-    final heading = Row(
-      children: [
-        Expanded(
-          child: Text(
-            l10n.vmTableAllInstances,
-            style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        TextButton(onPressed: goToCatalogue, child: Text(l10n.commonLaunch)),
-      ],
+    final heading = RunningListHeader(
+      title: l10n.vmTableAllInstances,
+      subtitle: l10n.instancesSubtitle,
+      action: TextButton(
+        onPressed: goToCatalogue,
+        child: Text(l10n.commonLaunch),
+      ),
     );
 
     final searchName = ref.watch(searchNameProvider);
