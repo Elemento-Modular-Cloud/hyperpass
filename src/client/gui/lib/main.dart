@@ -166,7 +166,6 @@ class _AppState extends ConsumerState<App> with WindowListener {
 
     final hotkey = ref.watch(hotkeyProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleColor = isDark ? Brand.accent : Brand.voidBlack;
     final sidebarWidth = SideBar.totalWidth;
 
     return Stack(
@@ -197,21 +196,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
           left: 0,
           right: mpPlatform.showWindowCaptionButtons ? 138 : 0,
           height: SideBar.titleBarHeight,
-          child: DragToMoveArea(
-            child: Center(
-              child: BrandAppName(
-                style: TextStyle(
-                  color: titleColor,
-                  decoration: TextDecoration.none,
-                  decorationColor: Colors.transparent,
-                  fontFamily: Brand.fontFamily,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
-              ),
-            ),
-          ),
+          child: const DragToMoveArea(child: SizedBox.expand()),
         ),
         if (mpPlatform.showWindowCaptionButtons)
           Align(

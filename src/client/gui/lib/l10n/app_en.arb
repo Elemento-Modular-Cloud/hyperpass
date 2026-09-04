@@ -144,9 +144,49 @@
     "@sidebarSectionVms": {
         "description": "Sidebar section heading for virtual machine navigation"
     },
+    "sidebarSectionCompute": "Compute",
+    "@sidebarSectionCompute": {
+        "description": "Sidebar section for VMs, images, and cloud-init"
+    },
+    "sidebarSectionAi": "AI",
+    "@sidebarSectionAi": {
+        "description": "Sidebar section for models and inference runtime"
+    },
+    "sidebarSectionManage": "Manage",
+    "@sidebarSectionManage": {
+        "description": "Sidebar section for storage and help"
+    },
     "sidebarSectionLlms": "LLMs",
     "@sidebarSectionLlms": {
         "description": "Sidebar section heading for local LLM navigation"
+    },
+    "sidebarImagesLabel": "Images",
+    "@sidebarImagesLabel": {
+        "description": "Sidebar label for the OS image catalogue"
+    },
+    "sidebarModelsLabel": "Models",
+    "@sidebarModelsLabel": {
+        "description": "Sidebar label for the AI model catalogue"
+    },
+    "sidebarRuntimeLabel": "Runtime",
+    "@sidebarRuntimeLabel": {
+        "description": "Sidebar label for loaded AI model runtimes"
+    },
+    "sidebarServiceCatalogueLabel": "Catalogue",
+    "@sidebarServiceCatalogueLabel": {
+        "description": "Sidebar label for the service catalogue"
+    },
+    "sidebarDeploymentsLabel": "Deployments",
+    "@sidebarDeploymentsLabel": {
+        "description": "Sidebar label for running service deployments"
+    },
+    "sidebarStorageLabel": "Storage",
+    "@sidebarStorageLabel": {
+        "description": "Sidebar label for image cache and storage"
+    },
+    "sidebarSystemHeading": "System",
+    "@sidebarSystemHeading": {
+        "description": "Sidebar footer heading above daemon health"
     },
     "llmCatalogueLabel": "Model catalog",
     "@llmCatalogueLabel": {
@@ -2201,9 +2241,9 @@
     "@serviceInstanceOpenUrl": {
         "description": "Tooltip for opening a service endpoint URL"
     },
-    "overviewLabel": "Overview",
+    "overviewLabel": "Home",
     "@overviewLabel": {
-        "description": "Sidebar label and page title for the home overview dashboard"
+        "description": "Sidebar label for the home overview dashboard"
     },
     "overviewSubtitle": "Status across VMs, local models, and marketplace services.",
     "@overviewSubtitle": {
@@ -2225,5 +2265,540 @@
     "overviewServicesHint": "Marketplace service instances",
     "@overviewServicesHint": {
         "description": "Hint under the service instance count on the overview dashboard"
+    },
+    "overviewHeroTitleLead": "Run anything. ",
+    "@overviewHeroTitleLead": {
+        "description": "Lead portion of the Home hero headline"
+    },
+    "overviewHeroTitleAccent": "Your cloud, your way.",
+    "@overviewHeroTitleAccent": {
+        "description": "Accent portion of the Home hero headline"
+    },
+    "overviewHeroSubtitle": "Create and run virtual machines, deploy services and experiment with AI models — all from a single, local control plane.",
+    "@overviewHeroSubtitle": {
+        "description": "Supporting copy under the Home hero headline"
+    },
+    "overviewHeroNewVm": "New VM",
+    "@overviewHeroNewVm": {
+        "description": "Primary hero CTA to open the VM catalogue"
+    },
+    "overviewHeroCloudInit": "Cloud-init",
+    "@overviewHeroCloudInit": {
+        "description": "Hero CTA to open cloud-init"
+    },
+    "overviewHeroImport": "Import",
+    "@overviewHeroImport": {
+        "description": "Hero CTA for import flows"
+    },
+    "overviewHeroExplore": "Explore catalogue",
+    "@overviewHeroExplore": {
+        "description": "Hero CTA to browse the image catalogue"
+    },
+    "overviewHeroRunModel": "Run model",
+    "@overviewHeroRunModel": {
+        "description": "Hero secondary CTA to open the model catalogue"
+    },
+    "overviewHeroStartService": "Deploy service",
+    "@overviewHeroStartService": {
+        "description": "Hero secondary CTA to open the service catalogue"
+    },
+    "overviewLocalWorkloadsTitle": "Local workloads",
+    "@overviewLocalWorkloadsTitle": {
+        "description": "Hero card title for consolidated running workload count"
+    },
+    "overviewLocalWorkloadsCount": "{count} running",
+    "@overviewLocalWorkloadsCount": {
+        "description": "Hero card total running workloads",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewLocalWorkloadsVms": "{count} VM",
+    "@overviewLocalWorkloadsVms": {
+        "description": "Hero chip for running VM count",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewLocalWorkloadsLlms": "{count} LLM",
+    "@overviewLocalWorkloadsLlms": {
+        "description": "Hero chip for running LLM count",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewLocalWorkloadsServices": "{count} Services",
+    "@overviewLocalWorkloadsServices": {
+        "description": "Hero chip for running service count",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewHeroQuote": "Infrastructure is freedom. — Elemento",
+    "@overviewHeroQuote": {
+        "description": "Optional quote in the Home hero"
+    },
+    "overviewMetricRunningVms": "Running VMs",
+    "@overviewMetricRunningVms": {
+        "description": "Hero metric tile label for running VMs"
+    },
+    "overviewMetricRunningLlms": "Running LLMs",
+    "@overviewMetricRunningLlms": {
+        "description": "Hero metric tile label for running local models"
+    },
+    "overviewMetricRunningServices": "Running services",
+    "@overviewMetricRunningServices": {
+        "description": "Hero metric tile label for running services"
+    },
+    "overviewMetricRamUsed": "RAM used",
+    "@overviewMetricRamUsed": {
+        "description": "Metric tile label for host RAM used"
+    },
+    "overviewMetricDiskCapacity": "Disk capacity",
+    "@overviewMetricDiskCapacity": {
+        "description": "Metric tile label for disk capacity"
+    },
+    "overviewMetricDiskUsed": "Disk used",
+    "@overviewMetricDiskUsed": {
+        "description": "Metric tile label for host disk used"
+    },
+    "overviewRunningTitle": "Running now",
+    "@overviewRunningTitle": {
+        "description": "Heading for the Home running-shortcuts panel"
+    },
+    "overviewRunningViewAll": "View all",
+    "@overviewRunningViewAll": {
+        "description": "Link to open the full running list for the active tab"
+    },
+    "overviewRunningTabAll": "All",
+    "@overviewRunningTabAll": {
+        "description": "Home running panel tab showing all running items"
+    },
+    "overviewRunningTabVms": "VMs",
+    "@overviewRunningTabVms": {
+        "description": "Home running panel tab for VMs"
+    },
+    "overviewRunningTabLlms": "LLMs",
+    "@overviewRunningTabLlms": {
+        "description": "Home running panel tab for LLMs"
+    },
+    "overviewRunningTabServices": "Services",
+    "@overviewRunningTabServices": {
+        "description": "Home running panel tab for services"
+    },
+    "overviewRunningLlmSubtitle": "Local model",
+    "@overviewRunningLlmSubtitle": {
+        "description": "Subtitle on a running LLM shortcut tile"
+    },
+    "overviewRunningEmpty": "Nothing running yet. Launch a VM, load a model, or deploy a service.",
+    "@overviewRunningEmpty": {
+        "description": "Empty state when no running shortcuts match the tab"
+    },
+    "overviewRunningEmptyAction": "Browse catalogue",
+    "@overviewRunningEmptyAction": {
+        "description": "CTA when the running shortcuts panel is empty"
+    },
+    "overviewRunningEmptyTitle": "Nothing running",
+    "@overviewRunningEmptyTitle": {
+        "description": "Title for empty Running now panel"
+    },
+    "overviewRunningEmptyBody": "Put this machine to work.",
+    "@overviewRunningEmptyBody": {
+        "description": "Body for empty Running now panel"
+    },
+    "overviewRunningStateRunning": "Running",
+    "@overviewRunningStateRunning": {
+        "description": "State label on running workload cards"
+    },
+    "overviewRunningHealthHealthy": "Healthy",
+    "@overviewRunningHealthHealthy": {
+        "description": "Service health label when healthy"
+    },
+    "overviewRunningHealthUnhealthy": "Unhealthy",
+    "@overviewRunningHealthUnhealthy": {
+        "description": "Service health label when unhealthy"
+    },
+    "overviewRunningHealthUnreachable": "Unreachable",
+    "@overviewRunningHealthUnreachable": {
+        "description": "Service health label when unreachable"
+    },
+    "overviewRunningHealthUnknown": "Unknown",
+    "@overviewRunningHealthUnknown": {
+        "description": "Service health label when unknown"
+    },
+    "overviewDiskComingSoon": "Disk used metrics coming soon",
+    "@overviewDiskComingSoon": {
+        "description": "Tooltip for disk placeholders until daemon exposes used bytes"
+    },
+    "overviewTabPopular": "Popular",
+    "@overviewTabPopular": {
+        "description": "Home catalogue tab for popular images"
+    },
+    "overviewTabOs": "Operating Systems",
+    "@overviewTabOs": {
+        "description": "Home catalogue tab for operating systems"
+    },
+    "overviewTabAiMl": "AI / ML",
+    "@overviewTabAiMl": {
+        "description": "Home catalogue tab for AI and ML"
+    },
+    "overviewTabDatabases": "Databases",
+    "@overviewTabDatabases": {
+        "description": "Home catalogue tab for databases"
+    },
+    "overviewTabDevelopment": "Development",
+    "@overviewTabDevelopment": {
+        "description": "Home catalogue tab for development images"
+    },
+    "overviewTabServices": "Services",
+    "@overviewTabServices": {
+        "description": "Home catalogue tab for marketplace services"
+    },
+    "overviewTabMyImages": "My Images",
+    "@overviewTabMyImages": {
+        "description": "Home catalogue tab for local images"
+    },
+    "overviewTabEmptyHint": "This section opens the full catalogue for that category.",
+    "@overviewTabEmptyHint": {
+        "description": "Empty-state hint for Home catalogue tabs without inline content"
+    },
+    "overviewTabOpenDestination": "Open",
+    "@overviewTabOpenDestination": {
+        "description": "Button to open the destination screen for a Home catalogue tab"
+    },
+    "overviewBrowseAllTitle": "Browse all images",
+    "@overviewBrowseAllTitle": {
+        "description": "Title on the browse-all card in the Popular grid"
+    },
+    "overviewBrowseAllSubtitle": "Open the full image catalogue",
+    "@overviewBrowseAllSubtitle": {
+        "description": "Subtitle on the browse-all card"
+    },
+    "overviewBrowseAllAction": "Open catalogue",
+    "@overviewBrowseAllAction": {
+        "description": "CTA on the browse-all card"
+    },
+    "overviewBannerAiTitle": "AI at your fingertips",
+    "@overviewBannerAiTitle": {
+        "description": "Feature banner title for local models"
+    },
+    "overviewBannerAiBody": "Run open models locally. No limits, no lock-in.",
+    "@overviewBannerAiBody": {
+        "description": "Feature banner body for local models"
+    },
+    "overviewBannerAiAction": "Browse models →",
+    "@overviewBannerAiAction": {
+        "description": "Feature banner action for local models"
+    },
+    "overviewBannerServicesTitle": "Deploy services",
+    "@overviewBannerServicesTitle": {
+        "description": "Feature banner title for marketplace services"
+    },
+    "overviewBannerServicesBody": "One-click deployment for databases, tools and more.",
+    "@overviewBannerServicesBody": {
+        "description": "Feature banner body for marketplace services"
+    },
+    "overviewBannerServicesAction": "Open service catalog →",
+    "@overviewBannerServicesAction": {
+        "description": "Feature banner action for marketplace services"
+    },
+    "overviewBannerCloudTitle": "Bring your own cloud",
+    "@overviewBannerCloudTitle": {
+        "description": "Feature banner title for cloud-init and imports"
+    },
+    "overviewBannerCloudBody": "Use cloud-init, import images or connect to providers.",
+    "@overviewBannerCloudBody": {
+        "description": "Feature banner body for cloud-init and imports"
+    },
+    "overviewBannerCloudAction": "Learn more →",
+    "@overviewBannerCloudAction": {
+        "description": "Feature banner action for cloud-init"
+    },
+    "overviewSystemTitle": "System overview",
+    "@overviewSystemTitle": {
+        "description": "Right-rail heading for circular host gauges"
+    },
+    "overviewGaugeCpu": "CPU",
+    "@overviewGaugeCpu": {
+        "description": "Circular gauge label for CPU"
+    },
+    "overviewGaugeMemory": "Memory",
+    "@overviewGaugeMemory": {
+        "description": "Circular gauge label for memory"
+    },
+    "overviewGaugeDisk": "Disk",
+    "@overviewGaugeDisk": {
+        "description": "Circular gauge label for disk"
+    },
+    "overviewCoreAllocTitle": "Core allocation",
+    "@overviewCoreAllocTitle": {
+        "description": "Heading for the per-core CPU allocation graph"
+    },
+    "overviewCoreAllocSummary": "{claimed}/{total} cores claimed",
+    "@overviewCoreAllocSummary": {
+        "description": "Summary of claimed versus host cores",
+        "placeholders": {
+            "claimed": {"type": "int"},
+            "total": {"type": "int"}
+        }
+    },
+    "overviewCoreAllocFree": "Core {core} → free",
+    "@overviewCoreAllocFree": {
+        "description": "Tooltip for an unclaimed host core",
+        "placeholders": {
+            "core": {"type": "int"}
+        }
+    },
+    "overviewCoreAllocClaimed": "Core {core} → {name}",
+    "@overviewCoreAllocClaimed": {
+        "description": "Tooltip for a core claimed by a workload",
+        "placeholders": {
+            "core": {"type": "int"},
+            "name": {"type": "String"}
+        }
+    },
+    "overviewCoreAllocLegendFree": "Free",
+    "@overviewCoreAllocLegendFree": {
+        "description": "Legend label for free cores"
+    },
+    "overviewCoreAllocLegendVms": "VM {count} {count, plural, =1{core} other{cores}}",
+    "@overviewCoreAllocLegendVms": {
+        "description": "Grouped legend for VM-claimed cores",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewCoreAllocLegendLlms": "LLM {count} {count, plural, =1{core} other{cores}}",
+    "@overviewCoreAllocLegendLlms": {
+        "description": "Grouped legend for LLM-claimed cores",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewCoreAllocLegendServices": "Services {count} {count, plural, =1{core} other{cores}}",
+    "@overviewCoreAllocLegendServices": {
+        "description": "Grouped legend for service-claimed cores",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewCoreAllocLegendFreeCount": "Free {count} {count, plural, =1{core} other{cores}}",
+    "@overviewCoreAllocLegendFreeCount": {
+        "description": "Grouped legend for free cores",
+        "placeholders": {
+            "count": {"type": "int"}
+        }
+    },
+    "overviewActivityViewAll": "View activity",
+    "@overviewActivityViewAll": {
+        "description": "Link under the recent activity list"
+    },
+    "overviewNetworkComingSoonValue": "—",
+    "@overviewNetworkComingSoonValue": {
+        "description": "Edge label for network sparklines without data yet"
+    },
+    "overviewCoreAllocEmpty": "No CPU claims yet — cores are free.",
+    "@overviewCoreAllocEmpty": {
+        "description": "Empty state when the scheduler has no CPU claims"
+    },
+    "overviewCoreAllocUnavailable": "Host CPU count unavailable",
+    "@overviewCoreAllocUnavailable": {
+        "description": "Shown when daemon reports zero host CPUs"
+    },
+    "overviewCoreAllocKindVm": "VM",
+    "@overviewCoreAllocKindVm": {
+        "description": "Kind label for VM CPU claims"
+    },
+    "overviewCoreAllocKindLlm": "LLM",
+    "@overviewCoreAllocKindLlm": {
+        "description": "Kind label for LLM CPU claims"
+    },
+    "overviewCoreAllocKindService": "Service",
+    "@overviewCoreAllocKindService": {
+        "description": "Kind label for marketplace service CPU claims"
+    },
+    "overviewStatusHealthy": "Healthy",
+    "@overviewStatusHealthy": {
+        "description": "Badge when host and daemons look healthy"
+    },
+    "overviewStatusDegraded": "Degraded",
+    "@overviewStatusDegraded": {
+        "description": "Badge when a daemon is offline"
+    },
+    "overviewNetworkTitle": "Network activity (last 24h)",
+    "@overviewNetworkTitle": {
+        "description": "Right-rail network chart heading"
+    },
+    "overviewNetworkIn": "In",
+    "@overviewNetworkIn": {
+        "description": "Network chart legend for inbound traffic"
+    },
+    "overviewNetworkOut": "Out",
+    "@overviewNetworkOut": {
+        "description": "Network chart legend for outbound traffic"
+    },
+    "overviewNetworkEmpty": "Network history coming soon",
+    "@overviewNetworkEmpty": {
+        "description": "Empty state under the network chart placeholder"
+    },
+    "overviewActivityTitle": "Recent activity",
+    "@overviewActivityTitle": {
+        "description": "Right-rail recent activity heading"
+    },
+    "overviewActivityEmpty": "No recent activity yet",
+    "@overviewActivityEmpty": {
+        "description": "Legacy empty state for the activity feed placeholder"
+    },
+    "overviewActivityEmptyTitle": "Nothing has happened yet",
+    "@overviewActivityEmptyTitle": {
+        "description": "Title for empty recent events panel"
+    },
+    "overviewActivityEmptyBody": "Launch a VM, run a model or deploy a service and its activity will appear here.",
+    "@overviewActivityEmptyBody": {
+        "description": "Body for empty recent events panel"
+    },
+    "overviewSystemsHealthy": "All systems healthy",
+    "@overviewSystemsHealthy": {
+        "description": "Sidebar summary when daemons are online"
+    },
+    "overviewActivityPanelTitle": "Activity",
+    "@overviewActivityPanelTitle": {
+        "description": "Heading for host telemetry sparklines"
+    },
+    "overviewHostUnknown": "This machine",
+    "@overviewHostUnknown": {
+        "description": "Fallback host name when daemon does not report one"
+    },
+    "overviewHostUptime": "Uptime: {uptime}",
+    "@overviewHostUptime": {
+        "description": "Host uptime line under system overview",
+        "placeholders": {
+            "uptime": {"type": "String"}
+        }
+    },
+    "overviewUptimeDaysHours": "{days}d {hours}h",
+    "@overviewUptimeDaysHours": {
+        "description": "Uptime format with days and hours",
+        "placeholders": {
+            "days": {"type": "int"},
+            "hours": {"type": "int"}
+        }
+    },
+    "overviewUptimeHoursMins": "{hours}h {mins}m",
+    "@overviewUptimeHoursMins": {
+        "description": "Uptime format with hours and minutes",
+        "placeholders": {
+            "hours": {"type": "int"},
+            "mins": {"type": "int"}
+        }
+    },
+    "overviewUptimeMins": "{mins}m",
+    "@overviewUptimeMins": {
+        "description": "Uptime format with minutes only",
+        "placeholders": {
+            "mins": {"type": "int"}
+        }
+    },
+    "overviewAvailableCapacityTitle": "Available capacity",
+    "@overviewAvailableCapacityTitle": {
+        "description": "Heading for remaining host capacity"
+    },
+    "overviewCapacityPctAvailable": "{pct}% available",
+    "@overviewCapacityPctAvailable": {
+        "description": "Percent remaining capacity line",
+        "placeholders": {
+            "pct": {"type": "int"}
+        }
+    },
+    "overviewCapacityBytesAvailable": "{bytes} available",
+    "@overviewCapacityBytesAvailable": {
+        "description": "Byte remaining capacity line",
+        "placeholders": {
+            "bytes": {"type": "String"}
+        }
+    },
+    "overviewCapacityVmLabel": "VM capacity",
+    "@overviewCapacityVmLabel": {
+        "description": "Label for remaining vCPU slots"
+    },
+    "overviewCapacityVmAvailable": "{available} / {total} available",
+    "@overviewCapacityVmAvailable": {
+        "description": "Remaining claimed vCPU slots",
+        "placeholders": {
+            "available": {"type": "int"},
+            "total": {"type": "int"}
+        }
+    },
+    "overviewCapacityAcceleratorLabel": "AI accelerator memory",
+    "@overviewCapacityAcceleratorLabel": {
+        "description": "Label for accelerator memory capacity"
+    },
+    "overviewCapacityAcceleratorUnavailable": "Unavailable",
+    "@overviewCapacityAcceleratorUnavailable": {
+        "description": "Placeholder when accelerator memory is not reported"
+    },
+    "overviewActionCreateTitle": "Create",
+    "@overviewActionCreateTitle": {
+        "description": "Home action card title for launching infrastructure"
+    },
+    "overviewActionCreateBody": "Launch infrastructure locally.",
+    "@overviewActionCreateBody": {
+        "description": "Home action card body for launching infrastructure"
+    },
+    "overviewActionLaunchVm": "Launch a VM →",
+    "@overviewActionLaunchVm": {
+        "description": "Home action to open the image catalogue"
+    },
+    "overviewActionImportImage": "Import an image →",
+    "@overviewActionImportImage": {
+        "description": "Home action to import a custom image"
+    },
+    "overviewActionAiTitle": "AI",
+    "@overviewActionAiTitle": {
+        "description": "Home action card title for local models"
+    },
+    "overviewActionAiBody": "Run open models directly on your hardware.",
+    "@overviewActionAiBody": {
+        "description": "Home action card body for local models"
+    },
+    "overviewActionBrowseModels": "Browse models →",
+    "@overviewActionBrowseModels": {
+        "description": "Home action to open the model catalogue"
+    },
+    "overviewActionLoadDownloaded": "Load downloaded model →",
+    "@overviewActionLoadDownloaded": {
+        "description": "Home action to open downloaded models"
+    },
+    "overviewActionServicesTitle": "Services",
+    "@overviewActionServicesTitle": {
+        "description": "Home action card title for marketplace services"
+    },
+    "overviewActionServicesBody": "Deploy ready-to-use applications and infrastructure services.",
+    "@overviewActionServicesBody": {
+        "description": "Home action card body for marketplace services"
+    },
+    "overviewActionBrowseServices": "Browse services →",
+    "@overviewActionBrowseServices": {
+        "description": "Home action to open the service catalogue"
+    },
+    "overviewActionViewDeployments": "View deployments →",
+    "@overviewActionViewDeployments": {
+        "description": "Home action to open running service deployments"
+    },
+    "hostSystemResourcesTitle": "System resources",
+    "@hostSystemResourcesTitle": {
+        "description": "Heading above host CPU/memory/disk meters"
+    },
+    "hostCpuLabel": "CPU",
+    "@hostCpuLabel": {
+        "description": "Host CPU meter label"
+    },
+    "hostMemoryLabel": "Memory",
+    "@hostMemoryLabel": {
+        "description": "Host memory meter label"
+    },
+    "hostDiskLabel": "Disk",
+    "@hostDiskLabel": {
+        "description": "Host disk meter label"
     }
 }

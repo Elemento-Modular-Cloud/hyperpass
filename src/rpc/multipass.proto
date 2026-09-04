@@ -580,6 +580,14 @@ message DaemonInfoReply {
     uint32 cpus_claimed = 9;
     uint32 cpu_usage_permille = 10;
     repeated ResourceClaimInfo claims = 11;
+    // Volume containing the Hyperpass data directory (QStorageInfo; OS-agnostic).
+    uint64 disk_total = 12;
+    uint64 disk_used = 13;
+    // Host identity (Qt QSysInfo / QHostInfo; OS-agnostic).
+    string host_name = 14;
+    string host_os = 15;
+    string host_arch = 16;
+    uint64 host_uptime_seconds = 17;
 }
 
 message ResourceClaimInfo {

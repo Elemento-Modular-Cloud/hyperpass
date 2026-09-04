@@ -191,6 +191,7 @@ class _MeterBar extends StatelessWidget {
 String formatResourceBytes(String data) {
   const divider = 1024;
   const units = {
+    'TiB': divider * divider * divider * divider,
     'GiB': divider * divider * divider,
     'MiB': divider * divider,
     'KiB': divider,

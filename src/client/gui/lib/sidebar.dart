@@ -15,7 +15,6 @@ import 'help.dart';
 import 'l10n/app_localizations.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
 import 'llm/credentials/llm_credentials_screen.dart';
-import 'llm/host_resource_gauges.dart';
 import 'llm/instances/llm_downloaded_screen.dart';
 import 'llm/instances/llm_instances_screen.dart';
 import 'llm/llm_id.dart';
@@ -243,7 +242,7 @@ class SideBar extends ConsumerWidget {
     final catalogue = SidebarEntry(
       icon: FontAwesomeIcons.layerGroup,
       selected: isSelected(CatalogueScreen.sidebarKey),
-      label: l10n.catalogueLabel,
+      label: l10n.sidebarImagesLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CatalogueScreen.sidebarKey);
       },
@@ -272,7 +271,7 @@ class SideBar extends ConsumerWidget {
     final llmCatalogue = SidebarEntry(
       icon: FontAwesomeIcons.book,
       selected: isSelected(LlmCatalogueScreen.sidebarKey),
-      label: l10n.llmCatalogueLabel,
+      label: l10n.sidebarModelsLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(LlmCatalogueScreen.sidebarKey);
       },
@@ -281,7 +280,7 @@ class SideBar extends ConsumerWidget {
     final llmInstances = SidebarEntry(
       icon: FontAwesomeIcons.microchip,
       selected: isLlmInstancesSelected(),
-      label: l10n.llmInstancesLabel,
+      label: l10n.sidebarRuntimeLabel,
       badge: loadedCount > 0 ? loadedCount.toString() : null,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(LlmInstancesScreen.sidebarKey);
@@ -314,7 +313,7 @@ class SideBar extends ConsumerWidget {
     final services = SidebarEntry(
       icon: FontAwesomeIcons.cubes,
       selected: isSelected(ServicesScreen.sidebarKey),
-      label: l10n.servicesLabel,
+      label: l10n.sidebarServiceCatalogueLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(ServicesScreen.sidebarKey);
       },
@@ -323,7 +322,7 @@ class SideBar extends ConsumerWidget {
     final serviceInstances = SidebarEntry(
       icon: FontAwesomeIcons.screwdriverWrench,
       selected: isServiceInstancesSelected(),
-      label: l10n.serviceInstancesLabel,
+      label: l10n.sidebarDeploymentsLabel,
       badge: serviceCount > 0 ? serviceCount.toString() : null,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(ServiceInstancesScreen.sidebarKey);
@@ -342,7 +341,7 @@ class SideBar extends ConsumerWidget {
     final cache = SidebarEntry(
       icon: FontAwesomeIcons.boxArchive,
       selected: isSelected(CacheScreen.sidebarKey),
-      label: l10n.cacheLabel,
+      label: l10n.sidebarStorageLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CacheScreen.sidebarKey);
       },
@@ -458,11 +457,11 @@ class SideBar extends ConsumerWidget {
       children: [
         header,
         overview,
-        SidebarSectionHeader(l10n.sidebarSectionVms),
+        SidebarSectionHeader(l10n.sidebarSectionCompute),
+        instances,
         catalogue,
         cloudInit,
-        instances,
-        SidebarSectionHeader(l10n.sidebarSectionLlms),
+        SidebarSectionHeader(l10n.sidebarSectionAi),
         llmCatalogue,
         llmDownloaded,
         llmInstances,
@@ -470,16 +469,49 @@ class SideBar extends ConsumerWidget {
         SidebarSectionHeader(l10n.sidebarSectionServices),
         services,
         serviceInstances,
-        const Spacer(),
-        Divider(color: fg.withAlpha(40), height: 1),
+        SidebarSectionHeader(l10n.sidebarSectionManage),
         cache,
         help,
+        const Spacer(),
+        Divider(color: fg.withAlpha(40), height: 1),
         settings,
         const SizedBox(height: 8),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: HostResourceGauges(compact: true),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: Text(
+            l10n.sidebarSystemHeading,
+            style: TextStyle(
+              fontFamily: Brand.fontFamily,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+              color: fg.withValues(alpha: 0.5),
+            ),
+          ),
         ),
+        if (daemonUp &&
+            (multipassStatus == MultipassSidebarStatus.online ||
+                multipassStatus == MultipassSidebarStatus.hidden ||
+                multipassStatus == MultipassSidebarStatus.disabled))
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Row(
+              children: [
+                const Icon(Icons.circle, size: 8, color: Brand.green),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.overviewSystemsHealthy,
+                    style: TextStyle(
+                      fontFamily: Brand.fontFamily,
+                      fontSize: 11,
+                      color: fg.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         daemonStatus,
         multipassStatusRow,
         elementoFooter,
