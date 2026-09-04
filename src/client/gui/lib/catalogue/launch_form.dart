@@ -9,6 +9,7 @@ import '../confirmation_dialog.dart';
 import '../ffi.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
+import '../overview/recent_activity.dart';
 import '../platform/platform.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -648,6 +649,10 @@ Future<bool> initiateLaunchFlow(
   );
 
   ref.read(notificationsProvider.notifier).add(notification);
+  ref.read(recentActivityProvider.notifier).record(
+        title: 'Launching ${launchRequest.instanceName}',
+        detail: os.isEmpty ? 'VM' : os,
+      );
   return true;
 }
 

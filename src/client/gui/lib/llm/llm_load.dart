@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
 import '../l10n/app_localizations.dart';
+import '../overview/recent_activity.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import 'instances/llm_instances_screen.dart';
@@ -92,6 +93,10 @@ Future<void> loadLlmModel(
         )
         .last;
     ref.invalidate(loadedModelsProvider);
+    ref.read(recentActivityProvider.notifier).record(
+          title: 'Loaded $modelId',
+          detail: runtime,
+        );
     ref.read(sidebarKeyProvider.notifier).set(LlmInstancesScreen.sidebarKey);
   } catch (e) {
     final message = e is GrpcError ? (e.message ?? '$e') : '$e';

@@ -35,6 +35,7 @@
 #include <QDir>
 #include <QString>
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -46,6 +47,12 @@ struct sftp_attributes_struct;
 namespace multipass
 {
 struct Socket;
+
+struct HostNetworkCounters
+{
+    uint64_t rx_bytes{0};
+    uint64_t tx_bytes{0};
+};
 
 namespace platform
 {
@@ -86,6 +93,7 @@ public:
     virtual long long get_total_ram() const;
     virtual long long get_available_ram() const;
     virtual int get_cpu_usage_permille() const;
+    [[nodiscard]] virtual HostNetworkCounters get_network_counters() const;
 
     [[nodiscard]] virtual std::filesystem::path get_root_cert_dir() const;
     [[nodiscard]] std::filesystem::path get_root_cert_path() const;

@@ -34,10 +34,16 @@
 #include <cerrno>
 #include <cstring>
 #include <fstream>
+#include <memory>
+#include <sstream>
 #include <system_error>
 
 #ifdef __APPLE__
 #include <mach/mach.h>
+#include <net/if.h>
+#include <net/if_dl.h>
+#include <net/route.h>
+#include <sys/sysctl.h>
 #endif
 
 namespace mp = multipass;
@@ -338,6 +344,72 @@ int mp::platform::Platform::get_cpu_usage_permille() const
         return 0;
     return static_cast<int>(((total_delta - idle_delta) * 1000ull) / total_delta);
 #endif
+}
+
+mp::HostNetworkCounters mp::platform::Platform::get_network_counters() const
+{
+    HostNetworkCounters counters{};
+#ifdef __APPLE__
+    int mib[] = {CTL_NET, AF_ROUTE, 0, 0, NET_RT_IFLIST2, 0};
+    size_t len = 0;
+    if (sysctl(mib, 6, nullptr, &len, nullptr, 0) < 0 || len == 0)
+        return counters;
+
+    std::unique_ptr<char[]> buf(new (std::nothrow) char[len]);
+    if (!buf || sysctl(mib, 6, buf.get(), &len, nullptr, 0) < 0)
+        return counters;
+
+    for (char* next = buf.get(); next < buf.get() + static_cast<std::ptrdiff_t>(len);)
+    {
+        auto* ifm = reinterpret_cast<if_msghdr*>(next);
+        next += ifm->ifm_msglen;
+        if (ifm->ifm_type != RTM_IFINFO2)
+            continue;
+
+        auto* if2 = reinterpret_cast<if_msghdr2*>(ifm);
+        if (if2->ifm_flags & IFF_LOOPBACK)
+            continue;
+
+        counters.rx_bytes += if2->ifm_data.ifi_ibytes;
+        counters.tx_bytes += if2->ifm_data.ifi_obytes;
+    }
+#else
+    std::ifstream in{"/proc/net/dev"};
+    if (!in)
+        return counters;
+
+    std::string line;
+    // Skip the two header lines.
+    std::getline(in, line);
+    std::getline(in, line);
+    while (std::getline(in, line))
+    {
+        const auto colon = line.find(':');
+        if (colon == std::string::npos)
+            continue;
+
+        auto name = line.substr(0, colon);
+        const auto start = name.find_first_not_of(" \t");
+        const auto end = name.find_last_not_of(" \t");
+        if (start == std::string::npos)
+            continue;
+        name = name.substr(start, end - start + 1);
+        if (name == "lo")
+            continue;
+
+        std::istringstream ss{line.substr(colon + 1)};
+        uint64_t rx = 0;
+        uint64_t tx = 0;
+        uint64_t discard = 0;
+        ss >> rx;
+        for (int i = 0; i < 7; ++i)
+            ss >> discard;
+        ss >> tx;
+        counters.rx_bytes += rx;
+        counters.tx_bytes += tx;
+    }
+#endif
+    return counters;
 }
 
 std::filesystem::path mp::platform::Platform::qstr_to_path(const QString& qstr) const

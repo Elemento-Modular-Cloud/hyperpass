@@ -2749,14 +2749,6 @@
             "total": {"type": "int"}
         }
     },
-    "overviewCapacityAcceleratorLabel": "AI accelerator memory",
-    "@overviewCapacityAcceleratorLabel": {
-        "description": "Label for accelerator memory capacity"
-    },
-    "overviewCapacityAcceleratorUnavailable": "Unavailable",
-    "@overviewCapacityAcceleratorUnavailable": {
-        "description": "Placeholder when accelerator memory is not reported"
-    },
     "overviewActionCreateTitle": "Create",
     "@overviewActionCreateTitle": {
         "description": "Home action card title for launching infrastructure"

@@ -12,6 +12,7 @@ import '../providers.dart';
 import '../widgets/core_allocation_graph.dart';
 import '../widgets/resource_meter.dart';
 import 'host_metrics_history.dart';
+import 'recent_activity.dart';
 
 class OverviewSystemRail extends ConsumerWidget {
   const OverviewSystemRail({super.key});
@@ -180,10 +181,6 @@ class OverviewSystemRail extends ConsumerWidget {
                 label: l10n.overviewCapacityVmLabel,
                 value: l10n.overviewCapacityVmAvailable(coresAvail, cpus),
               ),
-              _CapacityLine(
-                label: l10n.overviewCapacityAcceleratorLabel,
-                value: l10n.overviewCapacityAcceleratorUnavailable,
-              ),
               const SizedBox(height: 16),
               CoreAllocationGraph(
                 hostCpus: cpus,
@@ -227,18 +224,22 @@ class OverviewSystemRail extends ConsumerWidget {
               const SizedBox(height: 10),
               _SparkRow(
                 label: l10n.overviewNetworkIn,
-                values: const [],
+                values: _normalizeSpark(
+                  history.map((s) => s.networkInBps).toList(),
+                ),
                 color: Brand.accent,
-                placeholder: true,
-                valueLabel: '↓ ${l10n.overviewNetworkComingSoonValue}',
+                valueLabel:
+                    '↓ ${formatResourceRate(history.isEmpty ? 0 : history.last.networkInBps)}',
               ),
               const SizedBox(height: 10),
               _SparkRow(
                 label: l10n.overviewNetworkOut,
-                values: const [],
+                values: _normalizeSpark(
+                  history.map((s) => s.networkOutBps).toList(),
+                ),
                 color: onSurface.withValues(alpha: 0.5),
-                placeholder: true,
-                valueLabel: '↑ ${l10n.overviewNetworkComingSoonValue}',
+                valueLabel:
+                    '↑ ${formatResourceRate(history.isEmpty ? 0 : history.last.networkOutBps)}',
               ),
             ],
           ),
@@ -247,13 +248,21 @@ class OverviewSystemRail extends ConsumerWidget {
         CatalogueSurface(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
           child: _RecentActivityPanel(
-            // Event store not wired yet — keep empty shell ready for ≤4 items.
-            events: const [],
+            events: [
+              for (final e in ref.watch(recentActivityProvider))
+                _RecentActivityEvent(title: e.title, detail: e.detail),
+            ],
           ),
         ),
       ],
     );
   }
+}
+
+List<double> _normalizeSpark(List<double> values) {
+  final max = values.fold<double>(0, math.max);
+  if (max <= 0) return List<double>.filled(values.length, 0);
+  return [for (final v in values) 100.0 * v / max];
 }
 
 class _ResourceRow extends StatelessWidget {
@@ -367,14 +376,12 @@ class _SparkRow extends StatelessWidget {
     required this.values,
     required this.color,
     required this.valueLabel,
-    this.placeholder = false,
   });
 
   final String label;
   final List<double> values;
   final Color color;
   final String valueLabel;
-  final bool placeholder;
 
   @override
   Widget build(BuildContext context) {
@@ -402,31 +409,28 @@ class _SparkRow extends StatelessWidget {
         Expanded(
           child: SizedBox(
             height: 28,
-            child: Opacity(
-              opacity: placeholder ? 0.35 : 1,
-              child: LineChart(
-                duration: Duration.zero,
-                LineChartData(
-                  borderData: FlBorderData(show: false),
-                  clipData: const FlClipData.all(),
-                  gridData: const FlGridData(show: false),
-                  maxY: 100,
-                  minY: 0,
-                  lineBarsData: [
-                    LineChartBarData(
-                      barWidth: 1.5,
-                      color: color,
-                      dotData: const FlDotData(show: false),
-                      spots: spots,
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: color.withValues(alpha: 0.15),
-                      ),
+            child: LineChart(
+              duration: Duration.zero,
+              LineChartData(
+                borderData: FlBorderData(show: false),
+                clipData: const FlClipData.all(),
+                gridData: const FlGridData(show: false),
+                maxY: 100,
+                minY: 0,
+                lineBarsData: [
+                  LineChartBarData(
+                    barWidth: 1.5,
+                    color: color,
+                    dotData: const FlDotData(show: false),
+                    spots: spots,
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: color.withValues(alpha: 0.15),
                     ),
-                  ],
-                  lineTouchData: const LineTouchData(enabled: false),
-                  titlesData: const FlTitlesData(show: false),
-                ),
+                  ),
+                ],
+                lineTouchData: const LineTouchData(enabled: false),
+                titlesData: const FlTitlesData(show: false),
               ),
             ),
           ),
@@ -444,7 +448,7 @@ class _SparkRow extends StatelessWidget {
               fontSize: 11,
               fontFeatures: const [FontFeature.tabularFigures()],
               fontWeight: FontWeight.w600,
-              color: onSurface.withValues(alpha: placeholder ? 0.4 : 0.8),
+              color: onSurface.withValues(alpha: 0.8),
             ),
           ),
         ),
@@ -542,18 +546,6 @@ class _RecentActivityPanel extends StatelessWidget {
             ),
             const SizedBox(height: 10),
           ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () {},
-              child: Text(l10n.overviewActivityViewAll),
-            ),
-          ),
         ],
       ],
     );

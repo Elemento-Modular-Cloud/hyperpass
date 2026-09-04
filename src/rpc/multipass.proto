@@ -588,6 +588,9 @@ message DaemonInfoReply {
     string host_os = 15;
     string host_arch = 16;
     uint64 host_uptime_seconds = 17;
+    // Cumulative host interface counters (loopback excluded). Clients derive rates.
+    uint64 network_rx_bytes = 18;
+    uint64 network_tx_bytes = 19;
 }
 
 message ResourceClaimInfo {

@@ -203,3 +203,19 @@ String formatResourceBytes(String data) {
   }
   return '${size}B';
 }
+
+/// Formats a throughput in bytes/sec for sparkline value labels.
+String formatResourceRate(double bytesPerSecond) {
+  final bps = bytesPerSecond.isFinite ? bytesPerSecond.clamp(0, double.infinity) : 0.0;
+  const divider = 1024.0;
+  if (bps >= divider * divider * divider) {
+    return '${(bps / (divider * divider * divider)).toStringAsFixed(1)} GiB/s';
+  }
+  if (bps >= divider * divider) {
+    return '${(bps / (divider * divider)).toStringAsFixed(1)} MiB/s';
+  }
+  if (bps >= divider) {
+    return '${(bps / divider).toStringAsFixed(1)} KiB/s';
+  }
+  return '${bps.round()} B/s';
+}

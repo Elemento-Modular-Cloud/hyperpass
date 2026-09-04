@@ -1398,6 +1398,26 @@ int mp::platform::Platform::get_cpu_usage_permille() const
     return static_cast<int>(((total_delta - idle_delta) * 1000ull) / total_delta);
 }
 
+mp::HostNetworkCounters mp::platform::Platform::get_network_counters() const
+{
+    HostNetworkCounters counters{};
+    PMIB_IF_TABLE2 table = nullptr;
+    if (GetIfTable2(&table) != NO_ERROR || table == nullptr)
+        return counters;
+
+    for (ULONG i = 0; i < table->NumEntries; ++i)
+    {
+        const auto& row = table->Table[i];
+        if (row.Type == IF_TYPE_SOFTWARE_LOOPBACK)
+            continue;
+        counters.rx_bytes += row.InOctets;
+        counters.tx_bytes += row.OutOctets;
+    }
+
+    FreeMibTable(table);
+    return counters;
+}
+
 std::filesystem::path mp::platform::Platform::get_root_cert_dir() const
 {
     // FOLDERID_ProgramData returns C:\ProgramData normally

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
 import '../notifications.dart';
+import '../overview/recent_activity.dart';
 
 String objectToString(Object? object) => object.toString();
 
@@ -45,6 +46,12 @@ class NotificationsNotifier extends Notifier<BuiltList<Widget>> {
         }),
       ),
     );
+    op.then((result) {
+      if (!ref.mounted) return;
+      ref.read(recentActivityProvider.notifier).record(
+            title: onSuccess(result),
+          );
+    }).catchError((_) {});
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
+import '../overview/recent_activity.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import 'instances/llm_downloaded_screen.dart';
@@ -77,6 +78,10 @@ Future<void> unloadLlmInstance(WidgetRef ref, String instanceId) async {
   try {
     await ref.read(grpcClientProvider).unloadModel(instanceId);
     ref.invalidate(loadedModelsProvider);
+    ref.read(recentActivityProvider.notifier).record(
+          title: 'Unloaded model',
+          detail: instanceId,
+        );
   } catch (_) {
     ref.read(pendingLlmUnloadsProvider.notifier).remove(instanceId);
     rethrow;

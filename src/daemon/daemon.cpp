@@ -3147,6 +3147,10 @@ try
     response.set_cpu_usage_permille(
         static_cast<uint32_t>(std::max(0, MP_PLATFORM.get_cpu_usage_permille())));
 
+    const auto net = MP_PLATFORM.get_network_counters();
+    response.set_network_rx_bytes(net.rx_bytes);
+    response.set_network_tx_bytes(net.tx_bytes);
+
     response.set_host_name(QHostInfo::localHostName().toStdString());
     response.set_host_os(QSysInfo::prettyProductName().toStdString());
     response.set_host_arch(QSysInfo::currentCpuArchitecture().toStdString());

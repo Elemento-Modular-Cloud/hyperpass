@@ -39,6 +39,8 @@ public:
         ON_CALL(*this, get_available_ram)
             .WillByDefault(testing::Return(16LL * 1024 * 1024 * 1024));
         ON_CALL(*this, get_cpu_usage_permille).WillByDefault(testing::Return(100));
+        ON_CALL(*this, get_network_counters)
+            .WillByDefault(testing::Return(multipass::HostNetworkCounters{}));
     };
 
     MOCK_METHOD((std::map < std::string, NetworkInterfaceInfo) >,
@@ -79,6 +81,7 @@ public:
     MOCK_METHOD(long long, get_total_ram, (), (const, override));
     MOCK_METHOD(long long, get_available_ram, (), (const, override));
     MOCK_METHOD(int, get_cpu_usage_permille, (), (const, override));
+    MOCK_METHOD(multipass::HostNetworkCounters, get_network_counters, (), (const, override));
     MOCK_METHOD(std::filesystem::path, get_root_cert_dir, (), (const, override));
     MOCK_METHOD(void, shutdown_socket, (Socket), (const, override));
 
