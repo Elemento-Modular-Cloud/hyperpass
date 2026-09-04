@@ -607,6 +607,7 @@ Future<bool> initiateLaunchFlow(
   List<MountRequest> mountRequests = const [],
   String os = '',
   bool confirmLargeDisk = true,
+  String? successSidebarKey,
 }) async {
   final disk = diskBytesFromRequest(launchRequest);
   if (confirmLargeDisk && disk != null && disk > defaultDisk) {
@@ -643,6 +644,7 @@ Future<bool> initiateLaunchFlow(
     name: launchRequest.instanceName,
     cancelCompleter: cancelCompleter,
     stream: launchStream,
+    successSidebarKey: successSidebarKey,
   );
 
   ref.read(notificationsProvider.notifier).add(notification);

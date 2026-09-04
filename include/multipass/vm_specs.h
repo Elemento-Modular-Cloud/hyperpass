@@ -46,6 +46,9 @@ struct VMSpecs
     int clone_count =
         0; // tracks the number of cloned vm from this source vm (regardless of deletes)
     std::string zone;
+    // Marketplace service template id (e.g. caddy_ca_v1). Stored outside QEMU
+    // metadata so backend metadata refreshes cannot wipe it.
+    std::string service_id;
 
     friend inline bool operator==(const VMSpecs& a, const VMSpecs& b) = default;
 };

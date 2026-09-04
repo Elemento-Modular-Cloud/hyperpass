@@ -794,8 +794,13 @@ void mp::LlmService::list_models(
     reap_dead_sessions();
     ListModelsReply reply;
     std::lock_guard lock{mutex};
-    for (const auto& [instance_id, session] : sessions)
+    const auto now = std::chrono::steady_clock::now();
+    for (auto& [instance_id, session] : sessions)
     {
+        // GUI (and other clients) poll list_models while the app is open; count
+        // that as activity so idle-unload does not drop models mid-session.
+        session.last_used = now;
+
         auto* info = reply.add_models();
         info->set_instance_id(instance_id);
         info->set_model_id(session.model_id);

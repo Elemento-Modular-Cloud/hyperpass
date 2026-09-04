@@ -2095,5 +2095,110 @@
                 "type": "String"
             }
         }
+    },
+    "serviceInstancesLabel": "Running",
+    "@serviceInstancesLabel": {
+        "description": "Sidebar entry and page title for deployed service instances"
+    },
+    "serviceInstancesSubtitle": "Marketplace services running as Hyperpass instances. Health and connection details come from the guest healthcheck and service-info helpers.",
+    "@serviceInstancesSubtitle": {
+        "description": "Subtitle under the service instances heading"
+    },
+    "serviceInstancesEmpty": "No service instances yet",
+    "@serviceInstancesEmpty": {
+        "description": "Empty-state title when no marketplace services are deployed"
+    },
+    "serviceInstancesEmptyHint": "Deploy a service from the catalog to see it here instead of under VMs.",
+    "@serviceInstancesEmptyHint": {
+        "description": "Empty-state hint pointing users to the service catalog"
+    },
+    "serviceInstancesColumnName": "Name",
+    "@serviceInstancesColumnName": {
+        "description": "Service instances table column for the instance name"
+    },
+    "serviceInstancesColumnService": "Service",
+    "@serviceInstancesColumnService": {
+        "description": "Service instances table column for the marketplace service id"
+    },
+    "serviceInstancesColumnState": "State",
+    "@serviceInstancesColumnState": {
+        "description": "Service instances table column for VM power state"
+    },
+    "serviceInstancesColumnHealth": "Health",
+    "@serviceInstancesColumnHealth": {
+        "description": "Service instances table column for guest healthcheck status"
+    },
+    "serviceInstancesColumnIpv4": "IPv4",
+    "@serviceInstancesColumnIpv4": {
+        "description": "Service instances table column for guest IPv4 addresses"
+    },
+    "serviceHealthChecking": "Checking…",
+    "@serviceHealthChecking": {
+        "description": "Shown while SSH healthcheck / service-info is in flight"
+    },
+    "serviceHealthHealthy": "Healthy",
+    "@serviceHealthHealthy": {
+        "description": "Guest healthcheck succeeded"
+    },
+    "serviceHealthUnhealthy": "Unhealthy",
+    "@serviceHealthUnhealthy": {
+        "description": "Guest healthcheck returned a non-zero exit"
+    },
+    "serviceHealthUnreachable": "Unreachable",
+    "@serviceHealthUnreachable": {
+        "description": "Could not SSH to the guest to run healthcheck"
+    },
+    "serviceHealthUnknown": "—",
+    "@serviceHealthUnknown": {
+        "description": "Health unknown because the instance is not running"
+    },
+    "serviceInstanceMissing": "Service instance “{name}” is no longer available.",
+    "@serviceInstanceMissing": {
+        "description": "Shown when opening details for a service instance that was deleted",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "serviceInstanceHealthTitle": "Health",
+    "@serviceInstanceHealthTitle": {
+        "description": "Heading for the health section on a service instance detail page"
+    },
+    "serviceInstanceConnectionTitle": "Connection",
+    "@serviceInstanceConnectionTitle": {
+        "description": "Heading for copyable endpoints and credentials from service-info"
+    },
+    "serviceInstanceVmTitle": "Instance",
+    "@serviceInstanceVmTitle": {
+        "description": "Heading for underlying instance metadata on a service detail page"
+    },
+    "serviceInstanceInfoStatus": "Service status",
+    "@serviceInstanceInfoStatus": {
+        "description": "Label for the status field returned by guest service-info JSON"
+    },
+    "serviceInstanceEndpoints": "Endpoints",
+    "@serviceInstanceEndpoints": {
+        "description": "Heading for endpoint URLs from service-info"
+    },
+    "serviceInstanceCredentials": "Credentials",
+    "@serviceInstanceCredentials": {
+        "description": "Heading for credentials from service-info"
+    },
+    "serviceInstanceBackends": "Backends",
+    "@serviceInstanceBackends": {
+        "description": "Heading for backend entries from service-info"
+    },
+    "serviceInstanceConnectionUnavailable": "Connection details are not available yet.",
+    "@serviceInstanceConnectionUnavailable": {
+        "description": "Shown when service-info cannot be fetched"
+    },
+    "serviceInstanceConnectionEmpty": "service-info returned no endpoints or credentials.",
+    "@serviceInstanceConnectionEmpty": {
+        "description": "Shown when service-info JSON has no copyable fields"
+    },
+    "serviceInstanceOpenUrl": "Open in browser",
+    "@serviceInstanceOpenUrl": {
+        "description": "Tooltip for opening a service endpoint URL"
     }
 }

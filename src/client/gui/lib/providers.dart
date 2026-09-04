@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:basics/basics.dart';
@@ -315,7 +316,77 @@ final allVmInfosProvider =
   AllVmInfosNotifier.new,
 );
 
-final vmInfosProvider = Provider((ref) {
+const serviceInstanceBindingsKey = 'local.service-instance-bindings';
+
+/// Local name → marketplace service id. Survives daemon metadata wipes (QEMU
+/// used to replace the whole metadata object on start).
+class ServiceInstanceBindingsNotifier extends Notifier<BuiltMap<String, String>> {
+  @override
+  BuiltMap<String, String> build() {
+    final raw =
+        ref.watch(sharedPreferencesProvider).getString(serviceInstanceBindingsKey);
+    if (raw == null || raw.isEmpty) return BuiltMap();
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return BuiltMap();
+      return BuiltMap({
+        for (final entry in decoded.entries) '${entry.key}': '${entry.value}',
+      });
+    } catch (_) {
+      return BuiltMap();
+    }
+  }
+
+  void bind(String instanceName, String serviceId) {
+    if (instanceName.isEmpty || serviceId.isEmpty) return;
+    if (state[instanceName] == serviceId) return;
+    final next = state.rebuild((b) => b[instanceName] = serviceId);
+    ref.read(sharedPreferencesProvider).setString(
+          serviceInstanceBindingsKey,
+          jsonEncode(next.toMap()),
+        );
+    state = next;
+  }
+
+  void unbind(String instanceName) {
+    if (!state.containsKey(instanceName)) return;
+    final next = state.rebuild((b) => b.remove(instanceName));
+    ref.read(sharedPreferencesProvider).setString(
+          serviceInstanceBindingsKey,
+          jsonEncode(next.toMap()),
+        );
+    state = next;
+  }
+}
+
+final serviceInstanceBindingsProvider = NotifierProvider<
+    ServiceInstanceBindingsNotifier, BuiltMap<String, String>>(
+  ServiceInstanceBindingsNotifier.new,
+);
+
+String effectiveServiceId(
+  DetailedInfoItem info,
+  BuiltMap<String, String> bindings,
+) {
+  if (info.serviceId.isNotEmpty) return info.serviceId;
+  return bindings[info.name] ?? '';
+}
+
+TaggedVmInfo withEffectiveServiceId(
+  TaggedVmInfo tagged,
+  BuiltMap<String, String> bindings,
+) {
+  final sid = effectiveServiceId(tagged.info, bindings);
+  if (sid.isEmpty || tagged.info.serviceId == sid) return tagged;
+  final copy = tagged.info.deepCopy()..serviceId = sid;
+  return TaggedVmInfo(id: tagged.id, info: copy);
+}
+
+/// True when this Hyperpass VM was launched as a marketplace service instance.
+bool isServiceVmInfo(DetailedInfoItem info) => info.serviceId.isNotEmpty;
+
+/// Every non-deleted VM (plain + service) plus in-flight launches.
+final allActiveVmInfosProvider = Provider((ref) {
   final existingVms = ref
       .watch(allVmInfosProvider)
       .where((info) => info.instanceStatus.status != Status.DELETED)
@@ -333,6 +404,37 @@ final vmInfosProvider = Provider((ref) {
       if (byName != 0) return byName;
       return a.source.index.compareTo(b.source.index);
     });
+});
+
+/// Active VMs with local service bindings applied when the daemon tag is missing.
+final allActiveVmInfosWithServicesProvider = Provider((ref) {
+  final bindings = ref.watch(serviceInstanceBindingsProvider);
+  return [
+    for (final info in ref.watch(allActiveVmInfosProvider))
+      withEffectiveServiceId(info, bindings),
+  ];
+});
+
+/// Plain VMs only — marketplace service instances are listed under Services.
+final vmInfosProvider = Provider((ref) {
+  return ref
+      .watch(allActiveVmInfosWithServicesProvider)
+      .where((info) => !isServiceVmInfo(info.info))
+      .toList();
+});
+
+/// Marketplace services that run as tagged Hyperpass VMs.
+final serviceInstanceInfosProvider = Provider((ref) {
+  return ref
+      .watch(allActiveVmInfosWithServicesProvider)
+      .where((info) => isServiceVmInfo(info.info))
+      .toList();
+});
+
+final serviceInstanceIdsProvider = Provider((ref) {
+  return {
+    for (final info in ref.watch(serviceInstanceInfosProvider)) info.id,
+  }.toBuiltSet();
 });
 
 final vmInfosMapProvider = Provider((ref) {
@@ -367,11 +469,12 @@ final vmIdsProvider = Provider((ref) {
 final vmNamesProvider = vmIdsProvider;
 
 /// Hyperpass instance names only (for launch uniqueness / petnames).
+/// Includes service instances so names cannot collide across surfaces.
 final hyperpassVmNamesProvider = Provider((ref) {
   return ref
-      .watch(vmIdsProvider)
-      .where((id) => id.source == DaemonSource.hyperpass)
-      .map((id) => id.name)
+      .watch(allActiveVmInfosProvider)
+      .where((info) => info.source == DaemonSource.hyperpass)
+      .map((info) => info.name)
       .toBuiltSet();
 });
 
@@ -395,6 +498,11 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<TaggedVmInfo>> {
 
   void add(LaunchRequest request, {String os = ''}) {
     final vms = state;
+    if (request.serviceId.isNotEmpty) {
+      ref
+          .read(serviceInstanceBindingsProvider.notifier)
+          .bind(request.instanceName, request.serviceId);
+    }
     state = vms.rebuild((builder) {
       builder.add(
         TaggedVmInfo(
@@ -404,6 +512,8 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<TaggedVmInfo>> {
             cpuCount: request.numCores.toString(),
             diskTotal: request.diskSpace,
             memoryTotal: request.memSize,
+            serviceId:
+                request.serviceId.isEmpty ? null : request.serviceId,
             instanceInfo: InstanceDetails(
               currentRelease: request.image,
               os: os,

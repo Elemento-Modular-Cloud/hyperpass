@@ -22,6 +22,9 @@ import 'llm/llm_id.dart';
 import 'llm/providers.dart';
 import 'multipass_auth_banner.dart';
 import 'providers.dart';
+import 'services/service_bindings.dart';
+import 'services/service_instance_id.dart';
+import 'services/service_instances_screen.dart';
 import 'services/services_screen.dart';
 import 'settings/settings.dart';
 import 'vm_table/vm_table_screen.dart';
@@ -43,6 +46,12 @@ class SidebarKeyNotifier extends Notifier<String> {
         ref.invalidateSelf();
       }
     });
+    ref.listen(serviceInstanceIdsProvider, (_, ids) {
+      final name = parseServiceInstanceSidebarKey(state);
+      if (name != null && !ids.any((id) => id.name == name)) {
+        ref.invalidateSelf();
+      }
+    });
 
     return CatalogueScreen.sidebarKey;
   }
@@ -53,6 +62,9 @@ class SidebarKeyNotifier extends Notifier<String> {
     }
     if (parseSidebarLlmKey(key) != null) {
       ref.read(llmVisitedProvider(key).notifier).setVisited();
+    }
+    if (parseServiceInstanceSidebarKey(key) != null) {
+      ref.read(serviceInstanceVisitedProvider(key).notifier).setVisited();
     }
     state = key;
   }
@@ -94,6 +106,23 @@ class LlmVisitedNotifier extends Notifier<bool> {
 final llmVisitedProvider =
     NotifierProvider.family<LlmVisitedNotifier, bool, String>(
   LlmVisitedNotifier.new,
+);
+
+class ServiceInstanceVisitedNotifier extends Notifier<bool> {
+  ServiceInstanceVisitedNotifier(this.arg);
+  final String arg;
+
+  @override
+  bool build() => false;
+
+  void setVisited() {
+    state = true;
+  }
+}
+
+final serviceInstanceVisitedProvider =
+    NotifierProvider.family<ServiceInstanceVisitedNotifier, bool, String>(
+  ServiceInstanceVisitedNotifier.new,
 );
 
 /// Electros `navigation-item` / `nav-bar` tokens.
@@ -184,6 +213,9 @@ class SideBar extends ConsumerWidget {
     final sidebarKeyNotifier = sidebarKeyProvider.notifier;
     final vmNames = ref.watch(vmIdsProvider);
     final loadedCount = ref.watch(loadedLlmIdsProvider).length;
+    final serviceCount = ref.watch(serviceInstanceIdsProvider).length;
+    // Rediscover service instances whose daemon tag was lost.
+    ref.watch(serviceInstanceSyncProvider);
     final daemonUp = ref.watch(daemonAvailableProvider);
     final multipassStatus = ref.watch(multipassSidebarStatusProvider);
     final fg = _SidebarStyle.foreground(appearanceTheme);
@@ -193,6 +225,10 @@ class SideBar extends ConsumerWidget {
     bool isLlmInstancesSelected() =>
         isSelected(LlmInstancesScreen.sidebarKey) ||
         parseSidebarLlmKey(selectedSidebarKey) != null;
+
+    bool isServiceInstancesSelected() =>
+        isSelected(ServiceInstancesScreen.sidebarKey) ||
+        parseServiceInstanceSidebarKey(selectedSidebarKey) != null;
 
     final catalogue = SidebarEntry(
       icon: FontAwesomeIcons.layerGroup,
@@ -271,6 +307,16 @@ class SideBar extends ConsumerWidget {
       label: l10n.servicesLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(ServicesScreen.sidebarKey);
+      },
+    );
+
+    final serviceInstances = SidebarEntry(
+      icon: FontAwesomeIcons.screwdriverWrench,
+      selected: isServiceInstancesSelected(),
+      label: l10n.serviceInstancesLabel,
+      badge: serviceCount > 0 ? serviceCount.toString() : null,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(ServiceInstancesScreen.sidebarKey);
       },
     );
 
@@ -413,6 +459,7 @@ class SideBar extends ConsumerWidget {
         llmCredentials,
         SidebarSectionHeader(l10n.sidebarSectionServices),
         services,
+        serviceInstances,
         const Spacer(),
         Divider(color: fg.withAlpha(40), height: 1),
         cache,

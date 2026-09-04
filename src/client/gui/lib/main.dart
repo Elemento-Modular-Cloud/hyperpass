@@ -28,6 +28,9 @@ import 'multipass_auth_banner.dart';
 import 'notifications.dart';
 import 'platform/platform.dart';
 import 'providers.dart';
+import 'services/service_instance_details.dart';
+import 'services/service_instance_id.dart';
+import 'services/service_instances_screen.dart';
 import 'services/services_screen.dart';
 import 'settings/hotkey.dart';
 import 'settings/settings.dart';
@@ -108,6 +111,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
     final currentKey = ref.watch(sidebarKeyProvider);
     final vms = ref.watch(vmIdsProvider);
     final llmIds = ref.watch(loadedLlmIdsProvider);
+    final serviceInstances = ref.watch(serviceInstanceIdsProvider);
 
     final widgets = {
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
@@ -117,12 +121,16 @@ class _AppState extends ConsumerState<App> with WindowListener {
       LlmDownloadedScreen.sidebarKey: const LlmDownloadedScreen(),
       LlmCredentialsScreen.sidebarKey: const LlmCredentialsScreen(),
       ServicesScreen.sidebarKey: const ServicesScreen(),
+      ServiceInstancesScreen.sidebarKey: const ServiceInstancesScreen(),
       CacheScreen.sidebarKey: const CacheScreen(),
       CloudInitScreen.sidebarKey: const CloudInitScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),
       HelpScreen.sidebarKey: const HelpScreen(),
       for (final id in vms) id.sidebarKey: VmDetailsScreen(id),
       for (final id in llmIds) id.sidebarKey: LlmDetailsScreen(id),
+      for (final id in serviceInstances)
+        serviceInstanceSidebarKey(id.name):
+            ServiceInstanceDetailsScreen(id.name),
     };
 
     final content = Stack(
@@ -136,6 +144,9 @@ class _AppState extends ConsumerState<App> with WindowListener {
         }
         if (parseSidebarLlmKey(key) != null) {
           maintainState = ref.read(llmVisitedProvider(key));
+        }
+        if (parseServiceInstanceSidebarKey(key) != null) {
+          maintainState = ref.read(serviceInstanceVisitedProvider(key));
         }
         return Visibility(
           key: Key(key),
@@ -260,8 +271,9 @@ class _AppState extends ConsumerState<App> with WindowListener {
   void onWindowClose() async {
     if (!await windowManager.isPreventClose()) return;
     final daemonAvailable = ref.read(daemonAvailableProvider);
-    final vmsRunning =
-        ref.read(vmStatusesProvider).values.contains(Status.RUNNING);
+    final vmsRunning = ref
+        .read(allActiveVmInfosProvider)
+        .any((info) => info.instanceStatus.status == Status.RUNNING);
     final closeJob = ref.read(guiSettingProvider(onAppCloseKey));
 
     // nothing to do
@@ -277,10 +289,9 @@ class _AppState extends ConsumerState<App> with WindowListener {
 
     stopAllInstances() {
       final runningVMs = ref
-          .read(vmStatusesProvider)
-          .entries
-          .where((entry) => entry.value == Status.RUNNING)
-          .map((entry) => entry.key)
+          .read(allActiveVmInfosProvider)
+          .where((info) => info.instanceStatus.status == Status.RUNNING)
+          .map((info) => info.id)
           .toList();
       final notificationsNotifier = ref.read(notificationsProvider.notifier);
       notificationsNotifier.addOperation(
@@ -302,9 +313,9 @@ class _AppState extends ConsumerState<App> with WindowListener {
     }
 
     if (closeJob == 'ask') {
-      // Get running instances count
-      final vmInfos = ref.read(vmInfosProvider);
-      final runningCount = vmInfos
+      // Get running instances count (plain VMs + service instances)
+      final runningCount = ref
+          .read(allActiveVmInfosProvider)
           .where((info) => info.instanceStatus.status == Status.RUNNING)
           .length;
 

@@ -393,6 +393,17 @@ bool is_bridged_impl(const mp::VMSpecs& specs,
                        });
 }
 
+std::string service_id_from_specs(const mp::VMSpecs& specs)
+{
+    if (!specs.service_id.empty())
+        return specs.service_id;
+    if (auto it = specs.metadata.find("elemento_service_id");
+        it != specs.metadata.end() && it->value().is_string())
+        return std::string(it->value().as_string());
+    return {};
+}
+
+
 std::vector<mp::NetworkInterface> validate_extra_interfaces(
     const mp::LaunchRequest* request,
     const mp::VirtualMachineFactory& factory,
@@ -1974,6 +1985,9 @@ try
         entry->set_current_release(current_release);
         entry->set_os(os);
 
+        if (const auto sid = service_id_from_specs(vm_instance_specs[name]); !sid.empty())
+            entry->set_service_id(sid);
+
         if (request->request_ipv4() && MP_UTILS.is_running(present_state))
         {
             auto management_ip = vm.management_ipv4();
@@ -3309,7 +3323,11 @@ void mp::Daemon::persist_state_for(const std::string& name, const VirtualMachine
 
 void mp::Daemon::update_metadata_for(const std::string& name, const boost::json::object& metadata)
 {
-    vm_instance_specs[name].metadata = metadata;
+    // Merge so backend-owned keys (QEMU machine/args/mounts) can refresh without wiping
+    // application metadata such as elemento_service_id.
+    auto& existing = vm_instance_specs[name].metadata;
+    for (const auto& item : metadata)
+        existing[item.key()] = item.value();
 
     persist_instances();
 }
@@ -3405,12 +3423,16 @@ void mp::Daemon::create_vm(const CreateRequest* request,
 
     QObject::connect(prepare_future_watcher,
                      &QFutureWatcher<mp::VirtualMachineDescription>::finished,
-                     [this, server, context, name, timeout, start, prepare_future_watcher] {
+                     [this, server, context, name, timeout, start, prepare_future_watcher, service_id = std::string{request->service_id()}] {
                          // Per-RPC ClientLogger lifecycle is managed by DaemonRpcContextImpl.
 
                          try
                          {
                              auto vm_desc = prepare_future_watcher->future().result();
+
+                             boost::json::object meta;
+                             if (!service_id.empty())
+                                 meta["elemento_service_id"] = service_id;
 
                              vm_instance_specs[name] = {
                                  vm_desc.num_cores,
@@ -3422,9 +3444,10 @@ void mp::Daemon::create_vm(const CreateRequest* request,
                                  VirtualMachine::State::off,
                                  {},
                                  false,
-                                 {},
+                                 meta,
                                  0,
                                  vm_desc.zone,
+                                 service_id,
                              };
                              operative_instances[name] =
                                  config->factory->create_virtual_machine(vm_desc,
@@ -4130,6 +4153,9 @@ void mp::Daemon::populate_instance_info(VirtualMachine& vm,
     instance_info->set_id(vm_image.id);
 
     auto vm_specs = vm_instance_specs[name];
+
+    if (const auto sid = service_id_from_specs(vm_specs); !sid.empty())
+        info->set_service_id(sid);
 
     auto mount_info = info->mutable_mount_info();
     populate_mount_info(vm_specs.mounts, mount_info, have_mounts);

@@ -45,6 +45,7 @@ void mp::tag_invoke(const boost::json::value_from_tag&,
         {"mounts", boost::json::value_from(specs.mounts, MapAsJsonArray{"target_path"})},
         {"clone_count", specs.clone_count},
         {"zone", specs.zone},
+        {"service_id", specs.service_id},
     };
 }
 
@@ -70,6 +71,14 @@ mp::VMSpecs mp::tag_invoke(const boost::json::value_to_tag<mp::VMSpecs>&,
         ssh_username = "ubuntu";
 
     using mounts_t = std::unordered_map<std::string, VMMount>;
+    auto service_id = lookup_or<std::string>(json, "service_id", {});
+    if (service_id.empty())
+    {
+        if (auto it = metadata.find("elemento_service_id");
+            it != metadata.end() && it->value().is_string())
+            service_id = std::string(it->value().as_string());
+    }
+
     return {
         num_cores,
         MemorySize{mem_size.empty() ? default_memory_size : mem_size},
@@ -83,5 +92,6 @@ mp::VMSpecs mp::tag_invoke(const boost::json::value_to_tag<mp::VMSpecs>&,
         metadata,
         lookup_or<int>(json, "clone_count", 0),
         lookup_or<std::string>(json, "zone", az_manager.get_default_zone_name()),
+        service_id,
     };
 }

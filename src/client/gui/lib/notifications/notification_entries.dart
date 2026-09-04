@@ -197,12 +197,14 @@ class LaunchingNotification extends ConsumerWidget {
   final Stream<Either<LaunchReply, MountReply>?> stream;
   final Completer<void> cancelCompleter;
   final String name;
+  final String? successSidebarKey;
 
   const LaunchingNotification({
     super.key,
     required this.stream,
     required this.cancelCompleter,
     required this.name,
+    this.successSidebarKey,
   });
 
   @override
@@ -234,9 +236,10 @@ class LaunchingNotification extends ConsumerWidget {
                     const Spacer(),
                     TextButton(
                       onPressed: () {
-                        ref
-                            .read(sidebarKeyProvider.notifier)
-                            .set(hyperpassVm(name).sidebarKey);
+                        ref.read(sidebarKeyProvider.notifier).set(
+                              successSidebarKey ??
+                                  hyperpassVm(name).sidebarKey,
+                            );
                         closeNotification(context);
                       },
                       child: Text(l10n.launchGoToInstance),

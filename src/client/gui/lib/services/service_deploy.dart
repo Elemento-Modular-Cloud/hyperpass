@@ -17,6 +17,7 @@ import '../vm_details/ram_slider.dart';
 import '../vm_details/spec_input.dart';
 import 'service_branding.dart';
 import 'service_cloud_init.dart';
+import 'service_instance_id.dart';
 import 'service_library.dart';
 import 'service_parameters_form.dart';
 
@@ -208,7 +209,12 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     }
 
     // Leaving `image` unset launches the daemon's default Ubuntu LTS.
+    _request.serviceId = service.id;
+    ref
+        .read(serviceInstanceBindingsProvider.notifier)
+        .bind(_request.instanceName, service.id);
     final navigator = Navigator.of(context);
+    final destination = serviceInstanceSidebarKey(_request.instanceName);
     final started = await initiateLaunchFlow(
       context,
       ref,
@@ -216,13 +222,12 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
       os: _serviceOs,
       // The dialog already shows the disk size on a slider.
       confirmLargeDisk: false,
+      successSidebarKey: destination,
     );
     if (!started) return;
 
     navigator.pop();
-    ref
-        .read(sidebarKeyProvider.notifier)
-        .set(hyperpassVm(_request.instanceName).sidebarKey);
+    ref.read(sidebarKeyProvider.notifier).set(destination);
   }
 }
 
