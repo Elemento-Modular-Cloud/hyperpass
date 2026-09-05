@@ -24,6 +24,8 @@
 #include <QList>
 #include <QSslCertificate>
 
+#include <mutex>
+
 namespace multipass
 {
 class ClientCertStore : public CertStore
@@ -36,9 +38,10 @@ public:
     bool empty() override;
 
 private:
-    bool verify_cert(const QSslCertificate& cert);
+    bool verify_cert_locked(const QSslCertificate& cert);
 
     QDir cert_dir;
     QList<QSslCertificate> authenticated_client_certs;
+    mutable std::mutex cert_mutex;
 };
 } // namespace multipass

@@ -66,7 +66,9 @@ void mp::ClientCertStore::add_cert(const std::string& pem_cert)
     if (cert.isNull())
         throw std::runtime_error("invalid certificate data");
 
-    if (verify_cert(cert))
+    std::lock_guard lock{cert_mutex};
+
+    if (verify_cert_locked(cert))
         return;
 
     QSaveFile file{cert_dir.filePath(chain_name)};
@@ -100,15 +102,18 @@ bool mp::ClientCertStore::verify_cert(const std::string& pem_cert)
 {
     mpl::trace(category, "Verifying cert:\n{}", pem_cert);
 
-    return verify_cert(QSslCertificate(QByteArray::fromStdString(pem_cert)));
+    QSslCertificate cert(QByteArray::fromStdString(pem_cert));
+    std::lock_guard lock{cert_mutex};
+    return verify_cert_locked(cert);
 }
 
-bool mp::ClientCertStore::verify_cert(const QSslCertificate& cert)
+bool mp::ClientCertStore::verify_cert_locked(const QSslCertificate& cert)
 {
     return authenticated_client_certs.contains(cert);
 }
 
 bool mp::ClientCertStore::empty()
 {
+    std::lock_guard lock{cert_mutex};
     return authenticated_client_certs.empty();
 }
