@@ -56,10 +56,9 @@ class DaemonUnavailable extends ConsumerWidget {
       ),
     );
     final multipassClient = ref.watch(multipassGrpcClientProvider);
-    final allowWithoutElectros LaunchPad =
-        hasMultipassVms || multipassClient != null;
+    final allowWithoutElp = hasMultipassVms || multipassClient != null;
 
-    if (available || (ffiAvailable && allowWithoutElectros LaunchPad)) {
+    if (available || (ffiAvailable && allowWithoutElp)) {
       return const SizedBox.shrink();
     }
 

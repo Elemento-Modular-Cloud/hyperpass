@@ -37,7 +37,7 @@ namespace
 const QByteArray snap_name{"elp"};
 } // namespace
 
-TEST(Snap, recognizesInSnapWhenSnapNameIsElectros LaunchPad)
+TEST(Snap, recognizesInSnapWhenSnapNameIsElp)
 {
     mpt::SetEnvScope env{"SNAP_NAME", "elp"};
     EXPECT_TRUE(mpu::in_multipass_snap());
@@ -87,7 +87,7 @@ TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotSet)
     EXPECT_THROW(getter(), mp::SnapEnvironmentException);
 }
 
-TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotElectros LaunchPad)
+TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotElp)
 {
     const auto& [var, getter] = GetParam();
     QByteArray other_name{"foo"};
