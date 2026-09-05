@@ -137,7 +137,7 @@ profile %1 flags=(attach_disconnected) {
     try
     {
         root_dir = mpu::snap_dir();
-        signal_peer = "snap.hyperpass.hyperpassd";
+        signal_peer = "snap.elp.elpd";
     }
     catch (const mp::SnapEnvironmentException&)
     {

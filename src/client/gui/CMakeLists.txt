@@ -24,7 +24,7 @@ target_link_libraries(dart_ffi
   client_platform
 )
 
-install(TARGETS dart_ffi LIBRARY COMPONENT hyperpass)
+install(TARGETS dart_ffi LIBRARY COMPONENT elp)
 
 if(${CMAKE_HOST_SYSTEM_PROCESSOR} MATCHES "x86_64" OR ${CMAKE_HOST_SYSTEM_PROCESSOR} MATCHES "AMD64")
   set(MULTIPASS_GUI_ARCH x64)

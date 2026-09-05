@@ -33,13 +33,13 @@ TEST(ApiKeyStore, createShowsSecretOnceAndStoresHashOnly)
     mpt::TempDir dir;
     mp::ApiKeyStore store{dir.path()};
     const auto created = store.create("ops");
-    EXPECT_THAT(created.secret, StartsWith("sk-hp-"));
+    EXPECT_THAT(created.secret, StartsWith("sk-elp-"));
     EXPECT_FALSE(created.record.sha256_hex.empty());
     EXPECT_EQ(store.list().size(), 1);
     EXPECT_THAT(store.list().front().sha256_hex, Not(HasSubstr(created.secret)));
 
     EXPECT_TRUE(store.verify(created.secret).has_value());
-    EXPECT_FALSE(store.verify("sk-hp-nope").has_value());
+    EXPECT_FALSE(store.verify("sk-elp-nope").has_value());
     EXPECT_FALSE(store.verify("matcher-token").has_value());
 }
 

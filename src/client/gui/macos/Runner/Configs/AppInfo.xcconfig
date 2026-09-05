@@ -7,10 +7,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = Hyperpass
+PRODUCT_NAME = Electros LaunchPad
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.elemento.hyperpassGui
+PRODUCT_BUNDLE_IDENTIFIER = com.elemento.elpGui
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © Elemento Srl. All rights reserved.

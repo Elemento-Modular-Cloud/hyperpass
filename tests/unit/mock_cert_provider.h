@@ -28,7 +28,7 @@ namespace multipass::test
 // openssl ecparam -name prime256v1 -genkey -noout -out root_key.pem
 // # 2. Generate root CA certificate (self-signed)
 // openssl req -new -x509 -key root_key.pem -out root_cert.pem -days 2600000
-//     -subj "/C=US/O=Elemento/CN=Hyperpass Root CA"
+//     -subj "/C=US/O=Elemento/CN=Electros LaunchPad Root CA"
 //     -addext "basicConstraints=critical,CA:TRUE"
 // # 3. Generate server/client private key
 // openssl ecparam -name prime256v1 -genkey -noout -out cert_key.pem

@@ -62,10 +62,10 @@ const QString mp::ProcessSpec::apparmor_profile_name() const
 
     if (!identifier().isNull())
     {
-        return "hyperpass." + identifier() + '.' + executable_name;
+        return "elp." + identifier() + '.' + executable_name;
     }
     else
     {
-        return "hyperpass." + executable_name;
+        return "elp." + executable_name;
     }
 }

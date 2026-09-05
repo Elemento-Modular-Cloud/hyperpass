@@ -60,7 +60,7 @@ TEST(TestQemuImgProcessSpec, apparmorProfileHasCorrectName)
 {
     mp::QemuImgProcessSpec spec({}, "");
 
-    EXPECT_TRUE(spec.apparmor_profile().contains("profile hyperpass.qemu-img"));
+    EXPECT_TRUE(spec.apparmor_profile().contains("profile elp.qemu-img"));
 }
 
 TEST(TestQemuImgProcessSpec, noApparmorProfileIdentifier)
@@ -72,7 +72,7 @@ TEST(TestQemuImgProcessSpec, noApparmorProfileIdentifier)
 
 TEST(TestQemuImgProcessSpec, apparmorProfileRunningAsSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir;
     QString source_image{"/source/image/file"};
 
@@ -86,7 +86,7 @@ TEST(TestQemuImgProcessSpec, apparmorProfileRunningAsSnapCorrect)
 
 TEST(TestQemuImgProcessSpec, apparmorProfileRunningAsSnapWithTargetCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir;
     QString source_image{"/source/image/file"}, target_image{"/target/image/file"};
 
@@ -101,7 +101,7 @@ TEST(TestQemuImgProcessSpec, apparmorProfileRunningAsSnapWithTargetCorrect)
 
 TEST(TestQemuImgProcessSpec, apparmorProfileRunningAsSnapWithOnlyTargetCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir;
     QString target_image{"/target/image/file"};
 
@@ -118,7 +118,7 @@ TEST(TestQemuImgProcessSpec,
          apparmorProfileRunningAsSymlinkedSnapCorrect)) // TODO tests involving apparmor should
                                                         // probably be moved elsewhere
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir, snap_link_dir, common_dir, common_link_dir;
     QString source_image{"/source/image/file"};
 
@@ -137,7 +137,7 @@ TEST(TestQemuImgProcessSpec,
 
 TEST(TestQemuImgProcessSpec, apparmorProfileNotRunningAsSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
 
     mpt::UnsetEnvScope e("SNAP");
     mpt::SetEnvScope e2("SNAP_NAME", snap_name);

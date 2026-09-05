@@ -238,7 +238,7 @@ class LaunchingNotification extends ConsumerWidget {
                       onPressed: () {
                         ref.read(sidebarKeyProvider.notifier).set(
                               successSidebarKey ??
-                                  hyperpassVm(name).sidebarKey,
+                                  elpVm(name).sidebarKey,
                             );
                         closeNotification(context);
                       },
@@ -311,7 +311,7 @@ class LaunchingNotification extends ConsumerWidget {
           child: GestureDetector(
             onTap: () => ref
                 .read(sidebarKeyProvider.notifier)
-                .set(hyperpassVm(name).sidebarKey),
+                .set(elpVm(name).sidebarKey),
             child: notification,
           ),
         );

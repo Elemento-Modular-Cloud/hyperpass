@@ -96,7 +96,7 @@ TEST_F(TestDaemonMount, refusesDisabledMount)
 
     EXPECT_EQ(status.error_code(), grpc::StatusCode::FAILED_PRECONDITION);
     EXPECT_THAT(status.error_message(),
-                HasSubstr("Mounts are disabled on this installation of Hyperpass."));
+                HasSubstr("Mounts are disabled on this installation of Electros LaunchPad."));
 }
 
 TEST_F(TestDaemonMount, missingInstanceFails)

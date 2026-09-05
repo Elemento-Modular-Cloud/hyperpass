@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: Hyperpass AtomOS Service API
+  title: Electros LaunchPad AtomOS Service API
   description: |
     Meson-compatible VM surface (temporarily on matcher port 7777; Service
-    canonical is 7781) backed by Hyperpass. Aligns with the AtomOS Bruno
+    canonical is 7781) backed by Electros LaunchPad. Aligns with the AtomOS Bruno
     `service/` collection (Bearer auth on all Service paths, including `/`
     and `/version`). All endpoints share this listen address.
   version: 0.3.0
@@ -11,7 +11,7 @@ servers:
   - url: https://127.0.0.1:7777
     description: Host-local listen (HTTPS default)
   - url: https://192.168.67.1:7777
-    description: Same gateway as seen from a Hyperpass VM on 192.168.67.0/24
+    description: Same gateway as seen from an Electros LaunchPad VM on 192.168.67.0/24
 security:
   - bearerAuth: []
 paths:
@@ -25,7 +25,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
         "503":
-          description: Hyperpass backend unreachable
+          description: Electros LaunchPad backend unreachable
   /version:
     get:
       summary: Version
@@ -195,7 +195,7 @@ paths:
       summary: Local TLS fingerprint alias
       description: |
         Returns this process's HTTPS certificate fingerprint (HTTPS is default).
-        For Electros TOFU against Hyperpass, prefer dialing this host's
+        For Electros TOFU against Electros LaunchPad, prefer dialing this host's
         `:7777` TLS (or use `/api/v1/authenticate/cert?host=`).
       security: []
       responses:
@@ -227,7 +227,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [hyperpass, multipass]
+            enum: [elp, multipass]
       responses:
         "200":
           description: Instances
@@ -240,7 +240,7 @@ components:
       scheme: bearer
       description: |
         Same pattern as AtomOS Bruno (`Authorization: Bearer {{auth_token}}`).
-        Configure with `--api-token` / `HYPERPASS_API_TOKEN`, or use
+        Configure with `--api-token` / `ELP_API_TOKEN`, or use
         `--insecure-no-auth` for local development only.
   responses:
     Unauthorized:

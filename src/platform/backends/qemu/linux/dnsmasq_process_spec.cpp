@@ -63,8 +63,8 @@ QStringList mp::DNSMasqProcessSpec::arguments() const
 {
     auto out = QStringList() << "--keep-in-foreground"
                              << "--strict-order"
-                             << "--bind-interfaces" << QString("--pid-file") << "--domain=hyperpass"
-                             << "--local=/hyperpass/"
+                             << "--bind-interfaces" << QString("--pid-file") << "--domain=elp"
+                             << "--local=/elp/"
                              << "--except-interface=lo"
                              << "--dhcp-no-override"
                              << "--dhcp-ignore-clid"
@@ -133,7 +133,7 @@ profile %1 flags=(attach_disconnected) {
     {
         // if snap confined, specify only multipassd can kill dnsmasq
         root_dir = mpu::snap_dir();
-        signal_peer = "snap.hyperpass.hyperpassd";
+        signal_peer = "snap.elp.elpd";
     }
     catch (const mp::SnapEnvironmentException&)
     {

@@ -1,41 +1,41 @@
 #!/usr/bin/env bash
-# Run a built hyperpassd side-by-side with the system Multipass install (see LOCAL_DEV.md).
+# Run a built elpd side-by-side with the system Multipass install (see LOCAL_DEV.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
-DAEMON="${BUILD_DIR}/bin/hyperpassd"
-HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
-HYPERPASS_STORAGE="${HYPERPASS_STORAGE:-/tmp/hyperpass-data}"
-HYPERPASS_DISTRIBUTIONS_URL="${HYPERPASS_DISTRIBUTIONS_URL:-${ROOT}/data/distributions/distribution-info.json}"
+DAEMON="${BUILD_DIR}/bin/elpd"
+ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
+ELP_STORAGE="${ELP_STORAGE:-/tmp/elp-data}"
+ELP_DISTRIBUTIONS_URL="${ELP_DISTRIBUTIONS_URL:-${ROOT}/data/distributions/distribution-info.json}"
 VERBOSITY="${VERBOSITY:-debug}"
 ACTION=start
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [options] [-- <extra hyperpassd args>]
+Usage: $(basename "$0") [options] [-- <extra elpd args>]
 
-Start (or stop) a local hyperpassd from the build tree without replacing the
+Start (or stop) a local elpd from the build tree without replacing the
 system Multipass daemon. Uses a separate socket, storage directory, and
 distributions catalog by default.
 
-Note: A packaged Hyperpass install already uses distinct defaults from Multipass;
+Note: A packaged Electros LaunchPad install already uses distinct defaults from Multipass;
 this script is mainly for exercising a build-tree daemon.
 
 Options:
   --stop            Stop a running dev daemon and remove its socket
   --build-dir DIR   Build directory (default: ${BUILD_DIR})
-  --verbosity LEVEL hyperpassd --verbosity (default: ${VERBOSITY})
+  --verbosity LEVEL elpd --verbosity (default: ${VERBOSITY})
   -h, --help        Show this help
 
 Environment:
   BUILD_DIR                   Build tree (default: ${ROOT}/build)
-  HYPERPASS_SOCKET            Unix socket path (default: ${HYPERPASS_SOCKET})
-  HYPERPASS_STORAGE           Instance/image storage (default: ${HYPERPASS_STORAGE})
-  HYPERPASS_DISTRIBUTIONS_URL Catalog JSON path or URL
+  ELP_SOCKET            Unix socket path (default: ${ELP_SOCKET})
+  ELP_STORAGE           Instance/image storage (default: ${ELP_STORAGE})
+  ELP_DISTRIBUTIONS_URL Catalog JSON path or URL
   VERBOSITY                   Log level (default: debug)
-  HYPERPASS_LLMFIT            Path to llmfit (auto-detected when possible)
-  HYPERPASS_LLAMA_SERVER      Path to llama-server for GGUF inference
+  ELP_LLMFIT            Path to llmfit (auto-detected when possible)
+  ELP_LLAMA_SERVER      Path to llama-server for GGUF inference
 
 Examples:
   $(basename "$0")
@@ -45,13 +45,13 @@ EOF
 }
 
 stop_dev_daemon() {
-  echo "==> Stopping dev hyperpassd (if any)"
+  echo "==> Stopping dev elpd (if any)"
   if [[ -x "$DAEMON" ]]; then
     sudo pkill -9 -f "$DAEMON" 2>/dev/null || true
   fi
-  sudo pkill -9 -f "unix:${HYPERPASS_SOCKET}" 2>/dev/null || true
-  if [[ -e "$HYPERPASS_SOCKET" ]]; then
-    sudo rm -f "$HYPERPASS_SOCKET"
+  sudo pkill -9 -f "unix:${ELP_SOCKET}" 2>/dev/null || true
+  if [[ -e "$ELP_SOCKET" ]]; then
+    sudo rm -f "$ELP_SOCKET"
   fi
 }
 
@@ -59,7 +59,7 @@ EXTRA_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) ACTION=stop; shift ;;
-    --build-dir) BUILD_DIR="$2"; DAEMON="${BUILD_DIR}/bin/hyperpassd"; shift 2 ;;
+    --build-dir) BUILD_DIR="$2"; DAEMON="${BUILD_DIR}/bin/elpd"; shift 2 ;;
     --verbosity) VERBOSITY="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; EXTRA_ARGS+=("$@"); break ;;
@@ -73,15 +73,15 @@ if [[ "$ACTION" == stop ]]; then
 fi
 
 if [[ ! -x "$DAEMON" ]]; then
-  echo "error: hyperpassd not found at ${DAEMON}" >&2
+  echo "error: elpd not found at ${DAEMON}" >&2
   echo "       Build first: ./scripts/build-macos.sh  (or build-linux.sh)" >&2
   exit 1
 fi
 
-mkdir -p "$HYPERPASS_STORAGE"
+mkdir -p "$ELP_STORAGE"
 
-export HYPERPASS_STORAGE
-export HYPERPASS_DISTRIBUTIONS_URL
+export ELP_STORAGE
+export ELP_DISTRIBUTIONS_URL
 
 resolve_tool() {
   local name="$1"
@@ -106,33 +106,33 @@ resolve_tool() {
   done
 }
 
-if [[ -z "${HYPERPASS_LLMFIT:-}" ]]; then
-  HYPERPASS_LLMFIT="$(resolve_tool llmfit HYPERPASS_LLMFIT)"
-  [[ -n "$HYPERPASS_LLMFIT" ]] && export HYPERPASS_LLMFIT
+if [[ -z "${ELP_LLMFIT:-}" ]]; then
+  ELP_LLMFIT="$(resolve_tool llmfit ELP_LLMFIT)"
+  [[ -n "$ELP_LLMFIT" ]] && export ELP_LLMFIT
 fi
 
-if [[ -z "${HYPERPASS_LLAMA_SERVER:-}" ]]; then
-  HYPERPASS_LLAMA_SERVER="$(resolve_tool llama-server HYPERPASS_LLAMA_SERVER)"
-  [[ -n "$HYPERPASS_LLAMA_SERVER" ]] && export HYPERPASS_LLAMA_SERVER
+if [[ -z "${ELP_LLAMA_SERVER:-}" ]]; then
+  ELP_LLAMA_SERVER="$(resolve_tool llama-server ELP_LLAMA_SERVER)"
+  [[ -n "$ELP_LLAMA_SERVER" ]] && export ELP_LLAMA_SERVER
 fi
 
-echo "==> Dev hyperpassd"
+echo "==> Dev elpd"
 echo "    binary:      ${DAEMON}"
-echo "    socket:      unix:${HYPERPASS_SOCKET}"
-echo "    storage:     ${HYPERPASS_STORAGE}"
-echo "    catalog:     ${HYPERPASS_DISTRIBUTIONS_URL}"
-if [[ -n "${HYPERPASS_LLMFIT:-}" ]]; then
-  echo "    llmfit:      ${HYPERPASS_LLMFIT}"
+echo "    socket:      unix:${ELP_SOCKET}"
+echo "    storage:     ${ELP_STORAGE}"
+echo "    catalog:     ${ELP_DISTRIBUTIONS_URL}"
+if [[ -n "${ELP_LLMFIT:-}" ]]; then
+  echo "    llmfit:      ${ELP_LLMFIT}"
 else
   echo "    llmfit:      (not found — catalog suggestions need llmfit on PATH)"
 fi
-if [[ -n "${HYPERPASS_LLAMA_SERVER:-}" ]]; then
-  echo "    llama-server:${HYPERPASS_LLAMA_SERVER}"
+if [[ -n "${ELP_LLAMA_SERVER:-}" ]]; then
+  echo "    llama-server:${ELP_LLAMA_SERVER}"
 else
-  echo "    llama-server:(not found — set HYPERPASS_LLAMA_SERVER to load GGUF models)"
+  echo "    llama-server:(not found — set ELP_LLAMA_SERVER to load GGUF models)"
 fi
 echo
-echo "    CLI/GUI:     export HYPERPASS_SERVER_ADDRESS=unix:${HYPERPASS_SOCKET}"
+echo "    CLI/GUI:     export ELP_SERVER_ADDRESS=unix:${ELP_SOCKET}"
 echo "                 export PATH=\"${BUILD_DIR}/bin:\$PATH\""
 echo "                 ./scripts/run-dev-gui.sh"
 echo
@@ -143,12 +143,12 @@ if [[ $EUID -eq 0 ]]; then
   exec "$DAEMON" \
     --logger stderr \
     --verbosity "$VERBOSITY" \
-    --address "unix:${HYPERPASS_SOCKET}" \
+    --address "unix:${ELP_SOCKET}" \
     "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"
 else
   exec sudo -E "$DAEMON" \
     --logger stderr \
     --verbosity "$VERBOSITY" \
-    --address "unix:${HYPERPASS_SOCKET}" \
+    --address "unix:${ELP_SOCKET}" \
     "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"
 fi

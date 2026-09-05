@@ -33,13 +33,13 @@ struct RegisteredVm
     std::string client_uid;
     std::string os_family;
     std::string os_flavour;
-    std::string backend{"hyperpass"};
+    std::string backend{"elp"};
     std::string req_json; // serialized Electros/matcher req_json object
     std::string xml;      // libvirt-ish domain xml (matcher seed)
 };
 
 /**
- * Persistent sidecar registry mapping AtomOS vm_uid ↔ Hyperpass instance name.
+ * Persistent sidecar registry mapping AtomOS vm_uid ↔ Electros LaunchPad instance name.
  * Stored as JSON under the user data directory.
  */
 class VmRegistry

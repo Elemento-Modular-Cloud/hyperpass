@@ -21,7 +21,7 @@ Future<void> setupLogger() async {
     printer: MpPrettyPrinter(excludePaths: ['dart:', 'package:flutter']),
     output: MultiOutput([
       ConsoleOutput(),
-      FileOutput(file: File('${logFilePath.path}/hyperpass_gui.log')),
+      FileOutput(file: File('${logFilePath.path}/elp_gui.log')),
     ]),
   );
 

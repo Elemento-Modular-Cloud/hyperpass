@@ -38,7 +38,7 @@ mp::ReturnCodeVariant cmd::WaitReady::run(mp::ArgParser* parser)
     }
 
     mp::AnimatedSpinner spinner{cout};
-    spinner.start("Waiting for the Hyperpass daemon to be ready");
+    spinner.start("Waiting for the Electros LaunchPad daemon to be ready");
 
     std::unique_ptr<mp::utils::Timer> timer;
 

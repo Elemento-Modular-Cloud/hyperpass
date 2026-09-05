@@ -28,43 +28,43 @@ target_link_libraries(client
 
 if(MSVC)
   prepare_windows_version_resource(
-    HYPERPASS_RC_SOURCE
-    hyperpass
-    "Hyperpass CLI"
-    "hyperpass"
-    "hyperpass.exe"
+    ELP_RC_SOURCE
+    elp
+    "Electros LaunchPad CLI"
+    "elp"
+    "elp.exe"
   )
-  add_executable(hyperpass
+  add_executable(elp
     main.cpp
-    ${HYPERPASS_RC_SOURCE})
+    ${ELP_RC_SOURCE})
 else()
-  add_executable(hyperpass
+  add_executable(elp
     main.cpp)
 endif()
 
 
-target_link_libraries(hyperpass
+target_link_libraries(elp
   client)
 
-install(TARGETS hyperpass
+install(TARGETS elp
   DESTINATION bin
-  COMPONENT hyperpass)
+  COMPONENT elp)
 
 if(APPLE)
-  set_target_properties( hyperpass PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
+  set_target_properties( elp PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
 
   # Copy any framework depenencies into the install directory for packaging
   install(CODE "
     include(${CMAKE_SOURCE_DIR}/packaging/FrameworkUtilities.cmake)
-    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyperpass\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
-    " COMPONENT hyperpass)
+    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/elp\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
+    " COMPONENT elp)
 endif(APPLE)
 
 if(MSVC)
   install(CODE "
     include(BundleUtilities)
-    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/hyperpass.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
-    " COMPONENT hyperpass)
+    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/elp.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
+    " COMPONENT elp)
 endif()
 
 add_subdirectory(cmd)

@@ -317,7 +317,7 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                             on_success,
                             [&](grpc::Status& s) { return fail(cerr, s, cmd_name); });
         }
-        cerr << "Usage: hyperpass llm key create|list|revoke [id]\n";
+        cerr << "Usage: elp llm key create|list|revoke [id]\n";
         cerr << "  create [--label NAME] [--instance INSTANCE_ID]\n";
         return ReturnCode::CommandLineError;
     }

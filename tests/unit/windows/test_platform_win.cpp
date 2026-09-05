@@ -520,7 +520,7 @@ TEST_P(TestWinTermSyncJson, wintermSyncAddsMissingProfileIfSettingPrimary)
 
     Json::Value primary_profile;
     ASSERT_NO_THROW(primary_profile = get_primary_profile(json_out));
-    EXPECT_EQ(primary_profile["name"], "Hyperpass");
+    EXPECT_EQ(primary_profile["name"], "Electros LaunchPad");
     EXPECT_THAT(primary_profile["commandline"].asString(), HasSubstr(mp::client_name));
     EXPECT_THAT(primary_profile["fontFace"].asString(), HasSubstr("Ubuntu"));
     EXPECT_THAT(primary_profile["icon"].asString(), EndsWith(".ico"));
@@ -614,7 +614,7 @@ TEST(PlatformWin, createAliasScriptWorks)
     EXPECT_NO_THROW(
         MP_PLATFORM.create_alias_script("alias_name", mp::AliasDefinition{"instance", "command"}));
 
-    QFile checked_script(tmp_dir.path() + "/AppData/local/hyperpass/bin/alias_name.bat");
+    QFile checked_script(tmp_dir.path() + "/AppData/local/elp/bin/alias_name.bat");
     ASSERT_TRUE(checked_script.open(QFile::ReadOnly));
 
     std::string script_line = checked_script.readLine().toStdString();
@@ -664,7 +664,7 @@ TEST(PlatformWin, createAliasScriptThrowsIfCannotWriteScript)
 TEST(PlatformWin, removeAliasScriptWorks)
 {
     const mpt::TempDir tmp_dir;
-    QFile script_file(tmp_dir.path() + "/AppData/local/hyperpass/bin/alias_name.bat");
+    QFile script_file(tmp_dir.path() + "/AppData/local/elp/bin/alias_name.bat");
 
     EXPECT_CALL(mpt::MockStandardPaths::mock_instance(),
                 writableLocation(mp::StandardPaths::HomeLocation))
@@ -680,7 +680,7 @@ TEST(PlatformWin, removeAliasScriptWorks)
 TEST(PlatformWin, removeAliasScriptThrowsIfCannotRemoveScript)
 {
     const mpt::TempDir tmp_dir;
-    QFile script_file(tmp_dir.path() + "/AppData/local/hyperpass/bin/alias_name.bat");
+    QFile script_file(tmp_dir.path() + "/AppData/local/elp/bin/alias_name.bat");
 
     EXPECT_CALL(mpt::MockStandardPaths::mock_instance(),
                 writableLocation(mp::StandardPaths::HomeLocation))

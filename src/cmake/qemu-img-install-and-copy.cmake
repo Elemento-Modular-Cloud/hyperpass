@@ -34,5 +34,5 @@ add_custom_target(qemu-img ALL DEPENDS
 
 install(PROGRAMS "${QEMU_IMG}"
     DESTINATION bin
-    COMPONENT hyperpassd
+    COMPONENT elpd
 )

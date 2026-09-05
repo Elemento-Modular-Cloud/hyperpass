@@ -84,7 +84,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final service = widget.service;
     final branding = serviceBranding(service.id);
     final randomName = ref.watch(randomNameProvider);
-    final vmNames = ref.watch(hyperpassVmNamesProvider);
+    final vmNames = ref.watch(elpVmNamesProvider);
     final deletedVms = ref.watch(deletedVmsProvider);
     final onSurface = Theme.of(context).colorScheme.onSurface;
 

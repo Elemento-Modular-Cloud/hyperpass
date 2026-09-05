@@ -16,8 +16,8 @@ function Get-NumericVersionString {
 # Keep the expected descriptions alongside the binaries we validate so the
 # script can be reused both locally and in CI.
 $targets = @(
-    @{ File = "hyperpass.exe";    Description = "Hyperpass CLI" },
-    @{ File = "hyperpassd.exe";   Description = "Hyperpass Daemon" },
+    @{ File = "elp.exe";    Description = "Electros LaunchPad CLI" },
+    @{ File = "elpd.exe";   Description = "Electros LaunchPad Daemon" },
     @{ File = "sshfs_server.exe"; Description = "Multipass SSHFS Server" }
 )
 

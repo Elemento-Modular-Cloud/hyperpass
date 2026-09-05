@@ -14,62 +14,62 @@
 
 set -o pipefail
 
-_hyperpass_complete()
+_elp_complete()
 {
-    _hyperpass_instances()
+    _elp_instances()
     {
         local state=$1 instances
 
-        instances=$(multipass list --format=csv --no-ipv4 | \tail -n +2)
+        instances=$(elp list --format=csv --no-ipv4 | \tail -n +2)
         [ -n "$state" ] && instances=$(awk -F',' "\$2 == \"$state\"" <<< "$instances")
         instances=$(echo "$instances" | \cut -d',' -f 1  | \tr '\r\n' ' ')
 
         _add_nonrepeating_args "$instances"
     }
 
-    _hyperpass_snapshots()
+    _elp_snapshots()
     {
         local instance=$1 snapshots
 
-        snapshots=$(multipass list --snapshots --format=csv 2>/dev/null | \tail -n +2)
+        snapshots=$(elp list --snapshots --format=csv 2>/dev/null | \tail -n +2)
         [ -n "$instance" ] && snapshots=$(awk -F',' "\$1 == \"$instance\"" <<< "$snapshots")
         snapshots=$(echo "$snapshots" | \cut -d',' -f 1,2 | \tr ',' '.' | \tr '\r\n' ' ')
 
         _add_nonrepeating_args "$snapshots"
     }
 
-    _hyperpass_instances_and_snapshots()
+    _elp_instances_and_snapshots()
     {
-        _hyperpass_snapshots
-        _hyperpass_instances
+        _elp_snapshots
+        _elp_instances
     }
 
-    _hyperpass_restorable_snapshots()
+    _elp_restorable_snapshots()
     {
         local instances
-        instances=$( multipass info --no-runtime-information --format=csv \
+        instances=$( elp info --no-runtime-information --format=csv \
                      | \tail -n +2 \
                      | \awk -F',|\r?\n' '$2 == "Stopped" && $16 > 0' \
                      | \cut -d',' -f 1 \
                      | \tr '\r\n' ' ')
 
         for instance in ${instances}; do
-            _hyperpass_snapshots "${instance}"
+            _elp_snapshots "${instance}"
         done
     }
 
     # Set $opts to the list of available networks.
-    _hyperpass_networks()
+    _elp_networks()
     {
-        opts=$( multipass networks --format=csv 2>/dev/null | \tail -n +2 | \cut -d',' -f 1 )
+        opts=$( elp networks --format=csv 2>/dev/null | \tail -n +2 | \cut -d',' -f 1 )
     }
 
-    _hyperpass_instances_with_colon()
+    _elp_instances_with_colon()
     {
         local opts_bak="${opts}"
         opts=""
 
-        _hyperpass_instances
+        _elp_instances
         local instances="${opts}"
         opts="$opts_bak"
 
@@ -78,11 +78,11 @@ _hyperpass_complete()
         done
     }
 
-    _hyperpass_settings_keys()
+    _elp_settings_keys()
     {
         local keys
 
-        keys=$( multipass get --keys | \tr '\r\n' ' ' )
+        keys=$( elp get --keys | \tr '\r\n' ' ' )
 
         for key in ${keys}; do
             if [[ "${COMP_WORDS[*]}" == *"${key}"* ]]; then
@@ -110,14 +110,14 @@ _hyperpass_complete()
         done
 
         if [[ ${definition_found} == 0 ]] && [[ "${cur}" != ':' ]]; then
-            _hyperpass_instances_with_colon
+            _elp_instances_with_colon
         fi
     }
 
-    # Set $multipass_aliases to the list of available aliases.
-    _hyperpass_aliases()
+    # Set $elp_aliases to the list of available aliases.
+    _elp_aliases()
     {
-        multipass_aliases=$( multipass aliases --format=csv 2>/dev/null | \tail -n +2 | \cut -d',' -f 1 )
+        elp_aliases=$( elp aliases --format=csv 2>/dev/null | \tail -n +2 | \cut -d',' -f 1 )
     }
 
     # Removes the comma or equals sign at the end of $cur.
@@ -137,7 +137,7 @@ _hyperpass_complete()
     {
         case "$1" in
             "id")
-                _hyperpass_networks
+                _elp_networks
             ;;
             "mac")
                 opts=""
@@ -218,7 +218,7 @@ _hyperpass_complete()
         COMP_WORDBREAKS="${COMP_WORDBREAKS}="
     fi
 
-    local cur cmd opts prev prev2 prev_opts multipass_aliases
+    local cur cmd opts prev prev2 prev_opts elp_aliases
     _get_comp_words_by_ref -n := -w WORDS -i CWORD cur prev
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -228,11 +228,11 @@ _hyperpass_complete()
     fi
     cmd="${COMP_WORDS[1]}"
     prev_opts=false
-    multipass_cmds="authenticate transfer delete exec find help info launch list mount networks \
+    elp_cmds="authenticate transfer delete exec find help info launch list mount networks \
                     purge recover restart restore shell snapshot start stop suspend umount version get set \
                     clone alias aliases unalias"
 
-    if [[ "${multipass_cmds}" =~ " ${cmd} " || "${multipass_cmds}" =~ ^${cmd} || "${multipass_cmds}" =~ \ ${cmd}$ ]];
+    if [[ "${elp_cmds}" =~ " ${cmd} " || "${elp_cmds}" =~ ^${cmd} || "${elp_cmds}" =~ \ ${cmd}$ ]];
     then
         _add_nonrepeating_args "--help"
         opts="${opts} --verbose"
@@ -271,8 +271,8 @@ _hyperpass_complete()
             _add_nonrepeating_args "--show-unsupported --force-update --format"
         ;;
         "unalias")
-            _hyperpass_aliases
-            _add_nonrepeating_args "$multipass_aliases"
+            _elp_aliases
+            _add_nonrepeating_args "$elp_aliases"
         ;;
         "transfer"|"copy-files")
             _add_nonrepeating_args "--parents --recursive"
@@ -306,7 +306,7 @@ _hyperpass_complete()
                 return
             ;;
             "--network")
-                _hyperpass_networks
+                _elp_networks
                 if [ "${OLD_BASH}" = true ]; then
                     if [[ "${opts}" != "" ]]; then
                         opts="${opts} bridged"
@@ -349,54 +349,54 @@ _hyperpass_complete()
     if [[ "$prev_opts" = false ]]; then
         case "${cmd}" in
             "exec"|"suspend"|"restart")
-                _hyperpass_instances "Running"
+                _elp_instances "Running"
             ;;
             "stop")
                 _get_comp_words_by_ref -n := -w WORDS -i CWORD cur prev
                 for ((i=2; i<CWORD; i++)); do
                     if [[ "${WORDS[i]}" == "--force" ]]; then
-                        _hyperpass_instances "Starting"
-                        _hyperpass_instances "Restarting"
-                        _hyperpass_instances "Suspending"
-                        _hyperpass_instances "Suspended"
+                        _elp_instances "Starting"
+                        _elp_instances "Restarting"
+                        _elp_instances "Suspending"
+                        _elp_instances "Suspended"
                         break
                     fi
                 done
 
-                _hyperpass_instances "Running"
+                _elp_instances "Running"
             ;;
             "connect"|"sh"|"shell")
-                _hyperpass_instances "Running"
-                _hyperpass_instances "Stopped"
-                _hyperpass_instances "Suspended"
+                _elp_instances "Running"
+                _elp_instances "Stopped"
+                _elp_instances "Suspended"
             ;;
             "start")
-                _hyperpass_instances "Stopped"
-                _hyperpass_instances "Suspended"
+                _elp_instances "Stopped"
+                _elp_instances "Suspended"
             ;;
             "umount"|"unmount")
-                _hyperpass_instances
+                _elp_instances
             ;;
             "delete"|"info")
-                _hyperpass_instances_and_snapshots
+                _elp_instances_and_snapshots
             ;;
             "recover")
-                _hyperpass_instances "Deleted"
+                _elp_instances "Deleted"
             ;;
             "snapshot")
-                _hyperpass_instances "Stopped"
+                _elp_instances "Stopped"
             ;;
             "clone")
-                _hyperpass_instances "Stopped"
+                _elp_instances "Stopped"
             ;;
             "restore")
-                _hyperpass_restorable_snapshots
+                _elp_restorable_snapshots
             ;;
             "get")
-                _hyperpass_settings_keys
+                _elp_settings_keys
             ;;
             "set")
-                _hyperpass_settings_keys
+                _elp_settings_keys
 
                 COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 if [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" != "--help" && "${COMPREPLY[0]}" != "--verbose" ]]; then
@@ -424,13 +424,13 @@ _hyperpass_complete()
                         return
                     fi
                 elif [ ${source_set} == 1 ] && [[ ${prev} != -* ]]; then
-                    _hyperpass_instances "Running"
-                    _hyperpass_instances "Stopped"
-                    _hyperpass_instances "Suspended"
+                    _elp_instances "Running"
+                    _elp_instances "Stopped"
+                    _elp_instances "Suspended"
                 fi
             ;;
             "transfer"|"copy-files")
-                _hyperpass_instances "Running"
+                _elp_instances "Running"
 
                 COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
                 if [[ "${#COMPREPLY[@]}" == "0" ]]; then
@@ -444,14 +444,14 @@ _hyperpass_complete()
                 compopt -o nospace
             ;;
             "help")
-                opts=$multipass_cmds
+                opts=$elp_cmds
             ;;
         esac
     fi
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        _hyperpass_aliases
-        opts="${opts} ${multipass_cmds} ${multipass_aliases}"
+        _elp_aliases
+        opts="${opts} ${elp_cmds} ${elp_aliases}"
     fi
 
     if [[ -n "${opts}" ]]; then
@@ -469,4 +469,4 @@ else
     OLD_BASH=true
 fi
 
-complete -F _hyperpass_complete multipass
+complete -F _elp_complete elp

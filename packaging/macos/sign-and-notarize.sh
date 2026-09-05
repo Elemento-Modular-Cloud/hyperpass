@@ -147,7 +147,7 @@ function codesign_binaries {
     find "${DIR}" -type f -print0 | xargs -0L1 \
         codesign -v --timestamp --options runtime --force --strict \
             $( entitlements ) \
-            --prefix com.elemento.hyperpass. \
+            --prefix com.elemento.elp. \
             --sign "${SIGN_APP}"
 
     # sign qemu with the right entitlements
@@ -155,21 +155,21 @@ function codesign_binaries {
         codesign -v --timestamp --options runtime --force --strict \
             $( entitlements com.apple.security.hypervisor \
                             com.apple.security.cs.disable-executable-page-protection ) \
-            --identifier com.elemento.hyperpass.qemu \
+            --identifier com.elemento.elp.qemu \
             --sign "${SIGN_APP}"
 
     # sign multipass with additional entitlements for using the Apple Virtualization framework
-    find "${DIR}" -type f -name hyperpassd -print0 | xargs -0L1 \
+    find "${DIR}" -type f -name elpd -print0 | xargs -0L1 \
         codesign -v --timestamp --options runtime --force --strict \
             $( entitlements com.apple.security.virtualization ) \
-            --identifier com.elemento.hyperpass.hyperpassd \
+            --identifier com.elemento.elp.elpd \
             --sign "${SIGN_APP}"
 
     # sign every bundle in the directory
     find "${DIR}" -type d -name '*.app' -print0 | xargs -0L1 \
         codesign -v --timestamp --options runtime --force --strict --deep \
             $( entitlements ) \
-            --prefix com.elemento.hyperpass. \
+            --prefix com.elemento.elp. \
             --sign "${SIGN_APP}"
 }
 

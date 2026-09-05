@@ -27,7 +27,7 @@ class BulkActionsBar extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
 
     GrpcClient? clientFor(DaemonSource source) => switch (source) {
-          DaemonSource.hyperpass => ref.read(grpcClientProvider),
+          DaemonSource.elp => ref.read(grpcClientProvider),
           DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
         };
 

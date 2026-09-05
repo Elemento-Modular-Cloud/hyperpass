@@ -641,7 +641,7 @@ QString mp::LlmfitAdvisor::binary_path() const
 std::string mp::LlmfitAdvisor::missing_binary_hint() const
 {
     return "llmfit is not installed. Install it from https://github.com/AlexsJones/llmfit "
-           "or set HYPERPASS_LLMFIT to the binary path. Loaded models and the OpenAI API still work.";
+           "or set ELP_LLMFIT to the binary path. Loaded models and the OpenAI API still work.";
 }
 
 std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::recommend(MemorySize available_ram,

@@ -61,7 +61,7 @@ auto fmt::formatter<CreateComputeSystemParameters, Char>::format(
             "Major": 2,
             "Minor": 1
         }},
-        "Owner": "Hyperpass",
+        "Owner": "Electros LaunchPad",
         "ShouldTerminateOnLastHandleClosed": false,
         "VirtualMachine": {{
             "Chipset": {{

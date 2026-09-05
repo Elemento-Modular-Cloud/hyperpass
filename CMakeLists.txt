@@ -21,7 +21,7 @@ include(CMakeDependentOption)
 
 option(MULTIPASS_VCPKG_BUILD_DEFAULT "Enable or disable building the dependencies in the default configuration, which includes both debug and release variants." OFF)
 option(MULTIPASS_ENABLE_TESTS "Build tests" ON)
-option(HYPERPASS_ENABLE_API "Build the hyperpass-api REST sidecar" ON)
+option(ELP_ENABLE_API "Build the elp-api REST sidecar" ON)
 cmake_dependent_option(FORCE_ENABLE_VIRTUALBOX "Enable VirtualBox" ON UNIX OFF)
 
 is_running_in_ci(IS_RUNNING_IN_CI)
@@ -411,7 +411,7 @@ if(CMAKE_BUILD_TYPE_LOWER  MATCHES "coverage")
 
     add_custom_target(covreport
       DEPENDS multipass_cpp_tests multipass_integration_tests rust_coverage_tarpaulin
-        $<$<BOOL:${MULTIPASS_ENABLE_FLUTTER_GUI}>:hyperpass_gui>
+        $<$<BOOL:${MULTIPASS_ENABLE_FLUTTER_GUI}>:elp_gui>
       WORKING_DIRECTORY ${CMAKE_BUILD_DIR}
       COMMAND ${LCOV} --directory . --zerocounters
       COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target test
@@ -448,7 +448,7 @@ if(MULTIPASS_ENABLE_TESTS)
 
   if(MULTIPASS_ENABLE_FLUTTER_GUI)
     add_test(
-      NAME hyperpass_gui_tests
+      NAME elp_gui_tests
       COMMAND ${FLUTTER_EXECUTABLE} test
       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/src/client/gui
     )

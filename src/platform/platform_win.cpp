@@ -251,14 +251,14 @@ Json::Value create_primary_profile()
 {
     Json::Value primary_profile{};
     primary_profile["guid"] = mp::winterm_profile_guid;
-    primary_profile["name"] = "Hyperpass";
-    primary_profile["commandline"] = "hyperpass shell";
+    primary_profile["name"] = "Electros LaunchPad";
+    primary_profile["commandline"] = "elp shell";
     primary_profile["background"] = "#350425";
     primary_profile["cursorShape"] = "filledBox";
     primary_profile["fontFace"] = "Ubuntu Mono";
     primary_profile["historySize"] = 50000;
     primary_profile["icon"] =
-        QDir{QCoreApplication::applicationDirPath()}.filePath("hyperpass_wt.ico").toStdString();
+        QDir{QCoreApplication::applicationDirPath()}.filePath("elp_wt.ico").toStdString();
 
     return primary_profile;
 }
@@ -361,10 +361,10 @@ QString get_alias_script_path(const std::string& alias)
     return aliases_folder.absoluteFilePath(QString::fromStdString(alias)) + ".bat";
 }
 
-QString program_data_hyperpass_path()
+QString program_data_elp_path()
 {
     return QDir{qEnvironmentVariable("ProgramData", "C:\\ProgramData")}.absoluteFilePath(
-        "Hyperpass");
+        "Electros LaunchPad");
 }
 
 QString systemprofile_app_data_path()
@@ -917,7 +917,7 @@ QString mp::platform::Platform::daemon_config_home() const // temporary
     if (QFile::exists(ret))
     {
         return ret; // should be something like
-                    // "C:/Windows/system32/config/systemprofile/AppData/Local/hyperpassd"
+                    // "C:/Windows/system32/config/systemprofile/AppData/Local/elpd"
     }
     else
     {
@@ -1196,7 +1196,7 @@ QDir mp::platform::Platform::get_alias_scripts_folder() const
     QDir aliases_folder;
 
     QString location = MP_STDPATHS.writableLocation(mp::StandardPaths::HomeLocation) +
-                       "/AppData/local/hyperpass/bin";
+                       "/AppData/local/elp/bin";
     aliases_folder = QDir{location};
 
     if (!aliases_folder.mkpath(aliases_folder.path()))
@@ -1245,7 +1245,7 @@ std::string mp::platform::Platform::alias_path_message() const
 {
     return fmt::format(
         "You'll need to add the script alias folder to your path for aliases to work\n"
-        "without prefixing with `hyperpass`. For now, you can just do:\n\n"
+        "without prefixing with `elp`. For now, you can just do:\n\n"
         "In PowerShell:\n$ENV:PATH=\"$ENV:PATH;{0}\"\n\n"
         "Or in Command Prompt:\nPATH=%PATH%;{0}\n",
         get_alias_scripts_folder().absolutePath());
@@ -1255,26 +1255,26 @@ QString mp::platform::Platform::multipass_storage_location() const
 {
     auto storage_location = mp::utils::get_multipass_storage();
 
-    // If HYPERPASS_STORAGE env var is set, use that
+    // If ELP_STORAGE env var is set, use that
     if (!storage_location.isEmpty())
     {
         return storage_location;
     }
 
-    auto program_data_path = program_data_hyperpass_path();
+    auto program_data_path = program_data_elp_path();
     auto systemprofile_roaming_path =
         QDir{systemprofile_app_data_path()}.absoluteFilePath("Roaming");
 
-    // If %PROGRAMDATA%\Hyperpass exists or if
-    // %SYSTEMROOT%\system32\config\AppData\Roaming\hyperpassd doesn't exist, use
-    // %PROGRAMDATA%\Hyperpass
+    // If %PROGRAMDATA%\Electros LaunchPad exists or if
+    // %SYSTEMROOT%\system32\config\AppData\Roaming\elpd doesn't exist, use
+    // %PROGRAMDATA%\Electros LaunchPad
     if (QFile::exists(program_data_path) ||
-        !QFile::exists(QDir{systemprofile_roaming_path}.absoluteFilePath("hyperpassd")))
+        !QFile::exists(QDir{systemprofile_roaming_path}.absoluteFilePath("elpd")))
     {
         return program_data_path;
     }
 
-    // If %SYSTEMROOT%\system32\config\AppData\Roaming\hyperpassd exists, return empty and let the
+    // If %SYSTEMROOT%\system32\config\AppData\Roaming\elpd exists, return empty and let the
     // caller use Qt's StandardPaths to figure it out (legacy)
     return QString();
 }
@@ -1423,8 +1423,8 @@ std::filesystem::path mp::platform::Platform::get_root_cert_dir() const
     // FOLDERID_ProgramData returns C:\ProgramData normally
     const auto base_dir = get_wellknown_path(FOLDERID_ProgramData);
 
-    // Windows doesn't use `daemon_name` for the data directory (see `program_data_hyperpass_path`)
-    return base_dir / "Hyperpass" / "data";
+    // Windows doesn't use `daemon_name` for the data directory (see `program_data_elp_path`)
+    return base_dir / "Electros LaunchPad" / "data";
 }
 
 std::filesystem::path mp::platform::Platform::qstr_to_path(const QString& qstr) const

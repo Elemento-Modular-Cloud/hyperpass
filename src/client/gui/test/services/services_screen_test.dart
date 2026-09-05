@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hyperpass_gui/l10n/app_localizations.dart';
-import 'package:hyperpass_gui/services/service_library.dart';
-import 'package:hyperpass_gui/services/services_screen.dart';
+import 'package:elp_gui/l10n/app_localizations.dart';
+import 'package:elp_gui/services/service_library.dart';
+import 'package:elp_gui/services/services_screen.dart';
 
 /// `rootBundle` never completes under `flutter test`, so the library is read
 /// from disk and injected. Asset delivery is covered by

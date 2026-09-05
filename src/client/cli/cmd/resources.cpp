@@ -99,7 +99,7 @@ QString cmd::Resources::short_help() const
 QString cmd::Resources::description() const
 {
     return QStringLiteral(
-        "Display Hyperpass scheduler reservations versus live host pressure.");
+        "Display Electros LaunchPad scheduler reservations versus live host pressure.");
 }
 
 mp::ParseCode cmd::Resources::parse_args(mp::ArgParser* parser)

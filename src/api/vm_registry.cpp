@@ -92,7 +92,7 @@ std::string mp::api::VmRegistry::default_path()
 {
     const auto data =
         MP_STDPATHS.writableLocation(StandardPaths::GenericDataLocation);
-    const QDir dir{data + "/hyperpass-api"};
+    const QDir dir{data + "/elp-api"};
     if (!dir.exists())
         QDir().mkpath(dir.path());
     return dir.filePath("vm_registry.json").toStdString();

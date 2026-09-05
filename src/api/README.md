@@ -1,18 +1,18 @@
-# hyperpass-api
+# elp-api
 
 REST sidecar implementing the AtomOS VM API (temporarily on matcher port **7777**;
-Service/Meson canonical is 7781), translating to `hyperpassd` over mTLS gRPC.
+Service/Meson canonical is 7781), translating to `elpd` over mTLS gRPC.
 All endpoints — including fingerprint discovery — share that listen port on
-localhost and the Hyperpass VM gateway (`192.168.67.1`).
+localhost and the Electros LaunchPad VM gateway (`192.168.67.1`).
 
 ## Build
 
-Enabled by default (`HYPERPASS_ENABLE_API=ON`). Binary: `build/bin/hyperpass-api`
+Enabled by default (`ELP_ENABLE_API=ON`). Binary: `build/bin/elp-api`
 
 ## Run (local dev)
 
 ```bash
-export HYPERPASS_SERVER_ADDRESS=unix:/tmp/hyperpass.socket
+export ELP_SERVER_ADDRESS=unix:/tmp/elp.socket
 # Prefer a token (matches Bruno Bearer auth). --insecure-no-auth is local-only.
 # HTTPS is on by default (Electros fingerprints the peer cert on :7777).
 ./scripts/run-dev-api.sh --token secret
@@ -27,7 +27,7 @@ require `Authorization: Bearer <token>` unless `--insecure-no-auth`.
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| GET | `/` | yes | Ping (503 if hyperpassd down) |
+| GET | `/` | yes | Ping (503 if elpd down) |
 | GET | `/version` | yes | Service + backend version |
 | GET | `/api/v1.0/canallocate` | yes | Remaining ResourcePool RAM (MiB); body can request `req.mem.capacity` |
 | POST | `/api/v1.0/register` | yes | Launch VM (returns `uniqueID` + `vm_uid`) |
@@ -43,14 +43,14 @@ require `Authorization: Bearer <token>` unless `--insecure-no-auth`.
 | GET | `/api/v1.0/models` | yes | Loaded models (control plane; matcher Bearer) |
 | POST | `/api/v1.0/models/suggested\|pull\|load\|unload` | yes | llmfit suggestions and vault load |
 
-OpenAI inference (`sk-hp-` keys only; matcher token is rejected):
+OpenAI inference (`sk-elp-` keys only; matcher token is rejected):
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| GET | `/v1/models` | `Bearer sk-hp-…` | Loaded models |
-| POST | `/v1/chat/completions` | `Bearer sk-hp-…` | Proxied to localhost llama-server |
-| POST | `/v1/completions` | `Bearer sk-hp-…` | Proxied to localhost llama-server |
-| POST | `/v1/embeddings` | `Bearer sk-hp-…` | Proxied to localhost llama-server |
+| GET | `/v1/models` | `Bearer sk-elp-…` | Loaded models |
+| POST | `/v1/chat/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
+| POST | `/v1/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
+| POST | `/v1/embeddings` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 
 Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/api/v1/authenticate/cert`.  
 Extra (matcher auth): `/v1/instances`.
@@ -60,7 +60,7 @@ Extra (matcher auth): `/v1/instances`.
 Electros does **not** call an HTTP fingerprint route on the remote matcher. It opens a
 TLS connection to `host:7777` (fallback `:7772`) and SHA-256s the peer cert DER.
 
-Hyperpass exposes the same probe as Electros' local auth client, on the VM API port:
+Electros LaunchPad exposes the same probe as Electros' local auth client, on the VM API port:
 
 ```bash
 # Against a real AtomOS matcher (Electros-compatible):
@@ -79,27 +79,27 @@ Options:
 
 | Flag / env | Meaning |
 |------------|---------|
-| `--listen` / `HYPERPASS_API_LISTEN` | All endpoints (default `127.0.0.1,192.168.67.1:7777`) |
+| `--listen` / `ELP_API_LISTEN` | All endpoints (default `127.0.0.1,192.168.67.1:7777`) |
 | `--http` | Opt out of TLS (debug only; breaks Electros fingerprinting) |
-| `--cert` / `HYPERPASS_API_CERT` | Existing certificate PEM (HTTPS is default) |
-| `--key` / `HYPERPASS_API_KEY` | Matching private key PEM |
+| `--cert` / `ELP_API_CERT` | Existing certificate PEM (HTTPS is default) |
+| `--key` / `ELP_API_KEY` | Matching private key PEM |
 
-Providing `--cert`/`--key` uses those PEMs. Otherwise Hyperpass prefers shared
+Providing `--cert`/`--key` uses those PEMs. Otherwise Electros LaunchPad prefers shared
 `/etc/elemento/certs/atomos.{crt,key}` when present, else auto-generates under
-`…/hyperpass-api/https/`. On AtomOS hosts, prefer the shared `atomos.*` pair so one
-Electros TOFU pin covers matcher and Hyperpass.
+`…/elp-api/https/`. On AtomOS hosts, prefer the shared `atomos.*` pair so one
+Electros TOFU pin covers matcher and Electros LaunchPad.
 
 ## Auth
 
 Matches AtomOS Bruno collection headers (`Authorization: Bearer {{auth_token}}`).
 
 ```bash
-./build/bin/hyperpass-api --api-token secret
+./build/bin/elp-api --api-token secret
 curl -k -H "Authorization: Bearer secret" https://127.0.0.1:7777/
 ```
 
 OpenAI `/v1/*` does **not** accept this matcher token. Create a dedicated key with
-`hyperpass llm key create` and pass `Authorization: Bearer sk-hp-…`.
+`elp llm key create` and pass `Authorization: Bearer sk-elp-…`.
 
 ## Logging
 
@@ -111,5 +111,5 @@ Default (`info`): one line per HTTP request (`GET /path -> 200`).
 
 With `debug`/`trace`: pre-routing request details plus service-flow logs (register, canallocate, …). Auth failures log at `warning`.
 
-OpenAPI: [`openapi/hyperpass-external.yaml`](openapi/hyperpass-external.yaml)  
+OpenAPI: [`openapi/elp-external.yaml`](openapi/elp-external.yaml)  
 Bruno reference: AtomOS `service/` collection (temporarily on port 7777).

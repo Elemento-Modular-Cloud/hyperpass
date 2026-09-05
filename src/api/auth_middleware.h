@@ -35,7 +35,7 @@ enum class AuthResult
 /**
  * Paths that never require a Bearer token.
  * Matches AtomOS Service auth (Bearer on "/", "/version", and "/api/v1.0/...");
- * Hyperpass probe extras and TLS fingerprint discovery are exempt.
+ * Electros LaunchPad probe extras and TLS fingerprint discovery are exempt.
  */
 bool is_public_path(std::string_view path);
 

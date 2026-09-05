@@ -131,7 +131,7 @@ TEST_F(FirewallConfig, dtorDeletesKnownRules)
 {
     const QByteArray base_rule{
         fmt::format("POSTROUTING -s {} ! -d {} -m comment --comment \"generated for "
-                    "Hyperpass network {}\" -j MASQUERADE",
+                    "Electros LaunchPad network {}\" -j MASQUERADE",
                     subnet,
                     subnet,
                     goodbr0)
@@ -166,7 +166,7 @@ TEST_F(FirewallConfig, dtorDeleteErrorLogsErrorAndContinues)
 {
     const QByteArray base_rule{
         fmt::format("POSTROUTING -s {} ! -d {} -m comment --comment \"generated for "
-                    "Hyperpass network {}\" -j MASQUERADE",
+                    "Electros LaunchPad network {}\" -j MASQUERADE",
                     subnet,
                     subnet,
                     goodbr0)

@@ -18,5 +18,5 @@ String? parseServiceInstanceSidebarKey(String key) {
 VmId? serviceInstanceVmId(String key) {
   final name = parseServiceInstanceSidebarKey(key);
   if (name == null) return null;
-  return hyperpassVm(name);
+  return elpVm(name);
 }

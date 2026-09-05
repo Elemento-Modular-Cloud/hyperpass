@@ -1,6 +1,6 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
-    <Package Name="Hyperpass" Manufacturer="Elemento Srl" Version="$(Version)"
+    <Package Name="Electros LaunchPad" Manufacturer="Elemento Srl" Version="$(Version)"
         UpgradeCode="c8e4a2b1-7f3d-4a6e-9b5c-1d2e3f4a5b6c">
         <MajorUpgrade AllowDowngrades="yes" />
         <Launch Condition="Installed OR WIN_VERSION >= 17134" Message="!(loc.FeatureUpdateReqd)" />
@@ -9,7 +9,7 @@
         <Icon Id="mp.exe" SourceFile="icon.ico" />
         <Property Id="ARPPRODUCTICON" Value="mp.exe" />
         <Property Id="ARPURLINFOABOUT" Value="https://www.elemento.cloud/" />
-        <Property Id="ARPHELPLINK" Value="https://github.com/Elemento-Modular-Cloud/hyperpass" />
+        <Property Id="ARPHELPLINK" Value="https://github.com/Elemento-Modular-Cloud/elp" />
         <Property Id="MsiLogging" Value="vx!" />
 
         <Property Id="WIN_VERSION">
@@ -34,15 +34,15 @@
             <RegistrySearchRef Id="POWERSHELLEXE" />
         </Property>
 
-        <!-- Uninstall previous version of Hyperpass with exe uninstaller -->
+        <!-- Uninstall previous version of Electros LaunchPad with exe uninstaller -->
         <Property Id="UNINSTALLER_PATH">
             <RegistrySearch Root="HKLM"
-                Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Hyperpass"
+                Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Electros LaunchPad"
                 Name="UninstallString" Type="raw" />
         </Property>
         <Property Id="UNINSTALLER_PATH6432">
             <RegistrySearch Root="HKLM"
-                Key="SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Hyperpass"
+                Key="SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Electros LaunchPad"
                 Name="UninstallString" Type="raw" />
         </Property>
 
@@ -56,12 +56,12 @@
             DllEntry="WixQuietExec" Return="check" Execute="deferred" Impersonate="no" />
 
 
-        <!-- Remove Hyperpass data -->
+        <!-- Remove Electros LaunchPad data -->
         <Property Id="REMOVE_DATA" Value="default" Secure="yes" />
         <Property Id="RemoveDataText" Value="!(loc.RemoveMPData)" />
 
         <SetProperty Id="RemoveMPDataAction" Before="RemoveMPDataAction" Sequence="execute"
-            Value="&quot;[%ComSpec]&quot; /c rmdir /S /Q &quot;[CommonAppDataFolder]Hyperpass&quot; &quot;[LocalAppDataFolder]hyperpass&quot; &quot;[LocalAppDataFolder]hyperpass-client-certificate&quot; &quot;[SystemFolder]config\systemprofile\AppData\Local\hyperpassd&quot; &quot;[SystemFolder]config\systemprofile\AppData\Roaming\hyperpassd&quot;" />
+            Value="&quot;[%ComSpec]&quot; /c rmdir /S /Q &quot;[CommonAppDataFolder]Electros LaunchPad&quot; &quot;[LocalAppDataFolder]elp&quot; &quot;[LocalAppDataFolder]elp-client-certificate&quot; &quot;[SystemFolder]config\systemprofile\AppData\Local\elpd&quot; &quot;[SystemFolder]config\systemprofile\AppData\Roaming\elpd&quot;" />
 
         <CustomAction Id="AskRemoveDataMsgBox" BinaryRef="CABinary" DllEntry="AskRemoveData"
             Return="ignore" />
@@ -71,14 +71,14 @@
             DllEntry="WixQuietExec" Execute="deferred" Return="ignore" Impersonate="no" />
         <CustomAction Id="RemoveMPInstances.SetCmdLine" Execute="immediate"
             Property="WixQuietExecCmdLine"
-            Value="&quot;[%ComSpec]&quot; /c &quot;[BinFolder]hyperpass.exe&quot; delete -p --all" />
+            Value="&quot;[%ComSpec]&quot; /c &quot;[BinFolder]elp.exe&quot; delete -p --all" />
         <CustomAction Id="RemoveMPInstances" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
             DllEntry="WixQuietExec" Return="ignore" Execute="immediate" />
 
 
         <!-- Install client certificates -->
         <SetProperty Id="InstallClientCertsAction"
-            Value="&quot;[%ComSpec]&quot; /c &quot;[BinFolder]hyperpassd.exe&quot; /install"
+            Value="&quot;[%ComSpec]&quot; /c &quot;[BinFolder]elpd.exe&quot; /install"
             Before="InstallClientCertsAction" Sequence="execute" />
         <CustomAction Id="InstallClientCertsAction" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
             DllEntry="WixQuietExec" Execute="deferred" Return="ignore" Impersonate="no" />
@@ -93,26 +93,26 @@
             After="AppSearch" />
 
 
-        <!-- Create Hyperpass daemon configuration file -->
+        <!-- Create Electros LaunchPad daemon configuration file -->
         <Property Id="MP_DATA_DIR">
-            <RegistrySearch Id="HyperpassDataDirRegKey" Root="HKLM"
+            <RegistrySearch Id="ElpDataDirRegKey" Root="HKLM"
                 Key="SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
-                Name="HYPERPASS_STORAGE" Type="raw" />
+                Name="ELP_STORAGE" Type="raw" />
         </Property>
 
         <CustomAction Id="SetMP_DATA_DIR" Execute="immediate" Property="MP_DATA_DIR"
-            Value="[CommonAppDataFolder]Hyperpass\" />
+            Value="[CommonAppDataFolder]Electros LaunchPad\" />
         <CustomAction Id="DaemonConfigFileAction.SetCmdLine" Execute="immediate"
             Property="WixQuietExecCmdLine"
-            Value="&quot;[%ComSpec]&quot; /c mkdir &quot;[MP_DATA_DIR]&quot; &amp; echo local.driver=[DRIVER] &gt; &quot;[MP_DATA_DIR]hyperpassd.conf&quot;" />
+            Value="&quot;[%ComSpec]&quot; /c mkdir &quot;[MP_DATA_DIR]&quot; &amp; echo local.driver=[DRIVER] &gt; &quot;[MP_DATA_DIR]elpd.conf&quot;" />
         <CustomAction Id="DaemonConfigFileAction" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
             DllEntry="WixQuietExec" Return="ignore" Execute="immediate" />
 
 
-        <!-- Forcibly stop the Hyperpass service -->
+        <!-- Forcibly stop the Electros LaunchPad service -->
         <!-- bug#3650: remove this and it's custom action in InstallExecuteSequence when fixed -->
         <util:CloseApplication RebootPrompt="no" TerminateProcess="0"
-            Target="[INSTALLFOLDER]bin\hyperpassd.exe" ElevatedEndSessionMessage="yes"
+            Target="[INSTALLFOLDER]bin\elpd.exe" ElevatedEndSessionMessage="yes"
             Condition="Installed AND (REMOVE~=&quot;ALL&quot; OR UPGRADINGPRODUCTCODE)" />
 
         <!-- Enable HyperV -->
@@ -124,13 +124,13 @@
 
         <CustomAction Id="GUI.TaskClose.SetCmdLine" Execute="immediate"
             Property="WixQuietExecCmdLine"
-            Value="&quot;[WindowsFolder]System32\taskkill.exe&quot; /f /t /im hyperpass.gui.exe" />
+            Value="&quot;[WindowsFolder]System32\taskkill.exe&quot; /f /t /im elp.gui.exe" />
         <CustomAction Id="GUI.TaskClose" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
             DllEntry="WixQuietExec" Execute="immediate" Return="ignore" />
 
         <CustomAction Id="CLI.TaskClose.SetCmdLine" Execute="immediate"
             Property="WixQuietExecCmdLine"
-            Value="&quot;[WindowsFolder]System32\taskkill.exe&quot; /f /t /im hyperpass.exe" />
+            Value="&quot;[WindowsFolder]System32\taskkill.exe&quot; /f /t /im elp.exe" />
         <CustomAction Id="CLI.TaskClose" BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)"
             DllEntry="WixQuietExec" Execute="immediate" Return="ignore" />
 
@@ -186,7 +186,7 @@
             <ComponentGroupRef Id="ApiComponents" />
             <ComponentGroupRef Id="GUIComponents" />
             <ComponentGroupRef Id="AdditionalComponents" />
-            <ComponentGroupRef Id="HyperpassSupportComponents" />
+            <ComponentGroupRef Id="ElpSupportComponents" />
             <ComponentRef Id="CleanUpNetworkCache" />
         </Feature>
     </Fragment>
@@ -205,8 +205,8 @@
 
             <Component>
                 <RegistryKey Root="HKLM"
-                    Key="SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\hyperpass.exe">
-                    <RegistryValue Value="[INSTALLFOLDER]bin\hyperpass.exe" />
+                    Key="SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\elp.exe">
+                    <RegistryValue Value="[INSTALLFOLDER]bin\elp.exe" />
                     <RegistryValue Name="Path" Value="[INSTALLFOLDER]bin" />
                 </RegistryKey>
             </Component>

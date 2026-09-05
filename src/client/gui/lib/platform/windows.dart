@@ -77,7 +77,7 @@ class WindowsAutostartNotifier extends AutostartNotifier {
   }
 
   final link = File(
-    '${Platform.environment['AppData']}/Microsoft/Windows/Start Menu/Programs/Startup/Hyperpass.lnk',
+    '${Platform.environment['AppData']}/Microsoft/Windows/Start Menu/Programs/Startup/Electros LaunchPad.lnk',
   );
 
   @override

@@ -1,15 +1,15 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
     <Fragment>
         <ComponentGroup Id="GUIComponents" Directory="INSTALLFOLDER">
-            <Component Id="HyperpassGUI" Subdirectory="bin">
-                <File Id="hyperpass.gui.exe" Source="bin\hyperpass.gui.exe" />
+            <Component Id="ElpGUI" Subdirectory="bin">
+                <File Id="elp.gui.exe" Source="bin\elp.gui.exe" />
             </Component>
 
             <Component>
-                <RegistryValue Root="HKCU" Key="SOFTWARE\Elemento\Hyperpass" Name="installed"
+                <RegistryValue Root="HKCU" Key="SOFTWARE\Elemento\Electros LaunchPad" Name="installed"
                     Type="integer" Value="1" KeyPath="yes" />
-                <Shortcut Name="Hyperpass" Directory="ProgramMenuFolder" Icon="mp.exe"
-                    Target="[#hyperpass.gui.exe]" />
+                <Shortcut Name="Electros LaunchPad" Directory="ProgramMenuFolder" Icon="mp.exe"
+                    Target="[#elp.gui.exe]" />
             </Component>
         </ComponentGroup>
     </Fragment>

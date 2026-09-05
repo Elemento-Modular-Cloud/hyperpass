@@ -20,7 +20,7 @@ configure_file(
 
 add_subdirectory(cert)
 add_subdirectory(client)
-if(HYPERPASS_ENABLE_API)
+if(ELP_ENABLE_API)
   add_subdirectory(api)
 endif()
 add_subdirectory(daemon)

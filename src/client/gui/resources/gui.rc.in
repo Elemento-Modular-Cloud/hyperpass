@@ -9,11 +9,11 @@ BEGIN
     BLOCK "040904B0"
     BEGIN
       VALUE "CompanyName", "Elemento Srl."
-      VALUE "FileDescription", "Hyperpass"
+      VALUE "FileDescription", "Electros LaunchPad"
       VALUE "FileVersion", "@MULTIPASS_VERSION@"
       VALUE "InternalName", ""
       VALUE "OriginalFilename", ""
-      VALUE "ProductName", "Hyperpass"
+      VALUE "ProductName", "Electros LaunchPad"
       VALUE "ProductVersion", "@MULTIPASS_VERSION@"
     END
   END

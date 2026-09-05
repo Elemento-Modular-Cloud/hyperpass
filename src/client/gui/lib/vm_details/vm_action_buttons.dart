@@ -19,7 +19,7 @@ class VmActionButtons extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final name = id.name;
     final client = switch (id.source) {
-      DaemonSource.hyperpass => ref.watch(grpcClientProvider),
+      DaemonSource.elp => ref.watch(grpcClientProvider),
       DaemonSource.multipass => ref.watch(multipassGrpcClientProvider),
     };
 

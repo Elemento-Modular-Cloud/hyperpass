@@ -62,19 +62,19 @@ target_link_libraries(delayed_shutdown
 
 if(MSVC)
   prepare_windows_version_resource(
-    HYPERPASSD_RC_SOURCE
-    hyperpassd
-    "Hyperpass Daemon"
-    "hyperpassd"
-    "hyperpassd.exe"
+    ELPD_RC_SOURCE
+    elpd
+    "Electros LaunchPad Daemon"
+    "elpd"
+    "elpd.exe"
   )
-  add_executable(hyperpassd daemon_main_win.cpp ${HYPERPASSD_RC_SOURCE})
-  qt6_disable_unicode_defines(hyperpassd)
+  add_executable(elpd daemon_main_win.cpp ${ELPD_RC_SOURCE})
+  qt6_disable_unicode_defines(elpd)
 else()
-  add_executable(hyperpassd daemon_main.cpp)
+  add_executable(elpd daemon_main.cpp)
 endif()
 
-target_link_libraries(hyperpassd
+target_link_libraries(elpd
   fmt::fmt-header-only
   daemon)
 
@@ -93,33 +93,33 @@ if (NOT IS_DIRECTORY ${QT_PLUGINS_DIR}/tls)
 endif()
 
 if(APPLE)
-  set_target_properties( hyperpassd PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
+  set_target_properties( elpd PROPERTIES INSTALL_RPATH "@executable_path/../lib" )
 
   # Copy any framework depenencies into the install directory for packaging
   install(CODE "
     include(${CMAKE_SOURCE_DIR}/packaging/FrameworkUtilities.cmake)
-    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hyperpassd\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
-    " COMPONENT hyperpassd)
+    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/elpd\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
+    " COMPONENT elpd)
 
   file(GLOB QT_TLS_PLUGIN_FILES "${QT_PLUGINS_DIR}/tls/*.dylib")
-  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION plugins/tls COMPONENT hyperpassd)
+  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION plugins/tls COMPONENT elpd)
 
 endif(APPLE)
 
-install(TARGETS hyperpassd
+install(TARGETS elpd
   DESTINATION bin
-  COMPONENT hyperpassd)
+  COMPONENT elpd)
 
 if(MSVC)
   install(CODE "
     include(BundleUtilities)
-    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/hyperpassd.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
-    " COMPONENT hyperpassd)
+    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/elpd.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
+    " COMPONENT elpd)
 
   file(GLOB SSL_DLLS "${OPENSSL_INCLUDE_DIR}/../*.dll")
-  install(FILES ${SSL_DLLS} DESTINATION bin COMPONENT hyperpassd)
+  install(FILES ${SSL_DLLS} DESTINATION bin COMPONENT elpd)
 
   file(GLOB QT_TLS_PLUGIN_FILES "${QT_PLUGINS_DIR}/tls/*.dll")
-  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION bin/tls COMPONENT hyperpassd)
+  install(FILES ${QT_TLS_PLUGIN_FILES} DESTINATION bin/tls COMPONENT elpd)
 
 endif()

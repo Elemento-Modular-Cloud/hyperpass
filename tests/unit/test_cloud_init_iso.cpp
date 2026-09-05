@@ -388,7 +388,7 @@ system_info:
     name: ubuntu
 write_files:
   - path: /etc/pollinate/add-user-agent
-    content: "hyperpass/version/1.14.0-dev.1209+g5b2c7f7d # written by Hyperpass\nhyperpass/driver/qemu-8.0.4 # written by Hyperpass\nhyperpass/host/ubuntu-23.10 # written by Hyperpass\nhyperpass/alias/default # written by Hyperpass\n"
+    content: "elp/version/1.14.0-dev.1209+g5b2c7f7d # written by Electros LaunchPad\nelp/driver/qemu-8.0.4 # written by Electros LaunchPad\nelp/host/ubuntu-23.10 # written by Electros LaunchPad\nelp/alias/default # written by Electros LaunchPad\n"
 )";
     mp::CloudInitIso original_iso;
 

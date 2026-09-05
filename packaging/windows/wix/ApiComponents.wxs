@@ -2,10 +2,10 @@
     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
     <Fragment>
         <ComponentGroup Id="ApiComponents" Directory="INSTALLFOLDER">
-            <Component Id="HyperpassApi" Subdirectory="bin">
-                <File Source="bin\hyperpass-api.exe" />
-                <ServiceInstall Name="HyperpassApi" DisplayName="Hyperpass REST API"
-                    Description="REST API sidecar for the Hyperpass daemon"
+            <Component Id="ElpApi" Subdirectory="bin">
+                <File Source="bin\elp-api.exe" />
+                <ServiceInstall Name="ElpApi" DisplayName="Electros LaunchPad REST API"
+                    Description="REST API sidecar for the Electros LaunchPad daemon"
                     Arguments="--listen 127.0.0.1:7777 --insecure-no-auth --verbosity info"
                     Start="auto" Type="ownProcess"
                     ErrorControl="normal">
@@ -14,9 +14,9 @@
                     <util:ServiceConfig FirstFailureActionType="restart"
                         SecondFailureActionType="restart" ThirdFailureActionType="restart"
                         ResetPeriodInDays="49710" />
-                    <ServiceDependency Id="Hyperpass" />
+                    <ServiceDependency Id="Electros LaunchPad" />
                 </ServiceInstall>
-                <ServiceControl Name="HyperpassApi" Start="install" Stop="both" Remove="uninstall" />
+                <ServiceControl Name="ElpApi" Start="install" Stop="both" Remove="uninstall" />
             </Component>
         </ComponentGroup>
     </Fragment>

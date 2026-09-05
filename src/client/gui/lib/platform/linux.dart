@@ -66,7 +66,7 @@ class LinuxPlatform extends MpPlatform {
 }
 
 class LinuxAutostartNotifier extends AutostartNotifier {
-  static const autostartFile = 'hyperpass.gui.autostart.desktop';
+  static const autostartFile = 'elp.gui.autostart.desktop';
   final file = File(
     '${Platform.environment['HOME']}/.config/autostart/$autostartFile',
   );

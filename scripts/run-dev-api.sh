@@ -1,50 +1,50 @@
 #!/usr/bin/env bash
-# Run a built hyperpass-api against a local/dev hyperpassd (see LOCAL_DEV.md).
+# Run a built elp-api against a local/dev elpd (see LOCAL_DEV.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
-API_BIN="${BUILD_DIR}/bin/hyperpass-api"
-HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
+API_BIN="${BUILD_DIR}/bin/elp-api"
+ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
 # Temporary: matcher VM port. Service/Meson canonical is 7781.
 # Bind localhost + VM gateway (not 0.0.0.0) so guests reach https://192.168.67.1:7777.
-HYPERPASS_API_LISTEN="${HYPERPASS_API_LISTEN:-127.0.0.1,192.168.67.1:7777}"
-HYPERPASS_API_TOKEN="${HYPERPASS_API_TOKEN:-}"
+ELP_API_LISTEN="${ELP_API_LISTEN:-127.0.0.1,192.168.67.1:7777}"
+ELP_API_TOKEN="${ELP_API_TOKEN:-}"
 INSECURE=0
 HTTP=0
-CERT_FILE="${HYPERPASS_API_CERT:-}"
-KEY_FILE="${HYPERPASS_API_KEY:-}"
+CERT_FILE="${ELP_API_CERT:-}"
+KEY_FILE="${ELP_API_KEY:-}"
 VERBOSITY="${VERBOSITY:-info}"
 ACTION=start
 WAIT_GATEWAY_SECS="${WAIT_GATEWAY_SECS:-30}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [options] [-- <extra hyperpass-api args>]
+Usage: $(basename "$0") [options] [-- <extra elp-api args>]
 
-Start the REST API sidecar against a local hyperpassd. Prefer running
+Start the REST API sidecar against a local elpd. Prefer running
 scripts/run-dev-daemon.sh first. HTTPS is on by default (AtomOS/Electros).
 
 Options:
-  --stop              Stop a running hyperpass-api started from this build tree
+  --stop              Stop a running elp-api started from this build tree
   --build-dir DIR     Build directory (default: ${BUILD_DIR})
-  --listen ADDR       HTTPS listen host[,host…]:port (default: ${HYPERPASS_API_LISTEN})
-  --token TOKEN       Bearer API token (or set HYPERPASS_API_TOKEN)
+  --listen ADDR       HTTPS listen host[,host…]:port (default: ${ELP_API_LISTEN})
+  --token TOKEN       Bearer API token (or set ELP_API_TOKEN)
   --insecure-no-auth  Disable REST auth (local development only)
   --http              Plain HTTP instead of HTTPS (breaks Electros fingerprinting)
-  --cert PATH         TLS certificate PEM (or HYPERPASS_API_CERT)
-  --key PATH          TLS private key PEM (or HYPERPASS_API_KEY)
+  --cert PATH         TLS certificate PEM (or ELP_API_CERT)
+  --key PATH          TLS private key PEM (or ELP_API_KEY)
   --verbosity LEVEL   Log level (default: ${VERBOSITY})
   -h, --help          Show this help
 
 Environment:
   BUILD_DIR
-  HYPERPASS_SOCKET            Used to set HYPERPASS_SERVER_ADDRESS=unix:\$SOCKET
-  HYPERPASS_SERVER_ADDRESS    Override daemon address entirely
-  HYPERPASS_API_LISTEN
-  HYPERPASS_API_TOKEN
-  HYPERPASS_API_CERT
-  HYPERPASS_API_KEY
+  ELP_SOCKET            Used to set ELP_SERVER_ADDRESS=unix:\$SOCKET
+  ELP_SERVER_ADDRESS    Override daemon address entirely
+  ELP_API_LISTEN
+  ELP_API_TOKEN
+  ELP_API_CERT
+  ELP_API_KEY
   WAIT_GATEWAY_SECS           Seconds to wait for non-loopback listen IPs (default: 30)
   VERBOSITY
 
@@ -57,7 +57,7 @@ EOF
 }
 
 stop_dev_api() {
-  echo "==> Stopping dev hyperpass-api (if any)"
+  echo "==> Stopping dev elp-api (if any)"
   if [[ -x "$API_BIN" ]]; then
     pkill -f "$API_BIN" 2>/dev/null || true
   fi
@@ -100,7 +100,7 @@ wait_for_listen_hosts() {
       echo "    gateway ${host} is up"
       continue
     fi
-    echo "==> Waiting up to ${timeout_secs}s for ${host} (start hyperpassd / bring up the VM bridge)"
+    echo "==> Waiting up to ${timeout_secs}s for ${host} (start elpd / bring up the VM bridge)"
     local waited=0
     while (( waited < timeout_secs )); do
       if host_is_present "$host"; then
@@ -111,7 +111,7 @@ wait_for_listen_hosts() {
       waited=$((waited + 1))
     done
     if ! host_is_present "$host"; then
-      echo "    warning: ${host} not found yet; hyperpass-api will keep retrying the bind" >&2
+      echo "    warning: ${host} not found yet; elp-api will keep retrying the bind" >&2
     fi
   done
 }
@@ -120,9 +120,9 @@ EXTRA_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stop) ACTION=stop; shift ;;
-    --build-dir) BUILD_DIR="$2"; API_BIN="${BUILD_DIR}/bin/hyperpass-api"; shift 2 ;;
-    --listen) HYPERPASS_API_LISTEN="$2"; shift 2 ;;
-    --token) HYPERPASS_API_TOKEN="$2"; shift 2 ;;
+    --build-dir) BUILD_DIR="$2"; API_BIN="${BUILD_DIR}/bin/elp-api"; shift 2 ;;
+    --listen) ELP_API_LISTEN="$2"; shift 2 ;;
+    --token) ELP_API_TOKEN="$2"; shift 2 ;;
     --insecure-no-auth) INSECURE=1; shift ;;
     --http) HTTP=1; shift ;;
     --https) shift ;; # default; kept for backwards compatibility
@@ -141,22 +141,22 @@ if [[ "$ACTION" == stop ]]; then
 fi
 
 if [[ ! -x "$API_BIN" ]]; then
-  echo "error: hyperpass-api not found at ${API_BIN}" >&2
-  echo "       Build with HYPERPASS_ENABLE_API=ON (default)." >&2
+  echo "error: elp-api not found at ${API_BIN}" >&2
+  echo "       Build with ELP_ENABLE_API=ON (default)." >&2
   exit 1
 fi
 
-if [[ -z "${HYPERPASS_SERVER_ADDRESS:-}" ]]; then
-  export HYPERPASS_SERVER_ADDRESS="unix:${HYPERPASS_SOCKET}"
+if [[ -z "${ELP_SERVER_ADDRESS:-}" ]]; then
+  export ELP_SERVER_ADDRESS="unix:${ELP_SOCKET}"
 fi
 
 AUTH_ARGS=()
 if [[ "$INSECURE" -eq 1 ]]; then
   AUTH_ARGS+=(--insecure-no-auth)
-elif [[ -n "$HYPERPASS_API_TOKEN" ]]; then
-  AUTH_ARGS+=(--api-token "$HYPERPASS_API_TOKEN")
+elif [[ -n "$ELP_API_TOKEN" ]]; then
+  AUTH_ARGS+=(--api-token "$ELP_API_TOKEN")
 else
-  echo "error: provide --token / HYPERPASS_API_TOKEN or --insecure-no-auth" >&2
+  echo "error: provide --token / ELP_API_TOKEN or --insecure-no-auth" >&2
   exit 1
 fi
 
@@ -173,17 +173,17 @@ if [[ -n "$KEY_FILE" ]]; then
   TLS_ARGS+=(--key "$KEY_FILE")
 fi
 
-echo "==> Dev hyperpass-api"
+echo "==> Dev elp-api"
 echo "    binary:  ${API_BIN}"
-echo "    listen:  ${SCHEME}://${HYPERPASS_API_LISTEN}"
-echo "    daemon:  ${HYPERPASS_SERVER_ADDRESS}"
-wait_for_listen_hosts "$HYPERPASS_API_LISTEN" "$WAIT_GATEWAY_SECS"
+echo "    listen:  ${SCHEME}://${ELP_API_LISTEN}"
+echo "    daemon:  ${ELP_SERVER_ADDRESS}"
+wait_for_listen_hosts "$ELP_API_LISTEN" "$WAIT_GATEWAY_SECS"
 echo
 echo "    Stop:    Ctrl-C, or: $(basename "$0") --stop"
 echo
 
 exec "$API_BIN" \
-  --listen "$HYPERPASS_API_LISTEN" \
+  --listen "$ELP_API_LISTEN" \
   --verbosity "$VERBOSITY" \
   "${AUTH_ARGS[@]}" \
   "${TLS_ARGS[@]+"${TLS_ARGS[@]}"}" \

@@ -46,11 +46,11 @@ add_custom_target(qemu-system ALL DEPENDS
 
 install(PROGRAMS "${QEMU_SYSTEM}"
     DESTINATION bin
-    COMPONENT hyperpassd
+    COMPONENT elpd
 )
 
 # Install firmware
 install(DIRECTORY "${QEMU_FIRMWARE_DIR}/"
     DESTINATION Resources/qemu
-    COMPONENT hyperpassd
+    COMPONENT elpd
 )

@@ -280,7 +280,7 @@
     "@modelsLabel": {
         "description": "Sidebar and page title for local LLM models"
     },
-    "modelsOpenaiHint": "Clients use these OpenAI-compatible base URLs with an sk-hp- API key. The gateway listens on all interfaces so Hyperpass VMs can reach it on 192.168.67.1; inference backends stay on localhost.",
+    "modelsOpenaiHint": "Clients use these OpenAI-compatible base URLs with an sk-elp- API key. The gateway listens on all interfaces so Electros LaunchPad VMs can reach it on 192.168.67.1; inference backends stay on localhost.",
     "@modelsOpenaiHint": {
         "description": "Explains the OpenAI API contract on the Credentials screen"
     },
@@ -361,7 +361,7 @@
     "@modelsKeyCreatedTitle": {
         "description": "Dialog title after creating an API key"
     },
-    "modelsKeyCreatedBody": "Copy this secret now. Hyperpass stores only a hash.",
+    "modelsKeyCreatedBody": "Copy this secret now. Electros LaunchPad stores only a hash.",
     "@modelsKeyCreatedBody": {
         "description": "Dialog body after creating an API key"
     },
@@ -457,7 +457,7 @@
     "@modelsTabRuntimes": {
         "description": "Models tab: loaded backends and API keys"
     },
-    "modelsBackendsHint": "Hyperpass probes local binaries used for catalog search and model inference. Install missing components using the hints below; automatic install will be added later.",
+    "modelsBackendsHint": "Electros LaunchPad probes local binaries used for catalog search and model inference. Install missing components using the hints below; automatic install will be added later.",
     "@modelsBackendsHint": {
         "description": "Intro text on the backends detection tab"
     },
@@ -603,7 +603,7 @@
     },
     "hostRamScheduler": "RAM (scheduler)",
     "@hostRamScheduler": {
-        "description": "Label for Hyperpass RAM reservations"
+        "description": "Label for Electros LaunchPad RAM reservations"
     },
     "hostCpuScheduler": "CPU (scheduler)",
     "@hostCpuScheduler": {
@@ -621,9 +621,9 @@
     "@vmTableHostPressure": {
         "description": "Compact host-pressure label on the instance table"
     },
-    "sidebarDaemonService": "Hyperpass daemon",
+    "sidebarDaemonService": "Electros LaunchPad daemon",
     "@sidebarDaemonService": {
-        "description": "Sidebar footer label for Hyperpass daemon connectivity status"
+        "description": "Sidebar footer label for Electros LaunchPad daemon connectivity status"
     },
     "sidebarMultipassService": "Multipass daemon",
     "@sidebarMultipassService": {
@@ -960,13 +960,13 @@
     "@aboutTitle": {
         "description": "Section heading on the About settings page"
     },
-    "aboutVersionLabel": "Hyperpass version",
+    "aboutVersionLabel": "Electros LaunchPad version",
     "@aboutVersionLabel": {
-        "description": "Label for the Hyperpass client version field on the About page"
+        "description": "Label for the Electros LaunchPad client version field on the About page"
     },
-    "aboutDaemonVersionLabel": "Hyperpass daemon version",
+    "aboutDaemonVersionLabel": "Electros LaunchPad daemon version",
     "@aboutDaemonVersionLabel": {
-        "description": "Label for the Hyperpass daemon version field on the About page"
+        "description": "Label for the Electros LaunchPad daemon version field on the About page"
     },
     "generalTitle": "General",
     "@generalTitle": {
@@ -1066,7 +1066,7 @@
         "placeholders": {
             "path": {
                 "type": "String",
-                "example": "~/.hyperpass/backgrounds"
+                "example": "~/.elp/backgrounds"
             }
         }
     },
@@ -1074,7 +1074,7 @@
     "@appearanceColourPickerTitle": {
         "description": "Title for the wallpaper/card colour picker dialog"
     },
-    "generalAutostartLabel": "Open the Hyperpass GUI on startup",
+    "generalAutostartLabel": "Open the Electros LaunchPad GUI on startup",
     "@generalAutostartLabel": {
         "description": "Toggle label for the autostart setting"
     },
@@ -1087,9 +1087,9 @@
             }
         }
     },
-    "generalOnCloseLabel": "When closing Hyperpass",
+    "generalOnCloseLabel": "When closing Electros LaunchPad",
     "@generalOnCloseLabel": {
-        "description": "Label for the dropdown that controls what happens when Hyperpass is closed"
+        "description": "Label for the dropdown that controls what happens when Electros LaunchPad is closed"
     },
     "generalOnCloseAsk": "Ask about running instances",
     "@generalOnCloseAsk": {
@@ -1619,11 +1619,11 @@
     },
     "daemonWaiting": "Waiting for daemon...",
     "@daemonWaiting": {
-        "description": "Status message shown while waiting for the Hyperpass daemon to become available"
+        "description": "Status message shown while waiting for the Electros LaunchPad daemon to become available"
     },
-    "updateAvailableTitle": "Hyperpass {version} is available",
+    "updateAvailableTitle": "Electros LaunchPad {version} is available",
     "@updateAvailableTitle": {
-        "description": "In-app banner and notification text announcing a new Hyperpass version",
+        "description": "In-app banner and notification text announcing a new Electros LaunchPad version",
         "placeholders": {
             "version": {
                 "type": "String"
@@ -1634,13 +1634,13 @@
     "@updateAvailableUpgrade": {
         "description": "Button label to start the upgrade process"
     },
-    "localNotificationUpdateTitle": "Hyperpass Update Available",
+    "localNotificationUpdateTitle": "Electros LaunchPad Update Available",
     "@localNotificationUpdateTitle": {
-        "description": "Title of the system notification announcing a new Hyperpass version"
+        "description": "Title of the system notification announcing a new Electros LaunchPad version"
     },
     "localNotificationUpdateBody": "Version {version} is available. Click to upgrade now.",
     "@localNotificationUpdateBody": {
-        "description": "Body text of the system notification announcing a new Hyperpass version",
+        "description": "Body text of the system notification announcing a new Electros LaunchPad version",
         "placeholders": {
             "version": {
                 "type": "String"
@@ -1879,9 +1879,9 @@
     "@trayToggleWindow": {
         "description": "Tray menu item label to show or hide the main window"
     },
-    "trayMultipassVersion": "hyperpass version: {version}",
+    "trayMultipassVersion": "elp version: {version}",
     "@trayMultipassVersion": {
-        "description": "Tray menu item showing the Hyperpass client version",
+        "description": "Tray menu item showing the Electros LaunchPad client version",
         "placeholders": {
             "version": {
                 "type": "String"
@@ -1892,9 +1892,9 @@
     "@trayCopyright": {
         "description": "Tray menu copyright notice"
     },
-    "trayMultipassdVersion": "hyperpassd version: {version}",
+    "trayMultipassdVersion": "elpd version: {version}",
     "@trayMultipassdVersion": {
-        "description": "Tray menu item showing the Hyperpass daemon version",
+        "description": "Tray menu item showing the Electros LaunchPad daemon version",
         "placeholders": {
             "version": {
                 "type": "String"
@@ -1909,9 +1909,9 @@
     "@trayErrorInstanceData": {
         "description": "Tray menu error message shown when instance data cannot be retrieved"
     },
-    "trayOpenInMultipass": "Open in Hyperpass",
+    "trayOpenInMultipass": "Open in Electros LaunchPad",
     "@trayOpenInMultipass": {
-        "description": "Tray menu item label to open the instance in the Hyperpass window"
+        "description": "Tray menu item label to open the instance in the Electros LaunchPad window"
     },
     "spellOutNumber": "{n, select, 0{zero} 1{one} 2{two} 3{three} 4{four} 5{five} 6{six} 7{seven} 8{eight} 9{nine} other{{n}}}",
     "@spellOutNumber": {

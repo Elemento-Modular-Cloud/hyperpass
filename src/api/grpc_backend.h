@@ -111,7 +111,7 @@ struct LaunchSpec
 };
 
 /**
- * Thin gRPC client over hyperpassd. Uses the same mTLS channel path as the CLI.
+ * Thin gRPC client over elpd. Uses the same mTLS channel path as the CLI.
  * Streaming RPCs are collapsed to a final reply for unary-style REST handlers.
  */
 class GrpcBackend

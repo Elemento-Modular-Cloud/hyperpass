@@ -41,11 +41,11 @@ constexpr auto category = "api-server";
 }
 
 mp::api::ApiServer::ApiServer(ApiConfig config,
-                              std::shared_ptr<GrpcBackend> hyperpass_backend,
+                              std::shared_ptr<GrpcBackend> elp_backend,
                               std::shared_ptr<VmRegistry> registry,
                               std::shared_ptr<GrpcBackend> multipass_backend)
     : config{std::move(config)},
-      hyperpass_backend{std::move(hyperpass_backend)},
+      elp_backend{std::move(elp_backend)},
       vm_registry{std::move(registry)},
       multipass_backend{std::move(multipass_backend)}
 {
@@ -194,12 +194,12 @@ void mp::api::ApiServer::register_routes(httplib::Server& server)
     });
     server.Get("/fingerprint", fingerprint_handler);
 
-    register_service_handlers(server, *hyperpass_backend, *vm_registry);
-    register_health_handlers(server, *hyperpass_backend, multipass_backend.get());
-    register_instance_handlers(server, *hyperpass_backend, multipass_backend.get());
+    register_service_handlers(server, *elp_backend, *vm_registry);
+    register_health_handlers(server, *elp_backend, multipass_backend.get());
+    register_instance_handlers(server, *elp_backend, multipass_backend.get());
     register_operation_handlers(server, tracker);
-    register_model_control_handlers(server, *hyperpass_backend);
-    register_openai_handlers(server, *hyperpass_backend);
+    register_model_control_handlers(server, *elp_backend);
+    register_openai_handlers(server, *elp_backend);
 }
 
 bool mp::api::ApiServer::listen()
@@ -230,7 +230,7 @@ bool mp::api::ApiServer::listen()
             bound.push_back(i);
             mpl::log(mpl::Level::info,
                      category,
-                     "listening on {}://{}:{} (hyperpass={}, multipass={}, verbosity={})",
+                     "listening on {}://{}:{} (elp={}, multipass={}, verbosity={})",
                      scheme,
                      host,
                      endpoint.port,

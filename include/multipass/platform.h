@@ -139,6 +139,6 @@ inline multipass::platform::Platform::Platform(const PrivatePass& pass) noexcept
 
 inline std::filesystem::path multipass::platform::Platform::get_root_cert_path() const
 {
-    constexpr auto* root_cert_file_name = "hyperpass_root_cert.pem";
+    constexpr auto* root_cert_file_name = "elp_root_cert.pem";
     return get_root_cert_dir() / root_cert_file_name;
 }

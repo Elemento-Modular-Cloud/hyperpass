@@ -203,9 +203,9 @@ TEST(ApiHandlers, listReplyToJsonMapsInstances)
     item->set_current_release("24.04");
     item->add_ipv4("10.0.2.15");
 
-    const auto json = api::list_reply_to_json(reply, mp::instance_source_hyperpass);
+    const auto json = api::list_reply_to_json(reply, mp::instance_source_elp);
     EXPECT_THAT(json, HasSubstr("\"name\":\"primary\""));
-    EXPECT_THAT(json, HasSubstr("\"source\":\"hyperpass\""));
+    EXPECT_THAT(json, HasSubstr("\"source\":\"elp\""));
     EXPECT_THAT(json, HasSubstr("\"state\":\"running\""));
     EXPECT_THAT(json, HasSubstr("10.0.2.15"));
 }
@@ -214,7 +214,7 @@ TEST(ApiHandlers, appendInstancesTagsSource)
 {
     mp::ListReply hp;
     auto* hp_item = hp.mutable_instance_list()->add_instances();
-    hp_item->set_name("hp-vm");
+    hp_item->set_name("elp-vm");
     hp_item->mutable_instance_status()->set_status(mp::InstanceStatus::STOPPED);
 
     mp::ListReply mp_reply;
@@ -223,12 +223,12 @@ TEST(ApiHandlers, appendInstancesTagsSource)
     mp_item->mutable_instance_status()->set_status(mp::InstanceStatus::RUNNING);
 
     boost::json::array out;
-    api::append_instances_from_reply(out, hp, mp::instance_source_hyperpass);
+    api::append_instances_from_reply(out, hp, mp::instance_source_elp);
     api::append_instances_from_reply(out, mp_reply, mp::instance_source_multipass);
 
     ASSERT_EQ(out.size(), 2);
-    EXPECT_EQ(out[0].as_object().at("name").as_string(), "hp-vm");
-    EXPECT_EQ(out[0].as_object().at("source").as_string(), "hyperpass");
+    EXPECT_EQ(out[0].as_object().at("name").as_string(), "elp-vm");
+    EXPECT_EQ(out[0].as_object().at("source").as_string(), "elp");
     EXPECT_EQ(out[1].as_object().at("name").as_string(), "mp-vm");
     EXPECT_EQ(out[1].as_object().at("source").as_string(), "multipass");
 }
@@ -263,7 +263,7 @@ TEST(ApiDiscovery, defaultMultipassAddressIsPlatformSpecific)
 TEST(ApiVmRegistry, upsertFindAndListByClient)
 {
     const auto path =
-        (std::filesystem::temp_directory_path() / "hyperpass-api-registry-test.json").string();
+        (std::filesystem::temp_directory_path() / "elp-api-registry-test.json").string();
     std::filesystem::remove(path);
 
     api::VmRegistry registry{path};

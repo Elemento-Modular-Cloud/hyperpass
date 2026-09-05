@@ -28,33 +28,33 @@
 set(CPACK_WARN_ON_ABSOLUTE_INSTALL_DESTINATION ON) # helps avoid errors
 
 set(CPACK_COMPONENTS_GROUPING ALL_COMPONENTS_IN_ONE)
-set(CPACK_COMPONENTS_ALL hyperpassd hyperpass hyperpass_gui)
-if(HYPERPASS_ENABLE_API)
-  list(APPEND CPACK_COMPONENTS_ALL hyperpass_api)
+set(CPACK_COMPONENTS_ALL elpd elp elp_gui)
+if(ELP_ENABLE_API)
+  list(APPEND CPACK_COMPONENTS_ALL elp_api)
 endif()
 
-set(CPACK_COMPONENT_HYPERPASSD_DISPLAY_NAME "Hyperpass Daemon")
-set(CPACK_COMPONENT_HYPERPASSD_DESCRIPTION
+set(CPACK_COMPONENT_ELPD_DISPLAY_NAME "Electros LaunchPad Daemon")
+set(CPACK_COMPONENT_ELPD_DESCRIPTION
    "Background process that creates and manages virtual machines")
-set(CPACK_COMPONENT_HYPERPASS_DISPLAY_NAME "Clients (CLI and GUI)")
-set(CPACK_COMPONENT_HYPERPASS_DESCRIPTION
-   "Command line tool to talk to the hyperpass daemon")
-set(CPACK_COMPONENT_HYPERPASS_GUI_DISPLAY_NAME "Hyperpass Desktop GUI")
-set(CPACK_COMPONENT_HYPERPASS_GUI_DESCRIPTION
-    "Desktop client for Hyperpass")
-set(CPACK_COMPONENT_HYPERPASS_API_DISPLAY_NAME "Hyperpass REST API")
-set(CPACK_COMPONENT_HYPERPASS_API_DESCRIPTION
-    "REST API sidecar that translates HTTP to the Hyperpass daemon")
+set(CPACK_COMPONENT_ELP_DISPLAY_NAME "Clients (CLI and GUI)")
+set(CPACK_COMPONENT_ELP_DESCRIPTION
+   "Command line tool to talk to the elp daemon")
+set(CPACK_COMPONENT_ELP_GUI_DISPLAY_NAME "Electros LaunchPad Desktop GUI")
+set(CPACK_COMPONENT_ELP_GUI_DESCRIPTION
+    "Desktop client for Electros LaunchPad")
+set(CPACK_COMPONENT_ELP_API_DISPLAY_NAME "Electros LaunchPad REST API")
+set(CPACK_COMPONENT_ELP_API_DESCRIPTION
+    "REST API sidecar that translates HTTP to the Electros LaunchPad daemon")
 
-set(CPACK_COMPONENT_HYPERPASSD_REQUIRED TRUE)
-set(CPACK_COMPONENT_HYPERPASS_REQUIRED TRUE)
-set(CPACK_COMPONENT_HYPERPASS_GUI_REQUIRED TRUE)
-if(HYPERPASS_ENABLE_API)
-  set(CPACK_COMPONENT_HYPERPASS_API_REQUIRED TRUE)
+set(CPACK_COMPONENT_ELPD_REQUIRED TRUE)
+set(CPACK_COMPONENT_ELP_REQUIRED TRUE)
+set(CPACK_COMPONENT_ELP_GUI_REQUIRED TRUE)
+if(ELP_ENABLE_API)
+  set(CPACK_COMPONENT_ELP_API_REQUIRED TRUE)
 endif()
 
 # set default CPack Packaging options
-set(CPACK_PACKAGE_NAME              "hyperpass")
+set(CPACK_PACKAGE_NAME              "elp")
 set(CPACK_PACKAGE_VENDOR            "elemento")
 set(CPACK_PACKAGE_CONTACT           "contact@elemento.cloud")
 set(CPACK_PACKAGE_VERSION           "${MULTIPASS_VERSION}")
@@ -74,7 +74,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Easily create, control and connect to clo
 
 if (MSVC)
   # qemu-img.exe (used to convert qcow images to VHDX) is built by the vcpkg
-  # qemu overlay port and installed into the hyperpassd component by
+  # qemu overlay port and installed into the elpd component by
   # src/cmake/qemu-img-install-and-copy.cmake, so no separate lookup, shim
   # resolution or dependency fixup is needed here. The vcpkg binary is built
   # fully statically (it links only system DLLs), so fixup_bundle is unnecessary.
@@ -82,7 +82,7 @@ if (MSVC)
   # InstallRequiredSystemLibraries finds the VC redistributable dlls shipped with the Visual Studio compiler tools
   # and creats an install(PROGRAMS ...) rule using the destination and component IDs setup below.
   set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION bin)
-  set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT hyperpassd)
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_COMPONENT elpd)
   if(CMAKE_BUILD_TYPE_LOWER STREQUAL "debug")
     set(CMAKE_INSTALL_DEBUG_LIBRARIES TRUE)
     set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
@@ -106,40 +106,40 @@ if(APPLE)
   set(CPACK_GENERATOR "productbuild")
   set(CPACK_productbuild_COMPONENT_INSTALL ON)
 
-  set(CPACK_PACKAGING_INSTALL_PREFIX   "/Library/Application Support/com.elemento.hyperpass")
+  set(CPACK_PACKAGING_INSTALL_PREFIX   "/Library/Application Support/com.elemento.elp")
   list(APPEND CPACK_INSTALL_COMMANDS "bash -x ${CMAKE_SOURCE_DIR}/packaging/macos/fixup-qemu-and-deps.sh ${CMAKE_BINARY_DIR}")
 
-  set(HYPERPASSD_PLIST "com.elemento.hyperpassd.plist")
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${HYPERPASSD_PLIST}.in"
-                 "${CMAKE_BINARY_DIR}/${HYPERPASSD_PLIST}" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/preinstall-hyperpassd.sh.in"
-                 "${CMAKE_BINARY_DIR}/preinstall-hyperpassd.sh" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpassd.sh.in"
-                 "${CMAKE_BINARY_DIR}/postinstall-hyperpassd.sh" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpass.sh.in"
-                 "${CMAKE_BINARY_DIR}/postinstall-hyperpass.sh" @ONLY)
-  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpass-gui.sh.in"
-                 "${CMAKE_BINARY_DIR}/postinstall-hyperpass-gui.sh" @ONLY)
+  set(ELPD_PLIST "com.elemento.elpd.plist")
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${ELPD_PLIST}.in"
+                 "${CMAKE_BINARY_DIR}/${ELPD_PLIST}" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/preinstall-elpd.sh.in"
+                 "${CMAKE_BINARY_DIR}/preinstall-elpd.sh" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-elpd.sh.in"
+                 "${CMAKE_BINARY_DIR}/postinstall-elpd.sh" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-elp.sh.in"
+                 "${CMAKE_BINARY_DIR}/postinstall-elp.sh" @ONLY)
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-elp-gui.sh.in"
+                 "${CMAKE_BINARY_DIR}/postinstall-elp-gui.sh" @ONLY)
 
-  install(FILES "${CMAKE_BINARY_DIR}/${HYPERPASSD_PLIST}" DESTINATION Resources COMPONENT hyperpassd)
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/completions" DESTINATION Resources COMPONENT hyperpass)
-  install(DIRECTORY "${CMAKE_BINARY_DIR}/lib/" DESTINATION lib COMPONENT hyperpassd)
+  install(FILES "${CMAKE_BINARY_DIR}/${ELPD_PLIST}" DESTINATION Resources COMPONENT elpd)
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/completions" DESTINATION Resources COMPONENT elp)
+  install(DIRECTORY "${CMAKE_BINARY_DIR}/lib/" DESTINATION lib COMPONENT elpd)
 
-  set(CPACK_COMPONENT_HYPERPASS_GUI_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/hyperpass-gui-component.plist")
+  set(CPACK_COMPONENT_ELP_GUI_PLIST "${CMAKE_SOURCE_DIR}/packaging/macos/elp-gui-component.plist")
 
-  set(CPACK_PREFLIGHT_HYPERPASSD_SCRIPT  "${CMAKE_BINARY_DIR}/preinstall-hyperpassd.sh")
-  set(CPACK_POSTFLIGHT_HYPERPASSD_SCRIPT "${CMAKE_BINARY_DIR}/postinstall-hyperpassd.sh")
-  set(CPACK_POSTFLIGHT_HYPERPASS_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass.sh")
-  set(CPACK_POSTFLIGHT_HYPERPASS_GUI_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass-gui.sh")
+  set(CPACK_PREFLIGHT_ELPD_SCRIPT  "${CMAKE_BINARY_DIR}/preinstall-elpd.sh")
+  set(CPACK_POSTFLIGHT_ELPD_SCRIPT "${CMAKE_BINARY_DIR}/postinstall-elpd.sh")
+  set(CPACK_POSTFLIGHT_ELP_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-elp.sh")
+  set(CPACK_POSTFLIGHT_ELP_GUI_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-elp-gui.sh")
 
-  if(HYPERPASS_ENABLE_API)
-    set(HYPERPASS_API_PLIST "com.elemento.hyperpass-api.plist")
-    configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${HYPERPASS_API_PLIST}.in"
-                   "${CMAKE_BINARY_DIR}/${HYPERPASS_API_PLIST}" @ONLY)
-    configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-hyperpass-api.sh.in"
-                   "${CMAKE_BINARY_DIR}/postinstall-hyperpass-api.sh" @ONLY)
-    install(FILES "${CMAKE_BINARY_DIR}/${HYPERPASS_API_PLIST}" DESTINATION Resources COMPONENT hyperpass_api)
-    set(CPACK_POSTFLIGHT_HYPERPASS_API_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-hyperpass-api.sh")
+  if(ELP_ENABLE_API)
+    set(ELP_API_PLIST "com.elemento.elp-api.plist")
+    configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${ELP_API_PLIST}.in"
+                   "${CMAKE_BINARY_DIR}/${ELP_API_PLIST}" @ONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-elp-api.sh.in"
+                   "${CMAKE_BINARY_DIR}/postinstall-elp-api.sh" @ONLY)
+    install(FILES "${CMAKE_BINARY_DIR}/${ELP_API_PLIST}" DESTINATION Resources COMPONENT elp_api)
+    set(CPACK_POSTFLIGHT_ELP_API_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-elp-api.sh")
   endif()
 
   # Cleans up the installed package
@@ -154,7 +154,7 @@ if(APPLE)
   set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/packaging/macos")
 
   install(FILES "${CMAKE_SOURCE_DIR}/packaging/macos/uninstall.sh"
-          DESTINATION . COMPONENT hyperpassd)
+          DESTINATION . COMPONENT elpd)
 endif()
 
 # must be last

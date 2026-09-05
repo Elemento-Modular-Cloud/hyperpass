@@ -114,7 +114,7 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                    "missing",
                                    "Required for model catalog and fit scoring",
                                    {},
-                                   "Install llmfit and add it to PATH, or set HYPERPASS_LLMFIT",
+                                   "Install llmfit and add it to PATH, or set ELP_LLMFIT",
                                    true,
                                    false));
     }
@@ -215,7 +215,7 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                                 : "Primary inference backend on this platform",
                                    {},
                                    "Install llama.cpp server and add llama-server to PATH, "
-                                   "or set HYPERPASS_LLAMA_SERVER",
+                                   "or set ELP_LLAMA_SERVER",
                                    !mlx_platform || !mlx_selected,
                                    llamacpp_selected));
     }
@@ -237,7 +237,7 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
     rows.push_back(make_result("ollama",
                                "Ollama",
                                "optional",
-                               "Not integrated with Hyperpass yet",
+                               "Not integrated with Electros LaunchPad yet",
                                QStandardPaths::findExecutable("ollama"),
                                {},
                                false,
@@ -245,7 +245,7 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
     rows.push_back(make_result("vllm",
                                "vLLM",
                                "optional",
-                               "Not integrated with Hyperpass yet",
+                               "Not integrated with Electros LaunchPad yet",
                                {},
                                {},
                                false,
@@ -253,7 +253,7 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
     rows.push_back(make_result("lmstudio",
                                "LM Studio",
                                "optional",
-                               "Not integrated with Hyperpass yet",
+                               "Not integrated with Electros LaunchPad yet",
                                {},
                                {},
                                false,

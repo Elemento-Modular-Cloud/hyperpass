@@ -122,7 +122,7 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
     final l10n = AppLocalizations.of(context)!;
     final name = widget.id.name;
     final grpcClient = switch (widget.id.source) {
-      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.elp => ref.read(grpcClientProvider),
       DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
     };
     if (grpcClient == null) return;
@@ -146,7 +146,7 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
     final name = widget.id.name;
     final target = mountPaths.targetPath;
     final grpcClient = switch (widget.id.source) {
-      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.elp => ref.read(grpcClientProvider),
       DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
     };
     if (grpcClient == null) return;

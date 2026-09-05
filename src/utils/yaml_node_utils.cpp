@@ -176,7 +176,7 @@ YAML::Node mp::utils::make_cloud_init_meta_config(const std::string& name,
     }
 
     meta_data["local-hostname"] = name;
-    meta_data["cloud-name"] = "hyperpass";
+    meta_data["cloud-name"] = "elp";
 
     return meta_data;
 }

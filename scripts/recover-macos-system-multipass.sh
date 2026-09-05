@@ -15,14 +15,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PLIST="/Library/LaunchDaemons/com.canonical.multipassd.plist"
 ROOT_CERT="/usr/local/etc/multipassd/multipass_root_cert.pem"
 DAEMON_CERT_DIR="/var/root/Library/Application Support/multipassd/certificates"
-HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass_multipass.socket}"
-LOCAL_DAEMON="${ROOT}/build/bin/hyperpassd"
+ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
+LOCAL_DAEMON="${ROOT}/build/bin/elpd"
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [--yes]
 
-Stops any local hyperpass multipassd, regenerates the system daemon's gRPC
+Stops any local elpd, regenerates the system Multipass daemon's gRPC
 certificates (and shared root CA), reloads com.canonical.multipassd, and
 checks \`multipass version\`.
 
@@ -31,7 +31,7 @@ Options:
   -h, --help  Show this help
 
 Environment:
-  HYPERPASS_SOCKET   Local unix socket to remove (default: ${HYPERPASS_SOCKET})
+  ELP_SOCKET   Local unix socket to remove (default: ${ELP_SOCKET})
 EOF
 }
 
@@ -57,7 +57,7 @@ fi
 if [[ $confirm -eq 1 ]]; then
   cat <<EOF
 This will:
-  1. Stop local multipassd (${LOCAL_DAEMON} / ${HYPERPASS_SOCKET})
+  1. Stop local elpd (${LOCAL_DAEMON} / ${ELP_SOCKET})
   2. Unload ${PLIST}
   3. Delete gRPC certs under ${DAEMON_CERT_DIR}
   4. Delete shared root CA ${ROOT_CERT}
@@ -72,13 +72,14 @@ EOF
   esac
 fi
 
-echo "==> Stopping local hyperpass / build multipassd (if any)"
+echo "==> Stopping local elpd (if any)"
 if [[ -x "$LOCAL_DAEMON" ]]; then
   sudo pkill -f "$LOCAL_DAEMON" 2>/dev/null || true
 fi
-sudo pkill -f 'unix:/tmp/hyperpass_multipass.socket' 2>/dev/null || true
-if [[ -e "$HYPERPASS_SOCKET" ]]; then
-  sudo rm -f "$HYPERPASS_SOCKET"
+sudo pkill -f "unix:${ELP_SOCKET#unix:}" 2>/dev/null || true
+sudo pkill -f "unix:${ELP_SOCKET}" 2>/dev/null || true
+if [[ -e "$ELP_SOCKET" ]]; then
+  sudo rm -f "$ELP_SOCKET"
 fi
 
 echo "==> Quitting Multipass GUI (so it reloads credentials)"
@@ -120,6 +121,6 @@ fi
 
 echo "System Multipass CLI should be usable again. Re-open the Multipass GUI if needed."
 echo
-echo "When testing a custom daemon next time, keep HYPERPASS_STORAGE and --address"
+echo "When testing a custom daemon next time, keep ELP_STORAGE and --address"
 echo "separate (see LOCAL_DEV.md). Note: on macOS the root CA path is still shared;"
 echo "run this script again after local multipassd sessions that regenerate certs."

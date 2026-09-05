@@ -1,6 +1,6 @@
 {
-    "hyperpass": "Client version",
-    "hyperpassd": "Daemon version",
+    "elp": "Client version",
+    "elpd": "Daemon version",
     "update": {
         "title": "update title information",
         "description": "update description information",

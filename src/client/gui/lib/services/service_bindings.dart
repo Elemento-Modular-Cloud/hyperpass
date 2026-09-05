@@ -18,7 +18,7 @@ final serviceInstanceSyncProvider = Provider<void>((ref) {
     final grpc = ref.read(grpcClientProvider);
 
     for (final vm in vms) {
-      if (vm.source != DaemonSource.hyperpass) continue;
+      if (vm.source != DaemonSource.elp) continue;
 
       if (vm.info.serviceId.isNotEmpty) {
         bindingsNotifier.bind(vm.name, vm.info.serviceId);

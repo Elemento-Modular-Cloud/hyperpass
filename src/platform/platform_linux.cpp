@@ -396,8 +396,8 @@ bool mp::platform::Platform::subnet_used_locally(mp::Subnet subnet) const
 
 mp::Subnet mp::platform::Platform::get_preferred_subnet(const std::filesystem::path& data_dir) const
 {
-    // If the `hyperpass_subnet` file exists, prefer that as a basis for our subnet.
-    if (auto filedata = MP_FILEOPS.try_read_file(data_dir / "network/hyperpass_subnet"))
+    // If the `elp_subnet` file exists, prefer that as a basis for our subnet.
+    if (auto filedata = MP_FILEOPS.try_read_file(data_dir / "network/elp_subnet"))
         return {IPAddress{*filedata + ".0"}, 16};
     // Distinct from Multipass's 10.97.0.0/16 default so both can run side-by-side.
     return {"10.98.0.0/16"};
@@ -445,7 +445,7 @@ std::string mp::platform::default_server_address()
     {
         base_dir = "/run";
     }
-    return "unix:" + base_dir + "/hyperpass_socket";
+    return "unix:" + base_dir + "/elp_socket";
 }
 
 mp::VirtualMachineFactory::UPtr mp::platform::vm_backend(const mp::Path& data_dir,

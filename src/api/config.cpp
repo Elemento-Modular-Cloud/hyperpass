@@ -61,7 +61,7 @@ mpl::Level to_logging_level(const QString& value)
 QString default_https_cert_dir()
 {
     const auto data = MP_STDPATHS.writableLocation(mp::StandardPaths::GenericDataLocation);
-    return QDir{data + "/hyperpass-api/https"}.path();
+    return QDir{data + "/elp-api/https"}.path();
 }
 
 /** Prefer AtomOS shared daemon certs when present (same pin as matcher/storage). */
@@ -172,7 +172,7 @@ void mp::api::prepare_tls(ApiConfig& config)
         if (config.cert_file.empty() || config.key_file.empty())
         {
             throw std::runtime_error(
-                "HTTPS requires both --cert / HYPERPASS_API_CERT and --key / HYPERPASS_API_KEY");
+                "HTTPS requires both --cert / ELP_API_CERT and --key / ELP_API_KEY");
         }
         config.cert_pem = MP_UTILS.contents_of(QString::fromStdString(config.cert_file));
         config.key_pem = MP_UTILS.contents_of(QString::fromStdString(config.key_file));
@@ -201,7 +201,7 @@ void mp::api::prepare_tls(ApiConfig& config)
 mp::api::ApiConfig mp::api::parse_config()
 {
     QCommandLineParser parser;
-    parser.setApplicationDescription("Hyperpass REST API sidecar");
+    parser.setApplicationDescription("Electros LaunchPad REST API sidecar");
     parser.addHelpOption();
     parser.addVersionOption();
 
@@ -211,7 +211,7 @@ mp::api::ApiConfig mp::api::parse_config()
         "address",
         mp::default_api_listen};
     QCommandLineOption daemon_option{"daemon-address",
-                                     "hyperpassd gRPC address (unix:… or host:port)",
+                                     "elpd gRPC address (unix:… or host:port)",
                                      "address"};
     QCommandLineOption token_option{"api-token", "Bearer token required by REST clients", "token"};
     QCommandLineOption insecure_option{"insecure-no-auth",

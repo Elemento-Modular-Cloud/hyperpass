@@ -79,13 +79,13 @@ void main() async {
   runApp(
     UncontrolledProviderScope(
       container: providerContainer,
-      child: const HyperpassApp(),
+      child: const ElectrosLaunchPadApp(),
     ),
   );
 }
 
-class HyperpassApp extends ConsumerWidget {
-  const HyperpassApp({super.key});
+class ElectrosLaunchPadApp extends ConsumerWidget {
+  const ElectrosLaunchPadApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -228,7 +228,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
   void goToPrimary() {
     final vms = ref.read(vmIdsProvider);
     final primary = ref.read(clientSettingProvider(primaryNameKey));
-    final primaryId = hyperpassVm(primary);
+    final primaryId = elpVm(primary);
     if (vms.contains(primaryId)) {
       ref.read(sidebarKeyProvider.notifier).set(primaryId.sidebarKey);
       windowManager.showAndRestore();
@@ -283,7 +283,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
       notificationsNotifier.addOperation(
         runManagedAction(
           clientFor: (source) => switch (source) {
-            DaemonSource.hyperpass => ref.read(grpcClientProvider),
+            DaemonSource.elp => ref.read(grpcClientProvider),
             DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
           },
           ids: runningVMs,

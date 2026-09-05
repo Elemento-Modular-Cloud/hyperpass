@@ -73,7 +73,7 @@ void mpl::EventLogger::log(mpl::Level level,
                            std::string_view category,
                            std::string_view message) const
 {
-    const static std::string event_source_name{"Hyperpass"};
+    const static std::string event_source_name{"Electros LaunchPad"};
     if (level <= logging_level)
     {
         /**

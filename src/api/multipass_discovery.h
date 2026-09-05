@@ -38,7 +38,7 @@ struct MultipassConnection
  * Discover a stock Multipass daemon (same layout as the GUI's multipass_discovery.dart).
  * Returns nullopt when Multipass does not appear installed / reachable.
  *
- * @param address_override  optional HYPERPASS_MULTIPASS_ADDRESS / --multipass-address value
+ * @param address_override  optional ELP_MULTIPASS_ADDRESS / --multipass-address value
  */
 std::optional<MultipassConnection> discover_multipass_connection(
     const std::string& address_override = {});

@@ -33,7 +33,7 @@ namespace mpl = multipass::logging;
 
 namespace
 {
-constexpr auto chain_name = "hyperpass_client_certs.pem";
+constexpr auto chain_name = "elp_client_certs.pem";
 constexpr auto category = "client cert store";
 
 auto load_certs_from_file(const QDir& cert_dir)

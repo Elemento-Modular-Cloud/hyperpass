@@ -2,7 +2,7 @@
 
 http_proxy="$(snapctl get proxy.http)"
 https_proxy="$(snapctl get proxy.https)"
-HYPERPASS_VM_DRIVER="$(snapctl get driver)"
+ELP_VM_DRIVER="$(snapctl get driver)"
 
 if [ -n "$http_proxy" ]; then
     export http_proxy
@@ -12,6 +12,6 @@ if [ -n "$https_proxy" ]; then
     export https_proxy
 fi
 
-export HYPERPASS_VM_DRIVER
+export ELP_VM_DRIVER
 
-exec "$SNAP/bin/hyperpassd" --verbosity debug --logger platform "${@}"
+exec "$SNAP/bin/elpd" --verbosity debug --logger platform "${@}"

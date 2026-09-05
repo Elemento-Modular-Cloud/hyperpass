@@ -3,19 +3,19 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.elemento.hyperpass-api</string>
+    <string>com.elemento.elp-api</string>
 
     <key>EnvironmentVariables</key>
     <dict>
       <key>PATH</key>
       <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-      <key>HYPERPASS_API_LISTEN</key>
+      <key>ELP_API_LISTEN</key>
       <string>127.0.0.1:7777</string>
     </dict>
 
     <key>ProgramArguments</key>
     <array>
-      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/hyperpass-api</string>
+      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/elp-api</string>
       <string>--verbosity</string>
       <string>info</string>
       <string>--insecure-no-auth</string>
@@ -25,9 +25,9 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Library/Logs/Hyperpass/hyperpass-api.log</string>
+    <string>/Library/Logs/Electros LaunchPad/elp-api.log</string>
     <key>StandardErrorPath</key>
-    <string>/Library/Logs/Hyperpass/hyperpass-api.log</string>
+    <string>/Library/Logs/Electros LaunchPad/elp-api.log</string>
 
     <key>ExitTimeOut</key>
     <integer>30</integer>

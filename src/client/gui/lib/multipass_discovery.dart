@@ -59,7 +59,7 @@ MultipassConnectionConfig? discoverMultipassConnection() {
 }
 
 Uri _multipassServerAddress() {
-  final override = Platform.environment['HYPERPASS_MULTIPASS_ADDRESS'];
+  final override = Platform.environment['ELP_MULTIPASS_ADDRESS'];
   if (override != null && override.isNotEmpty) {
     return _parseServerAddress(override);
   }

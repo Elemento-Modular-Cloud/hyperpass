@@ -164,7 +164,7 @@ TEST_F(TestQemuVMProcessSpec, apparmorProfileHasCorrectName)
     mp::QemuVMProcessSpec spec(desc, platform_args, mount_args, std::nullopt);
 
     EXPECT_THAT(spec.apparmor_profile().toStdString(),
-                HasSubstr("profile hyperpass.vm_name.qemu-system-"));
+                HasSubstr("profile elp.vm_name.qemu-system-"));
 }
 
 TEST_F(TestQemuVMProcessSpec, apparmorProfileIncludesDiskImages)
@@ -184,7 +184,7 @@ TEST_F(TestQemuVMProcessSpec, apparmorProfileIdentifier)
 
 TEST_F(TestQemuVMProcessSpec, apparmorProfileRunningAsSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir;
 
     mpt::SetEnvScope e("SNAP", snap_dir.path().toUtf8());
@@ -192,7 +192,7 @@ TEST_F(TestQemuVMProcessSpec, apparmorProfileRunningAsSnapCorrect)
     mp::QemuVMProcessSpec spec(desc, platform_args, mount_args, std::nullopt);
 
     EXPECT_THAT(spec.apparmor_profile().toStdString(),
-                HasSubstr("signal (receive) peer=snap.hyperpass.hyperpassd"));
+                HasSubstr("signal (receive) peer=snap.elp.elpd"));
     EXPECT_THAT(spec.apparmor_profile().toStdString(),
                 HasSubstr(spec.firmware_path().toStdString()));
     EXPECT_THAT(spec.apparmor_profile().toStdString(), HasSubstr(spec.program().toStdString()));
@@ -200,7 +200,7 @@ TEST_F(TestQemuVMProcessSpec, apparmorProfileRunningAsSnapCorrect)
 
 TEST_F(TestQemuVMProcessSpec, apparmorProfileRunningAsSymlinkedSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir, link_dir;
 
     link_dir.remove();
@@ -217,7 +217,7 @@ TEST_F(TestQemuVMProcessSpec, apparmorProfileRunningAsSymlinkedSnapCorrect)
 
 TEST_F(TestQemuVMProcessSpec, apparmorProfileNotRunningAsSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
 
     mpt::UnsetEnvScope e("SNAP");
     mpt::SetEnvScope e2("SNAP_NAME", snap_name);
@@ -231,7 +231,7 @@ TEST_F(TestQemuVMProcessSpec, apparmorProfileNotRunningAsSnapCorrect)
 
 TEST_F(TestQemuVMProcessSpec, apparmorProfileLetsBridgeHelperRunInSnap)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir;
 
     mpt::SetEnvScope e("SNAP", snap_dir.path().toUtf8());
@@ -244,7 +244,7 @@ TEST_F(TestQemuVMProcessSpec, apparmorProfileLetsBridgeHelperRunInSnap)
 
 TEST_F(TestQemuVMProcessSpec, apparmorProfileLetsBridgeHelperRunOutsideSnap)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
 
     mpt::UnsetEnvScope e("SNAP");
     mpt::SetEnvScope e2("SNAP_NAME", snap_name);

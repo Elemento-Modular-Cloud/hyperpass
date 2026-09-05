@@ -7,7 +7,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hyperpass_gui/vm_details/terminal.dart';
+import 'package:elp_gui/vm_details/terminal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:tray_menu/tray_menu.dart';
@@ -178,7 +178,7 @@ Future<void> _updateTrayMenu(
     final startEnabled = VmAction.start.allowedStatuses.contains(status);
     final stopEnabled = VmAction.stop.allowedStatuses.contains(status);
     final client = switch (id.source) {
-      DaemonSource.hyperpass => providerContainer.read(grpcClientProvider),
+      DaemonSource.elp => providerContainer.read(grpcClientProvider),
       DaemonSource.multipass =>
         providerContainer.read(multipassGrpcClientProvider),
     };

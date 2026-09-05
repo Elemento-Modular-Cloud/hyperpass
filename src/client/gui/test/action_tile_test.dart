@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hyperpass_gui/daemon_source.dart';
-import 'package:hyperpass_gui/grpc_client.dart';
-import 'package:hyperpass_gui/l10n/app_localizations.dart';
-import 'package:hyperpass_gui/providers.dart';
-import 'package:hyperpass_gui/vm_action.dart';
-import 'package:hyperpass_gui/vm_details/vm_action_buttons.dart';
+import 'package:elp_gui/daemon_source.dart';
+import 'package:elp_gui/grpc_client.dart';
+import 'package:elp_gui/l10n/app_localizations.dart';
+import 'package:elp_gui/providers.dart';
+import 'package:elp_gui/vm_action.dart';
+import 'package:elp_gui/vm_details/vm_action_buttons.dart';
 
 void main() {
-  final vmId = hyperpassVm('test-vm');
+  final vmId = elpVm('test-vm');
 
   Widget buildWidget({
     required VmAction action,

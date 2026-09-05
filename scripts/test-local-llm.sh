@@ -2,7 +2,7 @@
 set -euo pipefail
 
 OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://127.0.0.1:7777/v1}"
-OPENAI_API_KEY="${OPENAI_API_KEY:-sk-hp-418898fce49726b056994b42c1bedd251615f0618aff5921}"
+OPENAI_API_KEY="${OPENAI_API_KEY:-sk-elp-418898fce49726b056994b42c1bedd251615f0618aff5921}"
 # Catalog slug or prefix of openai_id from GET /v1/models (before the instance suffix).
 LLM_MODEL="${LLM_MODEL:-google-gemma-4-e4b-it-84816964}"
 

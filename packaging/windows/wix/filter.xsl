@@ -7,14 +7,14 @@
 
     <xsl:strip-space elements="*" />
 
-    <xsl:key name="FilterHyperpassd"
-        match="wix:Component[wix:File[contains(@Source, 'hyperpassd.exe')]]" use="@Id" />
-    <xsl:key name="FilterHyperpass"
-        match="wix:Component[wix:File[contains(@Source, 'hyperpass.exe')]]" use="@Id" />
-    <xsl:key name="FilterHyperpassGUI"
-        match="wix:Component[wix:File[contains(@Source, 'hyperpass.gui.exe')]]" use="@Id" />
-    <xsl:key name="FilterHyperpassApi"
-        match="wix:Component[wix:File[contains(@Source, 'hyperpass-api.exe')]]" use="@Id" />
+    <xsl:key name="Filterelpd"
+        match="wix:Component[wix:File[contains(@Source, 'elpd.exe')]]" use="@Id" />
+    <xsl:key name="FilterElp"
+        match="wix:Component[wix:File[contains(@Source, 'elp.exe')]]" use="@Id" />
+    <xsl:key name="FilterElpGUI"
+        match="wix:Component[wix:File[contains(@Source, 'elp.gui.exe')]]" use="@Id" />
+    <xsl:key name="FilterElpApi"
+        match="wix:Component[wix:File[contains(@Source, 'elp-api.exe')]]" use="@Id" />
 
     <!-- Copy all elements and their attributes. -->
     <xsl:template match="@*|node()">
@@ -25,11 +25,11 @@
 
     <!-- Except for those that match our filters, do nothing. -->
     <xsl:template
-        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpassd', @Id ) ]" />
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'Filterelpd', @Id ) ]" />
     <xsl:template
-        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpass', @Id ) ]" />
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterElp', @Id ) ]" />
     <xsl:template
-        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpassGUI', @Id ) ]" />
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterElpGUI', @Id ) ]" />
     <xsl:template
-        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterHyperpassApi', @Id ) ]" />
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterElpApi', @Id ) ]" />
 </xsl:stylesheet>

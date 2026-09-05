@@ -91,7 +91,7 @@ class TerminalNotifier extends Notifier<Terminal?> {
     if (!running) return null;
 
     final grpcClient = switch (arg.vmId.source) {
-      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.elp => ref.read(grpcClientProvider),
       DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
     };
     if (grpcClient == null) return null;
@@ -257,7 +257,7 @@ class _VmTerminalState extends ConsumerState<VmTerminal> {
     final name = widget.vmId.name;
     final action = VmAction.start;
     final client = switch (widget.vmId.source) {
-      DaemonSource.hyperpass => ref.read(grpcClientProvider),
+      DaemonSource.elp => ref.read(grpcClientProvider),
       DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
     };
     if (client == null) return;

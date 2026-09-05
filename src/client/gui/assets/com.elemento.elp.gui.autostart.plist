@@ -3,10 +3,10 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.elemento.hyperpass.gui.autostart</string>
+    <string>com.elemento.elp.gui.autostart</string>
 
     <key>Program</key>
-    <string>/Applications/Hyperpass.app/Contents/MacOS/Hyperpass</string>
+    <string>/Applications/Electros LaunchPad.app/Contents/MacOS/Electros LaunchPad</string>
 
     <key>KeepAlive</key>
     <dict>

@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hyperpass_gui/services/service_cloud_init.dart';
-import 'package:hyperpass_gui/services/service_library.dart';
+import 'package:elp_gui/services/service_cloud_init.dart';
+import 'package:elp_gui/services/service_library.dart';
 import 'package:yaml/yaml.dart';
 
 /// Set this to a directory to dump every rendered service, so the output can

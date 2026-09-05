@@ -57,7 +57,7 @@ GrpcClient _buildGrpcClient({
   );
 }
 
-/// Primary Hyperpass daemon client (required).
+/// Primary Electros LaunchPad daemon client (required).
 final grpcClientProvider = Provider((ref) {
   if (!ref.watch(ffiAvailableProvider)) {
     throw ffiLoadError ?? Exception('FFI library not available');
@@ -107,7 +107,7 @@ final multipassGrpcClientProvider = Provider<GrpcClient?>((ref) {
 
 GrpcClient? grpcClientFor(Ref ref, DaemonSource source) {
   return switch (source) {
-    DaemonSource.hyperpass => ref.read(grpcClientProvider),
+    DaemonSource.elp => ref.read(grpcClientProvider),
     DaemonSource.multipass => ref.read(multipassGrpcClientProvider),
   };
 }
@@ -125,7 +125,7 @@ class MultipassNeedsAuthNotifier extends Notifier<bool> {
   void set(bool value) => state = value;
 }
 
-final hyperpassVmInfosStreamProvider = StreamProvider<List<VmInfo>>((ref) async* {
+final elpVmInfosStreamProvider = StreamProvider<List<VmInfo>>((ref) async* {
   final grpcClient = ref.watch(grpcClientProvider);
   Object? lastError;
   while (true) {
@@ -135,7 +135,7 @@ final hyperpassVmInfosStreamProvider = StreamProvider<List<VmInfo>>((ref) async*
       lastError = null;
     } catch (error, stackTrace) {
       if (error != lastError) {
-        logger.e('Error on polling Hyperpass info',
+        logger.e('Error on polling Electros LaunchPad info',
             error: error, stackTrace: stackTrace);
         yield* Stream.error(error, stackTrace);
       }
@@ -220,26 +220,26 @@ final multipassVmInfosStreamProvider =
   }
 });
 
-/// Merged Hyperpass + Multipass instance stream (tagged).
+/// Merged Electros LaunchPad + Multipass instance stream (tagged).
 ///
-/// Multipass instances are included even when Hyperpass is offline/erroring.
+/// Multipass instances are included even when Electros LaunchPad is offline/erroring.
 final vmInfosStreamProvider = Provider<AsyncValue<List<TaggedVmInfo>>>((ref) {
-  final hyperpass = ref.watch(hyperpassVmInfosStreamProvider);
+  final elp = ref.watch(elpVmInfosStreamProvider);
   final multipass = ref.watch(multipassVmInfosStreamProvider);
 
-  final hpInfos = hyperpass.asData?.value;
+  final hpInfos = elp.asData?.value;
   final mpInfos = multipass.asData?.value ?? const <VmInfo>[];
 
   if (hpInfos == null && mpInfos.isEmpty) {
-    if (hyperpass.hasError) {
-      return AsyncValue.error(hyperpass.error!, hyperpass.stackTrace!);
+    if (elp.hasError) {
+      return AsyncValue.error(elp.error!, elp.stackTrace!);
     }
     return const AsyncValue.loading();
   }
 
   final tagged = <TaggedVmInfo>[
     for (final info in hpInfos ?? const <VmInfo>[])
-      TaggedVmInfo(id: hyperpassVm(info.name), info: info),
+      TaggedVmInfo(id: elpVm(info.name), info: info),
     for (final info in mpInfos)
       TaggedVmInfo(id: multipassVm(info.name), info: info),
   ]..sort((a, b) {
@@ -255,7 +255,7 @@ final daemonAvailableProvider = Provider((ref) {
     return false;
   }
 
-  final error = ref.watch(hyperpassVmInfosStreamProvider).error;
+  final error = ref.watch(elpVmInfosStreamProvider).error;
   if (error == null) return true;
   if (error case GrpcError grpcError) {
     final message = grpcError.message ?? '';
@@ -304,7 +304,7 @@ class AllVmInfosNotifier extends Notifier<List<TaggedVmInfo>> {
     }
     state = [
       for (final info in hp)
-        TaggedVmInfo(id: hyperpassVm(info.name), info: info),
+        TaggedVmInfo(id: elpVm(info.name), info: info),
       for (final info in mp)
         TaggedVmInfo(id: multipassVm(info.name), info: info),
     ];
@@ -382,7 +382,7 @@ TaggedVmInfo withEffectiveServiceId(
   return TaggedVmInfo(id: tagged.id, info: copy);
 }
 
-/// True when this Hyperpass VM was launched as a marketplace service instance.
+/// True when this Electros LaunchPad VM was launched as a marketplace service instance.
 bool isServiceVmInfo(DetailedInfoItem info) => info.serviceId.isNotEmpty;
 
 /// Every non-deleted VM (plain + service) plus in-flight launches.
@@ -423,7 +423,7 @@ final vmInfosProvider = Provider((ref) {
       .toList();
 });
 
-/// Marketplace services that run as tagged Hyperpass VMs.
+/// Marketplace services that run as tagged Electros LaunchPad VMs.
 final serviceInstanceInfosProvider = Provider((ref) {
   return ref
       .watch(allActiveVmInfosWithServicesProvider)
@@ -441,7 +441,7 @@ final vmInfosMapProvider = Provider((ref) {
   return {for (final i in ref.watch(vmInfosProvider)) i.id: i};
 });
 
-/// All active Hyperpass/Multipass VMs, including marketplace service instances.
+/// All active Electros LaunchPad/Multipass VMs, including marketplace service instances.
 /// Used by shell/status lookups that need any VM by id.
 final allVmInfosMapProvider = Provider((ref) {
   return {
@@ -476,12 +476,12 @@ final vmIdsProvider = Provider((ref) {
 /// Backwards-compatible name; now returns VmIds.
 final vmNamesProvider = vmIdsProvider;
 
-/// Hyperpass instance names only (for launch uniqueness / petnames).
+/// Electros LaunchPad instance names only (for launch uniqueness / petnames).
 /// Includes service instances so names cannot collide across surfaces.
-final hyperpassVmNamesProvider = Provider((ref) {
+final elpVmNamesProvider = Provider((ref) {
   return ref
       .watch(allActiveVmInfosProvider)
-      .where((info) => info.source == DaemonSource.hyperpass)
+      .where((info) => info.source == DaemonSource.elp)
       .map((info) => info.name)
       .toBuiltSet();
 });
@@ -490,7 +490,7 @@ final deletedVmsProvider = Provider((ref) {
   return ref
       .watch(allVmInfosProvider)
       .where((info) =>
-          info.source == DaemonSource.hyperpass &&
+          info.source == DaemonSource.elp &&
           info.instanceStatus.status == Status.DELETED)
       .map((info) => info.name)
       .toBuiltSet();
@@ -514,7 +514,7 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<TaggedVmInfo>> {
     state = vms.rebuild((builder) {
       builder.add(
         TaggedVmInfo(
-          id: hyperpassVm(request.instanceName),
+          id: elpVm(request.instanceName),
           info: DetailedInfoItem(
             name: request.instanceName,
             cpuCount: request.numCores.toString(),
@@ -533,7 +533,7 @@ class LaunchingVmsNotifier extends Notifier<BuiltList<TaggedVmInfo>> {
   }
 
   void remove(String name) {
-    final id = hyperpassVm(name);
+    final id = elpVm(name);
     final vms = state;
     state = vms.rebuild((builder) {
       builder.removeWhere((info) => info.id == id);
@@ -624,9 +624,9 @@ class DaemonSettingNotifier extends AsyncNotifier<String> {
 }
 
 final trayMenuDataProvider = Provider.autoDispose((ref) {
-  final hyperpassUp = ref.watch(daemonAvailableProvider);
+  final elpUp = ref.watch(daemonAvailableProvider);
   final multipassClient = ref.watch(multipassGrpcClientProvider);
-  if (!hyperpassUp && multipassClient == null) return null;
+  if (!elpUp && multipassClient == null) return null;
   return ref.watch(vmStatusesProvider);
 });
 
@@ -686,14 +686,14 @@ class VmResourceNotifier extends AsyncNotifier<String> {
       throw StateError('No client for ${id.source}');
     }
     final key = 'local.${id.name}.${resource.name}';
-    // Multipass and Hyperpass both expose local.<name>.* settings via get.
+    // Multipass and Electros LaunchPad both expose local.<name>.* settings via get.
     return await client.get(key);
   }
 
   Future<void> set(String value) async {
     final (:id, :resource) = arg;
     final key = 'local.${id.name}.${resource.name}';
-    if (id.source == DaemonSource.hyperpass) {
+    if (id.source == DaemonSource.elp) {
       ref.read(daemonSettingProvider(key).notifier).set(value);
       return;
     }

@@ -67,11 +67,11 @@ struct SkAuth
 std::optional<SkAuth> require_sk_key(GrpcBackend& backend, const httplib::Request& req, httplib::Response& res)
 {
     const auto secret = bearer_secret(req);
-    if (secret.rfind("sk-hp-", 0) != 0)
+    if (secret.rfind("sk-elp-", 0) != 0)
     {
         res.status = 401;
         res.set_content(openai_error("invalid_api_key",
-                                     "Invalid API key. Use a Hyperpass sk-hp- key, not the matcher token.",
+                                     "Invalid API key. Use an Electros LaunchPad sk-elp- key, not the matcher token.",
                                      401),
                         "application/json");
         return std::nullopt;
@@ -215,7 +215,7 @@ void proxy_to_backend(GrpcBackend& backend,
         }
         res.status = 404;
         res.set_content(openai_error("invalid_request_error",
-                                     "The model is not loaded. Load it with hyperpass llm load.",
+                                     "The model is not loaded. Load it with elp llm load.",
                                      404),
                         "application/json");
         return;
@@ -253,13 +253,13 @@ void proxy_to_backend(GrpcBackend& backend,
 }
 } // namespace
 
-void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& hyperpass_backend)
+void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& elp_backend)
 {
-    auto models = [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
-        const auto auth = require_sk_key(hyperpass_backend, req, res);
+    auto models = [&elp_backend](const httplib::Request& req, httplib::Response& res) {
+        const auto auth = require_sk_key(elp_backend, req, res);
         if (!auth)
             return;
-        const auto listed = hyperpass_backend.list_models();
+        const auto listed = elp_backend.list_models();
         if (!listed.status.ok())
         {
             res.status = 503;
@@ -275,7 +275,7 @@ void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& hyp
             json::object item;
             item["id"] = model.openai_id();
             item["object"] = "model";
-            item["owned_by"] = "hyperpass";
+            item["owned_by"] = "elp";
             if (model.ctx_size() > 0)
             {
                 item["context_length"] = model.ctx_size();
@@ -295,11 +295,11 @@ void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& hyp
     server.Get("/v1/models", models);
     server.Get("/v1/models/:id", models);
 
-    auto completions = [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
-        const auto auth = require_sk_key(hyperpass_backend, req, res);
+    auto completions = [&elp_backend](const httplib::Request& req, httplib::Response& res) {
+        const auto auth = require_sk_key(elp_backend, req, res);
         if (!auth)
             return;
-        proxy_to_backend(hyperpass_backend, req, res, req.path, *auth);
+        proxy_to_backend(elp_backend, req, res, req.path, *auth);
     };
     server.Post("/v1/chat/completions", completions);
     server.Post("/v1/completions", completions);

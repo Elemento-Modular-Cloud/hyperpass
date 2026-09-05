@@ -1,4 +1,4 @@
-# Hyperpass fork notes
+# Electros LaunchPad fork notes
 
 Local path dependency of Canonical xterm.dart 4.0.0+mp with selection fixes:
 - Drag selection uses buffer cell anchors (survives scrolling)

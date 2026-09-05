@@ -25,7 +25,7 @@ namespace multipass::logging
 SyslogWrapper::SyslogWrapper(const Singleton<SyslogWrapper>::PrivatePass& pass) noexcept
     : Singleton<SyslogWrapper>::Singleton{pass}
 {
-    openlog("hyperpass", LOG_CONS | LOG_PID, LOG_USER);
+    openlog("elp", LOG_CONS | LOG_PID, LOG_USER);
 }
 
 void SyslogWrapper::write_syslog(int level,

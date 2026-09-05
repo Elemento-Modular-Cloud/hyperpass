@@ -28,7 +28,7 @@ TEST(YAMLNodeUtilsTests, makeCloudInitMetaConfig)
     const YAML::Node meta_data_node = mpu::make_cloud_init_meta_config("vm1");
     EXPECT_EQ(meta_data_node["instance-id"].as<std::string>(), "vm1");
     EXPECT_EQ(meta_data_node["local-hostname"].as<std::string>(), "vm1");
-    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "hyperpass");
+    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "elp");
 }
 
 TEST(YAMLNodeUtilsTests, makeCloudInitMetaConfigWithYAMLStr)
@@ -41,7 +41,7 @@ cloud-name: multipass)";
         mpu::make_cloud_init_meta_config("vm1", std::string{meta_data_content});
     EXPECT_EQ(meta_data_node["instance-id"].as<std::string>(), "vm1_e_e");
     EXPECT_EQ(meta_data_node["local-hostname"].as<std::string>(), "vm1");
-    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "hyperpass");
+    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "elp");
 }
 
 TEST(YAMLNodeUtilsTests, addOneExtraInterfaceNonEmptyNetworkFileContent)
@@ -151,7 +151,7 @@ cloud-name: multipass)";
         mpu::make_cloud_init_meta_config_with_id_tweak(std::string{meta_data_content});
     EXPECT_EQ(meta_data_node["instance-id"].as<std::string>(), "vm1_e");
     EXPECT_EQ(meta_data_node["local-hostname"].as<std::string>(), "vm1");
-    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "hyperpass");
+    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "elp");
 }
 
 TEST(YAMLNodeUtilsTests, makeCloudInitMetaConfigWithIdTweakNewId)
@@ -165,7 +165,7 @@ cloud-name: multipass)";
         mpu::make_cloud_init_meta_config_with_id_tweak(std::string{meta_data_content}, "vm2");
     EXPECT_EQ(meta_data_node["instance-id"].as<std::string>(), "vm2");
     EXPECT_EQ(meta_data_node["local-hostname"].as<std::string>(), "vm1");
-    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "hyperpass");
+    EXPECT_EQ(meta_data_node["cloud-name"].as<std::string>(), "elp");
 }
 
 TEST(UtilsTests, emitYamlWithOctalString)

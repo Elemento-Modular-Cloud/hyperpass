@@ -47,7 +47,7 @@ class ServiceInstanceDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final id = hyperpassVm(instanceName);
+    final id = elpVm(instanceName);
     final info = ref
         .watch(serviceInstanceInfosProvider)
         .where((i) => i.name == instanceName)

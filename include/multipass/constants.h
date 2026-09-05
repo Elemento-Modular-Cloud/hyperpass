@@ -25,8 +25,8 @@ using namespace std::chrono_literals;
 
 namespace multipass
 {
-constexpr auto client_name = "hyperpass";
-constexpr auto daemon_name = "hyperpassd";
+constexpr auto client_name = "elp";
+constexpr auto daemon_name = "elpd";
 
 constexpr auto release_remote = "release";
 constexpr auto daily_remote = "daily";
@@ -50,27 +50,27 @@ constexpr auto image_resize_timeout =
 
 constexpr auto home_automount_dir = "Home";
 
-constexpr auto multipass_storage_env_var = "HYPERPASS_STORAGE";
-constexpr auto driver_env_var = "HYPERPASS_VM_DRIVER";
-constexpr auto distributions_url_env_var = "HYPERPASS_DISTRIBUTIONS_URL";
-constexpr auto server_address_env_var = "HYPERPASS_SERVER_ADDRESS";
-constexpr auto api_listen_env_var = "HYPERPASS_API_LISTEN";
-constexpr auto api_token_env_var = "HYPERPASS_API_TOKEN";
-constexpr auto api_cert_env_var = "HYPERPASS_API_CERT";
-constexpr auto api_key_env_var = "HYPERPASS_API_KEY";
-constexpr auto multipass_address_env_var = "HYPERPASS_MULTIPASS_ADDRESS";
+constexpr auto multipass_storage_env_var = "ELP_STORAGE";
+constexpr auto driver_env_var = "ELP_VM_DRIVER";
+constexpr auto distributions_url_env_var = "ELP_DISTRIBUTIONS_URL";
+constexpr auto server_address_env_var = "ELP_SERVER_ADDRESS";
+constexpr auto api_listen_env_var = "ELP_API_LISTEN";
+constexpr auto api_token_env_var = "ELP_API_TOKEN";
+constexpr auto api_cert_env_var = "ELP_API_CERT";
+constexpr auto api_key_env_var = "ELP_API_KEY";
+constexpr auto multipass_address_env_var = "ELP_MULTIPASS_ADDRESS";
 
-constexpr auto api_name = "hyperpass-api";
+constexpr auto api_name = "elp-api";
 // Temporary: sit on matcher VM port (7777). Service/Meson canonical is 7781.
-// Bind loopback for host clients and the Hyperpass vmnet gateway so guests on
+// Bind loopback for host clients and the Electros LaunchPad vmnet gateway so guests on
 // 192.168.67.0/24 can reach https://192.168.67.1:7777 — not all interfaces.
 constexpr auto default_api_vm_gateway = "192.168.67.1";
 constexpr auto default_api_listen = "127.0.0.1,192.168.67.1:7777";
-constexpr auto instance_source_hyperpass = "hyperpass";
+constexpr auto instance_source_elp = "elp";
 constexpr auto instance_source_multipass = "multipass";
 
 constexpr auto winterm_profile_guid =
-    "{bbbb9e6d-1e09-4be6-b76c-82b4ba1885fb}"; // identifies the primary Hyperpass profile in Windows
+    "{bbbb9e6d-1e09-4be6-b76c-82b4ba1885fb}"; // identifies the primary Electros LaunchPad profile in Windows
                                               // Terminal
 
 constexpr auto bridged_network_name = "bridged";
@@ -97,8 +97,8 @@ constexpr auto default_host_memory_policy = "strict";
 constexpr auto memory_policy_strict = "strict";
 constexpr auto memory_policy_best_effort = "best-effort";
 constexpr auto default_llm_idle_unload = "30m";
-constexpr auto llama_server_env_var = "HYPERPASS_LLAMA_SERVER";
-constexpr auto llmfit_env_var = "HYPERPASS_LLMFIT";
+constexpr auto llama_server_env_var = "ELP_LLAMA_SERVER";
+constexpr auto llmfit_env_var = "ELP_LLMFIT";
 constexpr auto hf_token_env_var = "HF_TOKEN";
 
 // Temporary: MLX paths stay in the tree but are hidden from probe/UI/load selection.

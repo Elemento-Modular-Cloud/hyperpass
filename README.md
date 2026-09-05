@@ -1,8 +1,8 @@
-# What is Hyperpass?
+# What is Electros LaunchPad?
 
-Hyperpass is an Elemento fork of [Multipass](https://canonical.com/multipass/), a lightweight VM manager for Linux, Windows and macOS. It is designed so you can run it **alongside** stock Multipass: the CLI is `hyperpass`, the daemon is `hyperpassd`, and sockets, certs, services, and data directories all use Hyperpass-specific names.
+Electros LaunchPad is an Elemento fork of [Multipass](https://canonical.com/multipass/), a lightweight VM manager for Linux, Windows and macOS. It is designed so you can run it **alongside** stock Multipass: the CLI is `elp`, the daemon is `elpd`, and sockets, certs, services, and data directories all use Electros LaunchPad-specific names.
 
-It uses KVM on Linux, Hyper-V on Windows and QEMU on macOS to run virtual machines with minimal overhead. It can also use VirtualBox on Windows and macOS. Hyperpass will fetch images for you and keep them up to date.
+It uses KVM on Linux, Hyper-V on Windows and QEMU on macOS to run virtual machines with minimal overhead. It can also use VirtualBox on Windows and macOS. Electros LaunchPad will fetch images for you and keep them up to date.
 
 Since it supports metadata for cloud-init, you can simulate a small cloud deployment on your laptop or workstation.
 

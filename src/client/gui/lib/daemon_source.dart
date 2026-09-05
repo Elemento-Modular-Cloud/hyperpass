@@ -1,9 +1,9 @@
 enum DaemonSource {
-  hyperpass,
+  elp,
   multipass;
 
   String get label => switch (this) {
-        DaemonSource.hyperpass => 'Hyperpass',
+        DaemonSource.elp => 'Electros LaunchPad',
         DaemonSource.multipass => 'Multipass',
       };
 }
@@ -14,12 +14,12 @@ extension VmIdX on VmId {
   String get sidebarKey => 'vm-${source.name}-$name';
 
   String get displayLabel => switch (source) {
-        DaemonSource.hyperpass => name,
+        DaemonSource.elp => name,
         DaemonSource.multipass => '$name (Multipass)',
       };
 }
 
-VmId hyperpassVm(String name) => (source: DaemonSource.hyperpass, name: name);
+VmId elpVm(String name) => (source: DaemonSource.elp, name: name);
 
 VmId multipassVm(String name) => (source: DaemonSource.multipass, name: name);
 
@@ -34,7 +34,7 @@ VmId? parseSidebarVmKey(String key) {
       return (source: source, name: name);
     }
   }
-  // Legacy keys from before dual-daemon: treat as Hyperpass.
+  // Legacy keys from before dual-daemon: treat as Electros LaunchPad.
   if (rest.isEmpty) return null;
-  return hyperpassVm(rest);
+  return elpVm(rest);
 }

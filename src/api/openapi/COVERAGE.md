@@ -21,13 +21,13 @@ AtomOS VM surface temporarily on matcher port **7777** (Service/Meson canonical
 | `DELETE /api/v1.0/delete_machine` | Alias of `unregister` (Meson name) |
 | `POST /api/v1.0/start\|stop\|reboot` | Implemented |
 | `GET /api/v1.0/images/find` | Implemented → `find` |
-| VM registry (`vm_uid`) | JSON file under `…/hyperpass-api/vm_registry.json` |
+| VM registry (`vm_uid`) | JSON file under `…/elp-api/vm_registry.json` |
 | Multipass merge (`/v1/instances`) | Extra helper (not Meson) |
 | `Async: true` non-blocking register | Not implemented (always waits for launch) |
-| `atomos-iso` backend | Not implemented (`backend` always `hyperpass`) |
+| `atomos-iso` backend | Not implemented (`backend` always `elp`) |
 
 ## Notes
 
-- Prefer adding missing capabilities as gRPC RPCs on `hyperpassd` first, then mapping them here.
-- `req.cpu` SMT/overprovision/PCI fields are accepted for Meson parity but ignored by Hyperpass.
+- Prefer adding missing capabilities as gRPC RPCs on `elpd` first, then mapping them here.
+- `req.cpu` SMT/overprovision/PCI fields are accepted for Meson parity but ignored by Electros LaunchPad.
 - Revert default listen to `127.0.0.1:7781` when dropping the temporary matcher-port mapping.

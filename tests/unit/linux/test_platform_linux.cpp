@@ -136,23 +136,23 @@ TEST_F(PlatformLinux, testLibvirtInEnvVarIsIgnored)
 TEST_F(PlatformLinux, testSnapReturnsExpectedDefaultAddress)
 {
     const QByteArray base_dir{"/tmp"};
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
 
     mpt::SetEnvScope env("SNAP_COMMON", base_dir);
     mpt::SetEnvScope env2("SNAP_NAME", snap_name);
 
     EXPECT_EQ(mp::platform::default_server_address(),
-              fmt::format("unix:{}/hyperpass_socket", base_dir.toStdString()));
+              fmt::format("unix:{}/elp_socket", base_dir.toStdString()));
 }
 
 TEST_F(PlatformLinux, testNotSnapReturnsExpectedDefaultAddress)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
 
     mpt::UnsetEnvScope unset_env("SNAP_COMMON");
     mpt::SetEnvScope env2("SNAP_NAME", snap_name);
 
-    EXPECT_EQ(mp::platform::default_server_address(), fmt::format("unix:/run/hyperpass_socket"));
+    EXPECT_EQ(mp::platform::default_server_address(), fmt::format("unix:/run/elp_socket"));
 }
 
 struct TestUnsupportedDrivers : public PlatformLinux, WithParamInterface<QString>
@@ -554,7 +554,7 @@ TEST_F(PlatformLinux, createAliasScriptWorksConfined)
                 writableLocation(mp::StandardPaths::AppLocalDataLocation))
         .Times(0);
 
-    qputenv("SNAP_NAME", QByteArray{"hyperpass"});
+    qputenv("SNAP_NAME", QByteArray{"elp"});
     qputenv("SNAP_USER_COMMON", tmp_dir.path().toUtf8());
     EXPECT_NO_THROW(
         MP_PLATFORM.create_alias_script("alias_name",
@@ -675,7 +675,7 @@ TEST_F(PlatformLinux, testSnapMultipassCertLocation)
 {
     const auto unconfined_location = MP_PLATFORM.get_root_cert_path();
 
-    mpt::SetEnvScope env{"SNAP_NAME", "hyperpass"};
+    mpt::SetEnvScope env{"SNAP_NAME", "elp"};
     mpt::SetEnvScope env2("SNAP_COMMON", "common");
 
     const auto snap_location = MP_PLATFORM.get_root_cert_path();
@@ -768,7 +768,7 @@ TEST_F(PlatformLinux, getPreferredSubnetDefault)
     EXPECT_EQ(MP_PLATFORM.get_preferred_subnet("data/dir"), mp::Subnet{"10.98.0.0/16"});
 }
 
-TEST_F(PlatformLinux, getPreferredSubnetChecksHyperpassSubnetFile)
+TEST_F(PlatformLinux, getPreferredSubnetChecksElpSubnetFile)
 {
     auto [mock_file_ops, guard] = mpt::MockFileOps::inject();
     EXPECT_CALL(*mock_file_ops, try_read_file).WillOnce(Return("192.168.42"));

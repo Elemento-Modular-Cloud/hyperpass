@@ -71,7 +71,7 @@ mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label,
 {
     std::lock_guard lock{mutex};
     CreatedKey created;
-    created.secret = "sk-hp-" + random_hex(24);
+    created.secret = "sk-elp-" + random_hex(24);
     created.record.id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
     created.record.prefix = created.secret.substr(0, 11);
     created.record.label = label;
@@ -125,7 +125,7 @@ void mp::ApiKeyStore::revoke_for_instance(const std::string& instance_id)
 std::optional<mp::ApiKeyRecord> mp::ApiKeyStore::verify(const std::string& secret) const
 {
     std::lock_guard lock{mutex};
-    if (secret.rfind("sk-hp-", 0) != 0)
+    if (secret.rfind("sk-elp-", 0) != 0)
         return std::nullopt;
     const auto digest = sha256_hex(secret);
     for (const auto& key : keys)

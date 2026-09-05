@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.elemento.hyperpassd</string>
+    <string>com.elemento.elpd</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -13,7 +13,7 @@
 
     <key>ProgramArguments</key>
     <array>
-      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/hyperpassd</string>
+      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/elpd</string>
       <string>--verbosity</string>
       <string>debug</string>
     </array>
@@ -22,9 +22,9 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/Library/Logs/Hyperpass/hyperpassd.log</string>
+    <string>/Library/Logs/Electros LaunchPad/elpd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Library/Logs/Hyperpass/hyperpassd.log</string>
+    <string>/Library/Logs/Electros LaunchPad/elpd.log</string>
 
     <key>ExitTimeOut</key>
     <integer>45</integer>

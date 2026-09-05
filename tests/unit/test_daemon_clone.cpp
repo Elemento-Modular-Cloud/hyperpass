@@ -178,7 +178,7 @@ TEST_F(TestDaemonClone, failsOnCloneOnNonStoppedInstance)
                          NiceMock<mpt::MockServerReaderWriter<mp::CloneReply, mp::CloneRequest>>{});
 
     EXPECT_EQ(status.error_code(), grpc::StatusCode::FAILED_PRECONDITION);
-    EXPECT_EQ(status.error_message(), fmt::format("Hyperpass can only clone stopped instances."));
+    EXPECT_EQ(status.error_message(), fmt::format("Electros LaunchPad can only clone stopped instances."));
 }
 
 TEST_F(TestDaemonClone, successfulCloneGenerateDestNameButThrowLater)

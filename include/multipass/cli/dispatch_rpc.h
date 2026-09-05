@@ -128,7 +128,7 @@ ReturnCodeVariant dispatch_rpc_stream(Rpc::StubInterface* stub,
             grpc::StatusCode::DEADLINE_EXCEEDED,
             "daemon did not respond in time",
             "Another operation may still be running; wait for it to complete or restart "
-            "hyperpassd."};
+            "elpd."};
         return handle_failure(timeout_status);
     }
     else if (status.error_code() != grpc::StatusCode::UNAVAILABLE)

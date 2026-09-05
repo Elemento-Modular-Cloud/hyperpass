@@ -49,17 +49,17 @@ class DaemonUnavailable extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final available = ref.watch(daemonAvailableProvider);
     final ffiAvailable = ref.watch(ffiAvailableProvider);
-    // Allow using the GUI against Multipass-only when Hyperpassd is down.
+    // Allow using the GUI against Multipass-only when elpd is down.
     final hasMultipassVms = ref.watch(
       vmInfosProvider.select(
         (vms) => vms.any((vm) => vm.source == DaemonSource.multipass),
       ),
     );
     final multipassClient = ref.watch(multipassGrpcClientProvider);
-    final allowWithoutHyperpass =
+    final allowWithoutElectros LaunchPad =
         hasMultipassVms || multipassClient != null;
 
-    if (available || (ffiAvailable && allowWithoutHyperpass)) {
+    if (available || (ffiAvailable && allowWithoutElectros LaunchPad)) {
       return const SizedBox.shrink();
     }
 

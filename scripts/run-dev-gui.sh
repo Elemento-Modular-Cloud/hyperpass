@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Launch the built Hyperpass GUI against the dev hyperpassd (see LOCAL_DEV.md).
+# Launch the built Electros LaunchPad GUI against the dev elpd (see LOCAL_DEV.md).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
-HYPERPASS_SOCKET="${HYPERPASS_SOCKET:-/tmp/hyperpass.socket}"
+ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
 GUI_APP=""
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [options] [-- <extra app args>]
 
-Launch the built Hyperpass GUI pointed at the dev daemon socket. Run
+Launch the built Electros LaunchPad GUI pointed at the dev daemon socket. Run
 ./scripts/run-dev-daemon.sh in another terminal first.
 
 Options:
@@ -20,8 +20,8 @@ Options:
 
 Environment:
   BUILD_DIR                 Build tree (default: ${ROOT}/build)
-  HYPERPASS_SOCKET          Dev daemon socket (default: ${HYPERPASS_SOCKET})
-  HYPERPASS_SERVER_ADDRESS  Overrides the socket if set
+  ELP_SOCKET          Dev daemon socket (default: ${ELP_SOCKET})
+  ELP_SERVER_ADDRESS  Overrides the socket if set
 EOF
 }
 
@@ -32,8 +32,8 @@ resolve_gui_app() {
   case "$(uname -s)" in
     Darwin)
       candidates=(
-        "${bin_dir}/Hyperpass.app/Contents/MacOS/Hyperpass"
-        "${bin_dir}/macos/Build/Products/Release/Hyperpass.app/Contents/MacOS/Hyperpass"
+        "${bin_dir}/Electros LaunchPad.app/Contents/MacOS/Electros LaunchPad"
+        "${bin_dir}/macos/Build/Products/Release/Electros LaunchPad.app/Contents/MacOS/Electros LaunchPad"
       )
       ;;
     Linux)
@@ -47,8 +47,8 @@ resolve_gui_app() {
           ;;
       esac
       candidates=(
-        "${bin_dir}/linux/${arch}/release/bundle/hyperpass_gui"
-        "${bin_dir}/hyperpass.gui"
+        "${bin_dir}/linux/${arch}/release/bundle/elp_gui"
+        "${bin_dir}/elp.gui"
       )
       ;;
     *)
@@ -85,17 +85,17 @@ if [[ ! -x "$GUI_APP" ]]; then
   exit 1
 fi
 
-export HYPERPASS_SERVER_ADDRESS="${HYPERPASS_SERVER_ADDRESS:-unix:${HYPERPASS_SOCKET}}"
+export ELP_SERVER_ADDRESS="${ELP_SERVER_ADDRESS:-unix:${ELP_SOCKET}}"
 export PATH="${BUILD_DIR}/bin:${PATH}"
 
-if [[ ! -S "$HYPERPASS_SOCKET" ]]; then
-  echo "warning: dev daemon socket not found at ${HYPERPASS_SOCKET}" >&2
+if [[ ! -S "$ELP_SOCKET" ]]; then
+  echo "warning: dev daemon socket not found at ${ELP_SOCKET}" >&2
   echo "         Start the daemon: ./scripts/run-dev-daemon.sh" >&2
 fi
 
-echo "==> Dev Hyperpass GUI"
+echo "==> Dev Electros LaunchPad GUI"
 echo "    binary:  ${GUI_APP}"
-echo "    daemon:  ${HYPERPASS_SERVER_ADDRESS}"
+echo "    daemon:  ${ELP_SERVER_ADDRESS}"
 echo
 
 exec "$GUI_APP" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"

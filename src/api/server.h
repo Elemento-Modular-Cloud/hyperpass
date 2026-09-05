@@ -39,7 +39,7 @@ class ApiServer
 {
 public:
     ApiServer(ApiConfig config,
-              std::shared_ptr<GrpcBackend> hyperpass_backend,
+              std::shared_ptr<GrpcBackend> elp_backend,
               std::shared_ptr<VmRegistry> registry,
               std::shared_ptr<GrpcBackend> multipass_backend = nullptr);
     ~ApiServer();
@@ -65,7 +65,7 @@ private:
     void retry_bind_until_stopped(size_t server_index, std::string host, int port);
 
     ApiConfig config;
-    std::shared_ptr<GrpcBackend> hyperpass_backend;
+    std::shared_ptr<GrpcBackend> elp_backend;
     std::shared_ptr<VmRegistry> vm_registry;
     std::shared_ptr<GrpcBackend> multipass_backend;
     OperationTracker tracker;

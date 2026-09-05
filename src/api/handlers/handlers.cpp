@@ -62,7 +62,7 @@ std::string daemon_status_name(bool reachable)
 } // namespace
 
 void mp::api::register_health_handlers(httplib::Server& server,
-                                       GrpcBackend& hyperpass_backend,
+                                       GrpcBackend& elp_backend,
                                        GrpcBackend* multipass_backend)
 {
     server.Get("/healthz", [](const httplib::Request&, httplib::Response& res) {
@@ -72,11 +72,11 @@ void mp::api::register_health_handlers(httplib::Server& server,
     });
 
     server.Get("/readyz",
-               [&hyperpass_backend, multipass_backend](const httplib::Request&,
+               [&elp_backend, multipass_backend](const httplib::Request&,
                                                        httplib::Response& res) {
-                   const bool hp_ok = hyperpass_backend.ping();
+                   const bool hp_ok = elp_backend.ping();
                    json::object body;
-                   body["hyperpass"] = daemon_status_name(hp_ok);
+                   body["elp"] = daemon_status_name(hp_ok);
                    if (multipass_backend)
                        body["multipass"] = daemon_status_name(multipass_backend->ping());
                    else
@@ -90,7 +90,7 @@ void mp::api::register_health_handlers(httplib::Server& server,
                    else
                    {
                        body["status"] = "not_ready";
-                       body["message"] = "hyperpassd gRPC unreachable";
+                       body["message"] = "elpd gRPC unreachable";
                        res.status = 503;
                    }
                    res.set_content(json::serialize(body), "application/json");
@@ -136,24 +136,24 @@ std::string mp::api::list_reply_to_json(const ListReply& reply, std::string_view
 }
 
 void mp::api::register_instance_handlers(httplib::Server& server,
-                                         GrpcBackend& hyperpass_backend,
+                                         GrpcBackend& elp_backend,
                                          GrpcBackend* multipass_backend)
 {
     server.Get("/v1/instances",
-               [&hyperpass_backend, multipass_backend](const httplib::Request& req,
+               [&elp_backend, multipass_backend](const httplib::Request& req,
                                                        httplib::Response& res) {
                    const bool request_ipv4 = req.get_param_value("ipv4") != "false";
                    const auto source_filter = req.get_param_value("source");
-                   const bool want_hyperpass =
-                       source_filter.empty() || source_filter == mp::instance_source_hyperpass;
+                   const bool want_elp =
+                       source_filter.empty() || source_filter == mp::instance_source_elp;
                    const bool want_multipass =
                        source_filter.empty() || source_filter == mp::instance_source_multipass;
 
-                   if (!source_filter.empty() && !want_hyperpass && !want_multipass)
+                   if (!source_filter.empty() && !want_elp && !want_multipass)
                    {
                        json::object body;
                        body["error"] = "invalid_parameter";
-                       body["message"] = "source must be 'hyperpass' or 'multipass'";
+                       body["message"] = "source must be 'elp' or 'multipass'";
                        res.status = 400;
                        res.set_content(json::serialize(body), "application/json");
                        return;
@@ -174,20 +174,20 @@ void mp::api::register_instance_handlers(httplib::Server& server,
                    json::array errors;
                    bool any_success = false;
 
-                   if (want_hyperpass)
+                   if (want_elp)
                    {
-                       const auto result = hyperpass_backend.list_instances(request_ipv4);
+                       const auto result = elp_backend.list_instances(request_ipv4);
                        if (result.status.ok())
                        {
                            append_instances_from_reply(instances,
                                                        result.reply,
-                                                       mp::instance_source_hyperpass);
+                                                       mp::instance_source_elp);
                            any_success = true;
                        }
                        else
                        {
                            json::object err;
-                           err["source"] = mp::instance_source_hyperpass;
+                           err["source"] = mp::instance_source_elp;
                            err["message"] = result.status.error_message();
                            err["code"] = static_cast<std::int64_t>(result.status.error_code());
                            errors.push_back(std::move(err));

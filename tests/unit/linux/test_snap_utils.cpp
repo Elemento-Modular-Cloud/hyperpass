@@ -34,12 +34,12 @@ using namespace testing;
 
 namespace
 {
-const QByteArray snap_name{"hyperpass"};
+const QByteArray snap_name{"elp"};
 } // namespace
 
-TEST(Snap, recognizesInSnapWhenSnapNameIsHyperpass)
+TEST(Snap, recognizesInSnapWhenSnapNameIsElectros LaunchPad)
 {
-    mpt::SetEnvScope env{"SNAP_NAME", "hyperpass"};
+    mpt::SetEnvScope env{"SNAP_NAME", "elp"};
     EXPECT_TRUE(mpu::in_multipass_snap());
 }
 
@@ -87,7 +87,7 @@ TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotSet)
     EXPECT_THROW(getter(), mp::SnapEnvironmentException);
 }
 
-TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotHyperpass)
+TEST_P(SnapDirs, testSnapDirThrowsWhenSnapNameNotElectros LaunchPad)
 {
     const auto& [var, getter] = GetParam();
     QByteArray other_name{"foo"};

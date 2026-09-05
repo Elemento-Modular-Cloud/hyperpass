@@ -33,14 +33,14 @@ namespace multipass::api
 {
 
 void register_health_handlers(httplib::Server& server,
-                              GrpcBackend& hyperpass_backend,
+                              GrpcBackend& elp_backend,
                               GrpcBackend* multipass_backend);
 void register_instance_handlers(httplib::Server& server,
-                                GrpcBackend& hyperpass_backend,
+                                GrpcBackend& elp_backend,
                                 GrpcBackend* multipass_backend);
 void register_operation_handlers(httplib::Server& server, OperationTracker& tracker);
-void register_model_control_handlers(httplib::Server& server, GrpcBackend& hyperpass_backend);
-void register_openai_handlers(httplib::Server& server, GrpcBackend& hyperpass_backend);
+void register_model_control_handlers(httplib::Server& server, GrpcBackend& elp_backend);
+void register_openai_handlers(httplib::Server& server, GrpcBackend& elp_backend);
 
 /** Append instances from a ListReply into a JSON array, tagging each with source. */
 void append_instances_from_reply(boost::json::array& out,

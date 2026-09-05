@@ -38,7 +38,7 @@ struct TestDnsmasqProcessSpec : public Test
 
 TEST_F(TestDnsmasqProcessSpec, defaultArgumentsCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
 
     mpt::SetEnvScope e1("SNAP", "/something");
     mpt::SetEnvScope e2("SNAP_NAME", snap_name);
@@ -67,7 +67,7 @@ TEST_F(TestDnsmasqProcessSpec, apparmorProfileHasCorrectName)
 {
     mp::DNSMasqProcessSpec spec(data_dir, subnets, conf_file_path);
 
-    EXPECT_TRUE(spec.apparmor_profile().contains("profile hyperpass.dnsmasq"));
+    EXPECT_TRUE(spec.apparmor_profile().contains("profile elp.dnsmasq"));
 }
 
 TEST_F(TestDnsmasqProcessSpec, apparmorProfilePermitsDataDirs)
@@ -88,7 +88,7 @@ TEST_F(TestDnsmasqProcessSpec, apparmorProfileIdentifier)
 
 TEST_F(TestDnsmasqProcessSpec, apparmorProfileRunningAsSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir;
 
     mpt::SetEnvScope e1("SNAP", snap_dir.path().toUtf8());
@@ -96,14 +96,14 @@ TEST_F(TestDnsmasqProcessSpec, apparmorProfileRunningAsSnapCorrect)
     mp::DNSMasqProcessSpec spec(data_dir, subnets, conf_file_path);
 
     EXPECT_TRUE(
-        spec.apparmor_profile().contains("signal (receive) peer=snap.hyperpass.hyperpassd"));
+        spec.apparmor_profile().contains("signal (receive) peer=snap.elp.elpd"));
     EXPECT_TRUE(
         spec.apparmor_profile().contains(QString("%1/usr/sbin/dnsmasq ixr,").arg(snap_dir.path())));
 }
 
 TEST_F(TestDnsmasqProcessSpec, apparmorProfileRunningAsSymlinkedSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
     QTemporaryDir snap_dir, link_dir;
 
     link_dir.remove();
@@ -119,7 +119,7 @@ TEST_F(TestDnsmasqProcessSpec, apparmorProfileRunningAsSymlinkedSnapCorrect)
 
 TEST_F(TestDnsmasqProcessSpec, apparmorProfileNotRunningAsSnapCorrect)
 {
-    const QByteArray snap_name{"hyperpass"};
+    const QByteArray snap_name{"elp"};
 
     mpt::UnsetEnvScope e("SNAP");
     mpt::SetEnvScope e2("SNAP_NAME", snap_name);

@@ -397,7 +397,7 @@ mp::ResolvedGguf mp::LlmService::resolve_or_throw(const std::string& model_id,
 
     throw std::runtime_error(fmt::format(
         "could not resolve a GGUF file for '{}'. llmfit suggestions are often MLX or base "
-        "checkpoints; Hyperpass downloads a matching GGUF via `llmfit download --list`. "
+        "checkpoints; Electros LaunchPad downloads a matching GGUF via `llmfit download --list`. "
         "Try a GGUF repo id such as bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
         model_id));
 }
@@ -665,7 +665,7 @@ void mp::LlmService::load_model_impl(
                                                   {"llama-server", "llama_server"});
             if (llama.isEmpty())
                 throw std::runtime_error(
-                    "llama-server is not installed. Set HYPERPASS_LLAMA_SERVER or add it to PATH.");
+                    "llama-server is not installed. Set ELP_LLAMA_SERVER or add it to PATH.");
             session.process = platform::make_process(std::make_unique<LlamaServerProcessSpec>(
                 llama,
                 QString::fromStdString(art.path),

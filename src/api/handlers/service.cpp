@@ -40,7 +40,7 @@ namespace json = boost::json;
 namespace
 {
 constexpr auto service_category = "api-service";
-constexpr auto backend_name = "hyperpass";
+constexpr auto backend_name = "elp";
 
 std::string json_string_field(const json::object& obj, std::string_view key, std::string_view fallback = {})
 {
@@ -152,7 +152,7 @@ void set_daemon_error(httplib::Response& res, const grpc::Status& status)
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
     {
         json::object body;
-        body["error"] = "hyperpass backend unreachable";
+        body["error"] = "elp backend unreachable";
         body["message"] = status.error_message();
         set_json(res, 503, body);
         return;
@@ -486,32 +486,32 @@ std::string domain_xml_for(const mp::api::RegisteredVm& recorded)
 {
     if (!recorded.xml.empty())
         return recorded.xml;
-    return fmt::format("<domain type='hyperpass'><name>{}</name><uuid>{}</uuid></domain>",
+    return fmt::format("<domain type='elp'><name>{}</name><uuid>{}</uuid></domain>",
                        recorded.vm_name,
                        recorded.vm_uid);
 }
 } // namespace
 
 void mp::api::register_service_handlers(httplib::Server& server,
-                                        GrpcBackend& hyperpass_backend,
+                                        GrpcBackend& elp_backend,
                                         VmRegistry& registry)
 {
-    server.Get("/", [&hyperpass_backend](const httplib::Request&, httplib::Response& res) {
-        if (!hyperpass_backend.ping())
+    server.Get("/", [&elp_backend](const httplib::Request&, httplib::Response& res) {
+        if (!elp_backend.ping())
         {
-            set_json(res, 503, json::object{{"error", "hyperpass backend unreachable"}});
+            set_json(res, 503, json::object{{"error", "elp backend unreachable"}});
             return;
         }
         res.status = 200;
         res.set_content("OK", "text/plain");
     });
 
-    server.Get("/version", [&hyperpass_backend](const httplib::Request&, httplib::Response& res) {
+    server.Get("/version", [&elp_backend](const httplib::Request&, httplib::Response& res) {
         json::object body;
         body["version"] = multipass::version_string;
         body["backend"] = backend_name;
 
-        const auto ver = hyperpass_backend.version();
+        const auto ver = elp_backend.version();
         if (ver.status.ok())
             body["backend_version"] = ver.reply.version();
         else
@@ -522,21 +522,21 @@ void mp::api::register_service_handlers(httplib::Server& server,
 
     // Matcher canallocate — Electros discovery; remaining ResourcePool RAM in MiB.
     const httplib::Server::Handler canallocate_handler =
-        [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
+        [&elp_backend](const httplib::Request& req, httplib::Response& res) {
             mpl::log(mpl::Level::debug,
                      service_category,
                      "canallocate from {} ({} bytes)",
                      req.remote_addr,
                      req.body.size());
 
-            if (!hyperpass_backend.ping())
+            if (!elp_backend.ping())
             {
-                set_json(res, 503, json::object{{"error", "hyperpass backend unreachable"},
+                set_json(res, 503, json::object{{"error", "elp backend unreachable"},
                                                 {"canallocate", false}});
                 return;
             }
 
-            const auto info = hyperpass_backend.daemon_info();
+            const auto info = elp_backend.daemon_info();
             if (!info.status.ok())
             {
                 set_json(res, 503, json::object{{"error", info.status.error_message()},
@@ -565,21 +565,21 @@ void mp::api::register_service_handlers(httplib::Server& server,
     server.Post("/api/v1.0/canallocate", canallocate_handler);
 
     server.Post("/api/v1.0/canallocate/multiple",
-                [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
+                [&elp_backend](const httplib::Request& req, httplib::Response& res) {
                     mpl::log(mpl::Level::debug,
                              service_category,
                              "canallocate/multiple from {} ({} bytes)",
                              req.remote_addr,
                              req.body.size());
-                    if (!hyperpass_backend.ping())
+                    if (!elp_backend.ping())
                     {
                         set_json(res,
                                  503,
-                                 json::object{{"error", "hyperpass backend unreachable"},
+                                 json::object{{"error", "elp backend unreachable"},
                                               {"canallocate", false}});
                         return;
                     }
-                    const auto info = hyperpass_backend.daemon_info();
+                    const auto info = elp_backend.daemon_info();
                     json::object out;
                     out["canallocate"] = info.status.ok() && info.reply.memory_available() > 0;
                     out["available_ram"] =
@@ -591,7 +591,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
     // AtomOS names (register/running/unregister) and Meson aliases
     // (create_machine/get_machine/delete_machine) share the same handlers.
     const httplib::Server::Handler register_or_create =
-        [&hyperpass_backend, &registry](const httplib::Request& req, httplib::Response& res) {
+        [&elp_backend, &registry](const httplib::Request& req, httplib::Response& res) {
             const auto body_opt = parse_object_body(req, res);
             if (!body_opt)
                 return;
@@ -605,7 +605,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                     throw std::runtime_error("request was badly formatted. 'client_uid'");
                 // Electros matcher-client often omits vm_name unless info.vm_name is set.
                 if (vm_name.empty())
-                    vm_name = fmt::format("hp-{}", mp::utils::make_uuid().substr(0, 8));
+                    vm_name = fmt::format("elp-{}", mp::utils::make_uuid().substr(0, 8));
                 if (!body.contains("req") || !body.at("req").is_object())
                     throw std::runtime_error("request was badly formatted. 'req'");
                 // Matcher may send empty volumes when storage is unused; allow with a default disk.
@@ -661,7 +661,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                          spec.disk_space,
                          client_uid);
 
-                const auto result = hyperpass_backend.launch(spec);
+                const auto result = elp_backend.launch(spec);
                 if (!result.status.ok())
                 {
                     mpl::log(mpl::Level::warning,
@@ -683,7 +683,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
 
                 std::string guest_ip;
                 json::array ipv4;
-                const auto listed = hyperpass_backend.list_instances(true);
+                const auto listed = elp_backend.list_instances(true);
                 if (listed.status.ok() && listed.reply.has_instance_list())
                 {
                     for (const auto& inst : listed.reply.instance_list().instances())
@@ -712,7 +712,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                                                               guest_ip);
                 record.req_json = json::serialize(safe_req);
                 record.xml = fmt::format(
-                    "<domain type='hyperpass'><name>{}</name><uuid>{}</uuid></domain>",
+                    "<domain type='elp'><name>{}</name><uuid>{}</uuid></domain>",
                     record.vm_name,
                     record.vm_uid);
                 registry.upsert(record);
@@ -727,7 +727,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 json::array ipv4_after;
                 if (ipv4.empty())
                 {
-                    const auto listed_after = hyperpass_backend.list_instances(true);
+                    const auto listed_after = elp_backend.list_instances(true);
                     if (listed_after.status.ok() && listed_after.reply.has_instance_list())
                     {
                         for (const auto& inst : listed_after.reply.instance_list().instances())
@@ -772,7 +772,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
     server.Post("/api/v1.0/create_machine", register_or_create);
 
     const httplib::Server::Handler running_or_get =
-        [&hyperpass_backend, &registry](const httplib::Request& req, httplib::Response& res) {
+        [&elp_backend, &registry](const httplib::Request& req, httplib::Response& res) {
             const auto body_opt = parse_object_body(req, res);
             if (!body_opt)
                 return;
@@ -785,7 +785,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 return;
             }
 
-            const auto listed = hyperpass_backend.list_instances(true);
+            const auto listed = elp_backend.list_instances(true);
             if (!listed.status.ok())
             {
                 set_daemon_error(res, listed.status);
@@ -852,7 +852,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
     };
 
     const httplib::Server::Handler unregister_or_delete =
-        [&hyperpass_backend, &registry, resolve_vm_uid](const httplib::Request& req,
+        [&elp_backend, &registry, resolve_vm_uid](const httplib::Request& req,
                                                         httplib::Response& res) {
             const auto body_opt = parse_object_body(req, res);
             if (!body_opt)
@@ -881,7 +881,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
             if (body.contains("purge"))
                 purge = json_truthy(body.at("purge"));
 
-            const auto result = hyperpass_backend.delete_instance(record->vm_name, purge);
+            const auto result = elp_backend.delete_instance(record->vm_name, purge);
             if (!result.status.ok())
             {
                 set_daemon_error(res, result.status);
@@ -925,7 +925,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
     };
 
     server.Post("/api/v1.0/start",
-                [&hyperpass_backend, require_registered](const httplib::Request& req,
+                [&elp_backend, require_registered](const httplib::Request& req,
                                                          httplib::Response& res) {
                     const auto body_opt = parse_object_body(req, res);
                     if (!body_opt)
@@ -934,7 +934,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                     if (!record)
                         return;
 
-                    const auto listed = hyperpass_backend.list_instances(false);
+                    const auto listed = elp_backend.list_instances(false);
                     if (listed.status.ok() && listed.reply.has_instance_list())
                     {
                         for (const auto& inst : listed.reply.instance_list().instances())
@@ -948,7 +948,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                         }
                     }
 
-                    const auto result = hyperpass_backend.start(record->vm_name);
+                    const auto result = elp_backend.start(record->vm_name);
                     if (!result.status.ok())
                     {
                         set_daemon_error(res, result.status);
@@ -959,7 +959,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 });
 
     server.Post("/api/v1.0/stop",
-                [&hyperpass_backend, require_registered](const httplib::Request& req,
+                [&elp_backend, require_registered](const httplib::Request& req,
                                                          httplib::Response& res) {
                     const auto body_opt = parse_object_body(req, res);
                     if (!body_opt)
@@ -968,7 +968,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                     if (!record)
                         return;
 
-                    const auto result = hyperpass_backend.stop(record->vm_name);
+                    const auto result = elp_backend.stop(record->vm_name);
                     if (!result.status.ok())
                     {
                         set_daemon_error(res, result.status);
@@ -979,7 +979,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 });
 
     server.Post("/api/v1.0/reboot",
-                [&hyperpass_backend, require_registered](const httplib::Request& req,
+                [&elp_backend, require_registered](const httplib::Request& req,
                                                          httplib::Response& res) {
                     const auto body_opt = parse_object_body(req, res);
                     if (!body_opt)
@@ -988,7 +988,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
                     if (!record)
                         return;
 
-                    const auto result = hyperpass_backend.restart(record->vm_name);
+                    const auto result = elp_backend.restart(record->vm_name);
                     if (!result.status.ok())
                     {
                         set_daemon_error(res, result.status);
@@ -999,10 +999,10 @@ void mp::api::register_service_handlers(httplib::Server& server,
                 });
 
     server.Get("/api/v1.0/images/find",
-               [&hyperpass_backend](const httplib::Request& req, httplib::Response& res) {
+               [&elp_backend](const httplib::Request& req, httplib::Response& res) {
                    const auto query = req.get_param_value("query");
                    const auto remote = req.get_param_value("remote");
-                   const auto result = hyperpass_backend.find(query, remote);
+                   const auto result = elp_backend.find(query, remote);
                    if (!result.status.ok())
                    {
                        set_daemon_error(res, result.status);

@@ -1,8 +1,8 @@
 # Local development alongside an installed Multipass
 
-Use this when you already have the official Multipass package running (LaunchDaemon / snap / Windows service) and want to exercise **Hyperpass from this tree** without replacing it.
+Use this when you already have the official Multipass package running (LaunchDaemon / snap / Windows service) and want to exercise **Electros LaunchPad from this tree** without replacing it.
 
-Hyperpass defaults already diverge from Multipass (binaries, sockets, cert dirs, data paths, services). Dev scripts below still use a temporary socket/storage so you can run a build-tree daemon without installing Hyperpass.
+Electros LaunchPad defaults already diverge from Multipass (binaries, sockets, cert dirs, data paths, services). Dev scripts below still use a temporary socket/storage so you can run a build-tree daemon without installing Electros LaunchPad.
 
 ## Build
 
@@ -29,7 +29,7 @@ See [`scripts/README.md`](./scripts/README.md) and `BUILD.*.md` for options and 
 
 ## Side-by-side daemon (recommended)
 
-Keep system Multipass on its default socket. Run Hyperpass `hyperpassd` from your build with a **temporary socket**, **storage**, and (for catalog work) **distributions URL**.
+Keep system Multipass on its default socket. Run Electros LaunchPad `elpd` from your build with a **temporary socket**, **storage**, and (for catalog work) **distributions URL**.
 
 ### Terminal 1 — dev daemon
 
@@ -37,14 +37,14 @@ Keep system Multipass on its default socket. Run Hyperpass `hyperpassd` from you
 ./scripts/run-dev-daemon.sh
 ```
 
-Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or its platform default. Dev Hyperpass uses `/tmp/hyperpass.socket` by default.
+Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or its platform default. Dev Electros LaunchPad uses `/tmp/elp.socket` by default.
 
-The script sets `HYPERPASS_STORAGE`, `HYPERPASS_DISTRIBUTIONS_URL`, and `--address` for you. It also auto-exports `HYPERPASS_LLMFIT` and `HYPERPASS_LLAMA_SERVER` when those binaries are on your PATH (needed for Models catalog search and loading GGUF files). Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
+The script sets `ELP_STORAGE`, `ELP_DISTRIBUTIONS_URL`, and `--address` for you. It also auto-exports `ELP_LLMFIT` and `ELP_LLAMA_SERVER` when those binaries are on your PATH (needed for Models catalog search and loading GGUF files). Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
 
 **Models / LLM:** Download succeeded but **Load** failed with `llama-server is not installed` means the daemon cannot find [llama.cpp](https://github.com/ggerganov/llama.cpp)'s server binary. Install it (e.g. `brew install llama.cpp` if available, or build from source), then restart the dev daemon:
 
 ```bash
-export HYPERPASS_LLAMA_SERVER="$(command -v llama-server)"
+export ELP_LLAMA_SERVER="$(command -v llama-server)"
 ./scripts/run-dev-daemon.sh --stop
 ./scripts/run-dev-daemon.sh
 ```
@@ -56,13 +56,13 @@ Then use **Load** again on the Downloads tab for the cached model.
 **CLI:**
 
 ```bash
-export HYPERPASS_SERVER_ADDRESS=unix:/tmp/hyperpass.socket
+export ELP_SERVER_ADDRESS=unix:/tmp/elp.socket
 export PATH="$PWD/build/bin:$PATH"
 
-hyperpass version
-hyperpass find          # expect debian, fedora, almalinux, rocky (and Ubuntu remotes)
-hyperpass launch almalinux -n alma-test
-hyperpass shell alma-test
+elp version
+elp find          # expect debian, fedora, almalinux, rocky (and Ubuntu remotes)
+elp launch almalinux -n alma-test
+elp shell alma-test
 ```
 
 **GUI:**
@@ -71,9 +71,9 @@ hyperpass shell alma-test
 ./scripts/run-dev-gui.sh
 ```
 
-Use **`build/bin/hyperpass`**, not the system Multipass binary.
+Use **`build/bin/elp`**, not the system Multipass binary.
 
-First connection to a new daemon may require `hyperpass authenticate`.
+First connection to a new daemon may require `elp authenticate`.
 
 ### Stop
 
@@ -87,22 +87,22 @@ Or Ctrl-C in the daemon terminal (shutdown can take a moment during startup or w
 
 ```bash
 REPO="$PWD"   # repo root
-mkdir -p /tmp/hyperpass-data
+mkdir -p /tmp/elp-data
 
-export HYPERPASS_STORAGE=/tmp/hyperpass-data
-export HYPERPASS_DISTRIBUTIONS_URL="$REPO/data/distributions/distribution-info.json"
+export ELP_STORAGE=/tmp/elp-data
+export ELP_DISTRIBUTIONS_URL="$REPO/data/distributions/distribution-info.json"
 
-sudo -E "$REPO/build/bin/hyperpassd" \
+sudo -E "$REPO/build/bin/elpd" \
   --logger stderr \
   --verbosity debug \
-  --address unix:/tmp/hyperpass.socket
+  --address unix:/tmp/elp.socket
 ```
 
 `sudo -E` preserves the environment variables. Without `-E`, set them on the sudo command line.
 
 ### Recover stock Multipass CLI (macOS, legacy)
 
-Older Hyperpass builds that still wrote Multipass’s root CA path could break the installed Multipass CLI. Current Hyperpass uses `/usr/local/etc/hyperpassd/` instead, so this should not happen.
+Older Electros LaunchPad builds that still wrote Multipass’s root CA path could break the installed Multipass CLI. Current Electros LaunchPad uses `/usr/local/etc/elpd/` instead, so this should not happen.
 
 If you still need to restore stock Multipass TLS:
 
@@ -114,18 +114,18 @@ If you still need to restore stock Multipass TLS:
 
 | Variable / flag | Purpose |
 |-----------------|--------|
-| `--address unix:…` / `HYPERPASS_SERVER_ADDRESS` | Point CLI/GUI at the build-tree daemon |
-| `HYPERPASS_STORAGE` | Keep images/instances out of an installed Hyperpass data dir |
-| `HYPERPASS_DISTRIBUTIONS_URL` | Point third-party catalog at this repo’s `distribution-info.json` |
+| `--address unix:…` / `ELP_SERVER_ADDRESS` | Point CLI/GUI at the build-tree daemon |
+| `ELP_STORAGE` | Keep images/instances out of an installed Electros LaunchPad data dir |
+| `ELP_DISTRIBUTIONS_URL` | Point third-party catalog at this repo’s `distribution-info.json` |
 
-A packaged Hyperpass install already uses distinct defaults from Multipass and can coexist without these overrides.
+A packaged Electros LaunchPad install already uses distinct defaults from Multipass and can coexist without these overrides.
 
-## GUI: Multipass instances alongside Hyperpass
+## GUI: Multipass instances alongside Electros LaunchPad
 
-The Hyperpass GUI can **list and manage** stock Multipass instances when Multipass is installed and its client certificates are present. New launches always go to Hyperpass.
+The Electros LaunchPad GUI can **list and manage** stock Multipass instances when Multipass is installed and its client certificates are present. New launches always go to Electros LaunchPad.
 
 - Discovery uses platform Multipass defaults (macOS `unix:/var/run/multipass_socket`, Linux `/run/multipass_socket` or snap common, Windows `localhost:50051`) plus Multipass root CA and `multipass-client-certificate` PEMs.
-- Override the Multipass address with `HYPERPASS_MULTIPASS_ADDRESS` (same `unix:…` / `host:port` forms as Hyperpass).
+- Override the Multipass address with `ELP_MULTIPASS_ADDRESS` (same `unix:…` / `host:port` forms as Electros LaunchPad).
 - Toggle visibility under **Settings → General → Show Multipass instances** (default on).
 - Multipass rows show a small **Multipass** tag; if TLS auth is required, the GUI offers an authenticate dialog.
 
@@ -133,7 +133,7 @@ The Hyperpass GUI can **list and manage** stock Multipass instances when Multipa
 
 ### QEMU `Process crashed` on macOS
 
-If hyperpassd logs `Process crashed` for `qemu-system-aarch64` (including on `--version` or VM start), the build-tree QEMU likely lacks the **hypervisor** entitlement. vcpkg copies an unsigned binary into `build/bin/`; macOS kills it when HVF or Hypervisor.framework is involved.
+If elpd logs `Process crashed` for `qemu-system-aarch64` (including on `--version` or VM start), the build-tree QEMU likely lacks the **hypervisor** entitlement. vcpkg copies an unsigned binary into `build/bin/`; macOS kills it when HVF or Hypervisor.framework is involved.
 
 After each build, run (or rely on `./scripts/build-macos.sh`, which does this automatically):
 
@@ -150,14 +150,14 @@ build/bin/qemu-system-aarch64 --version
 
 Then restart the dev daemon: `./scripts/run-dev-daemon.sh --stop` and `./scripts/run-dev-daemon.sh`.
 
-While an instance is **Starting** (boot or cloud-init in progress), do not run `hyperpass shell` or `hyperpass exec` against it. Wait until launch finishes or `hyperpass list` shows **Running**.
+While an instance is **Starting** (boot or cloud-init in progress), do not run `elp shell` or `elp exec` against it. Wait until launch finishes or `elp list` shows **Running**.
 
 If the CLI stops responding, a long-running `launch`/`start` may be holding the daemon busy. Use `./scripts/run-dev-daemon.sh --stop` and restart the dev daemon, or wait for the in-flight launch to complete (default timeout is five minutes per phase).
 
 ## Do not (unless intentional)
 
 - Point the installed Multipass LaunchDaemon/snap service at your local JSON just to “try the fork” — that changes the system Multipass install.
-- Run two Hyperpass daemons on the same `--address` or the same `HYPERPASS_STORAGE`.
+- Run two Electros LaunchPad daemons on the same `--address` or the same `ELP_STORAGE`.
 
 ## Related docs
 
