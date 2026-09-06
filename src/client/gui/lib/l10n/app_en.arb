@@ -457,7 +457,7 @@
     "@modelsTabRuntimes": {
         "description": "Models tab: loaded backends and API keys"
     },
-    "modelsBackendsHint": "Electros LaunchPad probes local binaries used for catalog search and model inference. Install missing components using the hints below; automatic install will be added later.",
+    "modelsBackendsHint": "Electros LaunchPad probes local binaries used for catalog search and model inference. Missing llmfit or llama-server can be installed into the app data directory.",
     "@modelsBackendsHint": {
         "description": "Intro text on the backends detection tab"
     },
@@ -471,11 +471,11 @@
     },
     "modelsBackendsInstall": "Install",
     "@modelsBackendsInstall": {
-        "description": "Install backend action (placeholder)"
+        "description": "Install a managed llmfit or llama-server binary"
     },
     "modelsBackendsInstallSoon": "Automatic install coming soon",
     "@modelsBackendsInstallSoon": {
-        "description": "Tooltip when install is not available yet"
+        "description": "Unused; kept for compatibility"
     },
     "modelsBackendStatusReady": "Ready",
     "@modelsBackendStatusReady": {

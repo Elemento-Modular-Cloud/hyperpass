@@ -20,7 +20,9 @@
 #include "backend_probe.h"
 #include "binary_locator.h"
 #include "llama_server_process_spec.h"
+#include "managed_tools.h"
 #include "mlx_server_process_spec.h"
+#include "runtime_installer.h"
 
 #include <multipass/constants.h>
 #include <multipass/file_ops.h>
@@ -90,7 +92,12 @@ bool cuda_present()
 } // namespace
 
 mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path data_directory)
-    : pool{pool}, vault{data_directory, downloader}, keys{data_directory}, data_directory{data_directory}
+    : pool{pool},
+      vault{data_directory, downloader},
+      advisor{llm::managed_tools_root(data_directory)},
+      keys{data_directory},
+      downloader{downloader},
+      data_directory{data_directory}
 {
     idle_timer.setInterval(15000);
     QObject::connect(&idle_timer, &QTimer::timeout, this, [this] { idle_unload_tick(); });
@@ -661,11 +668,18 @@ void mp::LlmService::load_model_impl(
         }
         else
         {
+            const auto tools_root = llm::managed_tools_root(data_directory);
             const auto llama = llm::locate_binary(mp::llama_server_env_var,
-                                                  {"llama-server", "llama_server"});
+                                                  {"llama-server", "llama_server"},
+                                                  tools_root,
+                                                  QString::fromUtf8(llm::tool_llama_server));
             if (llama.isEmpty())
                 throw std::runtime_error(
-                    "llama-server is not installed. Set ELP_LLAMA_SERVER or add it to PATH.");
+                    "llama-server is not installed. Use Models → Backends → Install, "
+                    "or set ELP_LLAMA_SERVER.");
+            QString library_dir;
+            if (llm::is_under_managed_tools(llama, tools_root))
+                library_dir = QFileInfo{llama}.absolutePath();
             session.process = platform::make_process(std::make_unique<LlamaServerProcessSpec>(
                 llama,
                 QString::fromStdString(art.path),
@@ -673,7 +687,8 @@ void mp::LlmService::load_model_impl(
                 session.port,
                 ctx,
                 gpu_layers(kind),
-                max_tokens));
+                max_tokens,
+                library_dir));
         }
         session.process->start();
         if (!session.process->wait_for_started(10000))
@@ -835,7 +850,7 @@ void mp::LlmService::list_llm_backends(
     const auto selected = backend_name(select_backend());
     ListLlmBackendsReply reply;
     reply.set_selected_backend(selected);
-    for (const auto& row : llm::probe_backends(selected))
+    for (const auto& row : llm::probe_backends(selected, llm::managed_tools_root(data_directory)))
     {
         auto* out = reply.add_backends();
         out->set_id(row.id);
@@ -846,7 +861,34 @@ void mp::LlmService::list_llm_backends(
         out->set_install_hint(row.install_hint);
         out->set_required(row.required);
         out->set_active(row.active);
+        out->set_installable(row.installable);
     }
+    server->Write(reply);
+}
+
+void mp::LlmService::install_llm_backend(
+    const InstallLlmBackendRequest* request,
+    grpc::ServerReaderWriterInterface<InstallLlmBackendReply, InstallLlmBackendRequest>* server)
+{
+    const auto backend_id = QString::fromStdString(request->backend_id());
+    llm::RuntimeInstaller installer{downloader, data_directory};
+    auto on_progress = [server, backend_id](const llm::InstallProgress& progress) {
+        InstallLlmBackendReply reply;
+        reply.set_backend_id(backend_id.toStdString());
+        reply.set_status(progress.status);
+        reply.set_progress_percent(progress.percent);
+        reply.set_binary_path(progress.binary_path.toStdString());
+        if (!progress.message.empty())
+            reply.set_reply_message(progress.message);
+        server->Write(reply);
+    };
+    const auto path = installer.install(backend_id, on_progress);
+    InstallLlmBackendReply reply;
+    reply.set_backend_id(backend_id.toStdString());
+    reply.set_status("ready");
+    reply.set_progress_percent(100);
+    reply.set_binary_path(path.toStdString());
+    reply.set_reply_message("installed");
     server->Write(reply);
 }
 

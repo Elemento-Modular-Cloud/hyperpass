@@ -134,17 +134,28 @@ class LlmBackendsStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final backends = ref.watch(llmBackendsProvider);
+    final installs = ref.watch(llmBackendInstallsProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return backends.when(
       data: (reply) {
         if (reply.backends.isEmpty) return const SizedBox.shrink();
+        final shown = reply.backends
+            .where((b) => b.id == 'llmfit' || b.id == 'llamacpp' || b.installable)
+            .toList();
+        final rows = shown.isEmpty ? reply.backends : shown;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              l10n.modelsBackendsHint,
+              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+            ),
+            const SizedBox(height: 6),
             Row(
               children: [
-                Text(l10n.modelsTabBackends, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                Text(l10n.modelsTabBackends,
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () => ref.invalidate(llmBackendsProvider),
@@ -156,22 +167,53 @@ class LlmBackendsStrip extends ConsumerWidget {
             const SizedBox(height: 4),
             Wrap(
               spacing: 8,
-              runSpacing: 4,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                for (final backend in reply.backends)
+                for (final backend in rows) ...[
                   Chip(
-                    avatar: Icon(
-                      backend.status == 'ready' ? Icons.check_circle : Icons.error_outline,
-                      size: 14,
-                      color: backend.status == 'ready' ? scheme.primary : scheme.error,
-                    ),
+                    avatar: installs.containsKey(backend.id)
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              value: (installs[backend.id] ?? 0) > 0
+                                  ? (installs[backend.id]! / 100.0)
+                                  : null,
+                            ),
+                          )
+                        : Icon(
+                            backend.status == 'ready'
+                                ? Icons.check_circle
+                                : Icons.error_outline,
+                            size: 14,
+                            color: backend.status == 'ready'
+                                ? scheme.primary
+                                : scheme.error,
+                          ),
                     label: Text(
-                      backend.name.isEmpty ? backend.id : backend.name,
+                      [
+                        backend.name.isEmpty ? backend.id : backend.name,
+                        if (installs.containsKey(backend.id))
+                          '${(installs[backend.id] ?? 0).clamp(0, 100)}%',
+                      ].join(' '),
                       style: const TextStyle(fontSize: 11),
                     ),
                     visualDensity: VisualDensity.compact,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
+                  if (backend.installable &&
+                      backend.status == 'missing' &&
+                      !installs.containsKey(backend.id))
+                    TextButton(
+                      onPressed: () => ref
+                          .read(llmBackendInstallsProvider.notifier)
+                          .install(backend.id),
+                      child: Text(l10n.modelsBackendsInstall,
+                          style: const TextStyle(fontSize: 11)),
+                    ),
+                ],
               ],
             ),
           ],

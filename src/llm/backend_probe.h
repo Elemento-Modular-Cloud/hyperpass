@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <QString>
+
 #include <string>
 #include <vector>
 
@@ -33,8 +35,10 @@ struct BackendProbeResult
     std::string install_hint;
     bool required{false};
     bool active{false};
+    bool installable{false};
 };
 
-std::vector<BackendProbeResult> probe_backends(const std::string& selected_inference_id);
+std::vector<BackendProbeResult> probe_backends(const std::string& selected_inference_id,
+                                               const QString& managed_tools_dir = {});
 
 } // namespace multipass::llm

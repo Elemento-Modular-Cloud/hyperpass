@@ -17,13 +17,18 @@
 
 #include "binary_locator.h"
 
+#include "managed_tools.h"
+
 #include <QFileInfo>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
 
 namespace mp = multipass;
 
-QString mp::llm::locate_binary(const char* env_var, const QStringList& names)
+QString mp::llm::locate_binary(const char* env_var,
+                               const QStringList& names,
+                               const QString& managed_tools_dir,
+                               const QString& managed_tool_name)
 {
     if (env_var && *env_var)
     {
@@ -35,6 +40,13 @@ QString mp::llm::locate_binary(const char* env_var, const QStringList& names)
                 return info.absoluteFilePath();
             return env;
         }
+    }
+
+    if (!managed_tools_dir.isEmpty() && !managed_tool_name.isEmpty())
+    {
+        const auto managed = find_in_managed(managed_tools_dir, managed_tool_name, names);
+        if (!managed.isEmpty())
+            return managed;
     }
 
     for (const auto& name : names)

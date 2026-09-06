@@ -120,6 +120,7 @@ add_executable(multipass_cpp_tests
   test_recursive_dir_iter.cpp
   test_remote_settings_handler.cpp
   test_resource_pool.cpp
+  test_runtime_installer.cpp
   test_rust_integration.cpp
   test_setting_specs.cpp
   test_settings.cpp

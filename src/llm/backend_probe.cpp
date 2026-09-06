@@ -18,6 +18,7 @@
 #include "backend_probe.h"
 
 #include "binary_locator.h"
+#include "managed_tools.h"
 
 #include <multipass/constants.h>
 
@@ -66,7 +67,8 @@ mp::llm::BackendProbeResult make_result(std::string id,
                                         QString path,
                                         std::string install_hint,
                                         bool required,
-                                        bool active)
+                                        bool active,
+                                        bool installable = false)
 {
     mp::llm::BackendProbeResult row;
     row.id = std::move(id);
@@ -77,6 +79,7 @@ mp::llm::BackendProbeResult make_result(std::string id,
     row.install_hint = std::move(install_hint);
     row.required = required;
     row.active = active;
+    row.installable = installable;
     return row;
 }
 
@@ -86,7 +89,8 @@ bool inference_uses_llamacpp(const std::string& selected)
 }
 } // namespace
 
-std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::string& selected_inference_id)
+std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::string& selected_inference_id,
+                                                                 const QString& managed_tools_dir)
 {
     std::vector<BackendProbeResult> rows;
     const bool mlx_enabled = mp::enable_mlx_backend;
@@ -94,7 +98,10 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
     const bool llamacpp_selected = inference_uses_llamacpp(selected_inference_id) ||
                                    (!mlx_enabled && selected_inference_id == "mlx");
 
-    const auto llmfit = locate_binary(mp::llmfit_env_var, {"llmfit"});
+    const auto llmfit = locate_binary(mp::llmfit_env_var,
+                                      {"llmfit"},
+                                      managed_tools_dir,
+                                      QString::fromUtf8(tool_llmfit));
     if (binary_ready(llmfit))
     {
         const auto version = run_version_line(llmfit);
@@ -105,7 +112,8 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                    llmfit,
                                    {},
                                    true,
-                                   false));
+                                   false,
+                                   true));
     }
     else
     {
@@ -114,9 +122,10 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                    "missing",
                                    "Required for model catalog and fit scoring",
                                    {},
-                                   "Install llmfit and add it to PATH, or set ELP_LLMFIT",
+                                   "Install from Models → Backends, or set ELP_LLMFIT",
                                    true,
-                                   false));
+                                   false,
+                                   true));
     }
 
 #ifdef Q_OS_MACOS
@@ -193,7 +202,10 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
         }
     }
 
-    const auto llama = locate_binary(mp::llama_server_env_var, {"llama-server", "llama_server"});
+    const auto llama = locate_binary(mp::llama_server_env_var,
+                                     {"llama-server", "llama_server"},
+                                     managed_tools_dir,
+                                     QString::fromUtf8(tool_llama_server));
     if (binary_ready(llama))
     {
         const auto version = run_version_line(llama);
@@ -204,7 +216,8 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                    llama,
                                    {},
                                    !mlx_platform || !mlx_selected,
-                                   llamacpp_selected));
+                                   llamacpp_selected,
+                                   true));
     }
     else
     {
@@ -214,10 +227,10 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                    mlx_selected ? "Fallback CPU/GPU inference backend"
                                                 : "Primary inference backend on this platform",
                                    {},
-                                   "Install llama.cpp server and add llama-server to PATH, "
-                                   "or set ELP_LLAMA_SERVER",
+                                   "Install from Models → Backends, or set ELP_LLAMA_SERVER",
                                    !mlx_platform || !mlx_selected,
-                                   llamacpp_selected));
+                                   llamacpp_selected,
+                                   true));
     }
 
 #ifndef Q_OS_MACOS

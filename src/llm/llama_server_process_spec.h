@@ -34,10 +34,12 @@ public:
                            int port,
                            int ctx_size,
                            int n_gpu_layers,
-                           int max_tokens = 0);
+                           int max_tokens = 0,
+                           QString library_dir = {});
 
     QString program() const override;
     QStringList arguments() const override;
+    QProcessEnvironment environment() const override;
     QString apparmor_profile() const override;
     QString identifier() const override;
 
@@ -49,6 +51,7 @@ private:
     int ctx_size;
     int n_gpu_layers;
     int max_tokens;
+    QString library_dir;
 };
 
 } // namespace multipass

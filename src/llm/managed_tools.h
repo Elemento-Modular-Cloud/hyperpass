@@ -17,16 +17,24 @@
 
 #pragma once
 
+#include <multipass/path.h>
+
 #include <QString>
 #include <QStringList>
 
 namespace multipass::llm
 {
 
-// Search order: env override → managed tools dir → PATH.
-QString locate_binary(const char* env_var,
-                      const QStringList& names,
-                      const QString& managed_tools_dir = {},
-                      const QString& managed_tool_name = {});
+// Pinned managed-tool releases. Bump deliberately when upgrading.
+constexpr auto pinned_llmfit_version = "v1.1.14";
+constexpr auto pinned_llama_build = "b10819";
+
+constexpr auto tool_llmfit = "llmfit";
+constexpr auto tool_llama_server = "llama-server";
+
+QString managed_tools_root(const Path& data_directory);
+QString managed_version_dir(const QString& tools_root, const QString& tool_name);
+QString find_in_managed(const QString& tools_root, const QString& tool_name, const QStringList& names);
+bool is_under_managed_tools(const QString& binary_path, const QString& tools_root);
 
 } // namespace multipass::llm

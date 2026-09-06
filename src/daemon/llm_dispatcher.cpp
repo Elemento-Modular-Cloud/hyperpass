@@ -161,6 +161,14 @@ void mp::LlmDispatcher::list_llm_backends(
     run_async(context, [this, request, server] { llm_service->list_llm_backends(request, server); });
 }
 
+void mp::LlmDispatcher::install_llm_backend(
+    const InstallLlmBackendRequest* request,
+    grpc::ServerReaderWriterInterface<InstallLlmBackendReply, InstallLlmBackendRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_async(context, [this, request, server] { llm_service->install_llm_backend(request, server); });
+}
+
 void mp::LlmDispatcher::create_api_key(
     const CreateApiKeyRequest* request,
     grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server,

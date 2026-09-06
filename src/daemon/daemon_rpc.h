@@ -171,6 +171,10 @@ signals:
         const ListLlmBackendsRequest* request,
         grpc::ServerReaderWriter<ListLlmBackendsReply, ListLlmBackendsRequest>* server,
         DaemonRpcContext* context);
+    void on_install_llm_backend(
+        const InstallLlmBackendRequest* request,
+        grpc::ServerReaderWriter<InstallLlmBackendReply, InstallLlmBackendRequest>* server,
+        DaemonRpcContext* context);
     void on_create_api_key(const CreateApiKeyRequest* request,
                            grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server,
                            DaemonRpcContext* context);
@@ -297,6 +301,9 @@ protected:
     grpc::Status list_llm_backends(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<ListLlmBackendsReply, ListLlmBackendsRequest>* server) override;
+    grpc::Status install_llm_backend(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<InstallLlmBackendReply, InstallLlmBackendRequest>* server) override;
     grpc::Status create_api_key(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server) override;

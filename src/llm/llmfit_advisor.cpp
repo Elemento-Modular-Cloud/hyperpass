@@ -17,6 +17,7 @@
 
 #include "llmfit_advisor.h"
 #include "binary_locator.h"
+#include "managed_tools.h"
 
 #include <multipass/constants.h>
 #include <multipass/format.h>
@@ -633,15 +634,23 @@ std::vector<mp::ModelSuggestion> slice_models(std::vector<mp::ModelSuggestion> m
 }
 } // namespace
 
+mp::LlmfitAdvisor::LlmfitAdvisor(QString managed_tools_dir)
+    : managed_tools_dir{std::move(managed_tools_dir)}
+{
+}
+
 QString mp::LlmfitAdvisor::binary_path() const
 {
-    return llm::locate_binary(mp::llmfit_env_var, {"llmfit"});
+    return llm::locate_binary(mp::llmfit_env_var,
+                              {"llmfit"},
+                              managed_tools_dir,
+                              QString::fromUtf8(llm::tool_llmfit));
 }
 
 std::string mp::LlmfitAdvisor::missing_binary_hint() const
 {
-    return "llmfit is not installed. Install it from https://github.com/AlexsJones/llmfit "
-           "or set ELP_LLMFIT to the binary path. Loaded models and the OpenAI API still work.";
+    return "llmfit is not installed. Use Models → Backends → Install, or set ELP_LLMFIT "
+           "to the binary path. Loaded models and the OpenAI API still work.";
 }
 
 std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::recommend(MemorySize available_ram,

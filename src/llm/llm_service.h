@@ -93,6 +93,9 @@ public:
     void list_llm_backends(
         const ListLlmBackendsRequest* request,
         grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>* server);
+    void install_llm_backend(
+        const InstallLlmBackendRequest* request,
+        grpc::ServerReaderWriterInterface<InstallLlmBackendReply, InstallLlmBackendRequest>* server);
     void create_api_key(
         const CreateApiKeyRequest* request,
         grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server);
@@ -164,6 +167,7 @@ private:
     LlmfitAdvisor advisor;
     ApiKeyStore keys;
     LlmActivityLog activity_log;
+    URLDownloader& downloader;
     Path data_directory;
     std::unordered_map<std::string, LoadedSession> sessions;
     mutable std::mutex mutex;

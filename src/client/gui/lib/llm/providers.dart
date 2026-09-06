@@ -45,6 +45,30 @@ final llmBackendsProvider = FutureProvider((ref) async {
   return ref.watch(grpcClientProvider).listLlmBackends();
 });
 
+class LlmBackendInstalls extends Notifier<Map<String, int>> {
+  @override
+  Map<String, int> build() => const {};
+
+  Future<void> install(String backendId) async {
+    if (state.containsKey(backendId)) return;
+    state = {...state, backendId: 0};
+    try {
+      final client = ref.read(grpcClientProvider);
+      await for (final reply in client.installLlmBackend(backendId)) {
+        state = {...state, backendId: reply.progressPercent};
+        if (reply.status == 'ready' || reply.status == 'error') break;
+      }
+    } finally {
+      final next = {...state}..remove(backendId);
+      state = next;
+      ref.invalidate(llmBackendsProvider);
+    }
+  }
+}
+
+final llmBackendInstallsProvider =
+    NotifierProvider<LlmBackendInstalls, Map<String, int>>(LlmBackendInstalls.new);
+
 /// Instance IDs whose unload RPC has been sent but is not yet reflected in
 /// [loadedModelsProvider]. The Running table and sidebar badge filter these
 /// out immediately so a ghost row cannot linger until the next poll.

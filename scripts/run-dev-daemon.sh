@@ -124,12 +124,12 @@ echo "    catalog:     ${ELP_DISTRIBUTIONS_URL}"
 if [[ -n "${ELP_LLMFIT:-}" ]]; then
   echo "    llmfit:      ${ELP_LLMFIT}"
 else
-  echo "    llmfit:      (not found — catalog suggestions need llmfit on PATH)"
+  echo "    llmfit:      (not on PATH — GUI Install or set ELP_LLMFIT; managed under \$ELP_STORAGE/data/llm/tools)"
 fi
 if [[ -n "${ELP_LLAMA_SERVER:-}" ]]; then
   echo "    llama-server:${ELP_LLAMA_SERVER}"
 else
-  echo "    llama-server:(not found — set ELP_LLAMA_SERVER to load GGUF models)"
+  echo "    llama-server:(not on PATH — GUI Install or set ELP_LLAMA_SERVER)"
 fi
 echo
 echo "    CLI/GUI:     export ELP_SERVER_ADDRESS=unix:${ELP_SOCKET}"

@@ -646,6 +646,19 @@ grpc::Status mp::DaemonRpc::list_llm_backends(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::install_llm_backend(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<InstallLlmBackendReply, InstallLlmBackendRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_install_llm_backend,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::create_api_key(
     grpc::ServerContext* context,
     grpc::ServerReaderWriter<CreateApiKeyReply, CreateApiKeyRequest>* server)

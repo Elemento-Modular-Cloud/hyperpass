@@ -41,6 +41,8 @@ struct ResolvedGguf
 class LlmfitAdvisor
 {
 public:
+    explicit LlmfitAdvisor(QString managed_tools_dir = {});
+
     std::vector<ModelSuggestion> recommend(MemorySize available_ram,
                                            int cpu_cores,
                                            const std::string& runtime,
@@ -68,6 +70,8 @@ public:
     std::string missing_binary_hint() const;
 
 private:
+    QString managed_tools_dir;
+
     struct CacheEntry
     {
         long long available_bytes{0};

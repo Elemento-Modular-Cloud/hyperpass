@@ -39,9 +39,11 @@ Keep system Multipass on its default socket. Run Electros LaunchPad `elpd` from 
 
 Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or its platform default. Dev Electros LaunchPad uses `/tmp/elp.socket` by default.
 
-The script sets `ELP_STORAGE`, `ELP_DISTRIBUTIONS_URL`, and `--address` for you. It also auto-exports `ELP_LLMFIT` and `ELP_LLAMA_SERVER` when those binaries are on your PATH (needed for Models catalog search and loading GGUF files). Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
+The script sets `ELP_STORAGE`, `ELP_DISTRIBUTIONS_URL`, and `--address` for you. It also auto-exports `ELP_LLMFIT` and `ELP_LLAMA_SERVER` when those binaries are on your PATH. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
 
-**Models / LLM:** Download succeeded but **Load** failed with `llama-server is not installed` means the daemon cannot find [llama.cpp](https://github.com/ggerganov/llama.cpp)'s server binary. Install it (e.g. `brew install llama.cpp` if available, or build from source), then restart the dev daemon:
+**Models / LLM:** The daemon can also **auto-install** pinned `llmfit` and `llama-server` into `$ELP_STORAGE/data/llm/tools/` via the GUI (**Models → Backends → Install**). Env overrides still win over managed installs and PATH.
+
+If **Load** fails with `llama-server is not installed`, either use **Install** in the GUI, or install yourself and point the daemon at it:
 
 ```bash
 export ELP_LLAMA_SERVER="$(command -v llama-server)"

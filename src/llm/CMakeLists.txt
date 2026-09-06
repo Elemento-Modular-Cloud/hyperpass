@@ -22,8 +22,10 @@ add_library(llm STATIC
   llm_activity_log.cpp
   llm_service.cpp
   llmfit_advisor.cpp
+  managed_tools.cpp
   mlx_server_process_spec.cpp
-  model_vault.cpp)
+  model_vault.cpp
+  runtime_installer.cpp)
 
 target_include_directories(llm
   PUBLIC

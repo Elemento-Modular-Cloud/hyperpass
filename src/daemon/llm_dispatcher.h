@@ -73,6 +73,10 @@ public slots:
         const ListLlmBackendsRequest* request,
         grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>* server,
         DaemonRpcContext* context);
+    void install_llm_backend(
+        const InstallLlmBackendRequest* request,
+        grpc::ServerReaderWriterInterface<InstallLlmBackendReply, InstallLlmBackendRequest>* server,
+        DaemonRpcContext* context);
     void create_api_key(
         const CreateApiKeyRequest* request,
         grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server,

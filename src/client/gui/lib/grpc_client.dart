@@ -284,6 +284,12 @@ class GrpcClient {
     return doRpc(_client.list_llm_backends, ListLlmBackendsRequest()).then((r) => r!);
   }
 
+  Stream<InstallLlmBackendReply> installLlmBackend(String backendId) {
+    return _client.install_llm_backend(
+      Stream.value(InstallLlmBackendRequest(backendId: backendId)),
+    );
+  }
+
   Stream<LoadModelReply> loadModel(
     String modelId, {
     String quant = '',

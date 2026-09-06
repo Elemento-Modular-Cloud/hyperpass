@@ -708,5 +708,20 @@ public:
                 PrepareAsynclist_llm_backendsRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::InstallLlmBackendRequest,
+                                                   multipass::InstallLlmBackendReply>*),
+                install_llm_backendRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::InstallLlmBackendRequest,
+                                                        multipass::InstallLlmBackendReply>*),
+                Asyncinstall_llm_backendRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::InstallLlmBackendRequest,
+                                                        multipass::InstallLlmBackendReply>*),
+                PrepareAsyncinstall_llm_backendRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
 };
 } // namespace multipass::test

@@ -57,6 +57,7 @@ service Rpc {
     rpc unload_model (stream UnloadModelRequest) returns (stream UnloadModelReply);
     rpc list_models (stream ListModelsRequest) returns (stream ListModelsReply);
     rpc list_llm_backends (stream ListLlmBackendsRequest) returns (stream ListLlmBackendsReply);
+    rpc install_llm_backend (stream InstallLlmBackendRequest) returns (stream InstallLlmBackendReply);
     rpc create_api_key (stream CreateApiKeyRequest) returns (stream CreateApiKeyReply);
     rpc list_api_keys (stream ListApiKeysRequest) returns (stream ListApiKeysReply);
     rpc revoke_api_key (stream RevokeApiKeyRequest) returns (stream RevokeApiKeyReply);
@@ -793,6 +794,7 @@ message LlmBackendInfo {
     string install_hint = 6;
     bool required = 7;
     bool active = 8;
+    bool installable = 9;
 }
 
 message ListLlmBackendsReply {
@@ -800,6 +802,20 @@ message ListLlmBackendsReply {
     string reply_message = 2;
     string selected_backend = 3;
     repeated LlmBackendInfo backends = 4;
+}
+
+message InstallLlmBackendRequest {
+    int32 verbosity_level = 1;
+    string backend_id = 2; // "llmfit" | "llamacpp"
+}
+
+message InstallLlmBackendReply {
+    string log_line = 1;
+    string reply_message = 2;
+    string backend_id = 3;
+    string status = 4; // downloading | extracting | ready | error
+    int32 progress_percent = 5;
+    string binary_path = 6;
 }
 
 message CreateApiKeyRequest {

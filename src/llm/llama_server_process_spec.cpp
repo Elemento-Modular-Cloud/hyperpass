@@ -25,14 +25,16 @@ mp::LlamaServerProcessSpec::LlamaServerProcessSpec(QString program,
                                                    int port,
                                                    int ctx_size,
                                                    int n_gpu_layers,
-                                                   int max_tokens)
+                                                   int max_tokens,
+                                                   QString library_dir)
     : program_{std::move(program)},
       model_path{std::move(model_path)},
       openai_id{std::move(openai_id)},
       port{port},
       ctx_size{ctx_size},
       n_gpu_layers{n_gpu_layers},
-      max_tokens{max_tokens}
+      max_tokens{max_tokens},
+      library_dir{std::move(library_dir)}
 {
 }
 
@@ -58,6 +60,27 @@ QStringList mp::LlamaServerProcessSpec::arguments() const
     if (max_tokens > 0)
         args << "--n-predict" << QString::number(max_tokens);
     return args;
+}
+
+QProcessEnvironment mp::LlamaServerProcessSpec::environment() const
+{
+    auto env = ProcessSpec::environment();
+    if (library_dir.isEmpty())
+        return env;
+
+#ifdef Q_OS_MACOS
+    constexpr auto key = "DYLD_LIBRARY_PATH";
+    constexpr auto sep = ":";
+#elif defined(Q_OS_WIN)
+    constexpr auto key = "PATH";
+    constexpr auto sep = ";";
+#else
+    constexpr auto key = "LD_LIBRARY_PATH";
+    constexpr auto sep = ":";
+#endif
+    const auto existing = env.value(key);
+    env.insert(key, existing.isEmpty() ? library_dir : library_dir + sep + existing);
+    return env;
 }
 
 QString mp::LlamaServerProcessSpec::apparmor_profile() const
