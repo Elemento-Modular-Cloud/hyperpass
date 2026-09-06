@@ -11,6 +11,8 @@ import 'package:window_manager/window_manager.dart';
 import 'appearance_settings.dart';
 import 'auth/auth_provider.dart';
 import 'auth/auth_state.dart';
+import 'auth/feature_access.dart';
+import 'auth/feature_lock.dart';
 import 'brand.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
@@ -176,24 +178,45 @@ abstract final class _SidebarStyle {
 
 class SidebarSectionHeader extends ConsumerWidget {
   final String label;
+  final bool locked;
 
-  const SidebarSectionHeader(this.label, {super.key});
+  const SidebarSectionHeader(
+    this.label, {
+    this.locked = false,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final appearanceTheme = ref.watch(
       appearanceSettingsProvider.select((settings) => settings.theme),
     );
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: _SidebarStyle.sectionColor(appearanceTheme),
-          fontFamily: Brand.fontFamily,
-          fontSize: _SidebarStyle.subLabelSize,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.4,
+    final color = _SidebarStyle.sectionColor(appearanceTheme);
+    return Opacity(
+      opacity: locked ? 0.45 : 1,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontFamily: Brand.fontFamily,
+                  fontSize: _SidebarStyle.subLabelSize,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+            if (locked)
+              Icon(
+                Icons.lock_outline,
+                size: 12,
+                color: color,
+              ),
+          ],
         ),
       ),
     );
@@ -225,6 +248,7 @@ class SideBar extends ConsumerWidget {
     ref.watch(serviceInstanceSyncProvider);
     final daemonUp = ref.watch(daemonAvailableProvider);
     final multipassStatus = ref.watch(multipassSidebarStatusProvider);
+    final access = ref.watch(featureAccessProvider);
     final fg = _SidebarStyle.foreground(appearanceTheme);
 
     bool isSelected(String key) => key == selectedSidebarKey;
@@ -275,23 +299,33 @@ class SideBar extends ConsumerWidget {
       },
     );
 
+    void openOrPromptLocked(bool allowed, String key) {
+      if (allowed) {
+        ref.read(sidebarKeyNotifier).set(key);
+      } else {
+        promptFeatureLocked(context, ref);
+      }
+    }
+
     final llmCatalogue = SidebarEntry(
       icon: FontAwesomeIcons.book,
       selected: isSelected(LlmCatalogueScreen.sidebarKey),
       label: l10n.sidebarModelsLabel,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(LlmCatalogueScreen.sidebarKey);
-      },
+      locked: !access.canUseLlms,
+      onPressed: () =>
+          openOrPromptLocked(access.canUseLlms, LlmCatalogueScreen.sidebarKey),
     );
 
     final llmInstances = SidebarEntry(
       icon: FontAwesomeIcons.microchip,
       selected: isLlmInstancesSelected(),
       label: l10n.sidebarRuntimeLabel,
-      badge: loadedCount > 0 ? loadedCount.toString() : null,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(LlmInstancesScreen.sidebarKey);
-      },
+      badge: access.canUseLlms && loadedCount > 0
+          ? loadedCount.toString()
+          : null,
+      locked: !access.canUseLlms,
+      onPressed: () =>
+          openOrPromptLocked(access.canUseLlms, LlmInstancesScreen.sidebarKey),
     );
 
     final activeDownloads = ref
@@ -305,38 +339,42 @@ class SideBar extends ConsumerWidget {
       icon: FontAwesomeIcons.download,
       selected: isSelected(LlmDownloadedScreen.sidebarKey),
       label: l10n.llmDownloadedLabel,
-      badge: activeDownloads > 0 ? activeDownloads.toString() : null,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(LlmDownloadedScreen.sidebarKey);
-      },
+      badge: access.canUseLlms && activeDownloads > 0
+          ? activeDownloads.toString()
+          : null,
+      locked: !access.canUseLlms,
+      onPressed: () => openOrPromptLocked(
+          access.canUseLlms, LlmDownloadedScreen.sidebarKey),
     );
 
     final llmCredentials = SidebarEntry(
       icon: FontAwesomeIcons.key,
       selected: isSelected(LlmCredentialsScreen.sidebarKey),
       label: l10n.llmCredentialsLabel,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(LlmCredentialsScreen.sidebarKey);
-      },
+      locked: !access.canUseLlms,
+      onPressed: () => openOrPromptLocked(
+          access.canUseLlms, LlmCredentialsScreen.sidebarKey),
     );
 
     final services = SidebarEntry(
       icon: FontAwesomeIcons.cubes,
       selected: isSelected(ServicesScreen.sidebarKey),
       label: l10n.sidebarServiceCatalogueLabel,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(ServicesScreen.sidebarKey);
-      },
+      locked: !access.canUseServices,
+      onPressed: () =>
+          openOrPromptLocked(access.canUseServices, ServicesScreen.sidebarKey),
     );
 
     final serviceInstances = SidebarEntry(
       icon: FontAwesomeIcons.screwdriverWrench,
       selected: isServiceInstancesSelected(),
       label: l10n.sidebarDeploymentsLabel,
-      badge: serviceCount > 0 ? serviceCount.toString() : null,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(ServiceInstancesScreen.sidebarKey);
-      },
+      badge: access.canUseServices && serviceCount > 0
+          ? serviceCount.toString()
+          : null,
+      locked: !access.canUseServices,
+      onPressed: () => openOrPromptLocked(
+          access.canUseServices, ServiceInstancesScreen.sidebarKey),
     );
 
     final help = SidebarEntry(
@@ -462,12 +500,18 @@ class SideBar extends ConsumerWidget {
         instances,
         catalogue,
         cloudInit,
-        SidebarSectionHeader(l10n.sidebarSectionAi),
+        SidebarSectionHeader(
+          l10n.sidebarSectionAi,
+          locked: !access.canUseLlms,
+        ),
         llmCatalogue,
         llmDownloaded,
         llmInstances,
         llmCredentials,
-        SidebarSectionHeader(l10n.sidebarSectionServices),
+        SidebarSectionHeader(
+          l10n.sidebarSectionServices,
+          locked: !access.canUseServices,
+        ),
         services,
         serviceInstances,
         SidebarSectionHeader(l10n.sidebarSectionManage),
@@ -558,8 +602,6 @@ class _SidebarAccountBadge extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final auth = ref.watch(authProvider);
-    if (auth is! AuthAuthenticated) return const SizedBox.shrink();
-
     final appearanceTheme = ref.watch(
       appearanceSettingsProvider.select((settings) => settings.theme),
     );
@@ -567,6 +609,76 @@ class _SidebarAccountBadge extends ConsumerWidget {
         ? _SidebarStyle.activeFg(appearanceTheme)
         : _SidebarStyle.foreground(appearanceTheme);
     final isDarkTheme = appearanceTheme != AppearanceTheme.light;
+
+    if (auth is AuthGuest) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+        child: Material(
+          color: selected
+              ? _SidebarStyle.activeBg(appearanceTheme)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(Brand.radius),
+          child: InkWell(
+            onTap: onOpenSettings,
+            hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
+            borderRadius: BorderRadius.circular(Brand.radius),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Brand.accent.withValues(alpha: 0.25),
+                    child: const Icon(
+                      Icons.person_outline,
+                      size: 16,
+                      color: Brand.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.sidebarGuestHeading,
+                          style: TextStyle(
+                            fontFamily: Brand.fontFamily,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                            color: fg.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l10n.sidebarGuestSignIn,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: Brand.fontFamily,
+                            fontSize: _SidebarStyle.statusSize,
+                            color: fg,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.login,
+                    size: 16,
+                    color: fg.withValues(alpha: 0.45),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (auth is! AuthAuthenticated) return const SizedBox.shrink();
+
     final email = auth.username;
     final initials = _accountInitials(email);
     final gravatar = _gravatarUri(email);
@@ -843,6 +955,7 @@ class SidebarEntry extends ConsumerWidget {
   final VoidCallback onPressed;
   final bool selected;
   final bool subroute;
+  final bool locked;
   final double iconOpacity;
   final Color? iconColor;
 
@@ -854,6 +967,7 @@ class SidebarEntry extends ConsumerWidget {
     required this.onPressed,
     this.selected = false,
     this.subroute = false,
+    this.locked = false,
     this.iconOpacity = 1,
     this.iconColor,
   });
@@ -866,7 +980,7 @@ class SidebarEntry extends ConsumerWidget {
     final activeBg = _SidebarStyle.activeBg(appearanceTheme);
     final activeFg = _SidebarStyle.activeFg(appearanceTheme);
     final idleFg = _SidebarStyle.foreground(appearanceTheme);
-    final fg = selected ? activeFg : idleFg;
+    final fg = selected && !locked ? activeFg : idleFg;
     final height =
         subroute ? _SidebarStyle.subItemHeight : _SidebarStyle.itemHeight;
     final fontSize =
@@ -887,55 +1001,64 @@ class SidebarEntry extends ConsumerWidget {
       ),
     );
 
-    return Material(
-      color: selected ? activeBg : Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
-        child: SizedBox(
-          height: height,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: subroute ? 8 : 8,
-              right: 8,
-            ),
-            child: Row(
-              children: [
-                iconChild,
-                Expanded(
-                  child: Text(
-                    label,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: fg,
-                      fontFamily: Brand.fontFamily,
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-                if (badge != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDarkTheme
-                          ? Brand.black
-                          : Brand.greyBody.withAlpha(60),
-                      borderRadius: BorderRadius.circular(Brand.radius),
-                    ),
+    return Opacity(
+      opacity: locked ? 0.42 : 1,
+      child: Material(
+        color: selected && !locked ? activeBg : Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
+          child: SizedBox(
+            height: height,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: subroute ? 8 : 8,
+                right: 8,
+              ),
+              child: Row(
+                children: [
+                  iconChild,
+                  Expanded(
                     child: Text(
-                      badge!,
+                      label,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: fg,
-                        fontSize: 11,
+                        fontFamily: Brand.fontFamily,
+                        fontSize: fontSize,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ),
-              ],
+                  if (locked)
+                    Icon(
+                      Icons.lock_outline,
+                      size: 12,
+                      color: fg.withValues(alpha: 0.8),
+                    )
+                  else if (badge != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDarkTheme
+                            ? Brand.black
+                            : Brand.greyBody.withAlpha(60),
+                        borderRadius: BorderRadius.circular(Brand.radius),
+                      ),
+                      child: Text(
+                        badge!,
+                        style: TextStyle(
+                          color: fg,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

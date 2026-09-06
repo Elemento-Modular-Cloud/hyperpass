@@ -12,6 +12,7 @@ import 'app_theme.dart';
 import 'appearance_settings.dart';
 import 'auth/auth_provider.dart';
 import 'auth/auth_state.dart';
+import 'auth/feature_access.dart';
 import 'auth/login_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'cache/cache_screen.dart';
@@ -115,6 +116,16 @@ class _AppState extends ConsumerState<App> with WindowListener {
     final auth = ref.watch(authProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Feature-lock snackbars must not linger after sign-in / logout.
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (previous == next) return;
+      if (next is AuthAuthenticated ||
+          next is AuthUnauthenticated ||
+          next is AuthUnknown) {
+        ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+      }
+    });
+
     final chrome = <Widget>[
       Positioned(
         top: 0,
@@ -139,17 +150,51 @@ class _AppState extends ConsumerState<App> with WindowListener {
 
     if (auth is AuthUnknown) {
       final l10n = AppLocalizations.of(context)!;
+      final onSurface = Theme.of(context).colorScheme.onSurface;
       return Stack(
         children: [
           const Positioned.fill(child: AppBackground()),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 1.05,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.35),
+                    Colors.black.withValues(alpha: 0.55),
+                  ],
+                ),
+              ),
+            ),
+          ),
           ...chrome,
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(l10n.loginCheckingSession),
+                const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Brand.accent,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  l10n.loginCheckingSession,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: onSurface.withValues(alpha: 0.85),
+                    decoration: TextDecoration.none,
+                    decorationColor: Colors.transparent,
+                    decorationThickness: 0,
+                  ),
+                ),
               ],
             ),
           ),
@@ -157,7 +202,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
       );
     }
 
-    if (auth is! AuthAuthenticated) {
+    if (auth is! AuthAuthenticated && auth is! AuthGuest) {
       return Stack(
         children: [
           const Positioned.fill(child: LoginScreen()),
@@ -167,6 +212,22 @@ class _AppState extends ConsumerState<App> with WindowListener {
     }
 
     final currentKey = ref.watch(sidebarKeyProvider);
+    final access = ref.watch(featureAccessProvider);
+    // Guests cannot stay on LLM/service routes if they landed there somehow.
+    if ((!access.canUseLlms &&
+            (currentKey.startsWith('llm-') ||
+                parseSidebarLlmKey(currentKey) != null)) ||
+        (!access.canUseServices &&
+            (currentKey == ServicesScreen.sidebarKey ||
+                currentKey == ServiceInstancesScreen.sidebarKey ||
+                parseServiceInstanceSidebarKey(currentKey) != null))) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ref.read(sidebarKeyProvider) == currentKey) {
+          ref.read(sidebarKeyProvider.notifier).set(OverviewScreen.sidebarKey);
+        }
+      });
+    }
+
     final vms = ref.watch(vmIdsProvider);
     final llmIds = ref.watch(loadedLlmIdsProvider);
     final serviceInstances = ref.watch(serviceInstanceIdsProvider);
@@ -175,21 +236,27 @@ class _AppState extends ConsumerState<App> with WindowListener {
       OverviewScreen.sidebarKey: const OverviewScreen(),
       CatalogueScreen.sidebarKey: const CatalogueScreen(),
       VmTableScreen.sidebarKey: const VmTableScreen(),
-      LlmCatalogueScreen.sidebarKey: const LlmCatalogueScreen(),
-      LlmInstancesScreen.sidebarKey: const LlmInstancesScreen(),
-      LlmDownloadedScreen.sidebarKey: const LlmDownloadedScreen(),
-      LlmCredentialsScreen.sidebarKey: const LlmCredentialsScreen(),
-      ServicesScreen.sidebarKey: const ServicesScreen(),
-      ServiceInstancesScreen.sidebarKey: const ServiceInstancesScreen(),
+      if (access.canUseLlms) ...{
+        LlmCatalogueScreen.sidebarKey: const LlmCatalogueScreen(),
+        LlmInstancesScreen.sidebarKey: const LlmInstancesScreen(),
+        LlmDownloadedScreen.sidebarKey: const LlmDownloadedScreen(),
+        LlmCredentialsScreen.sidebarKey: const LlmCredentialsScreen(),
+      },
+      if (access.canUseServices) ...{
+        ServicesScreen.sidebarKey: const ServicesScreen(),
+        ServiceInstancesScreen.sidebarKey: const ServiceInstancesScreen(),
+      },
       CacheScreen.sidebarKey: const CacheScreen(),
       CloudInitScreen.sidebarKey: const CloudInitScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),
       HelpScreen.sidebarKey: const HelpScreen(),
       for (final id in vms) id.sidebarKey: VmDetailsScreen(id),
-      for (final id in llmIds) id.sidebarKey: LlmDetailsScreen(id),
-      for (final id in serviceInstances)
-        serviceInstanceSidebarKey(id.name):
-            ServiceInstanceDetailsScreen(id.name),
+      if (access.canUseLlms)
+        for (final id in llmIds) id.sidebarKey: LlmDetailsScreen(id),
+      if (access.canUseServices)
+        for (final id in serviceInstances)
+          serviceInstanceSidebarKey(id.name):
+              ServiceInstanceDetailsScreen(id.name),
     };
 
     final content = Stack(

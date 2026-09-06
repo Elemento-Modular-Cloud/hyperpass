@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
-/// Electros Launchpad brand identity (Elemento-powered).
+/// Electros LaunchPad brand identity (Elemento-powered).
 abstract final class Brand {
   static const appNamePrimary = 'Electros';
-  static const appNameSecondary = 'Launchpad';
+  static const appNameSecondary = 'LaunchPad';
   static const appName = '$appNamePrimary $appNameSecondary';
   static const companyName = 'Elemento';
   static const logoAsset = 'assets/atomos.svg';
@@ -65,7 +65,7 @@ abstract final class Brand {
 
   static const fontFamily = 'RedHatDisplay';
 
-  /// Terminal / log palette matching Electros Launchpad (not distro themes).
+  /// Terminal / log palette matching Electros LaunchPad (not distro themes).
   static TerminalTheme get terminalTheme => const TerminalTheme(
         cursor: accent,
         selection: Color(0x66FFA600),

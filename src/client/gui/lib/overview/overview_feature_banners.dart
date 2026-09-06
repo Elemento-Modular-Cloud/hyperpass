@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../auth/feature_access.dart';
 import '../brand.dart';
 import '../catalogue/catalogue.dart';
 import '../catalogue/catalogue_surface.dart';
@@ -18,12 +19,14 @@ class OverviewFeatureBanners extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final access = ref.watch(featureAccessProvider);
 
     final banners = [
       (
         icon: FontAwesomeIcons.rocket,
         title: l10n.overviewActionCreateTitle,
         body: l10n.overviewActionCreateBody,
+        locked: false,
         onOpen: () => ref
             .read(sidebarKeyProvider.notifier)
             .set(CatalogueScreen.sidebarKey),
@@ -46,6 +49,7 @@ class OverviewFeatureBanners extends ConsumerWidget {
         icon: FontAwesomeIcons.wandMagicSparkles,
         title: l10n.overviewActionAiTitle,
         body: l10n.overviewActionAiBody,
+        locked: !access.canUseLlms,
         onOpen: () => ref
             .read(sidebarKeyProvider.notifier)
             .set(LlmCatalogueScreen.sidebarKey),
@@ -68,8 +72,10 @@ class OverviewFeatureBanners extends ConsumerWidget {
         icon: FontAwesomeIcons.cubes,
         title: l10n.overviewActionServicesTitle,
         body: l10n.overviewActionServicesBody,
-        onOpen: () =>
-            ref.read(sidebarKeyProvider.notifier).set(ServicesScreen.sidebarKey),
+        locked: !access.canUseServices,
+        onOpen: () => ref
+            .read(sidebarKeyProvider.notifier)
+            .set(ServicesScreen.sidebarKey),
         actions: [
           (
             label: l10n.overviewActionBrowseServices,
@@ -96,6 +102,7 @@ class OverviewFeatureBanners extends ConsumerWidget {
               icon: banner.icon,
               title: banner.title,
               body: banner.body,
+              locked: banner.locked,
               onOpen: banner.onOpen,
               actions: banner.actions,
             ),
@@ -131,6 +138,7 @@ class _ActionCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    required this.locked,
     required this.onOpen,
     required this.actions,
   });
@@ -138,6 +146,7 @@ class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String body;
+  final bool locked;
   final VoidCallback onOpen;
   final List<({String label, VoidCallback onTap})> actions;
 
@@ -145,15 +154,12 @@ class _ActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onOpen,
-        borderRadius: BorderRadius.circular(Brand.radius),
-        child: CatalogueSurface(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final card = CatalogueSurface(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
               Container(
                 width: 48,
@@ -169,45 +175,61 @@ class _ActionCard extends StatelessWidget {
                   child: FaIcon(icon, size: 22, color: Brand.accent),
                 ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: TextStyle(
-                  fontFamily: Brand.fontFamily,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: onSurface,
+              const Spacer(),
+              if (locked)
+                Icon(
+                  Icons.lock_outline,
+                  size: 18,
+                  color: onSurface.withValues(alpha: 0.55),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                body,
-                style: TextStyle(
-                  fontFamily: Brand.fontFamily,
-                  fontSize: 13,
-                  height: 1.45,
-                  color: onSurface.withValues(alpha: 0.72),
-                ),
-              ),
-              const SizedBox(height: 16),
-              for (final action in actions) ...[
-                InkWell(
-                  onTap: action.onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Text(
-                      action.label,
-                      style: const TextStyle(
-                        fontFamily: Brand.fontFamily,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Brand.accent,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: Brand.fontFamily,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            body,
+            style: TextStyle(
+              fontFamily: Brand.fontFamily,
+              fontSize: 13,
+              height: 1.35,
+              color: onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final action in actions)
+                TextButton(
+                  onPressed: locked ? null : action.onTap,
+                  child: Text(action.label),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    return Opacity(
+      opacity: locked ? 0.48 : 1,
+      child: AbsorbPointer(
+        absorbing: locked,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: locked ? null : onOpen,
+            borderRadius: BorderRadius.circular(Brand.radius),
+            child: card,
           ),
         ),
       ),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 import 'package:intersperse/intersperse.dart';
 
+import '../auth/feature_access.dart';
 import '../brand.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
@@ -45,12 +46,10 @@ final imagesProvider = FutureProvider<List<ImageInfo>>((ref) async {
     return [];
   }
 
-  final images = await ref
+  return ref
       .watch(grpcClientProvider)
       .find()
       .then((reply) => sortImages(reply.imagesInfo));
-
-  return images;
 });
 
 class CatalogueScreen extends ConsumerStatefulWidget {
@@ -134,7 +133,8 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
     );
   }
 
-  Widget _buildError(BuildContext context, Object error, AppLocalizations l10n) {
+  Widget _buildError(
+      BuildContext context, Object error, AppLocalizations l10n) {
     final errorMessage = error is GrpcError
         ? (error.message ?? error.toString())
         : error.toString();
@@ -162,6 +162,7 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
     AppLocalizations l10n,
   ) {
     final query = ref.watch(catalogueSearchProvider).trim().toLowerCase();
+    final ubuntuOnly = ref.watch(featureAccessProvider).ubuntuImagesOnly;
     final entries = groupCatalogueEntries(images)
         .where((entry) => entry.matchesQuery(query))
         .toList();
@@ -172,7 +173,8 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
           l10n.catalogueNoResults,
           style: TextStyle(
             fontSize: 16,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
       );
@@ -200,6 +202,12 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
                       ImageCard(
                         entry: rowEntries[j],
                         width: cardWidth,
+                        locked: ubuntuOnly &&
+                            rowEntries[j]
+                                    .representative
+                                    .os
+                                    .toLowerCase() !=
+                                'ubuntu',
                       ),
                     ],
                   ],
@@ -209,7 +217,8 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
           }
 
           return Column(
-            children: rows.intersperse(const SizedBox(height: spacing)).toList(),
+            children:
+                rows.intersperse(const SizedBox(height: spacing)).toList(),
           );
         },
       ),
@@ -242,7 +251,8 @@ class _CatalogueHeader extends StatelessWidget {
             fontSize: 13,
             fontWeight: FontWeight.w300,
             height: 1.35,
-            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+            color:
+                Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
             fontFamily: Brand.fontFamily,
           ),
         ),
@@ -298,7 +308,8 @@ class _SearchField extends StatelessWidget {
             color: onSurface.withValues(alpha: 0.5),
             size: 18,
           ),
-          prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+          prefixIconConstraints:
+              const BoxConstraints(minWidth: 36, minHeight: 32),
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
         ),
       ),

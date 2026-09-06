@@ -193,6 +193,22 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
       checkColor: WidgetStateProperty.all(Brand.voidBlack),
       side: BorderSide(color: onSurface),
     ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      elevation: 0,
+      backgroundColor:
+          (isDark ? Brand.voidBlack : Brand.white).withValues(alpha: 0.92),
+      contentTextStyle: TextStyle(
+        fontFamily: Brand.fontFamily,
+        fontSize: 14,
+        color: onSurface,
+      ),
+      actionTextColor: Brand.accent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Brand.radius),
+        side: BorderSide(color: onSurface.withValues(alpha: isDark ? 0.18 : 0.12)),
+      ),
+    ),
   );
 }
 

@@ -22,8 +22,17 @@ final class AuthAuthenticated extends AuthState {
   final String username;
 }
 
+/// Local-only session without an Elemento Portal account.
+final class AuthGuest extends AuthState {
+  const AuthGuest();
+}
+
 final class AuthError extends AuthState {
   const AuthError(this.message);
 
   final String message;
+}
+
+extension AuthStateX on AuthState {
+  bool get canEnterApp => this is AuthAuthenticated || this is AuthGuest;
 }

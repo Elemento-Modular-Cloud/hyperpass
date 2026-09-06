@@ -46,6 +46,14 @@ class GeneralSettings extends ConsumerWidget {
             child: Text(l10n.accountLogout),
           ),
           const SizedBox(height: 28),
+        ] else if (auth is AuthGuest) ...[
+          Text(l10n.accountGuestModeDescription),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () => ref.read(authProvider.notifier).requestSignIn(),
+            child: Text(l10n.sidebarGuestSignIn),
+          ),
+          const SizedBox(height: 28),
         ],
         Text(
           l10n.generalTitle,

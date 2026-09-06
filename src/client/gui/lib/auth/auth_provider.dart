@@ -44,7 +44,11 @@ class AuthNotifier extends Notifier<AuthState> {
           access.isEmpty ||
           username == null ||
           username.isEmpty) {
-        state = const AuthUnauthenticated();
+        if (_store.guestMode) {
+          state = const AuthGuest();
+        } else {
+          state = const AuthUnauthenticated();
+        }
         return;
       }
 
@@ -52,6 +56,7 @@ class AuthNotifier extends Notifier<AuthState> {
         access,
         skewSeconds: PortalConfig.refreshSkewSeconds,
       )) {
+        await _store.setGuestMode(false);
         state = AuthAuthenticated(username);
         return;
       }
@@ -62,7 +67,11 @@ class AuthNotifier extends Notifier<AuthState> {
       );
       if (!restored) {
         await _store.clear();
-        state = const AuthUnauthenticated();
+        if (_store.guestMode) {
+          state = const AuthGuest();
+        } else {
+          state = const AuthUnauthenticated();
+        }
       }
     } catch (_) {
       await _store.clear();
@@ -81,6 +90,7 @@ class AuthNotifier extends Notifier<AuthState> {
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken ?? refreshToken,
         );
+        await _store.setGuestMode(false);
         state = AuthAuthenticated(username);
         return true;
       } catch (_) {
@@ -158,8 +168,31 @@ class AuthNotifier extends Notifier<AuthState> {
     return 'Unable to sign in (${error.runtimeType}). See logs for details.';
   }
 
+  Future<void> continueAsGuest() async {
+    await _store.setGuestMode(true);
+    try {
+      await _store.clear();
+    } catch (e, st) {
+      logger.w('Could not clear session secrets for guest mode',
+          error: e, stackTrace: st);
+    }
+    state = const AuthGuest();
+  }
+
+  /// Leave guest mode and show the Portal login form.
+  Future<void> requestSignIn() async {
+    await _store.setGuestMode(false);
+    state = const AuthUnauthenticated();
+  }
+
   Future<void> logout() async {
-    await _store.clear();
+    await _store.setGuestMode(false);
+    try {
+      await _store.clear();
+    } catch (e, st) {
+      logger.w('Could not clear session secrets on logout',
+          error: e, stackTrace: st);
+    }
     state = const AuthUnauthenticated();
   }
 

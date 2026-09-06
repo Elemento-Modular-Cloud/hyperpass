@@ -192,6 +192,18 @@
     "@sidebarAccountHeading": {
         "description": "Sidebar footer heading above the signed-in account badge"
     },
+    "sidebarGuestHeading": "Guest",
+    "@sidebarGuestHeading": {
+        "description": "Sidebar footer heading when using the app without an account"
+    },
+    "sidebarGuestSignIn": "Sign in to unlock more",
+    "@sidebarGuestSignIn": {
+        "description": "Sidebar guest badge action to open Portal login"
+    },
+    "accountGuestModeDescription": "You are using guest mode. Ubuntu VMs are available; models and services require an Elemento account.",
+    "@accountGuestModeDescription": {
+        "description": "Settings account section copy for guest mode"
+    },
     "sidebarSystemAttention": "Attention needed",
     "@sidebarSystemAttention": {
         "description": "Collapsed system summary when a daemon is offline or needs auth"
@@ -1668,11 +1680,11 @@
     "@catalogueRefresh": {
         "description": "Button label to refresh the image catalogue"
     },
-    "catalogueWelcomeTitle": "Welcome to Electros Launchpad",
+    "catalogueWelcomeTitle": "Welcome to Electros LaunchPad",
     "@catalogueWelcomeTitle": {
         "description": "Welcome screen heading in the image catalogue"
     },
-    "catalogueWelcomeBody": "Get an instant VM in seconds. Electros Launchpad can launch and run virtual machines and configure them like a public cloud.",
+    "catalogueWelcomeBody": "Get an instant VM in seconds. Electros LaunchPad can launch and run virtual machines and configure them like a public cloud.",
     "@catalogueWelcomeBody": {
         "description": "Welcome screen body text in the image catalogue"
     },
@@ -2849,6 +2861,14 @@
     "@loginForgotPassword": {
         "description": "Link to Portal password recovery"
     },
+    "loginContinueWithoutAccount": "Continue without an account",
+    "@loginContinueWithoutAccount": {
+        "description": "Guest mode CTA on the login screen"
+    },
+    "loginGuestLimitsHint": "Guest mode is limited to Ubuntu VMs. Sign in to unlock models and services.",
+    "@loginGuestLimitsHint": {
+        "description": "Explains guest feature limits under the continue-without-account button"
+    },
     "loginSigningIn": "Signing in…",
     "@loginSigningIn": {
         "description": "Busy label while Portal login is in progress"
@@ -2885,5 +2905,17 @@
     "accountLogout": "Log out",
     "@accountLogout": {
         "description": "Logout button in settings"
+    },
+    "featureLockedSignIn": "Sign in to unlock this feature.",
+    "@featureLockedSignIn": {
+        "description": "Snackbar when a guest taps a locked feature"
+    },
+    "featureLockedBannerBody": "Sign in to unlock this area. Guests can launch Ubuntu VMs only.",
+    "@featureLockedBannerBody": {
+        "description": "Overview banner body when AI or Services are locked for guests"
+    },
+    "featureLockedImageHint": "Sign in to launch this image.",
+    "@featureLockedImageHint": {
+        "description": "Catalogue card hint for non-Ubuntu images locked in guest mode"
     }
 }

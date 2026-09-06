@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../appearance_settings.dart';
+import '../auth/feature_access.dart';
 import '../brand.dart';
 import '../catalogue/catalogue.dart';
 import '../l10n/app_localizations.dart';
@@ -33,6 +34,7 @@ class OverviewHero extends ConsumerWidget {
     final runningLlms = ref.watch(loadedLlmIdsProvider).length;
     final total = runningVms + runningServices + runningLlms;
     final healthy = ref.watch(daemonAvailableProvider);
+    final access = ref.watch(featureAccessProvider);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(Brand.radius + 2),
@@ -109,17 +111,29 @@ class OverviewHero extends ConsumerWidget {
                                 icon: const Icon(Icons.add, size: 16),
                                 label: Text(l10n.overviewHeroNewVm),
                               ),
-                              OutlinedButton(
-                                onPressed: () => ref
-                                    .read(sidebarKeyProvider.notifier)
-                                    .set(LlmCatalogueScreen.sidebarKey),
-                                child: Text(l10n.overviewHeroRunModel),
+                              Opacity(
+                                opacity: access.canUseLlms ? 1 : 0.45,
+                                child: AbsorbPointer(
+                                  absorbing: !access.canUseLlms,
+                                  child: OutlinedButton(
+                                    onPressed: () => ref
+                                        .read(sidebarKeyProvider.notifier)
+                                        .set(LlmCatalogueScreen.sidebarKey),
+                                    child: Text(l10n.overviewHeroRunModel),
+                                  ),
+                                ),
                               ),
-                              OutlinedButton(
-                                onPressed: () => ref
-                                    .read(sidebarKeyProvider.notifier)
-                                    .set(ServicesScreen.sidebarKey),
-                                child: Text(l10n.overviewHeroStartService),
+                              Opacity(
+                                opacity: access.canUseServices ? 1 : 0.45,
+                                child: AbsorbPointer(
+                                  absorbing: !access.canUseServices,
+                                  child: OutlinedButton(
+                                    onPressed: () => ref
+                                        .read(sidebarKeyProvider.notifier)
+                                        .set(ServicesScreen.sidebarKey),
+                                    child: Text(l10n.overviewHeroStartService),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -138,12 +152,16 @@ class OverviewHero extends ConsumerWidget {
                       onOpenVms: () => ref
                           .read(sidebarKeyProvider.notifier)
                           .set(VmTableScreen.sidebarKey),
-                      onOpenLlms: () => ref
-                          .read(sidebarKeyProvider.notifier)
-                          .set(LlmInstancesScreen.sidebarKey),
-                      onOpenServices: () => ref
-                          .read(sidebarKeyProvider.notifier)
-                          .set(ServiceInstancesScreen.sidebarKey),
+                      onOpenLlms: access.canUseLlms
+                          ? () => ref
+                              .read(sidebarKeyProvider.notifier)
+                              .set(LlmInstancesScreen.sidebarKey)
+                          : () {},
+                      onOpenServices: access.canUseServices
+                          ? () => ref
+                              .read(sidebarKeyProvider.notifier)
+                              .set(ServiceInstancesScreen.sidebarKey)
+                          : () {},
                     ),
                   ],
                 ),

@@ -15,11 +15,13 @@ class ImageCard extends ConsumerStatefulWidget {
   const ImageCard({
     required this.entry,
     required this.width,
+    this.locked = false,
     super.key,
   });
 
   final CatalogueEntry entry;
   final double width;
+  final bool locked;
 
   @override
   ConsumerState<ImageCard> createState() => _ImageCardState();
@@ -51,105 +53,124 @@ class _ImageCardState extends ConsumerState<ImageCard> {
     }
 
     final radius = BorderRadius.circular(Brand.radius);
+    final locked = widget.locked;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: SizedBox(
-        width: widget.width,
-        child: CatalogueSurface(
-          borderColor: _hovered
-              ? branding.accent.withValues(alpha: 0.75)
-              : branding.accent.withValues(alpha: 0.35),
-          borderWidth: _hovered ? 1.5 : 1,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: DistroLogoBadge(
-                          branding: branding,
-                          size: 40,
-                          semanticsLabel: l10n.imageCardLogoSemantics(
-                            widget.entry.representative.os,
+    return Opacity(
+      opacity: locked ? 0.48 : 1,
+      child: AbsorbPointer(
+        absorbing: locked,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: SizedBox(
+            width: widget.width,
+            child: CatalogueSurface(
+              borderColor: _hovered && !locked
+                  ? branding.accent.withValues(alpha: 0.75)
+                  : branding.accent.withValues(alpha: locked ? 0.2 : 0.35),
+              borderWidth: _hovered && !locked ? 1.5 : 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Stack(
+                            alignment: Alignment.topRight,
+                            children: [
+                              Center(
+                                child: DistroLogoBadge(
+                                  branding: branding,
+                                  size: 40,
+                                  semanticsLabel: l10n.imageCardLogoSemantics(
+                                    widget.entry.representative.os,
+                                  ),
+                                ),
+                              ),
+                              if (locked)
+                                Icon(
+                                  Icons.lock_outline,
+                                  size: 16,
+                                  color: onSurface.withValues(alpha: 0.55),
+                                ),
+                            ],
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          Text(
+                            widget.entry.displayTitle(l10n),
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: onSurface,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.entry.description(l10n),
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w300,
+                              height: 1.3,
+                              color: onSurface.withValues(alpha: 0.7),
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const Spacer(),
+                          _VersionSelector(
+                            entry: widget.entry,
+                            selectedImage: selectedImage,
+                            accent: branding.accent,
+                            enabled: !locked,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.imageCardMinDisk(
+                              formatDiskSize(diskBytesForImage(selectedImage)),
+                            ),
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: 11,
+                              color: onSurface.withValues(alpha: 0.55),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        widget.entry.displayTitle(l10n),
-                        style: TextStyle(
-                          fontFamily: Brand.fontFamily,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: onSurface,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.entry.description(l10n),
-                        style: TextStyle(
-                          fontFamily: Brand.fontFamily,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w300,
-                          height: 1.3,
-                          color: onSurface.withValues(alpha: 0.7),
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const Spacer(),
-                      _VersionSelector(
-                        entry: widget.entry,
-                        selectedImage: selectedImage,
-                        accent: branding.accent,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        l10n.imageCardMinDisk(
-                          formatDiskSize(diskBytesForImage(selectedImage)),
-                        ),
-                        style: TextStyle(
-                          fontFamily: Brand.fontFamily,
-                          fontSize: 11,
-                          color: onSurface.withValues(alpha: 0.55),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                  _CardActionBar(
+                    radius: radius,
+                    onLaunch: () =>
+                        launchCatalogueImage(context, ref, selectedImage),
+                    onCloudInit: () {
+                      configureCatalogueImage(
+                        ref,
+                        selectedImage,
+                        requireCloudInit: true,
+                      );
+                      Scaffold.of(context).openEndDrawer();
+                    },
+                    onConfigure: () {
+                      configureCatalogueImage(ref, selectedImage);
+                      Scaffold.of(context).openEndDrawer();
+                    },
+                    launchLabel: l10n.commonLaunch,
+                    cloudInitLabel: l10n.cloudInitLaunchCardButton,
+                    configureLabel: l10n.commonConfigure,
+                  ),
+                ],
               ),
-              _CardActionBar(
-                radius: radius,
-                onLaunch: () =>
-                    launchCatalogueImage(context, ref, selectedImage),
-                onCloudInit: () {
-                  configureCatalogueImage(
-                    ref,
-                    selectedImage,
-                    requireCloudInit: true,
-                  );
-                  Scaffold.of(context).openEndDrawer();
-                },
-                onConfigure: () {
-                  configureCatalogueImage(ref, selectedImage);
-                  Scaffold.of(context).openEndDrawer();
-                },
-                launchLabel: l10n.commonLaunch,
-                cloudInitLabel: l10n.cloudInitLaunchCardButton,
-                configureLabel: l10n.commonConfigure,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -262,11 +283,13 @@ class _VersionSelector extends ConsumerWidget {
     required this.entry,
     required this.selectedImage,
     required this.accent,
+    this.enabled = true,
   });
 
   final CatalogueEntry entry;
   final ImageInfo selectedImage;
   final Color accent;
+  final bool enabled;
 
   static const _height = 34.0;
 
@@ -275,20 +298,20 @@ class _VersionSelector extends ConsumerWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final fill = Theme.of(context).inputDecorationTheme.fillColor ??
         onSurface.withValues(alpha: 0.08);
-    final enabled = entry.versions.length > 1;
+    final canSelect = enabled && entry.versions.length > 1;
     final label = catalogueVersionLabel(selectedImage);
 
     return SizedBox(
       height: _height,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: enabled ? fill : onSurface.withValues(alpha: 0.04),
+          color: canSelect ? fill : onSurface.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(Brand.radius),
           border: Border.all(
-            color: accent.withValues(alpha: enabled ? 0.35 : 0.2),
+            color: accent.withValues(alpha: canSelect ? 0.35 : 0.2),
           ),
         ),
-        child: enabled
+        child: canSelect
             ? DropdownButtonHideUnderline(
                 child: ButtonTheme(
                   alignedDropdown: true,
