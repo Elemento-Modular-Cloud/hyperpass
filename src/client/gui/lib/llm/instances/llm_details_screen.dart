@@ -80,7 +80,7 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
   }
 
   Future<void> _unload() async {
-    await llm.unloadLlmInstance(ref, widget.id.instanceId);
+    await llm.unloadLlmInstance(widget.id.instanceId);
   }
 
   @override

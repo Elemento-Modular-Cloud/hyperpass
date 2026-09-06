@@ -98,17 +98,20 @@ class PendingLlmUnloads extends Notifier<Set<String>> {
 final pendingLlmUnloadsProvider =
     NotifierProvider<PendingLlmUnloads, Set<String>>(PendingLlmUnloads.new);
 
-Future<void> unloadLlmInstance(WidgetRef ref, String instanceId) async {
-  ref.read(pendingLlmUnloadsProvider.notifier).add(instanceId);
+Future<void> unloadLlmInstance(String instanceId) async {
+  // Use the app-wide container so post-await updates stay safe after the
+  // running-models list rebuilds / unmounts the widget that started unload.
+  final pending = providerContainer.read(pendingLlmUnloadsProvider.notifier);
+  pending.add(instanceId);
   try {
-    await ref.read(grpcClientProvider).unloadModel(instanceId);
-    ref.invalidate(loadedModelsProvider);
-    ref.read(recentActivityProvider.notifier).record(
+    await providerContainer.read(grpcClientProvider).unloadModel(instanceId);
+    providerContainer.invalidate(loadedModelsProvider);
+    providerContainer.read(recentActivityProvider.notifier).record(
           title: 'Unloaded model',
           detail: instanceId,
         );
   } catch (_) {
-    ref.read(pendingLlmUnloadsProvider.notifier).remove(instanceId);
+    providerContainer.read(pendingLlmUnloadsProvider.notifier).remove(instanceId);
     rethrow;
   }
 }

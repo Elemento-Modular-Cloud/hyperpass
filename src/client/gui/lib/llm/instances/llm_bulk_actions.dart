@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../extensions.dart';
 import '../../l10n/app_localizations.dart';
 import '../../notifications.dart';
+import '../../providers.dart';
 import '../providers.dart';
 import 'llm_selection.dart';
 
@@ -30,9 +31,9 @@ class LlmBulkActionsBar extends ConsumerWidget {
                   ref.read(notificationsProvider.notifier).addOperation(
                         () async {
                           for (final id in ids) {
-                            await unloadLlmInstance(ref, id);
+                            await unloadLlmInstance(id);
                           }
-                          ref
+                          providerContainer
                               .read(selectedLlmInstancesProvider.notifier)
                               .set(BuiltSet());
                         }(),
