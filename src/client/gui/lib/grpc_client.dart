@@ -335,15 +335,40 @@ class GrpcClient {
     ).then((r) => r!);
   }
 
-  Future<CreateApiKeyReply> createApiKey({String label = '', String instanceId = ''}) {
+  Future<CreateApiKeyReply> createApiKey({
+    String label = '',
+    String instanceId = '',
+    Iterable<String> instanceIds = const [],
+  }) {
     return doRpc(
       _client.create_api_key,
-      CreateApiKeyRequest(label: label, instanceId: instanceId),
+      CreateApiKeyRequest(
+        label: label,
+        instanceId: instanceId,
+        instanceIds: instanceIds,
+      ),
     ).then((r) => r!);
   }
 
   Future<ListApiKeysReply> listApiKeys() {
     return doRpc(_client.list_api_keys, ListApiKeysRequest()).then((r) => r!);
+  }
+
+  Future<UpdateApiKeyReply> updateApiKey({
+    required String id,
+    String? label,
+    Iterable<String>? instanceIds,
+  }) {
+    return doRpc(
+      _client.update_api_key,
+      UpdateApiKeyRequest(
+        id: id,
+        label: label,
+        updateLabel: label != null,
+        instanceIds: instanceIds,
+        updateInstanceIds: instanceIds != null,
+      ),
+    ).then((r) => r!);
   }
 
   Future<RevokeApiKeyReply> revokeApiKey(String id) {

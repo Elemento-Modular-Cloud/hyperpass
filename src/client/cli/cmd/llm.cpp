@@ -285,10 +285,13 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                 cout << fmt::format("{:<38} {:<12} {:<28} {}\n", "ID", "PREFIX", "INSTANCE", "LABEL");
                 for (const auto& key : reply.keys())
                 {
-                    const auto instance = key.instance_id().empty()
-                                              ? "global"
-                                              : (key.openai_id().empty() ? key.instance_id()
-                                                                         : key.openai_id());
+                    std::string instance = "global";
+                    if (key.instance_ids_size() > 1)
+                        instance = fmt::format("{} instances", key.instance_ids_size());
+                    else if (key.instance_ids_size() == 1)
+                        instance = key.openai_id().empty() ? key.instance_ids(0) : key.openai_id();
+                    else if (!key.instance_id().empty())
+                        instance = key.openai_id().empty() ? key.instance_id() : key.openai_id();
                     cout << fmt::format("{:<38} {:<12} {:<28} {}\n",
                                         key.id(),
                                         key.prefix(),

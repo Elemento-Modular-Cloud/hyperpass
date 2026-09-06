@@ -618,6 +618,21 @@ public:
                 PrepareAsynclist_api_keysRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::UpdateApiKeyRequest,
+                                                   multipass::UpdateApiKeyReply>*),
+                update_api_keyRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::UpdateApiKeyRequest,
+                                                        multipass::UpdateApiKeyReply>*),
+                Asyncupdate_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::UpdateApiKeyRequest,
+                                                        multipass::UpdateApiKeyReply>*),
+                PrepareAsyncupdate_api_keyRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::RevokeApiKeyRequest,
                                                    multipass::RevokeApiKeyReply>*),
                 revoke_api_keyRaw,

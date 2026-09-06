@@ -685,6 +685,19 @@ grpc::Status mp::DaemonRpc::list_api_keys(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::update_api_key(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<UpdateApiKeyReply, UpdateApiKeyRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_update_api_key,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::revoke_api_key(
     grpc::ServerContext* context,
     grpc::ServerReaderWriter<RevokeApiKeyReply, RevokeApiKeyRequest>* server)

@@ -102,6 +102,9 @@ public:
     void list_api_keys(
         const ListApiKeysRequest* request,
         grpc::ServerReaderWriterInterface<ListApiKeysReply, ListApiKeysRequest>* server);
+    void update_api_key(
+        const UpdateApiKeyRequest* request,
+        grpc::ServerReaderWriterInterface<UpdateApiKeyReply, UpdateApiKeyRequest>* server);
     void revoke_api_key(
         const RevokeApiKeyRequest* request,
         grpc::ServerReaderWriterInterface<RevokeApiKeyReply, RevokeApiKeyRequest>* server);

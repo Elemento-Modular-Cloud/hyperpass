@@ -48,17 +48,42 @@ TEST(ApiKeyStore, instanceBindingAndRevokeForInstance)
     mpt::TempDir dir;
     mp::ApiKeyStore store{dir.path()};
     const auto global = store.create("global");
-    const auto scoped = store.create("scoped", "inst-123");
-    ASSERT_EQ(store.list().size(), 2);
-    EXPECT_TRUE(global.record.instance_id.empty());
-    EXPECT_EQ(scoped.record.instance_id, "inst-123");
+    const auto scoped = store.create("scoped", {"inst-123"});
+    const auto multi = store.create("multi", {"inst-123", "inst-456"});
+    ASSERT_EQ(store.list().size(), 3);
+    EXPECT_TRUE(global.record.instance_ids.empty());
+    EXPECT_THAT(scoped.record.instance_ids, ElementsAre("inst-123"));
+    EXPECT_THAT(multi.record.instance_ids, ElementsAre("inst-123", "inst-456"));
     EXPECT_TRUE(mp::api_key_allows_instance(global.record, "inst-123"));
     EXPECT_TRUE(mp::api_key_allows_instance(scoped.record, "inst-123"));
     EXPECT_FALSE(mp::api_key_allows_instance(scoped.record, "other"));
+    EXPECT_TRUE(mp::api_key_allows_instance(multi.record, "inst-456"));
+    EXPECT_FALSE(mp::api_key_allows_instance(multi.record, "other"));
 
     store.revoke_for_instance("inst-123");
-    EXPECT_EQ(store.list().size(), 1);
-    EXPECT_EQ(store.list().front().id, global.record.id);
+    auto remaining = store.list();
+    ASSERT_EQ(remaining.size(), 2);
+    EXPECT_EQ(remaining[0].id, global.record.id);
+    EXPECT_EQ(remaining[1].id, multi.record.id);
+    EXPECT_THAT(remaining[1].instance_ids, ElementsAre("inst-456"));
+}
+
+TEST(ApiKeyStore, updateScopeAndLabel)
+{
+    mpt::TempDir dir;
+    mp::ApiKeyStore store{dir.path()};
+    const auto created = store.create("tmp", {"inst-a"});
+    const auto updated =
+        store.update(created.record.id, "renamed", {"inst-b", "inst-c"}, true, true);
+    ASSERT_TRUE(updated.has_value());
+    EXPECT_EQ(updated->label, "renamed");
+    EXPECT_THAT(updated->instance_ids, ElementsAre("inst-b", "inst-c"));
+
+    const auto globalized =
+        store.update(created.record.id, "", {}, false, true);
+    ASSERT_TRUE(globalized.has_value());
+    EXPECT_EQ(globalized->label, "renamed");
+    EXPECT_TRUE(globalized->instance_ids.empty());
 }
 
 TEST(ApiKeyStore, revokeAndReload)
@@ -74,4 +99,16 @@ TEST(ApiKeyStore, revokeAndReload)
     mp::ApiKeyStore reloaded{dir.path()};
     EXPECT_EQ(reloaded.list().size(), 1);
     EXPECT_EQ(reloaded.list().front().label, "keep");
+}
+
+TEST(ApiKeyStore, migratesLegacyInstanceIdField)
+{
+    mpt::TempDir dir;
+    {
+        mp::ApiKeyStore store{dir.path()};
+        store.create("legacy", {"inst-legacy"});
+    }
+    mp::ApiKeyStore reloaded{dir.path()};
+    ASSERT_EQ(reloaded.list().size(), 1);
+    EXPECT_THAT(reloaded.list().front().instance_ids, ElementsAre("inst-legacy"));
 }

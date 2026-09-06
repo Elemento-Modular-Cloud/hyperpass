@@ -225,13 +225,18 @@ struct MockDaemonRpc : public mp::DaemonRpc
                  (grpc::ServerReaderWriter<mp::ListApiKeysReply, mp::ListApiKeysRequest> * server)),
                 (override));
     MOCK_METHOD(grpc::Status,
+                update_api_key,
+                (grpc::ServerContext * context,
+                 (grpc::ServerReaderWriter<mp::UpdateApiKeyReply, mp::UpdateApiKeyRequest> *
+                  server)),
+                (override));
+    MOCK_METHOD(grpc::Status,
                 revoke_api_key,
                 (grpc::ServerContext * context,
                  (grpc::ServerReaderWriter<mp::RevokeApiKeyReply, mp::RevokeApiKeyRequest> *
                   server)),
                 (override));
 };
-
 struct Client : public Test
 {
     void SetUp() override

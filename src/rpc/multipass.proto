@@ -60,6 +60,7 @@ service Rpc {
     rpc install_llm_backend (stream InstallLlmBackendRequest) returns (stream InstallLlmBackendReply);
     rpc create_api_key (stream CreateApiKeyRequest) returns (stream CreateApiKeyReply);
     rpc list_api_keys (stream ListApiKeysRequest) returns (stream ListApiKeysReply);
+    rpc update_api_key (stream UpdateApiKeyRequest) returns (stream UpdateApiKeyReply);
     rpc revoke_api_key (stream RevokeApiKeyRequest) returns (stream RevokeApiKeyReply);
     rpc verify_api_key (stream VerifyApiKeyRequest) returns (stream VerifyApiKeyReply);
     rpc touch_model (stream TouchModelRequest) returns (stream TouchModelReply);
@@ -821,7 +822,9 @@ message InstallLlmBackendReply {
 message CreateApiKeyRequest {
     string label = 1;
     int32 verbosity_level = 2;
+    // Deprecated: prefer instance_ids. Kept for older clients (single binding).
     string instance_id = 3;
+    repeated string instance_ids = 4;
 }
 
 message CreateApiKeyReply {
@@ -833,6 +836,7 @@ message CreateApiKeyReply {
     string instance_id = 6;
     string model_id = 7;
     string openai_id = 8;
+    repeated string instance_ids = 9;
 }
 
 message ApiKeyInfo {
@@ -840,9 +844,11 @@ message ApiKeyInfo {
     string prefix = 2;
     string label = 3;
     int64 created_at = 4;
+    // Deprecated: first bound instance, or empty when global / multi.
     string instance_id = 5;
     string model_id = 6;
     string openai_id = 7;
+    repeated string instance_ids = 8;
 }
 
 message ListApiKeysRequest {
@@ -852,6 +858,20 @@ message ListApiKeysRequest {
 message ListApiKeysReply {
     string log_line = 1;
     repeated ApiKeyInfo keys = 2;
+}
+
+message UpdateApiKeyRequest {
+    string id = 1;
+    int32 verbosity_level = 2;
+    string label = 3;
+    bool update_label = 4;
+    repeated string instance_ids = 5;
+    bool update_instance_ids = 6;
+}
+
+message UpdateApiKeyReply {
+    string log_line = 1;
+    ApiKeyInfo key = 2;
 }
 
 message RevokeApiKeyRequest {
@@ -875,7 +895,9 @@ message VerifyApiKeyReply {
     bool valid = 2;
     string id = 3;
     string prefix = 4;
+    // Deprecated: first bound instance, or empty when global / multi.
     string instance_id = 5;
+    repeated string instance_ids = 6;
 }
 
 message TouchModelRequest {

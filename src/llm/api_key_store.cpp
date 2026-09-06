@@ -56,6 +56,40 @@ std::string random_hex(size_t nbytes)
     QByteArray raw{reinterpret_cast<const char*>(bytes.data()), static_cast<int>(bytes.size())};
     return to_hex(raw).toStdString();
 }
+
+std::vector<std::string> unique_ids(const std::vector<std::string>& ids)
+{
+    std::vector<std::string> out;
+    out.reserve(ids.size());
+    for (const auto& id : ids)
+    {
+        if (id.empty())
+            continue;
+        if (std::find(out.begin(), out.end(), id) == out.end())
+            out.push_back(id);
+    }
+    return out;
+}
+
+std::vector<std::string> read_instance_ids(const QJsonObject& obj)
+{
+    std::vector<std::string> ids;
+    const auto arr = obj.value("instance_ids");
+    if (arr.isArray())
+    {
+        for (const auto& item : arr.toArray())
+        {
+            const auto id = item.toString().toStdString();
+            if (!id.empty())
+                ids.push_back(id);
+        }
+        return unique_ids(ids);
+    }
+    const auto legacy = obj.value("instance_id").toString().toStdString();
+    if (!legacy.empty())
+        ids.push_back(legacy);
+    return ids;
+}
 } // namespace
 
 mp::ApiKeyStore::ApiKeyStore(Path data_directory)
@@ -67,7 +101,7 @@ mp::ApiKeyStore::ApiKeyStore(Path data_directory)
 }
 
 mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label,
-                                                    const std::string& instance_id)
+                                                    const std::vector<std::string>& instance_ids)
 {
     std::lock_guard lock{mutex};
     CreatedKey created;
@@ -77,10 +111,31 @@ mp::ApiKeyStore::CreatedKey mp::ApiKeyStore::create(const std::string& label,
     created.record.label = label;
     created.record.sha256_hex = sha256_hex(created.secret);
     created.record.created_at = QDateTime::currentSecsSinceEpoch();
-    created.record.instance_id = instance_id;
+    created.record.instance_ids = unique_ids(instance_ids);
     keys.push_back(created.record);
     save();
     return created;
+}
+
+std::optional<mp::ApiKeyRecord> mp::ApiKeyStore::update(const std::string& id,
+                                                        const std::string& label,
+                                                        const std::vector<std::string>& instance_ids,
+                                                        bool update_label,
+                                                        bool update_instance_ids)
+{
+    std::lock_guard lock{mutex};
+    for (auto& key : keys)
+    {
+        if (key.id != id)
+            continue;
+        if (update_label)
+            key.label = label;
+        if (update_instance_ids)
+            key.instance_ids = unique_ids(instance_ids);
+        save();
+        return key;
+    }
+    return std::nullopt;
 }
 
 std::vector<mp::ApiKeyRecord> mp::ApiKeyStore::list() const
@@ -116,10 +171,34 @@ void mp::ApiKeyStore::revoke_for_instance(const std::string& instance_id)
     if (instance_id.empty())
         return;
     std::lock_guard lock{mutex};
-    const auto before = keys.size();
-    std::erase_if(keys, [&](const auto& k) { return k.instance_id == instance_id; });
-    if (keys.size() != before)
+    bool changed = false;
+    std::vector<ApiKeyRecord> next;
+    next.reserve(keys.size());
+    for (auto& key : keys)
+    {
+        if (key.instance_ids.empty())
+        {
+            // Global key — keep.
+            next.push_back(std::move(key));
+            continue;
+        }
+        const auto before = key.instance_ids.size();
+        std::erase(key.instance_ids, instance_id);
+        if (key.instance_ids.size() != before)
+            changed = true;
+        if (key.instance_ids.empty())
+        {
+            // Scoped key with no remaining bindings — revoke.
+            changed = true;
+            continue;
+        }
+        next.push_back(std::move(key));
+    }
+    if (changed)
+    {
+        keys = std::move(next);
         save();
+    }
 }
 
 std::optional<mp::ApiKeyRecord> mp::ApiKeyStore::verify(const std::string& secret) const
@@ -160,7 +239,7 @@ void mp::ApiKeyStore::load()
         rec.label = obj.value("label").toString().toStdString();
         rec.sha256_hex = obj.value("sha256").toString().toStdString();
         rec.created_at = static_cast<long long>(obj.value("created_at").toDouble());
-        rec.instance_id = obj.value("instance_id").toString().toStdString();
+        rec.instance_ids = read_instance_ids(obj);
         if (!rec.id.empty() && !rec.sha256_hex.empty())
             keys.push_back(std::move(rec));
     }
@@ -177,8 +256,14 @@ void mp::ApiKeyStore::save() const
         obj.insert("label", QString::fromStdString(key.label));
         obj.insert("sha256", QString::fromStdString(key.sha256_hex));
         obj.insert("created_at", static_cast<double>(key.created_at));
-        if (!key.instance_id.empty())
-            obj.insert("instance_id", QString::fromStdString(key.instance_id));
+        if (!key.instance_ids.empty())
+        {
+            QJsonArray ids;
+            for (const auto& id : key.instance_ids)
+                ids.append(QString::fromStdString(id));
+            obj.insert("instance_ids", ids);
+            obj.insert("instance_id", QString::fromStdString(key.instance_ids.front()));
+        }
         array.append(obj);
     }
     MP_FILEOPS.write_transactionally(store_path,

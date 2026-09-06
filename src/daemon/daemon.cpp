@@ -662,6 +662,7 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_
                          &mp::LlmDispatcher::install_llm_backend);
         QObject::connect(&rpc, &mp::DaemonRpc::on_create_api_key, llm_dispatcher, &mp::LlmDispatcher::create_api_key);
         QObject::connect(&rpc, &mp::DaemonRpc::on_list_api_keys, llm_dispatcher, &mp::LlmDispatcher::list_api_keys);
+        QObject::connect(&rpc, &mp::DaemonRpc::on_update_api_key, llm_dispatcher, &mp::LlmDispatcher::update_api_key);
         QObject::connect(&rpc, &mp::DaemonRpc::on_revoke_api_key, llm_dispatcher, &mp::LlmDispatcher::revoke_api_key);
         QObject::connect(&rpc, &mp::DaemonRpc::on_verify_api_key, llm_dispatcher, &mp::LlmDispatcher::verify_api_key);
         QObject::connect(&rpc, &mp::DaemonRpc::on_touch_model, llm_dispatcher, &mp::LlmDispatcher::touch_model);

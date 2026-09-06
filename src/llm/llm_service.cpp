@@ -897,25 +897,41 @@ void mp::LlmService::create_api_key(
     const CreateApiKeyRequest* request,
     grpc::ServerReaderWriterInterface<CreateApiKeyReply, CreateApiKeyRequest>* server)
 {
-    const auto& instance_id = request->instance_id();
-    if (!instance_id.empty())
+    std::vector<std::string> instance_ids;
+    if (request->instance_ids_size() > 0)
+    {
+        for (const auto& id : request->instance_ids())
+        {
+            if (!id.empty())
+                instance_ids.push_back(id);
+        }
+    }
+    else if (!request->instance_id().empty())
+        instance_ids.push_back(request->instance_id());
+
+    if (!instance_ids.empty())
     {
         std::lock_guard lock{mutex};
-        if (sessions.find(instance_id) == sessions.end())
-            throw std::runtime_error(fmt::format("unknown instance '{}'", instance_id));
+        for (const auto& instance_id : instance_ids)
+        {
+            if (sessions.find(instance_id) == sessions.end())
+                throw std::runtime_error(fmt::format("unknown instance '{}'", instance_id));
+        }
     }
 
-    const auto created = keys.create(request->label(), instance_id);
+    const auto created = keys.create(request->label(), instance_ids);
     CreateApiKeyReply reply;
     reply.set_id(created.record.id);
     reply.set_prefix(created.record.prefix);
     reply.set_secret(created.secret);
     reply.set_label(created.record.label);
-    reply.set_instance_id(created.record.instance_id);
-    if (!instance_id.empty())
+    for (const auto& id : created.record.instance_ids)
+        reply.add_instance_ids(id);
+    if (!created.record.instance_ids.empty())
     {
+        reply.set_instance_id(created.record.instance_ids.front());
         std::lock_guard lock{mutex};
-        if (auto it = sessions.find(instance_id); it != sessions.end())
+        if (auto it = sessions.find(created.record.instance_ids.front()); it != sessions.end())
         {
             reply.set_model_id(it->second.model_id);
             reply.set_openai_id(it->second.openai_id);
@@ -937,14 +953,62 @@ void mp::LlmService::list_api_keys(
         info->set_prefix(key.prefix);
         info->set_label(key.label);
         info->set_created_at(key.created_at);
-        info->set_instance_id(key.instance_id);
-        if (!key.instance_id.empty())
+        for (const auto& id : key.instance_ids)
+            info->add_instance_ids(id);
+        if (!key.instance_ids.empty())
         {
-            if (auto it = sessions.find(key.instance_id); it != sessions.end())
+            info->set_instance_id(key.instance_ids.front());
+            if (auto it = sessions.find(key.instance_ids.front()); it != sessions.end())
             {
                 info->set_model_id(it->second.model_id);
                 info->set_openai_id(it->second.openai_id);
             }
+        }
+    }
+    server->Write(reply);
+}
+
+void mp::LlmService::update_api_key(
+    const UpdateApiKeyRequest* request,
+    grpc::ServerReaderWriterInterface<UpdateApiKeyReply, UpdateApiKeyRequest>* server)
+{
+    if (request->id().empty())
+        throw std::runtime_error("API key id is required");
+
+    std::vector<std::string> instance_ids;
+    if (request->update_instance_ids())
+    {
+        for (const auto& id : request->instance_ids())
+        {
+            if (!id.empty())
+                instance_ids.push_back(id);
+        }
+    }
+
+    const auto updated = keys.update(request->id(),
+                                     request->label(),
+                                     instance_ids,
+                                     request->update_label(),
+                                     request->update_instance_ids());
+    if (!updated)
+        throw std::runtime_error("API key not found");
+
+    UpdateApiKeyReply reply;
+    auto* info = reply.mutable_key();
+    info->set_id(updated->id);
+    info->set_prefix(updated->prefix);
+    info->set_label(updated->label);
+    info->set_created_at(updated->created_at);
+    for (const auto& id : updated->instance_ids)
+        info->add_instance_ids(id);
+    if (!updated->instance_ids.empty())
+    {
+        info->set_instance_id(updated->instance_ids.front());
+        std::lock_guard lock{mutex};
+        if (auto it = sessions.find(updated->instance_ids.front()); it != sessions.end())
+        {
+            info->set_model_id(it->second.model_id);
+            info->set_openai_id(it->second.openai_id);
         }
     }
     server->Write(reply);
@@ -973,7 +1037,10 @@ void mp::LlmService::verify_api_key(
         reply.set_valid(true);
         reply.set_id(rec->id);
         reply.set_prefix(rec->prefix);
-        reply.set_instance_id(rec->instance_id);
+        for (const auto& id : rec->instance_ids)
+            reply.add_instance_ids(id);
+        if (!rec->instance_ids.empty())
+            reply.set_instance_id(rec->instance_ids.front());
     }
     else
         reply.set_valid(false);

@@ -404,6 +404,18 @@
     "@modelsKeysHeading": {
         "description": "Heading for OpenAI API keys"
     },
+    "modelsCredentialsIntro": "Manage download tokens and OpenAI-compatible API keys for local inference.",
+    "@modelsCredentialsIntro": {
+        "description": "Intro under the Credentials page title"
+    },
+    "modelsGatewayHeading": "OpenAI gateway",
+    "@modelsGatewayHeading": {
+        "description": "Section heading for base URL endpoints"
+    },
+    "modelsKeysIntro": "Keys can allow every running model, or only the models you select. You can change access later without recreating the secret.",
+    "@modelsKeysIntro": {
+        "description": "Explains API key scope options"
+    },
     "modelsKeysEmpty": "No API keys yet.",
     "@modelsKeysEmpty": {
         "description": "Empty state for the API key list"
@@ -412,34 +424,87 @@
     "@modelsCreateKey": {
         "description": "Button to create an OpenAI API key"
     },
-    "modelsKeyScopeGlobal": "All loaded instances",
+    "modelsKeyEditTitle": "Edit key access",
+    "@modelsKeyEditTitle": {
+        "description": "Dialog title when editing an API key scope"
+    },
+    "modelsKeyEditAccess": "Edit access",
+    "@modelsKeyEditAccess": {
+        "description": "Button to change an API key's model eligibility"
+    },
+    "modelsKeyUntitled": "Untitled key",
+    "@modelsKeyUntitled": {
+        "description": "Fallback label when an API key has no name"
+    },
+    "modelsKeyLabelField": "Name",
+    "@modelsKeyLabelField": {
+        "description": "Label for the API key name field"
+    },
+    "modelsKeyLabelHint": "e.g. laptop, CI, notebook",
+    "@modelsKeyLabelHint": {
+        "description": "Hint for the API key name field"
+    },
+    "modelsKeyScopeGlobal": "All running models",
     "@modelsKeyScopeGlobal": {
-        "description": "Option to create an API key valid for any loaded model"
+        "description": "Radio option for a global API key"
+    },
+    "modelsKeyScopeGlobalHint": "Works with every model currently loaded for inference.",
+    "@modelsKeyScopeGlobalHint": {
+        "description": "Help text under the global scope option"
+    },
+    "modelsKeyScopeSpecific": "Selected models only",
+    "@modelsKeyScopeSpecific": {
+        "description": "Radio option for model-scoped API keys"
+    },
+    "modelsKeyScopeSpecificHint": "Choose one or more loaded models this key may call.",
+    "@modelsKeyScopeSpecificHint": {
+        "description": "Help text under the specific-models scope option"
     },
     "modelsKeyScopeInstance": "Specific instance",
     "@modelsKeyScopeInstance": {
-        "description": "Option to bind an API key to one loaded instance"
+        "description": "Legacy label for single-instance scope"
     },
-    "modelsKeyScopeLabel": "Access scope",
+    "modelsKeyScopeLabel": "Access",
     "@modelsKeyScopeLabel": {
-        "description": "Label for API key instance binding selector"
+        "description": "Heading for API key access scope controls"
     },
-    "modelsKeyBoundGlobal": "All instances",
+    "modelsKeyScopeHelp": "Global keys see every loaded model. Scoped keys are limited to the models you pick.",
+    "@modelsKeyScopeHelp": {
+        "description": "Short explanation above scope radios"
+    },
+    "modelsKeySelectOne": "Select at least one model.",
+    "@modelsKeySelectOne": {
+        "description": "Validation when creating a scoped key with no models"
+    },
+    "modelsKeyBoundGlobal": "All models",
     "@modelsKeyBoundGlobal": {
-        "description": "Subtitle when an API key is not bound to a specific instance"
+        "description": "Badge for a global API key"
     },
-    "modelsKeyBoundInstance": "Instance: {openaiId}",
+    "modelsKeyBoundInstance": "Model: {openaiId}",
     "@modelsKeyBoundInstance": {
-        "description": "Subtitle when an API key is bound to a loaded instance",
+        "description": "Badge for a single-model API key",
         "placeholders": {
             "openaiId": {
                 "type": "String"
             }
         }
     },
-    "modelsKeyNoInstances": "Load a model first to create instance-scoped keys.",
+    "modelsKeyBoundCount": "{count} models",
+    "@modelsKeyBoundCount": {
+        "description": "Badge for a multi-model API key",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "modelsKeyNoInstances": "Load a model first to create model-scoped keys.",
     "@modelsKeyNoInstances": {
-        "description": "Hint when no loaded instances exist for scoped key creation"
+        "description": "Hint when no LLM instances are loaded for scoping"
+    },
+    "modelsKeyOrphanHint": "Not currently loaded",
+    "@modelsKeyOrphanHint": {
+        "description": "Subtitle for a scoped key binding whose model is unloaded"
     },
     "modelsRevokeKey": "Revoke",
     "@modelsRevokeKey": {

@@ -27,8 +27,10 @@
 #include <httplib.h>
 
 #include <optional>
+#include <algorithm>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace mp = multipass;
 namespace mpl = multipass::logging;
@@ -61,7 +63,15 @@ std::string bearer_secret(const httplib::Request& req)
 
 struct SkAuth
 {
-    std::string bound_instance_id;
+    std::vector<std::string> bound_instance_ids;
+
+    bool allows(const std::string& instance_id) const
+    {
+        if (bound_instance_ids.empty())
+            return true;
+        return std::find(bound_instance_ids.begin(), bound_instance_ids.end(), instance_id) !=
+               bound_instance_ids.end();
+    }
 };
 
 std::optional<SkAuth> require_sk_key(GrpcBackend& backend, const httplib::Request& req, httplib::Response& res)
@@ -84,7 +94,15 @@ std::optional<SkAuth> require_sk_key(GrpcBackend& backend, const httplib::Reques
                         "application/json");
         return std::nullopt;
     }
-    return SkAuth{verified.reply.instance_id()};
+    SkAuth auth;
+    if (verified.reply.instance_ids_size() > 0)
+    {
+        for (const auto& id : verified.reply.instance_ids())
+            auth.bound_instance_ids.push_back(id);
+    }
+    else if (!verified.reply.instance_id().empty())
+        auth.bound_instance_ids.push_back(verified.reply.instance_id());
+    return auth;
 }
 
 std::optional<mp::LoadedModelInfo> find_loaded(const mp::ListModelsReply& reply, const std::string& model)
@@ -171,7 +189,7 @@ void proxy_to_backend(GrpcBackend& backend,
     std::optional<mp::LoadedModelInfo> session;
     std::optional<mp::LoadedModelInfo> forbidden_match;
     const auto allows = [&](const mp::LoadedModelInfo& info) {
-        return auth.bound_instance_id.empty() || auth.bound_instance_id == info.instance_id();
+        return auth.allows(info.instance_id());
     };
 
     if (!model_id.empty())
@@ -270,7 +288,7 @@ void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& elp
         json::array data;
         for (const auto& model : listed.reply.models())
         {
-            if (!auth->bound_instance_id.empty() && auth->bound_instance_id != model.instance_id())
+            if (!auth->allows(model.instance_id()))
                 continue;
             json::object item;
             item["id"] = model.openai_id();

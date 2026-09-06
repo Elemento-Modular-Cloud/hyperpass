@@ -181,6 +181,9 @@ signals:
     void on_list_api_keys(const ListApiKeysRequest* request,
                           grpc::ServerReaderWriter<ListApiKeysReply, ListApiKeysRequest>* server,
                           DaemonRpcContext* context);
+    void on_update_api_key(const UpdateApiKeyRequest* request,
+                           grpc::ServerReaderWriter<UpdateApiKeyReply, UpdateApiKeyRequest>* server,
+                           DaemonRpcContext* context);
     void on_revoke_api_key(const RevokeApiKeyRequest* request,
                            grpc::ServerReaderWriter<RevokeApiKeyReply, RevokeApiKeyRequest>* server,
                            DaemonRpcContext* context);
@@ -310,6 +313,9 @@ protected:
     grpc::Status list_api_keys(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<ListApiKeysReply, ListApiKeysRequest>* server) override;
+    grpc::Status update_api_key(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<UpdateApiKeyReply, UpdateApiKeyRequest>* server) override;
     grpc::Status revoke_api_key(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<RevokeApiKeyReply, RevokeApiKeyRequest>* server) override;

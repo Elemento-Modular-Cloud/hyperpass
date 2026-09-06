@@ -185,6 +185,14 @@ void mp::LlmDispatcher::list_api_keys(
     run_sync(context, [this, request, server] { llm_service->list_api_keys(request, server); });
 }
 
+void mp::LlmDispatcher::update_api_key(
+    const UpdateApiKeyRequest* request,
+    grpc::ServerReaderWriterInterface<UpdateApiKeyReply, UpdateApiKeyRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_async(context, [this, request, server] { llm_service->update_api_key(request, server); });
+}
+
 void mp::LlmDispatcher::revoke_api_key(
     const RevokeApiKeyRequest* request,
     grpc::ServerReaderWriterInterface<RevokeApiKeyReply, RevokeApiKeyRequest>* server,

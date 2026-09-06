@@ -85,6 +85,10 @@ public slots:
         const ListApiKeysRequest* request,
         grpc::ServerReaderWriterInterface<ListApiKeysReply, ListApiKeysRequest>* server,
         DaemonRpcContext* context);
+    void update_api_key(
+        const UpdateApiKeyRequest* request,
+        grpc::ServerReaderWriterInterface<UpdateApiKeyReply, UpdateApiKeyRequest>* server,
+        DaemonRpcContext* context);
     void revoke_api_key(
         const RevokeApiKeyRequest* request,
         grpc::ServerReaderWriterInterface<RevokeApiKeyReply, RevokeApiKeyRequest>* server,
