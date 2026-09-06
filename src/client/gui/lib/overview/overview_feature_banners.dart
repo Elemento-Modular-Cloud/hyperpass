@@ -9,9 +9,11 @@ import '../catalogue/catalogue_surface.dart';
 import '../l10n/app_localizations.dart';
 import '../llm/catalogue/llm_catalogue_screen.dart';
 import '../llm/instances/llm_downloaded_screen.dart';
+import '../llm/instances/llm_instances_screen.dart';
 import '../services/service_instances_screen.dart';
 import '../services/services_screen.dart';
 import '../sidebar.dart';
+import '../vm_table/vm_table_screen.dart';
 
 class OverviewFeatureBanners extends ConsumerWidget {
   const OverviewFeatureBanners({super.key});
@@ -20,6 +22,7 @@ class OverviewFeatureBanners extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final access = ref.watch(featureAccessProvider);
+    final go = (String key) => ref.read(sidebarKeyProvider.notifier).set(key);
 
     final banners = [
       (
@@ -27,21 +30,15 @@ class OverviewFeatureBanners extends ConsumerWidget {
         title: l10n.overviewActionCreateTitle,
         body: l10n.overviewActionCreateBody,
         locked: false,
-        onOpen: () => ref
-            .read(sidebarKeyProvider.notifier)
-            .set(CatalogueScreen.sidebarKey),
+        onOpen: () => go(CatalogueScreen.sidebarKey),
         actions: [
           (
-            label: l10n.overviewActionLaunchVm,
-            onTap: () => ref
-                .read(sidebarKeyProvider.notifier)
-                .set(CatalogueScreen.sidebarKey),
+            label: l10n.overviewActionImportImage,
+            onTap: () => go(CatalogueScreen.sidebarKey),
           ),
           (
-            label: l10n.overviewActionImportImage,
-            onTap: () => ref
-                .read(sidebarKeyProvider.notifier)
-                .set(CatalogueScreen.sidebarKey),
+            label: l10n.overviewActionLaunchVm,
+            onTap: () => go(VmTableScreen.sidebarKey),
           ),
         ],
       ),
@@ -50,21 +47,15 @@ class OverviewFeatureBanners extends ConsumerWidget {
         title: l10n.overviewActionAiTitle,
         body: l10n.overviewActionAiBody,
         locked: !access.canUseLlms,
-        onOpen: () => ref
-            .read(sidebarKeyProvider.notifier)
-            .set(LlmCatalogueScreen.sidebarKey),
+        onOpen: () => go(LlmCatalogueScreen.sidebarKey),
         actions: [
           (
-            label: l10n.overviewActionBrowseModels,
-            onTap: () => ref
-                .read(sidebarKeyProvider.notifier)
-                .set(LlmCatalogueScreen.sidebarKey),
+            label: l10n.overviewActionLoadDownloaded,
+            onTap: () => go(LlmDownloadedScreen.sidebarKey),
           ),
           (
-            label: l10n.overviewActionLoadDownloaded,
-            onTap: () => ref
-                .read(sidebarKeyProvider.notifier)
-                .set(LlmDownloadedScreen.sidebarKey),
+            label: l10n.overviewActionBrowseModels,
+            onTap: () => go(LlmInstancesScreen.sidebarKey),
           ),
         ],
       ),
@@ -73,21 +64,15 @@ class OverviewFeatureBanners extends ConsumerWidget {
         title: l10n.overviewActionServicesTitle,
         body: l10n.overviewActionServicesBody,
         locked: !access.canUseServices,
-        onOpen: () => ref
-            .read(sidebarKeyProvider.notifier)
-            .set(ServicesScreen.sidebarKey),
+        onOpen: () => go(ServicesScreen.sidebarKey),
         actions: [
           (
             label: l10n.overviewActionBrowseServices,
-            onTap: () => ref
-                .read(sidebarKeyProvider.notifier)
-                .set(ServicesScreen.sidebarKey),
+            onTap: () => go(ServicesScreen.sidebarKey),
           ),
           (
             label: l10n.overviewActionViewDeployments,
-            onTap: () => ref
-                .read(sidebarKeyProvider.notifier)
-                .set(ServiceInstancesScreen.sidebarKey),
+            onTap: () => go(ServiceInstancesScreen.sidebarKey),
           ),
         ],
       ),
@@ -164,6 +149,8 @@ class _ActionCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: locked ? null : onOpen,
+        mouseCursor:
+            locked ? SystemMouseCursors.basic : SystemMouseCursors.click,
         borderRadius: BorderRadius.only(
           topLeft: radius.topLeft,
           topRight: radius.topRight,
@@ -273,53 +260,127 @@ class _ActionFooter extends StatelessWidget {
       children: [
         for (var i = 0; i < actions.length; i++) ...[
           if (i > 0) Container(height: 1, color: divider),
-          SizedBox(
+          _FooterButton(
+            label: actions[i].label,
+            onTap: locked ? null : actions[i].onTap,
+            outlined: i == 0,
             height: _rowHeight,
-            child: Material(
-              color: Brand.accent,
-              borderRadius: i == actions.length - 1
-                  ? BorderRadius.only(
-                      bottomLeft: radius.bottomLeft,
-                      bottomRight: radius.bottomRight,
+            borderRadius: i == actions.length - 1
+                ? BorderRadius.only(
+                    bottomLeft: radius.bottomLeft,
+                    bottomRight: radius.bottomRight,
+                  )
+                : BorderRadius.zero,
+            topBorder: i == 0,
+            dividerColor: divider,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _FooterButton extends StatefulWidget {
+  const _FooterButton({
+    required this.label,
+    required this.onTap,
+    required this.outlined,
+    required this.height,
+    required this.borderRadius,
+    required this.topBorder,
+    required this.dividerColor,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final bool outlined;
+  final double height;
+  final BorderRadius borderRadius;
+  final bool topBorder;
+  final Color dividerColor;
+
+  @override
+  State<_FooterButton> createState() => _FooterButtonState();
+}
+
+class _FooterButtonState extends State<_FooterButton> {
+  var _hovered = false;
+  var _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final filled = !widget.outlined;
+
+    Color background;
+    Color foreground;
+    if (filled) {
+      background = _pressed
+          ? Brand.accent.withValues(alpha: 0.82)
+          : _hovered
+              ? Brand.accent.withValues(alpha: 0.92)
+              : Brand.accent;
+      foreground = Brand.voidBlack;
+    } else {
+      background = _pressed
+          ? Brand.accent.withValues(alpha: 0.18)
+          : _hovered
+              ? Brand.accent.withValues(alpha: 0.10)
+              : Colors.transparent;
+      foreground = Brand.accent;
+    }
+
+    return MouseRegion(
+      cursor:
+          enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
+      onExit: enabled
+          ? (_) => setState(() {
+                _hovered = false;
+                _pressed = false;
+              })
+          : null,
+      child: GestureDetector(
+        onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+        onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
+        onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOut,
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: widget.borderRadius,
+            border: Border(
+              top: widget.topBorder
+                  ? BorderSide(
+                      color: widget.outlined
+                          ? Brand.accent.withValues(alpha: 0.55)
+                          : widget.dividerColor,
                     )
-                  : BorderRadius.zero,
-              child: InkWell(
-                onTap: locked ? null : actions[i].onTap,
-                borderRadius: i == actions.length - 1
-                    ? BorderRadius.only(
-                        bottomLeft: radius.bottomLeft,
-                        bottomRight: radius.bottomRight,
-                      )
-                    : BorderRadius.zero,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: i == 0
-                        ? Border(top: BorderSide(color: divider))
-                        : null,
-                  ),
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        actions[i].label,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: Brand.fontFamily,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Brand.voidBlack,
-                        ),
-                      ),
-                    ),
-                  ),
+                  : BorderSide.none,
+            ),
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                widget.label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: Brand.fontFamily,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: foreground,
                 ),
               ),
             ),
           ),
-        ],
-      ],
+        ),
+      ),
     );
   }
 }

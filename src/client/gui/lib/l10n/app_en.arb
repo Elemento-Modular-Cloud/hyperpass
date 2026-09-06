@@ -2946,13 +2946,13 @@
     "@overviewActionCreateBody": {
         "description": "Home action card body for launching infrastructure"
     },
-    "overviewActionLaunchVm": "Launch a VM →",
+    "overviewActionLaunchVm": "View instances →",
     "@overviewActionLaunchVm": {
-        "description": "Home action to open the image catalogue"
+        "description": "Home action to open VM instances"
     },
-    "overviewActionImportImage": "Import an image →",
+    "overviewActionImportImage": "Browse images →",
     "@overviewActionImportImage": {
-        "description": "Home action to import a custom image"
+        "description": "Home action to open the image catalogue"
     },
     "overviewActionAiTitle": "AI",
     "@overviewActionAiTitle": {
@@ -2962,11 +2962,11 @@
     "@overviewActionAiBody": {
         "description": "Home action card body for local models"
     },
-    "overviewActionBrowseModels": "Browse models →",
+    "overviewActionBrowseModels": "Running models →",
     "@overviewActionBrowseModels": {
-        "description": "Home action to open the model catalogue"
+        "description": "Home action to open running LLM instances"
     },
-    "overviewActionLoadDownloaded": "Load downloaded model →",
+    "overviewActionLoadDownloaded": "Browse downloaded models →",
     "@overviewActionLoadDownloaded": {
         "description": "Home action to open downloaded models"
     },

@@ -346,10 +346,18 @@ class SideBar extends ConsumerWidget {
           access.canUseLlms, LlmDownloadedScreen.sidebarKey),
     );
 
+    final apiKeyCount = access.canUseLlms
+        ? ref.watch(apiKeysProvider).maybeWhen(
+              data: (reply) => reply.keys.length,
+              orElse: () => 0,
+            )
+        : 0;
+
     final llmCredentials = SidebarEntry(
       icon: FontAwesomeIcons.key,
       selected: isSelected(LlmCredentialsScreen.sidebarKey),
       label: l10n.llmCredentialsLabel,
+      badge: apiKeyCount.toString(),
       locked: !access.canUseLlms,
       onPressed: () => openOrPromptLocked(
           access.canUseLlms, LlmCredentialsScreen.sidebarKey),
