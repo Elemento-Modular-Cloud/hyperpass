@@ -188,6 +188,14 @@
     "@sidebarSystemHeading": {
         "description": "Sidebar footer heading above daemon health"
     },
+    "sidebarAccountHeading": "Account",
+    "@sidebarAccountHeading": {
+        "description": "Sidebar footer heading above the signed-in account badge"
+    },
+    "sidebarSystemAttention": "Attention needed",
+    "@sidebarSystemAttention": {
+        "description": "Collapsed system summary when a daemon is offline or needs auth"
+    },
     "llmCatalogueLabel": "Model catalog",
     "@llmCatalogueLabel": {
         "description": "Sidebar label for the LLM model catalogue"
@@ -2812,5 +2820,70 @@
     "hostDiskLabel": "Disk",
     "@hostDiskLabel": {
         "description": "Host disk meter label"
+    },
+    "loginTitle": "Sign in",
+    "@loginTitle": {
+        "description": "Portal login screen title"
+    },
+    "loginSubtitle": "Sign in with your Elemento account to continue.",
+    "@loginSubtitle": {
+        "description": "Portal login screen supporting text"
+    },
+    "loginEmailLabel": "Email",
+    "@loginEmailLabel": {
+        "description": "Email field label on login screen"
+    },
+    "loginPasswordLabel": "Password",
+    "@loginPasswordLabel": {
+        "description": "Password field label on login screen"
+    },
+    "loginStaySignedIn": "Stay signed in",
+    "@loginStaySignedIn": {
+        "description": "Stay signed in checkbox on login screen"
+    },
+    "loginSignIn": "Sign in",
+    "@loginSignIn": {
+        "description": "Primary sign-in button label"
+    },
+    "loginForgotPassword": "Forgot password?",
+    "@loginForgotPassword": {
+        "description": "Link to Portal password recovery"
+    },
+    "loginSigningIn": "Signing in…",
+    "@loginSigningIn": {
+        "description": "Busy label while Portal login is in progress"
+    },
+    "loginCheckingSession": "Checking session…",
+    "@loginCheckingSession": {
+        "description": "Shown while restoring a saved Portal session"
+    },
+    "loginRequiredFields": "Email and password are required.",
+    "@loginRequiredFields": {
+        "description": "Validation error when login fields are empty"
+    },
+    "loginGenericError": "Unable to sign in. Check your connection and try again.",
+    "@loginGenericError": {
+        "description": "Fallback login failure message"
+    },
+    "loginSessionExpired": "Your session expired. Please sign in again.",
+    "@loginSessionExpired": {
+        "description": "Shown when refresh and stay-signed re-login both fail"
+    },
+    "accountSectionTitle": "Account",
+    "@accountSectionTitle": {
+        "description": "Settings section heading for Portal account"
+    },
+    "accountSignedInAs": "Signed in as {email}",
+    "@accountSignedInAs": {
+        "description": "Shows the signed-in Portal account email",
+        "placeholders": {
+            "email": {
+                "type": "String"
+            }
+        }
+    },
+    "accountLogout": "Log out",
+    "@accountLogout": {
+        "description": "Logout button in settings"
     }
 }

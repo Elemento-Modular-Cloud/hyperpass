@@ -12,6 +12,7 @@ dependencies:
   basics: ^0.10.0
   built_collection: ^5.1.1
   collection: ^1.19.1
+  crypto: ^3.0.6
   dartssh2:
     git:
       url: https://github.com/canonical/dartssh2.git
@@ -24,6 +25,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.0.1
+  flutter_secure_storage: ^11.0.0
   flutter_svg: ^2.0.17
   fpdart: ^1.1.1
   grpc: ^5.0.0

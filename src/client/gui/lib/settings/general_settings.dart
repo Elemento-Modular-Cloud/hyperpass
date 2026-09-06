@@ -2,6 +2,8 @@ import 'package:basics/basics.dart';
 import 'package:flutter/material.dart' hide Switch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/auth_provider.dart';
+import '../auth/auth_state.dart';
 import '../dropdown.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
@@ -19,6 +21,8 @@ class GeneralSettings extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final update = ref.watch(updateProvider);
+    final auth = ref.watch(authProvider);
+    final signedInEmail = auth is AuthAuthenticated ? auth.username : null;
     final autostart = ref.watch(autostartProvider).when(
           data: (data) => data,
           loading: () => false,
@@ -29,6 +33,20 @@ class GeneralSettings extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          l10n.accountSectionTitle,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 20),
+        if (signedInEmail != null) ...[
+          Text(l10n.accountSignedInAs(signedInEmail)),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () => ref.read(authProvider.notifier).logout(),
+            child: Text(l10n.accountLogout),
+          ),
+          const SizedBox(height: 28),
+        ],
         Text(
           l10n.generalTitle,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

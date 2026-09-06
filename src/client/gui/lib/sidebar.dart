@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -6,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'appearance_settings.dart';
+import 'auth/auth_provider.dart';
+import 'auth/auth_state.dart';
 import 'brand.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
@@ -42,7 +47,8 @@ class SidebarKeyNotifier extends Notifier<String> {
     });
     ref.listen(loadedLlmIdsProvider, (_, ids) {
       final llmId = parseSidebarLlmKey(state);
-      if (llmId != null && !ids.any((id) => id.instanceId == llmId.instanceId)) {
+      if (llmId != null &&
+          !ids.any((id) => id.instanceId == llmId.instanceId)) {
         ref.invalidateSelf();
       }
     });
@@ -164,7 +170,8 @@ abstract final class _SidebarStyle {
         AppearanceTheme.highContrast => Brand.crystalWhite,
       };
 
-  static Color sectionColor(AppearanceTheme theme) => foreground(theme).withAlpha(140);
+  static Color sectionColor(AppearanceTheme theme) =>
+      foreground(theme).withAlpha(140);
 }
 
 class SidebarSectionHeader extends ConsumerWidget {
@@ -287,9 +294,12 @@ class SideBar extends ConsumerWidget {
       },
     );
 
-    final activeDownloads = ref.watch(modelDownloadQueueProvider).where((j) =>
-        j.status == ModelJobStatus.queued ||
-        j.status == ModelJobStatus.running).length;
+    final activeDownloads = ref
+        .watch(modelDownloadQueueProvider)
+        .where((j) =>
+            j.status == ModelJobStatus.queued ||
+            j.status == ModelJobStatus.running)
+        .length;
 
     final llmDownloaded = SidebarEntry(
       icon: FontAwesomeIcons.download,
@@ -344,15 +354,6 @@ class SideBar extends ConsumerWidget {
       label: l10n.sidebarStorageLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CacheScreen.sidebarKey);
-      },
-    );
-
-    final settings = SidebarEntry(
-      icon: FontAwesomeIcons.gear,
-      selected: isSelected(SettingsScreen.sidebarKey),
-      label: l10n.settingsLabel,
-      onPressed: () {
-        ref.read(sidebarKeyNotifier).set(SettingsScreen.sidebarKey);
       },
     );
 
@@ -474,46 +475,19 @@ class SideBar extends ConsumerWidget {
         help,
         const Spacer(),
         Divider(color: fg.withAlpha(40), height: 1),
-        settings,
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          child: Text(
-            l10n.sidebarSystemHeading,
-            style: TextStyle(
-              fontFamily: Brand.fontFamily,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              color: fg.withValues(alpha: 0.5),
-            ),
-          ),
+        const SizedBox(height: 4),
+        _SidebarAccountBadge(
+          selected: isSelected(SettingsScreen.sidebarKey),
+          onOpenSettings: () {
+            ref.read(sidebarKeyNotifier).set(SettingsScreen.sidebarKey);
+          },
         ),
-        if (daemonUp &&
-            (multipassStatus == MultipassSidebarStatus.online ||
-                multipassStatus == MultipassSidebarStatus.hidden ||
-                multipassStatus == MultipassSidebarStatus.disabled))
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-            child: Row(
-              children: [
-                const Icon(Icons.circle, size: 8, color: Brand.green),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    l10n.overviewSystemsHealthy,
-                    style: TextStyle(
-                      fontFamily: Brand.fontFamily,
-                      fontSize: 11,
-                      color: fg.withValues(alpha: 0.75),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        daemonStatus,
-        multipassStatusRow,
+        _SidebarSystemSection(
+          daemonUp: daemonUp,
+          multipassStatus: multipassStatus,
+          daemonStatus: daemonStatus,
+          multipassStatusRow: multipassStatusRow,
+        ),
         elementoFooter,
       ],
     );
@@ -544,6 +518,269 @@ class SideBar extends ConsumerWidget {
             child: navBody,
           ),
         ),
+      ),
+    );
+  }
+}
+
+String _accountInitials(String email) {
+  final local = email.split('@').first.trim();
+  if (local.isEmpty) return '?';
+  final parts = local.split(RegExp(r'[._\-]+')).where((p) => p.isNotEmpty);
+  if (parts.length >= 2) {
+    final a = parts.elementAt(0);
+    final b = parts.elementAt(1);
+    return ('${a[0]}${b[0]}').toUpperCase();
+  }
+  return local.substring(0, local.length >= 2 ? 2 : 1).toUpperCase();
+}
+
+Uri _gravatarUri(String email, {int size = 112}) {
+  final normalized = email.trim().toLowerCase();
+  final hash = md5.convert(utf8.encode(normalized)).toString();
+  return Uri.https('www.gravatar.com', '/avatar/$hash', {
+    's': '$size',
+    'd': 'identicon',
+    'r': 'g',
+  });
+}
+
+class _SidebarAccountBadge extends ConsumerWidget {
+  const _SidebarAccountBadge({
+    required this.onOpenSettings,
+    this.selected = false,
+  });
+
+  final VoidCallback onOpenSettings;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final auth = ref.watch(authProvider);
+    if (auth is! AuthAuthenticated) return const SizedBox.shrink();
+
+    final appearanceTheme = ref.watch(
+      appearanceSettingsProvider.select((settings) => settings.theme),
+    );
+    final fg = selected
+        ? _SidebarStyle.activeFg(appearanceTheme)
+        : _SidebarStyle.foreground(appearanceTheme);
+    final isDarkTheme = appearanceTheme != AppearanceTheme.light;
+    final email = auth.username;
+    final initials = _accountInitials(email);
+    final gravatar = _gravatarUri(email);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+      child: Material(
+        color: selected
+            ? _SidebarStyle.activeBg(appearanceTheme)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(Brand.radius),
+        child: InkWell(
+          onTap: onOpenSettings,
+          hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
+          borderRadius: BorderRadius.circular(Brand.radius),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              children: [
+                ClipOval(
+                  child: Image.network(
+                    gravatar.toString(),
+                    width: 28,
+                    height: 28,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Brand.accent.withValues(alpha: 0.25),
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Brand.accent,
+                          fontFamily: Brand.fontFamily,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Brand.accent.withValues(alpha: 0.25),
+                        child: Text(
+                          initials,
+                          style: const TextStyle(
+                            color: Brand.accent,
+                            fontFamily: Brand.fontFamily,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.sidebarAccountHeading,
+                        style: TextStyle(
+                          fontFamily: Brand.fontFamily,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                          color: fg.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: Brand.fontFamily,
+                          fontSize: _SidebarStyle.statusSize,
+                          color: fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: fg.withValues(alpha: 0.45),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarSystemSection extends ConsumerStatefulWidget {
+  const _SidebarSystemSection({
+    required this.daemonUp,
+    required this.multipassStatus,
+    required this.daemonStatus,
+    required this.multipassStatusRow,
+  });
+
+  final bool daemonUp;
+  final MultipassSidebarStatus multipassStatus;
+  final Widget daemonStatus;
+  final Widget multipassStatusRow;
+
+  @override
+  ConsumerState<_SidebarSystemSection> createState() =>
+      _SidebarSystemSectionState();
+}
+
+class _SidebarSystemSectionState extends ConsumerState<_SidebarSystemSection> {
+  var _expanded = false;
+
+  bool get _healthy =>
+      widget.daemonUp &&
+      (widget.multipassStatus == MultipassSidebarStatus.online ||
+          widget.multipassStatus == MultipassSidebarStatus.hidden ||
+          widget.multipassStatus == MultipassSidebarStatus.disabled);
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final appearanceTheme = ref.watch(
+      appearanceSettingsProvider.select((settings) => settings.theme),
+    );
+    final fg = _SidebarStyle.foreground(appearanceTheme);
+    final isDarkTheme = appearanceTheme != AppearanceTheme.light;
+    final summary =
+        _healthy ? l10n.overviewSystemsHealthy : l10n.sidebarSystemAttention;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
+              borderRadius: BorderRadius.circular(Brand.radius),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.circle,
+                      size: 8,
+                      color: _healthy ? Brand.green : Brand.yellow,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l10n.sidebarSystemHeading,
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                              color: fg.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            summary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: 11,
+                              color: fg.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 18,
+                      color: fg.withValues(alpha: 0.45),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Column(
+                children: [
+                  widget.daemonStatus,
+                  widget.multipassStatusRow,
+                ],
+              ),
+            ),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 160),
+            sizeCurve: Curves.easeOut,
+          ),
+        ],
       ),
     );
   }

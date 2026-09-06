@@ -10,6 +10,9 @@ import 'brand.dart';
 import 'app_background.dart';
 import 'app_theme.dart';
 import 'appearance_settings.dart';
+import 'auth/auth_provider.dart';
+import 'auth/auth_state.dart';
+import 'auth/login_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
@@ -109,6 +112,60 @@ class App extends ConsumerStatefulWidget {
 class _AppState extends ConsumerState<App> with WindowListener {
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final chrome = <Widget>[
+      Positioned(
+        top: 0,
+        left: 0,
+        right: mpPlatform.showWindowCaptionButtons ? 138 : 0,
+        height: SideBar.titleBarHeight,
+        child: const DragToMoveArea(child: SizedBox.expand()),
+      ),
+      if (mpPlatform.showWindowCaptionButtons)
+        Align(
+          alignment: Alignment.topRight,
+          child: SizedBox(
+            width: 138,
+            height: kWindowCaptionHeight,
+            child: WindowCaption(
+              backgroundColor: Colors.transparent,
+              brightness: isDark ? Brightness.dark : Brightness.light,
+            ),
+          ),
+        ),
+    ];
+
+    if (auth is AuthUnknown) {
+      final l10n = AppLocalizations.of(context)!;
+      return Stack(
+        children: [
+          const Positioned.fill(child: AppBackground()),
+          ...chrome,
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(l10n.loginCheckingSession),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (auth is! AuthAuthenticated) {
+      return Stack(
+        children: [
+          const Positioned.fill(child: LoginScreen()),
+          ...chrome,
+        ],
+      );
+    }
+
     final currentKey = ref.watch(sidebarKeyProvider);
     final vms = ref.watch(vmIdsProvider);
     final llmIds = ref.watch(loadedLlmIdsProvider);
@@ -165,7 +222,6 @@ class _AppState extends ConsumerState<App> with WindowListener {
     );
 
     final hotkey = ref.watch(hotkeyProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final sidebarWidth = SideBar.totalWidth;
 
     return Stack(
@@ -191,25 +247,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
             child: const SideBar(),
           ),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: mpPlatform.showWindowCaptionButtons ? 138 : 0,
-          height: SideBar.titleBarHeight,
-          child: const DragToMoveArea(child: SizedBox.expand()),
-        ),
-        if (mpPlatform.showWindowCaptionButtons)
-          Align(
-            alignment: Alignment.topRight,
-            child: SizedBox(
-              width: 138,
-              height: kWindowCaptionHeight,
-              child: WindowCaption(
-                backgroundColor: Colors.transparent,
-                brightness: isDark ? Brightness.dark : Brightness.light,
-              ),
-            ),
-          ),
+        ...chrome,
         const Align(
           alignment: Alignment.bottomRight,
           child: SizedBox(width: 400, child: NotificationList()),
