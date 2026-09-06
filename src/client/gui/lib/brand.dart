@@ -27,6 +27,11 @@ abstract final class Brand {
   /// Status / online indicator (Electros `--green`).
   static const green = Color(0xFF28A745);
 
+  /// Fixed palette for host resource split (VMs / AI / services).
+  static const workloadVm = Color(0xFF2F9E88);
+  static const workloadAi = accent;
+  static const workloadService = Color(0xFF7B6CF0);
+
   /// Lighter yellow (Elemento footer hover).
   static const yellowLight = Color(0xFFFAB83A);
 

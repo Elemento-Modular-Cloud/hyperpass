@@ -124,6 +124,31 @@
     "@searchBoxHint": {
         "description": "Placeholder text in the instance search box"
     },
+    "searchBoxHintModels": "Search models...",
+    "@searchBoxHintModels": {
+        "description": "Placeholder text in the running models search box"
+    },
+    "searchBoxHintDeployments": "Search deployments...",
+    "@searchBoxHintDeployments": {
+        "description": "Placeholder text in the deployments search box"
+    },
+    "bulkActionModelCount": "{count, plural, =1{1 model} other{{count} models}}",
+    "@bulkActionModelCount": {
+        "description": "Refers to a number of loaded models in bulk action notifications",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "llmActionUnloadContinuous": "Unloading",
+    "@llmActionUnloadContinuous": {
+        "description": "Continuous tense for unloading models in bulk notifications"
+    },
+    "llmActionUnloadPast": "Unloaded",
+    "@llmActionUnloadPast": {
+        "description": "Past tense for unloading models in bulk notifications"
+    },
     "helpBody": "View tutorials, how-to guides, and references on the Elemento site.",
     "@helpBody": {
         "description": "Introductory text on the Help screen"

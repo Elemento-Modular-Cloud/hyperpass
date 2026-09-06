@@ -1,3 +1,4 @@
+import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,10 +6,12 @@ import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
 import '../../tooltip.dart';
+import '../../vm_table/search_box.dart';
 import '../../vm_table/table.dart';
 import '../catalogue/model_capabilities.dart';
 import '../llm_id.dart';
 import '../providers.dart';
+import 'llm_selection.dart';
 
 Widget Function(String) _l10nHeader(String Function(AppLocalizations) label) {
   return (_) => Builder(
@@ -18,6 +21,13 @@ Widget Function(String) _l10nHeader(String Function(AppLocalizations) label) {
 }
 
 final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
+  TableHeader(
+    name: 'checkbox',
+    childBuilder: (_) => const SelectAllLlmCheckbox(),
+    width: 50,
+    minWidth: 50,
+    cellBuilder: (m) => SelectLlmCheckbox(m.instanceId),
+  ),
   TableHeader(
     name: 'MODEL',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnModel),
@@ -92,14 +102,68 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     minWidth: 48,
     cellBuilder: (m) => LlmActivityLink(m),
   ),
-  TableHeader(
-    name: 'ACTIONS',
-    childBuilder: (_) => const SizedBox.shrink(),
-    width: 80,
-    minWidth: 64,
-    cellBuilder: (m) => _LlmUnloadButton(model: m),
-  ),
 ];
+
+class SelectAllLlmCheckbox extends ConsumerWidget {
+  const SelectAllLlmCheckbox({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedLlmInstancesProvider);
+    final search = ref.watch(llmSearchProvider);
+    final pending = ref.watch(pendingLlmUnloadsProvider);
+    final ids = ref
+            .watch(loadedModelsProvider)
+            .asData
+            ?.value
+            .models
+            .where((m) => !pending.contains(m.instanceId))
+            .where((m) {
+              if (search.isEmpty) return true;
+              final q = search.toLowerCase();
+              return m.modelId.toLowerCase().contains(q) ||
+                  m.openaiId.toLowerCase().contains(q) ||
+                  m.backend.toLowerCase().contains(q);
+            })
+            .map((m) => m.instanceId)
+            .toList() ??
+        const <String>[];
+    final allSelected = ids.isNotEmpty && selected.containsAll(ids);
+
+    return Center(
+      child: Checkbox(
+        tristate: true,
+        value: selected.isEmpty ? false : (allSelected ? true : null),
+        onChanged: (checked) {
+          ref.read(selectedLlmInstancesProvider.notifier).set(
+                checked ?? false ? ids.toBuiltSet() : BuiltSet(),
+              );
+        },
+      ),
+    );
+  }
+}
+
+class SelectLlmCheckbox extends ConsumerWidget {
+  const SelectLlmCheckbox(this.instanceId, {super.key});
+
+  final String instanceId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(
+      selectedLlmInstancesProvider.select((s) => s.contains(instanceId)),
+    );
+    return Center(
+      child: Checkbox(
+        value: selected,
+        onChanged: (checked) => ref
+            .read(selectedLlmInstancesProvider.notifier)
+            .toggle(instanceId, checked!),
+      ),
+    );
+  }
+}
 
 class _LlmCapabilityCell extends ConsumerWidget {
   const _LlmCapabilityCell({required this.model});
@@ -131,6 +195,7 @@ class _LlmCapabilityCell extends ConsumerWidget {
     );
   }
 }
+
 class LlmModelLink extends ConsumerWidget {
   final LoadedModelInfo model;
 
@@ -138,7 +203,8 @@ class LlmModelLink extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final id = LlmInstanceId(instanceId: model.instanceId, modelId: model.modelId);
+    final id =
+        LlmInstanceId(instanceId: model.instanceId, modelId: model.modelId);
     final label = model.openaiId.isEmpty
         ? model.modelId
         : '${model.modelId} (${model.openaiId})';
@@ -161,7 +227,8 @@ class LlmActivityLink extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final id = LlmInstanceId(instanceId: model.instanceId, modelId: model.modelId);
+    final id =
+        LlmInstanceId(instanceId: model.instanceId, modelId: model.modelId);
 
     return Tooltip(
       message: l10n.llmTableColumnActivity,
@@ -169,22 +236,9 @@ class LlmActivityLink extends ConsumerWidget {
         icon: const Icon(Icons.article_outlined, size: 18),
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-        onPressed: () => ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey),
+        onPressed: () =>
+            ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey),
       ),
-    );
-  }
-}
-
-class _LlmUnloadButton extends ConsumerWidget {
-  final LoadedModelInfo model;
-  const _LlmUnloadButton({required this.model});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    return TextButton(
-      onPressed: () => unloadLlmInstance(ref, model.instanceId),
-      child: Text(l10n.modelsUnload, style: const TextStyle(fontSize: 11)),
     );
   }
 }

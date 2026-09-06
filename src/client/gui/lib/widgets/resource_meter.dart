@@ -3,6 +3,17 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../brand.dart';
 
+/// Colored share of a [ResourceMeter] fill (e.g. VM / AI / service claims).
+class ResourceMeterSegment {
+  const ResourceMeterSegment({
+    required this.color,
+    required this.weight,
+  });
+
+  final Color color;
+  final double weight;
+}
+
 /// Polished capacity meter used by host gauges and instance usage cells.
 class ResourceMeter extends StatelessWidget {
   const ResourceMeter({
@@ -12,6 +23,7 @@ class ResourceMeter extends StatelessWidget {
     this.icon,
     this.compact = false,
     this.showLabel = true,
+    this.segments = const [],
     super.key,
   });
 
@@ -21,6 +33,7 @@ class ResourceMeter extends StatelessWidget {
   final IconData? icon;
   final bool compact;
   final bool showLabel;
+  final List<ResourceMeterSegment> segments;
 
   static const warningThreshold = 0.8;
   static const criticalThreshold = 0.92;
@@ -29,6 +42,36 @@ class ResourceMeter extends StatelessWidget {
     if (progress >= criticalThreshold) return const Color(0xFFE35D6A);
     if (progress >= warningThreshold) return Brand.accentDark;
     return Brand.accent;
+  }
+
+  /// Builds VM / AI / service segments from scheduler claim weights.
+  static List<ResourceMeterSegment> workloadSegments({
+    required Iterable<({String name, String kind, double weight})> claims,
+    required Set<String> serviceNames,
+  }) {
+    var vm = 0.0;
+    var ai = 0.0;
+    var service = 0.0;
+    for (final claim in claims) {
+      if (claim.weight <= 0) continue;
+      final kind = serviceNames.contains(claim.name) || claim.kind == 'service'
+          ? 'service'
+          : claim.kind;
+      switch (kind) {
+        case 'llm':
+          ai += claim.weight;
+        case 'service':
+          service += claim.weight;
+        default:
+          vm += claim.weight;
+      }
+    }
+    return [
+      if (vm > 0) ResourceMeterSegment(color: Brand.workloadVm, weight: vm),
+      if (ai > 0) ResourceMeterSegment(color: Brand.workloadAi, weight: ai),
+      if (service > 0)
+        ResourceMeterSegment(color: Brand.workloadService, weight: service),
+    ];
   }
 
   @override
@@ -43,6 +86,7 @@ class ResourceMeter extends StatelessWidget {
     final bar = _MeterBar(
       progress: clamped,
       fill: fill,
+      segments: segments,
       height: trackHeight,
       trackColor: onSurface.withValues(alpha: compact ? 0.12 : 0.14),
     );
@@ -53,17 +97,19 @@ class ResourceMeter extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           bar,
-          const SizedBox(height: 4),
-          Text(
-            valueText,
-            style: TextStyle(
-              fontFamily: Brand.fontFamily,
-              fontSize: valueSize,
-              fontWeight: FontWeight.w500,
-              color: onSurface.withValues(alpha: 0.85),
-              height: 1.1,
+          if (valueText.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              valueText,
+              style: TextStyle(
+                fontFamily: Brand.fontFamily,
+                fontSize: valueSize,
+                fontWeight: FontWeight.w500,
+                color: onSurface.withValues(alpha: 0.85),
+                height: 1.1,
+              ),
             ),
-          ),
+          ],
         ],
       );
     }
@@ -119,17 +165,52 @@ class _MeterBar extends StatelessWidget {
   const _MeterBar({
     required this.progress,
     required this.fill,
+    required this.segments,
     required this.height,
     required this.trackColor,
   });
 
   final double progress;
   final Color fill;
+  final List<ResourceMeterSegment> segments;
   final double height;
   final Color trackColor;
 
   @override
   Widget build(BuildContext context) {
+    final active = [
+      for (final segment in segments)
+        if (segment.weight > 0) segment,
+    ];
+    final totalWeight =
+        active.fold<double>(0, (sum, segment) => sum + segment.weight);
+
+    final fillChild = active.isEmpty || totalWeight <= 0
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  fill.withValues(alpha: 0.85),
+                  fill,
+                ],
+              ),
+            ),
+          )
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final segment in active)
+                Expanded(
+                  flex: (segment.weight / totalWeight * 1000)
+                      .round()
+                      .clamp(1, 1000000),
+                  child: ColoredBox(color: segment.color),
+                ),
+            ],
+          );
+
     return SizedBox(
       height: height,
       child: ClipRRect(
@@ -141,40 +222,25 @@ class _MeterBar extends StatelessWidget {
             FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: progress,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      fill.withValues(alpha: 0.85),
-                      fill,
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: fill.withValues(alpha: 0.35),
-                      blurRadius: 6,
-                      offset: const Offset(0, 0),
-                    ),
-                  ],
-                ),
-              ),
+              // FractionallySizedBox only tightens width; expand so the fill
+              // keeps the track height (DecoratedBox/Row otherwise size to 0).
+              child: SizedBox.expand(child: fillChild),
             ),
-            // Soft top sheen for depth without looking like a toy gauge.
             Align(
               alignment: Alignment.topCenter,
               child: FractionallySizedBox(
                 heightFactor: 0.45,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.18),
-                        Colors.white.withValues(alpha: 0),
-                      ],
+                child: SizedBox.expand(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.18),
+                          Colors.white.withValues(alpha: 0),
+                        ],
+                      ),
                     ),
                   ),
                 ),

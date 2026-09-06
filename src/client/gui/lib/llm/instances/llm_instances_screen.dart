@@ -5,12 +5,16 @@ import '../../l10n/app_localizations.dart';
 import '../../page_surface.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
+import '../../vm_table/search_box.dart';
+import '../../vm_table/table.dart' as vmtable;
 import '../../widgets/running_list_header.dart';
 import '../catalogue/llm_catalogue_screen.dart';
+import '../host_resource_gauges.dart';
 import '../providers.dart';
+import 'llm_bulk_actions.dart';
 import 'llm_downloaded_screen.dart';
 import 'llm_instance_headers.dart';
-import '../../vm_table/table.dart' as vmtable;
+import 'llm_selection.dart';
 
 class LlmInstancesScreen extends ConsumerWidget {
   static const sidebarKey = 'llm-instances';
@@ -22,6 +26,8 @@ class LlmInstancesScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final loaded = ref.watch(loadedModelsProvider);
     final pending = ref.watch(pendingLlmUnloadsProvider);
+    final search = ref.watch(llmSearchProvider);
+    final selected = ref.watch(selectedLlmInstancesProvider);
 
     return Scaffold(
       body: PageSurface(
@@ -38,27 +44,65 @@ class LlmInstancesScreen extends ConsumerWidget {
                 child: Text(l10n.llmLoadAction),
               ),
             ),
+            const SizedBox(height: 8),
+            const HostResourceGauges(),
             const SizedBox(height: 16),
             Expanded(
               child: loaded.when(
                 data: (reply) {
                   final models = reply.models
                       .where((m) => !pending.contains(m.instanceId))
+                      .where((m) {
+                        if (search.isEmpty) return true;
+                        final q = search.toLowerCase();
+                        return m.modelId.toLowerCase().contains(q) ||
+                            m.openaiId.toLowerCase().contains(q) ||
+                            m.backend.toLowerCase().contains(q);
+                      })
                       .toList(growable: false);
-                  if (models.isEmpty) {
+                  if (reply.models
+                      .where((m) => !pending.contains(m.instanceId))
+                      .isEmpty) {
                     return const NoLlmInstances();
                   }
-                  return vmtable.Table<LoadedModelInfo>(
-                    key: ValueKey(models.map((m) => m.instanceId).join(',')),
-                    headers: llmInstanceHeaders,
-                    data: models,
-                    rowExtent: 36,
-                    cellMargin:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    finalRow: List.generate(
-                      llmInstanceHeaders.length,
-                      (_) => const SizedBox.shrink(),
-                    ),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Spacer(),
+                          SearchBox(
+                            key: const ValueKey('llm-search'),
+                            hint: l10n.searchBoxHintModels,
+                            provider: llmSearchProvider,
+                          ),
+                        ],
+                      ),
+                      const LlmBulkActionsBar(),
+                      const SizedBox(height: 10),
+                      Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: SizedBox(
+                            height: (models.length + 2) * 50,
+                            width: double.infinity,
+                            child: vmtable.Table<LoadedModelInfo>(
+                              key: ValueKey(
+                                models.map((m) => m.instanceId).join(','),
+                              ),
+                              headers: llmInstanceHeaders,
+                              data: models,
+                              finalRow: List.generate(
+                                llmInstanceHeaders.length,
+                                (_) => const SizedBox.shrink(),
+                              ),
+                              isSelected: (m) =>
+                                  selected.contains(m.instanceId),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 },
                 loading: () =>

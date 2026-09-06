@@ -132,6 +132,17 @@ class OverviewSystemRail extends ConsumerWidget {
                 percent: (cpuPct * 100).round(),
                 detail: '$claimedCpus / $cpus vCPU',
                 color: Brand.accent,
+                segments: ResourceMeter.workloadSegments(
+                  claims: [
+                    for (final claim in daemon?.claims ?? const [])
+                      (
+                        name: claim.name,
+                        kind: claim.kind,
+                        weight: claim.cpus.toDouble(),
+                      ),
+                  ],
+                  serviceNames: serviceNames,
+                ),
               ),
               const SizedBox(height: 10),
               _ResourceRow(
@@ -140,6 +151,17 @@ class OverviewSystemRail extends ConsumerWidget {
                 detail:
                     '${formatResourceBytes('$usedHost')} / ${formatResourceBytes('$memory')}',
                 color: Brand.yellowLight,
+                segments: ResourceMeter.workloadSegments(
+                  claims: [
+                    for (final claim in daemon?.claims ?? const [])
+                      (
+                        name: claim.name,
+                        kind: claim.kind,
+                        weight: claim.memoryBytes.toDouble(),
+                      ),
+                  ],
+                  serviceNames: serviceNames,
+                ),
               ),
               const SizedBox(height: 10),
               _ResourceRow(
@@ -271,12 +293,14 @@ class _ResourceRow extends StatelessWidget {
     required this.percent,
     required this.detail,
     required this.color,
+    this.segments = const [],
   });
 
   final String label;
   final int percent;
   final String detail;
   final Color color;
+  final List<ResourceMeterSegment> segments;
 
   @override
   Widget build(BuildContext context) {
@@ -318,14 +342,15 @@ class _ResourceRow extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: (percent / 100).clamp(0.0, 1.0),
-            minHeight: 6,
-            backgroundColor: onSurface.withValues(alpha: 0.1),
-            color: color,
-          ),
+        ResourceMeter(
+          label: '',
+          valueText: '',
+          progress: (percent / 100).clamp(0.0, 1.0),
+          segments: segments.isEmpty
+              ? [ResourceMeterSegment(color: color, weight: 1)]
+              : segments,
+          compact: true,
+          showLabel: false,
         ),
       ],
     );

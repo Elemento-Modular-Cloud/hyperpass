@@ -34,19 +34,12 @@ class CoreAllocationGraph extends StatelessWidget {
   final bool compact;
 
   static Color colorFor({
-    required String name,
     required String kind,
     required bool isService,
   }) {
-    final hash = name.hashCode.abs();
-    if (kind == 'llm') {
-      return HSLColor.fromAHSL(1, 38 + (hash % 18), 0.88, 0.52).toColor();
-    }
-    if (isService || kind == 'service') {
-      return HSLColor.fromAHSL(1, 275 + (hash % 35), 0.55, 0.58).toColor();
-    }
-    // VMs — greens / teals
-    return HSLColor.fromAHSL(1, 145 + (hash % 45), 0.48, 0.42).toColor();
+    if (kind == 'llm') return Brand.workloadAi;
+    if (isService || kind == 'service') return Brand.workloadService;
+    return Brand.workloadVm;
   }
 
   @override
@@ -77,7 +70,6 @@ class CoreAllocationGraph extends StatelessWidget {
     for (final claim in ordered) {
       final isService = serviceNames.contains(claim.name);
       final color = colorFor(
-        name: claim.name,
         kind: claim.kind,
         isService: isService,
       );
@@ -120,11 +112,23 @@ class CoreAllocationGraph extends StatelessWidget {
     final claimed = cores - freeCores;
     final cell = compact ? 14.0 : 18.0;
     final gap = compact ? 3.0 : 4.0;
-    final legendParts = <String>[
-      if (vmCores > 0) l10n.overviewCoreAllocLegendVms(vmCores),
-      if (llmCores > 0) l10n.overviewCoreAllocLegendLlms(llmCores),
-      if (serviceCores > 0) l10n.overviewCoreAllocLegendServices(serviceCores),
-      l10n.overviewCoreAllocLegendFreeCount(freeCores),
+    final legendStyle = TextStyle(
+      fontFamily: Brand.fontFamily,
+      fontSize: 11,
+      height: 1.35,
+      color: onSurface.withValues(alpha: 0.7),
+    );
+    final legendItems = <(Color, String)>[
+      if (vmCores > 0)
+        (Brand.workloadVm, l10n.overviewCoreAllocLegendVms(vmCores)),
+      if (llmCores > 0)
+        (Brand.workloadAi, l10n.overviewCoreAllocLegendLlms(llmCores)),
+      if (serviceCores > 0)
+        (
+          Brand.workloadService,
+          l10n.overviewCoreAllocLegendServices(serviceCores),
+        ),
+      (freeColor, l10n.overviewCoreAllocLegendFreeCount(freeCores)),
     ];
 
     return Column(
@@ -189,14 +193,30 @@ class CoreAllocationGraph extends StatelessWidget {
         ),
         if (claimed > 0) ...[
           SizedBox(height: compact ? 10 : 12),
-          Text(
-            legendParts.join(' · '),
-            style: TextStyle(
-              fontFamily: Brand.fontFamily,
-              fontSize: 11,
-              height: 1.35,
-              color: onSurface.withValues(alpha: 0.7),
-            ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              for (final item in legendItems)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: item.$1,
+                        borderRadius: BorderRadius.circular(2),
+                        border: Border.all(
+                          color: onSurface.withValues(alpha: 0.15),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(item.$2, style: legendStyle),
+                  ],
+                ),
+            ],
           ),
         ] else ...[
           SizedBox(height: compact ? 8 : 10),

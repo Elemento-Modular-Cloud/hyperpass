@@ -7,6 +7,7 @@ import 'package:intersperse/intersperse.dart';
 import '../brand.dart';
 import '../catalogue/catalogue_surface.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/rounded_search_field.dart';
 import 'service_branding.dart';
 import 'service_deploy.dart';
 import 'service_detail.dart';
@@ -112,7 +113,8 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
         children: [
           LayoutBuilder(
             builder: (context, constraints) {
-              final search = _ServicesSearchField(
+              final search = RoundedSearchField(
+                width: null,
                 controller: _searchController,
                 hint: l10n.servicesSearchHint,
                 onChanged: (value) =>
@@ -444,60 +446,6 @@ class _ServicesHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ServicesSearchField extends StatelessWidget {
-  const _ServicesSearchField({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-
-    return CatalogueSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        style: TextStyle(
-          fontFamily: Brand.fontFamily,
-          fontSize: 13,
-          color: onSurface,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: onSurface.withValues(alpha: 0.45),
-            fontFamily: Brand.fontFamily,
-            fontSize: 13,
-          ),
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          disabledBorder: InputBorder.none,
-          errorBorder: InputBorder.none,
-          focusedErrorBorder: InputBorder.none,
-          isDense: true,
-          filled: false,
-          prefixIcon: Icon(
-            Icons.search,
-            color: onSurface.withValues(alpha: 0.5),
-            size: 18,
-          ),
-          prefixIconConstraints:
-              const BoxConstraints(minWidth: 36, minHeight: 32),
-          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-        ),
-      ),
     );
   }
 }

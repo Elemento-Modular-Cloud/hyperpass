@@ -9,8 +9,8 @@ import '../auth/feature_access.dart';
 import '../brand.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
+import '../widgets/rounded_search_field.dart';
 import 'catalogue_entry.dart';
-import 'catalogue_surface.dart';
 import 'image_card.dart';
 import 'launch_form.dart';
 
@@ -91,7 +91,8 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
                       const SizedBox(width: 16),
                       SizedBox(
                         width: 260,
-                        child: _SearchField(
+                        child: RoundedSearchField(
+                          width: null,
                           controller: _searchController,
                           hint: l10n.catalogueSearchHint,
                           onChanged: (value) => ref
@@ -107,7 +108,8 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
                   children: [
                     _CatalogueHeader(l10n: l10n),
                     const SizedBox(height: 12),
-                    _SearchField(
+                    RoundedSearchField(
+                      width: null,
                       controller: _searchController,
                       hint: l10n.catalogueSearchHint,
                       onChanged: (value) =>
@@ -257,62 +259,6 @@ class _CatalogueHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SearchField extends StatelessWidget {
-  const _SearchField({
-    required this.controller,
-    required this.hint,
-    required this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final String hint;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-
-    return CatalogueSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: TextField(
-        controller: controller,
-        onChanged: onChanged,
-        style: TextStyle(
-          fontFamily: Brand.fontFamily,
-          fontSize: 13,
-          color: onSurface,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: onSurface.withValues(alpha: 0.45),
-            fontFamily: Brand.fontFamily,
-            fontSize: 13,
-          ),
-          // CatalogueSurface already provides fill + border; avoid a nested
-          // filled field (and theme underlines) that leave inner seams.
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          disabledBorder: InputBorder.none,
-          errorBorder: InputBorder.none,
-          focusedErrorBorder: InputBorder.none,
-          isDense: true,
-          filled: false,
-          prefixIcon: Icon(
-            Icons.search,
-            color: onSurface.withValues(alpha: 0.5),
-            size: 18,
-          ),
-          prefixIconConstraints:
-              const BoxConstraints(minWidth: 36, minHeight: 32),
-          contentPadding: const EdgeInsets.symmetric(vertical: 10),
-        ),
-      ),
     );
   }
 }

@@ -44,6 +44,28 @@ class HostResourceGauges extends ConsumerWidget {
                 cpus: claim.cpus,
               ),
         ];
+        final cpuSegments = ResourceMeter.workloadSegments(
+          claims: [
+            for (final claim in data.claims)
+              (
+                name: claim.name,
+                kind: claim.kind,
+                weight: claim.cpus.toDouble(),
+              ),
+          ],
+          serviceNames: serviceNames,
+        );
+        final memSegments = ResourceMeter.workloadSegments(
+          claims: [
+            for (final claim in data.claims)
+              (
+                name: claim.name,
+                kind: claim.kind,
+                weight: claim.memoryBytes.toDouble(),
+              ),
+          ],
+          serviceNames: serviceNames,
+        );
         final coreGraph = CoreAllocationGraph(
           hostCpus: data.cpus,
           claims: claims,
@@ -57,6 +79,7 @@ class HostResourceGauges extends ConsumerWidget {
           progress: cpuRatio,
           icon: FontAwesomeIcons.microchip,
           compact: compact,
+          segments: cpuSegments,
         );
         final ramMeter = ResourceMeter(
           label: l10n.hostMemoryLabel,
@@ -65,6 +88,7 @@ class HostResourceGauges extends ConsumerWidget {
           progress: memProgress,
           icon: FontAwesomeIcons.memory,
           compact: compact,
+          segments: memSegments,
         );
         final diskMeter = ResourceMeter(
           label: l10n.hostDiskLabel,

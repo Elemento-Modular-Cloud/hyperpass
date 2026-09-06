@@ -5,10 +5,14 @@ import '../l10n/app_localizations.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../sidebar.dart';
+import '../vm_table/search_box.dart';
 import '../vm_table/table.dart' as vmtable;
+import '../llm/host_resource_gauges.dart';
 import '../widgets/running_list_header.dart';
+import 'service_bulk_actions.dart';
 import 'service_instance_headers.dart';
 import 'service_instance_id.dart';
+import 'service_selection.dart';
 import 'services_screen.dart';
 
 class ServiceInstancesScreen extends ConsumerWidget {
@@ -19,7 +23,17 @@ class ServiceInstancesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final instances = ref.watch(serviceInstanceInfosProvider);
+    final search = ref.watch(serviceSearchProvider);
+    final selected = ref.watch(selectedServiceInstancesProvider);
+    final allInstances = ref.watch(serviceInstanceInfosProvider);
+    final instances = allInstances
+        .where((i) {
+          if (search.isEmpty) return true;
+          final q = search.toLowerCase();
+          return i.name.toLowerCase().contains(q) ||
+              i.info.serviceId.toLowerCase().contains(q);
+        })
+        .toList(growable: false);
 
     return Scaffold(
       body: PageSurface(
@@ -36,25 +50,49 @@ class ServiceInstancesScreen extends ConsumerWidget {
                 child: Text(l10n.serviceDeployAction),
               ),
             ),
+            const SizedBox(height: 8),
+            const HostResourceGauges(),
             const SizedBox(height: 16),
             Expanded(
-              child: instances.isEmpty
+              child: allInstances.isEmpty
                   ? const NoServiceInstances()
-                  : vmtable.Table<TaggedVmInfo>(
-                      key: ValueKey(
-                        instances.map((i) => i.name).join(','),
-                      ),
-                      headers: serviceInstanceHeaders,
-                      data: instances,
-                      rowExtent: 36,
-                      cellMargin: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      finalRow: List.generate(
-                        serviceInstanceHeaders.length,
-                        (_) => const SizedBox.shrink(),
-                      ),
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Spacer(),
+                            SearchBox(
+                              key: const ValueKey('service-search'),
+                              hint: l10n.searchBoxHintDeployments,
+                              provider: serviceSearchProvider,
+                            ),
+                          ],
+                        ),
+                        const ServiceBulkActionsBar(),
+                        const SizedBox(height: 10),
+                        Flexible(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: SizedBox(
+                              height: (instances.length + 2) * 50,
+                              width: double.infinity,
+                              child: vmtable.Table<TaggedVmInfo>(
+                                key: ValueKey(
+                                  instances.map((i) => i.name).join(','),
+                                ),
+                                headers: serviceInstanceHeaders,
+                                data: instances,
+                                finalRow: List.generate(
+                                  serviceInstanceHeaders.length,
+                                  (_) => const SizedBox.shrink(),
+                                ),
+                                isSelected: (info) => selected.contains(info.id),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],

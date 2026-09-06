@@ -1,3 +1,4 @@
+import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,11 +8,13 @@ import '../sidebar.dart';
 import '../tooltip.dart';
 import '../vm_details/ip_addresses.dart';
 import '../vm_details/vm_status_icon.dart';
+import '../vm_table/search_box.dart';
 import '../vm_table/table.dart';
 import 'service_branding.dart';
 import 'service_instance_details.dart';
 import 'service_instance_id.dart';
 import 'service_library.dart';
+import 'service_selection.dart';
 import 'service_status.dart';
 
 Widget Function(String) _l10nHeader(String Function(AppLocalizations) label) {
@@ -22,6 +25,13 @@ Widget Function(String) _l10nHeader(String Function(AppLocalizations) label) {
 }
 
 final serviceInstanceHeaders = <TableHeader<TaggedVmInfo>>[
+  TableHeader(
+    name: 'checkbox',
+    childBuilder: (_) => const SelectAllServiceCheckbox(),
+    width: 50,
+    minWidth: 50,
+    cellBuilder: (info) => SelectServiceCheckbox(info.id),
+  ),
   TableHeader(
     name: 'NAME',
     childBuilder: _l10nHeader((l10n) => l10n.serviceInstancesColumnName),
@@ -76,6 +86,60 @@ final serviceInstanceHeaders = <TableHeader<TaggedVmInfo>>[
     cellBuilder: (info) => IpAddresses(info.instanceInfo.ipv4),
   ),
 ];
+
+class SelectAllServiceCheckbox extends ConsumerWidget {
+  const SelectAllServiceCheckbox({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedServiceInstancesProvider);
+    final search = ref.watch(serviceSearchProvider);
+    final ids = ref
+        .watch(serviceInstanceInfosProvider)
+        .where((i) {
+          if (search.isEmpty) return true;
+          final q = search.toLowerCase();
+          return i.name.toLowerCase().contains(q) ||
+              i.info.serviceId.toLowerCase().contains(q);
+        })
+        .map((i) => i.id)
+        .toList();
+    final allSelected = ids.isNotEmpty && selected.containsAll(ids);
+
+    return Center(
+      child: Checkbox(
+        tristate: true,
+        value: selected.isEmpty ? false : (allSelected ? true : null),
+        onChanged: (checked) {
+          ref.read(selectedServiceInstancesProvider.notifier).set(
+                checked ?? false ? ids.toBuiltSet() : BuiltSet(),
+              );
+        },
+      ),
+    );
+  }
+}
+
+class SelectServiceCheckbox extends ConsumerWidget {
+  const SelectServiceCheckbox(this.id, {super.key});
+
+  final VmId id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(
+      selectedServiceInstancesProvider.select((s) => s.contains(id)),
+    );
+    return Center(
+      child: Checkbox(
+        value: selected,
+        onChanged: (checked) => ref
+            .read(selectedServiceInstancesProvider.notifier)
+            .toggle(id, checked!),
+      ),
+    );
+  }
+}
 
 class ServiceShellLink extends ConsumerWidget {
   const ServiceShellLink(this.instanceName, {super.key});

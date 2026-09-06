@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../brand.dart';
 import '../../l10n/app_localizations.dart';
 import '../../page_surface.dart';
+import '../../widgets/rounded_search_field.dart';
 import 'catalogue_widgets.dart';
 import '../providers.dart';
 
@@ -151,37 +152,23 @@ class _LlmCatalogPaneState extends ConsumerState<LlmCatalogPane> {
     final l10n = AppLocalizations.of(context)!;
     final advanced = ref.watch(catalogAdvancedModeProvider);
     final filters = ref.watch(catalogFiltersProvider);
-    final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Align(
           alignment: Alignment.centerRight,
-          child: SizedBox(
-            width: 280,
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                ref.read(catalogFiltersProvider.notifier).setSearch(value);
-                if (advanced) {
-                  ref.read(debouncedCatalogQueryProvider.notifier).set(value);
-                }
-              },
-              style: TextStyle(
-                fontFamily: Brand.fontFamily,
-                fontSize: 13,
-                color: onSurface,
-              ),
-              decoration: InputDecoration(
-                hintText: advanced
-                    ? l10n.modelsSearchHint
-                    : l10n.modelsTopPicksSearchHint,
-                prefixIcon: const Icon(Icons.search, size: 18),
-                isDense: true,
-                border: const OutlineInputBorder(),
-              ),
-            ),
+          child: RoundedSearchField(
+            controller: _searchController,
+            hint: advanced
+                ? l10n.modelsSearchHint
+                : l10n.modelsTopPicksSearchHint,
+            onChanged: (value) {
+              ref.read(catalogFiltersProvider.notifier).setSearch(value);
+              if (advanced) {
+                ref.read(debouncedCatalogQueryProvider.notifier).set(value);
+              }
+            },
           ),
         ),
         if (advanced) ...[
