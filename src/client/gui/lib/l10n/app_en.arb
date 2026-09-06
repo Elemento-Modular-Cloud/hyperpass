@@ -152,6 +152,10 @@
     "@sidebarSectionAi": {
         "description": "Sidebar section for models and inference runtime"
     },
+    "sidebarSectionSetup": "Setup",
+    "@sidebarSectionSetup": {
+        "description": "Sidebar section for local tool installers"
+    },
     "sidebarSectionManage": "Manage",
     "@sidebarSectionManage": {
         "description": "Sidebar section for storage and help"
@@ -168,9 +172,41 @@
     "@sidebarModelsLabel": {
         "description": "Sidebar label for the AI model catalogue"
     },
-    "sidebarRuntimeLabel": "Runtime",
+    "sidebarInstallersLabel": "Installers",
+    "@sidebarInstallersLabel": {
+        "description": "Sidebar label for llmfit and llama.cpp setup"
+    },
+    "llmSetupLabel": "Setup",
+    "@llmSetupLabel": {
+        "description": "Title of the local tool installers page"
+    },
+    "llmSetupSubtitle": "Install the local binaries used for catalog search and model inference.",
+    "@llmSetupSubtitle": {
+        "description": "Subtitle on the Setup / Installers page"
+    },
+    "llmSetupEmpty": "No installable backends reported by the daemon.",
+    "@llmSetupEmpty": {
+        "description": "Empty state when list_llm_backends returns nothing"
+    },
+    "llmSetupInstalling": "Installing",
+    "@llmSetupInstalling": {
+        "description": "Status pill while a backend download is in progress"
+    },
+    "llmSetupReadyHint": "Installed and ready on this host.",
+    "@llmSetupReadyHint": {
+        "description": "Footer hint on a ready installer card"
+    },
+    "llmSetupLlmfitBlurb": "Catalog search and host-fit scoring for the model browser.",
+    "@llmSetupLlmfitBlurb": {
+        "description": "Short description on the llmfit installer card"
+    },
+    "llmSetupLlamacppBlurb": "Local inference server (llama-server) used to load and serve models.",
+    "@llmSetupLlamacppBlurb": {
+        "description": "Short description on the llama.cpp installer card"
+    },
+    "sidebarRuntimeLabel": "Running models",
     "@sidebarRuntimeLabel": {
-        "description": "Sidebar label for loaded AI model runtimes"
+        "description": "Sidebar label for loaded LLM inference instances"
     },
     "sidebarServiceCatalogueLabel": "Catalogue",
     "@sidebarServiceCatalogueLabel": {
@@ -212,21 +248,29 @@
     "@llmCatalogueLabel": {
         "description": "Sidebar label for the LLM model catalogue"
     },
-    "llmInstancesLabel": "Runtime",
+    "llmInstancesLabel": "Running models",
     "@llmInstancesLabel": {
         "description": "Page title for loaded LLM inference instances"
     },
     "llmInstancesSubtitle": "Local models currently loaded for inference.",
     "@llmInstancesSubtitle": {
-        "description": "Subtitle under the Runtime page title"
+        "description": "Subtitle under the Running models page title"
     },
     "llmLoadAction": "Load",
     "@llmLoadAction": {
-        "description": "Primary CTA on the Runtime list page"
+        "description": "Primary CTA on the Running models page — opens Downloaded"
+    },
+    "llmBrowseCatalogAction": "Browse models",
+    "@llmBrowseCatalogAction": {
+        "description": "Primary CTA on the Downloaded page — opens the model catalog"
     },
     "llmDownloadedLabel": "Downloaded",
     "@llmDownloadedLabel": {
         "description": "Sidebar label for cached GGUF models and active downloads"
+    },
+    "llmDownloadedSubtitle": "GGUF files on disk ready to load into Running models.",
+    "@llmDownloadedSubtitle": {
+        "description": "Subtitle under the Downloaded page title"
     },
     "llmCredentialsLabel": "Credentials",
     "@llmCredentialsLabel": {
@@ -235,6 +279,10 @@
     "llmTableColumnModel": "MODEL",
     "@llmTableColumnModel": {
         "description": "LLM instances table column for model identity"
+    },
+    "llmTableColumnTags": "TAGS",
+    "@llmTableColumnTags": {
+        "description": "LLM instances table column for capability tags"
     },
     "llmTableColumnBackend": "BACKEND",
     "@llmTableColumnBackend": {
@@ -272,7 +320,7 @@
     "@llmInstancesEmpty": {
         "description": "Empty state on the LLM instances screen"
     },
-    "llmInstancesEmptyHint": "Browse the model catalog or open Downloaded to load a cached model.",
+    "llmInstancesEmptyHint": "Open Downloaded to load a cached model, or browse the catalog to download one.",
     "@llmInstancesEmptyHint": {
         "description": "Hint shown when no LLM instances are running"
     },
@@ -327,6 +375,26 @@
     "modelsSuggestedEmpty": "No suggestions. Install llmfit or free RAM by stopping VMs.",
     "@modelsSuggestedEmpty": {
         "description": "Empty or missing-llmfit state for suggestions"
+    },
+    "modelsTopPicksSubtitle": "Popular models from Google, NVIDIA, DeepSeek, Meta, and more — tuned with host fit data.",
+    "@modelsTopPicksSubtitle": {
+        "description": "Subtitle under Model catalog in simple/top-picks mode"
+    },
+    "modelsAdvancedSubtitle": "Browse the full llmfit catalog with fit filters.",
+    "@modelsAdvancedSubtitle": {
+        "description": "Subtitle under Model catalog in advanced llmfit mode"
+    },
+    "modelsModeTopPicks": "Top picks",
+    "@modelsModeTopPicks": {
+        "description": "Toggle label for the curated model card grid"
+    },
+    "modelsModeAdvanced": "Advanced",
+    "@modelsModeAdvanced": {
+        "description": "Toggle label for the full llmfit catalog table"
+    },
+    "modelsTopPicksSearchHint": "Filter top picks…",
+    "@modelsTopPicksSearchHint": {
+        "description": "Search field hint when filtering the top-picks card grid"
     },
     "modelsCatalogEmpty": "No models match your search and filters.",
     "@modelsCatalogEmpty": {
@@ -417,9 +485,45 @@
     "@modelsActiveDownloadsHeading": {
         "description": "Heading above in-progress model downloads"
     },
-    "modelsOpenPath": "Show",
+    "modelsOpenPath": "Details",
     "@modelsOpenPath": {
-        "description": "Button to reveal a downloaded model file in the file manager"
+        "description": "Button to open downloaded model details"
+    },
+    "modelsDetailId": "Model ID",
+    "@modelsDetailId": {
+        "description": "Label for model id in downloaded details dialog"
+    },
+    "modelsDetailProvider": "Provider",
+    "@modelsDetailProvider": {
+        "description": "Label for provider in downloaded details dialog"
+    },
+    "modelsDetailQuant": "Quantization",
+    "@modelsDetailQuant": {
+        "description": "Label for quant in downloaded details dialog"
+    },
+    "modelsDetailFilename": "Filename",
+    "@modelsDetailFilename": {
+        "description": "Label for filename in downloaded details dialog"
+    },
+    "modelsDetailHfRepo": "Hugging Face repo",
+    "@modelsDetailHfRepo": {
+        "description": "Label for HF repo in downloaded details dialog"
+    },
+    "modelsDetailParams": "Parameters",
+    "@modelsDetailParams": {
+        "description": "Label for parameter count in downloaded details dialog"
+    },
+    "modelsDetailMemory": "Memory",
+    "@modelsDetailMemory": {
+        "description": "Label for memory requirement in downloaded details dialog"
+    },
+    "modelsDetailDisk": "Disk",
+    "@modelsDetailDisk": {
+        "description": "Label for disk size in downloaded details dialog"
+    },
+    "modelsDetailPath": "Path",
+    "@modelsDetailPath": {
+        "description": "Label for on-disk path in downloaded details dialog"
     },
     "modelsPickRuntimeTitle": "Choose runtime",
     "@modelsPickRuntimeTitle": {

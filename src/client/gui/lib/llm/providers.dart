@@ -6,6 +6,7 @@ import 'package:grpc/grpc.dart';
 import '../overview/recent_activity.dart';
 import '../providers.dart';
 import '../sidebar.dart';
+import 'catalogue/top_picks.dart';
 import 'instances/llm_downloaded_screen.dart';
 import 'llm_features.dart';
 import 'llm_id.dart';
@@ -204,6 +205,58 @@ final recommendedModelsProvider = FutureProvider((ref) async {
         recommendOnly: true,
       );
 });
+
+/// Simple-mode catalog: curated picks enriched with llmfit recommend + fit.
+final topPicksModelsProvider = FutureProvider<List<ModelSuggestion>>((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return [
+      for (final pick in kCuratedTopPicks) stubFromCurated(pick),
+    ].take(kTopPicksTargetCount).toList();
+  }
+
+  ref.watch(daemonInfoProvider.select((async) {
+    final bytes = async.value?.memoryAvailable.toInt() ?? 0;
+    return bytes >> 30;
+  }));
+
+  final client = ref.watch(grpcClientProvider);
+  final runtime = effectiveCatalogRuntime(
+    ref.watch(catalogFiltersProvider.select((f) => f.runtime)),
+  );
+
+  final results = await Future.wait([
+    client.findModels(
+      limit: 24,
+      minFit: 'good',
+      runtime: runtime,
+      recommendOnly: true,
+    ),
+    client.findModels(
+      limit: 80,
+      minFit: 'marginal',
+      runtime: runtime,
+      includeTooTight: false,
+      recommendOnly: false,
+    ),
+  ]);
+
+  return mergeTopPicks(
+    recommended: results[0].models,
+    fitted: results[1].models,
+  );
+});
+
+class CatalogAdvancedMode extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+
+  void toggle() => state = !state;
+}
+
+final catalogAdvancedModeProvider =
+    NotifierProvider<CatalogAdvancedMode, bool>(CatalogAdvancedMode.new);
 
 final catalogModelsProvider = FutureProvider((ref) async {
   if (!ref.watch(daemonAvailableProvider)) {

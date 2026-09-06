@@ -15,23 +15,117 @@ class LlmCatalogueScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
+    final advanced = ref.watch(catalogAdvancedModeProvider);
+
+    // Top picks: cards float on wallpaper (Images/Services style).
+    // Advanced: solid page surface (no wallpaper bleed-through).
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final toggle = _CatalogModeToggle(advanced: advanced);
+            final header = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.llmCatalogueLabel,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontSize: 37,
+                    fontWeight: FontWeight.w300,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  advanced
+                      ? l10n.modelsAdvancedSubtitle
+                      : l10n.modelsTopPicksSubtitle,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontSize: 13,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.65),
+                  ),
+                ),
+              ],
+            );
+
+            if (constraints.maxWidth >= 720) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(child: header),
+                  const SizedBox(width: 16),
+                  toggle,
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                header,
+                const SizedBox(height: 12),
+                Align(alignment: Alignment.centerLeft, child: toggle),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+        const Expanded(child: LlmCatalogPane()),
+      ],
+    );
 
     return Scaffold(
-      body: PageSurface(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.llmCatalogueLabel,
-              style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
+      backgroundColor: Colors.transparent,
+      body: advanced
+          ? PageSurface(
+              baseColor: context.glass.cardSolid,
+              child: content,
+            )
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(32, 24, 32, 20),
+              child: content,
             ),
-            const SizedBox(height: 16),
-            const Expanded(child: LlmCatalogPane()),
-            const SizedBox(height: 12),
-            const LlmBackendsStrip(),
-          ],
+    );
+  }
+}
+
+class _CatalogModeToggle extends ConsumerWidget {
+  const _CatalogModeToggle({required this.advanced});
+
+  final bool advanced;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    return Wrap(
+      spacing: 6,
+      children: [
+        ChoiceChip(
+          label: Text(
+            l10n.modelsModeTopPicks,
+            style: const TextStyle(fontSize: 12, fontFamily: Brand.fontFamily),
+          ),
+          selected: !advanced,
+          visualDensity: VisualDensity.compact,
+          onSelected: (_) =>
+              ref.read(catalogAdvancedModeProvider.notifier).set(false),
         ),
-      ),
+        ChoiceChip(
+          label: Text(
+            l10n.modelsModeAdvanced,
+            style: const TextStyle(fontSize: 12, fontFamily: Brand.fontFamily),
+          ),
+          selected: advanced,
+          visualDensity: VisualDensity.compact,
+          onSelected: (_) =>
+              ref.read(catalogAdvancedModeProvider.notifier).set(true),
+        ),
+      ],
     );
   }
 }
@@ -55,172 +149,81 @@ class _LlmCatalogPaneState extends ConsumerState<LlmCatalogPane> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final advanced = ref.watch(catalogAdvancedModeProvider);
     final filters = ref.watch(catalogFiltersProvider);
-    final recommended = ref.watch(recommendedModelsProvider);
-    final catalog = ref.watch(catalogModelsProvider);
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          controller: _searchController,
-          onChanged: (value) {
-            ref.read(catalogFiltersProvider.notifier).setSearch(value);
-            ref.read(debouncedCatalogQueryProvider.notifier).set(value);
-          },
-          style: TextStyle(fontFamily: Brand.fontFamily, fontSize: 13, color: onSurface),
-          decoration: InputDecoration(
-            hintText: l10n.modelsSearchHint,
-            prefixIcon: const Icon(Icons.search, size: 18),
-            isDense: true,
-            border: const OutlineInputBorder(),
+        Align(
+          alignment: Alignment.centerRight,
+          child: SizedBox(
+            width: 280,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                ref.read(catalogFiltersProvider.notifier).setSearch(value);
+                if (advanced) {
+                  ref.read(debouncedCatalogQueryProvider.notifier).set(value);
+                }
+              },
+              style: TextStyle(
+                fontFamily: Brand.fontFamily,
+                fontSize: 13,
+                color: onSurface,
+              ),
+              decoration: InputDecoration(
+                hintText: advanced
+                    ? l10n.modelsSearchHint
+                    : l10n.modelsTopPicksSearchHint,
+                prefixIcon: const Icon(Icons.search, size: 18),
+                isDense: true,
+                border: const OutlineInputBorder(),
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        LlmCatalogFilters(filters: filters),
-        const SizedBox(height: 8),
-        recommended.when(
-          data: (reply) {
-            if (reply.models.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l10n.modelsSuggestedHeading, style: const TextStyle(fontSize: 11)),
-                const SizedBox(height: 4),
-                SizedBox(
-                  height: 28,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: reply.models.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 4),
-                    itemBuilder: (context, index) =>
-                        LlmRecommendedChip(model: reply.models[index]),
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-            );
-          },
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
-        ),
+        if (advanced) ...[
+          const SizedBox(height: 8),
+          LlmCatalogFilters(filters: filters),
+        ],
+        const SizedBox(height: 16),
         Expanded(
-          child: catalog.when(
-            data: (reply) {
-              if (reply.replyMessage.isNotEmpty && reply.models.isEmpty) {
-                return Text(reply.replyMessage);
-              }
-              if (reply.models.isEmpty) {
-                return Text(l10n.modelsCatalogEmpty);
-              }
-              return LlmCatalogTable(models: reply.models);
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('$e'),
-          ),
+          child: advanced ? _buildAdvanced(l10n) : _buildTopPicks(l10n),
         ),
       ],
     );
   }
-}
 
-class LlmBackendsStrip extends ConsumerWidget {
-  const LlmBackendsStrip({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context)!;
-    final backends = ref.watch(llmBackendsProvider);
-    final installs = ref.watch(llmBackendInstallsProvider);
-    final scheme = Theme.of(context).colorScheme;
-
-    return backends.when(
-      data: (reply) {
-        if (reply.backends.isEmpty) return const SizedBox.shrink();
-        final shown = reply.backends
-            .where((b) => b.id == 'llmfit' || b.id == 'llamacpp' || b.installable)
-            .toList();
-        final rows = shown.isEmpty ? reply.backends : shown;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.modelsBackendsHint,
-              style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Text(l10n.modelsTabBackends,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => ref.invalidate(llmBackendsProvider),
-                  icon: const Icon(Icons.refresh, size: 14),
-                  label: Text(l10n.modelsBackendsRefresh, style: const TextStyle(fontSize: 11)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final backend in rows) ...[
-                  Chip(
-                    avatar: installs.containsKey(backend.id)
-                        ? SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              value: (installs[backend.id] ?? 0) > 0
-                                  ? (installs[backend.id]! / 100.0)
-                                  : null,
-                            ),
-                          )
-                        : Icon(
-                            backend.status == 'ready'
-                                ? Icons.check_circle
-                                : Icons.error_outline,
-                            size: 14,
-                            color: backend.status == 'ready'
-                                ? scheme.primary
-                                : scheme.error,
-                          ),
-                    label: Text(
-                      [
-                        backend.name.isEmpty ? backend.id : backend.name,
-                        if (installs.containsKey(backend.id))
-                          '${(installs[backend.id] ?? 0).clamp(0, 100)}%',
-                      ].join(' '),
-                      style: const TextStyle(fontSize: 11),
-                    ),
-                    visualDensity: VisualDensity.compact,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  if (backend.installable &&
-                      backend.status == 'missing' &&
-                      !installs.containsKey(backend.id))
-                    TextButton(
-                      onPressed: () => ref
-                          .read(llmBackendInstallsProvider.notifier)
-                          .install(backend.id),
-                      child: Text(l10n.modelsBackendsInstall,
-                          style: const TextStyle(fontSize: 11)),
-                    ),
-                ],
-              ],
-            ),
-          ],
-        );
+  Widget _buildTopPicks(AppLocalizations l10n) {
+    final topPicks = ref.watch(topPicksModelsProvider);
+    return topPicks.when(
+      data: (models) {
+        if (models.isEmpty) {
+          return Text(l10n.modelsSuggestedEmpty);
+        }
+        return LlmTopPicksGrid(models: models);
       },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Text('$e'),
+    );
+  }
+
+  Widget _buildAdvanced(AppLocalizations l10n) {
+    final catalog = ref.watch(catalogModelsProvider);
+    return catalog.when(
+      data: (reply) {
+        if (reply.replyMessage.isNotEmpty && reply.models.isEmpty) {
+          return Text(reply.replyMessage);
+        }
+        if (reply.models.isEmpty) {
+          return Text(l10n.modelsCatalogEmpty);
+        }
+        return LlmCatalogTable(models: reply.models);
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Text('$e'),
     );
   }
 }

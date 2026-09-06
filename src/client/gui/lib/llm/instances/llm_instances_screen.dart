@@ -34,7 +34,7 @@ class LlmInstancesScreen extends ConsumerWidget {
               action: TextButton(
                 onPressed: () => ref
                     .read(sidebarKeyProvider.notifier)
-                    .set(LlmCatalogueScreen.sidebarKey),
+                    .set(LlmDownloadedScreen.sidebarKey),
                 child: Text(l10n.llmLoadAction),
               ),
             ),
@@ -95,14 +95,14 @@ class NoLlmInstances extends ConsumerWidget {
               TextButton(
                 onPressed: () => ref
                     .read(sidebarKeyProvider.notifier)
-                    .set(LlmCatalogueScreen.sidebarKey),
-                child: Text(l10n.llmCatalogueLabel),
+                    .set(LlmDownloadedScreen.sidebarKey),
+                child: Text(l10n.llmDownloadedLabel),
               ),
               OutlinedButton(
                 onPressed: () => ref
                     .read(sidebarKeyProvider.notifier)
-                    .set(LlmDownloadedScreen.sidebarKey),
-                child: Text(l10n.llmDownloadedLabel),
+                    .set(LlmCatalogueScreen.sidebarKey),
+                child: Text(l10n.llmBrowseCatalogAction),
               ),
             ],
           ),

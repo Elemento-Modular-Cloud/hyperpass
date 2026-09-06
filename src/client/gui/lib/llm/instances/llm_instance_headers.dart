@@ -6,6 +6,7 @@ import '../../providers.dart';
 import '../../sidebar.dart';
 import '../../tooltip.dart';
 import '../../vm_table/table.dart';
+import '../catalogue/model_capabilities.dart';
 import '../llm_id.dart';
 import '../providers.dart';
 
@@ -20,10 +21,17 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
   TableHeader(
     name: 'MODEL',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnModel),
-    width: 220,
-    minWidth: 120,
+    width: 260,
+    minWidth: 160,
     sortKey: (m) => m.openaiId.isEmpty ? m.modelId : m.openaiId,
     cellBuilder: (m) => LlmModelLink(m),
+  ),
+  TableHeader(
+    name: 'TAGS',
+    childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnTags),
+    width: 180,
+    minWidth: 120,
+    cellBuilder: (m) => _LlmCapabilityCell(model: m),
   ),
   TableHeader(
     name: 'BACKEND',
@@ -93,6 +101,36 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
   ),
 ];
 
+class _LlmCapabilityCell extends ConsumerWidget {
+  const _LlmCapabilityCell({required this.model});
+
+  final LoadedModelInfo model;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cached =
+        ref.watch(loadedModelsProvider).asData?.value.cached ?? const [];
+    final topPicks =
+        ref.watch(topPicksModelsProvider).asData?.value ?? const [];
+    final tags = capabilitiesForLoaded(
+      model,
+      hints: [...cached, ...topPicks],
+    );
+    if (tags.isEmpty) {
+      return Text(
+        '—',
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+        ),
+      );
+    }
+    return ModelCapabilityChips(
+      capabilities: tags,
+      compact: true,
+      maxTags: 3,
+    );
+  }
+}
 class LlmModelLink extends ConsumerWidget {
   final LoadedModelInfo model;
 

@@ -99,6 +99,7 @@ mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path d
       downloader{downloader},
       data_directory{data_directory}
 {
+    activity_log.set_log_directory(QDir{data_directory}.filePath("llm/logs"));
     idle_timer.setInterval(15000);
     QObject::connect(&idle_timer, &QTimer::timeout, this, [this] { idle_unload_tick(); });
     idle_timer.start();
@@ -486,31 +487,30 @@ void mp::LlmService::attach_process_logging(const std::string& instance_id, Proc
     if (!process)
         return;
 
+    auto ingest = [this, instance_id](const QByteArray& chunk, const char* level) {
+        for (const auto& line : QString::fromUtf8(chunk).split('\n', Qt::SkipEmptyParts))
+        {
+            const auto trimmed = line.trimmed();
+            if (!trimmed.isEmpty())
+                activity_log.append(instance_id, "process", level, trimmed.toStdString());
+        }
+    };
+
+    // Capture anything already buffered before signal handlers connect.
+    ingest(process->read_all_standard_output(), "info");
+    ingest(process->read_all_standard_error(), "warn");
+
     QObject::connect(process,
                      &Process::ready_read_standard_output,
                      this,
-                     [this, instance_id, process]() {
-                         const auto chunk = process->read_all_standard_output();
-                         for (const auto& line :
-                              QString::fromUtf8(chunk).split('\n', Qt::SkipEmptyParts))
-                         {
-                             const auto trimmed = line.trimmed();
-                             if (!trimmed.isEmpty())
-                                 activity_log.append(instance_id, "process", "info", trimmed.toStdString());
-                         }
+                     [process, ingest]() {
+                         ingest(process->read_all_standard_output(), "info");
                      });
     QObject::connect(process,
                      &Process::ready_read_standard_error,
                      this,
-                     [this, instance_id, process]() {
-                         const auto chunk = process->read_all_standard_error();
-                         for (const auto& line :
-                              QString::fromUtf8(chunk).split('\n', Qt::SkipEmptyParts))
-                         {
-                             const auto trimmed = line.trimmed();
-                             if (!trimmed.isEmpty())
-                                 activity_log.append(instance_id, "process", "warn", trimmed.toStdString());
-                         }
+                     [process, ingest]() {
+                         ingest(process->read_all_standard_error(), "warn");
                      });
 }
 
@@ -694,6 +694,8 @@ void mp::LlmService::load_model_impl(
         if (!session.process->wait_for_started(10000))
             throw std::runtime_error("inference backend failed to start");
         session.pid = session.process->process_id();
+        // Attach early so boot/load stdout survives readiness wait and dual-writes to disk.
+        attach_process_logging(instance_id, session.process.get());
         if (!wait_until_ready(session.port))
             throw std::runtime_error("inference backend started but did not become ready on 127.0.0.1");
     }
@@ -723,7 +725,6 @@ void mp::LlmService::load_model_impl(
         sessions[instance_id] = std::move(session);
         if (sessions[instance_id].process)
         {
-            attach_process_logging(instance_id, sessions[instance_id].process.get());
             QObject::connect(sessions[instance_id].process.get(),
                              &Process::finished,
                              this,
@@ -1265,6 +1266,12 @@ void mp::LlmService::restore_session(LoadedSession session)
               session.openai_id,
               session.pid,
               session.port);
+    activity_log.hydrate(id);
+    log_lifecycle(id,
+                  "info",
+                  fmt::format("session restored (pid={} port={}); prior activity loaded from disk",
+                              session.pid,
+                              session.port));
     std::lock_guard lock{mutex};
     sessions[id] = std::move(session);
 }

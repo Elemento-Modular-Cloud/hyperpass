@@ -2,13 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../brand.dart';
 import '../catalogue/catalogue.dart';
 import '../catalogue/catalogue_surface.dart';
 import '../l10n/app_localizations.dart';
 import '../llm/catalogue/llm_catalogue_screen.dart';
+import '../llm/catalogue/model_branding.dart';
 import '../llm/providers.dart';
 import '../providers.dart';
 import '../services/service_branding.dart';
@@ -201,15 +201,21 @@ class _LlmCard extends ConsumerWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final mem = formatResourceBytes('${model.memoryClaimed}');
     final name = model.modelId.isNotEmpty ? model.modelId : model.instanceId;
+    final branding = modelProviderBranding(
+      provider: '',
+      id: model.modelId,
+      name: model.openaiId.isNotEmpty ? model.openaiId : name,
+      hfRepo: model.path,
+    );
 
     return _WorkloadCard(
       onTap: () => ref.read(sidebarKeyProvider.notifier).set(
             'llm-${Uri.encodeComponent(model.instanceId)}',
           ),
-      leading: const FaIcon(
-        FontAwesomeIcons.microchip,
-        size: 18,
-        color: Brand.accent,
+      leading: ModelProviderBadge(
+        branding: branding,
+        size: 28,
+        semanticsLabel: branding.displayName,
       ),
       title: name,
       titleMaxLines: 2,

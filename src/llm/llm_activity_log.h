@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <multipass/path.h>
 #include <multipass/rpc/multipass.grpc.pb.h>
 
 #include <chrono>
@@ -26,10 +27,19 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace multipass
 {
 
+/**
+ * Per-instance LLM activity buffer with optional jsonl persistence.
+ *
+ * When a log directory is set, every append is dual-written to
+ * `<log_dir>/<instance_id>.jsonl` so lifecycle / process / gateway lines
+ * survive daemon restarts. snapshot() / subscribe hydrate from disk when the
+ * in-memory ring is empty.
+ */
 class LlmActivityLog
 {
 public:
@@ -38,10 +48,18 @@ public:
 
     static constexpr std::size_t max_entries_per_model = 2000;
 
+    LlmActivityLog() = default;
+    explicit LlmActivityLog(Path log_directory);
+
+    void set_log_directory(Path log_directory);
+
     void append(const std::string& model_id,
                 const std::string& source,
                 const std::string& level,
                 const std::string& message);
+
+    /** Load disk history into memory when the ring is empty. */
+    void hydrate(const std::string& model_id);
 
     std::vector<ModelActivityEntry> snapshot(const std::string& model_id) const;
 
@@ -59,8 +77,14 @@ private:
                                          const std::string& level,
                                          const std::string& message);
 
+    QString file_for(const std::string& model_id) const;
+    void persist_entry(const std::string& model_id, const ModelActivityEntry& entry) const;
+    std::deque<ModelActivityEntry> load_from_file(const std::string& model_id) const;
+    void hydrate_locked(const std::string& model_id) const;
+
     mutable std::mutex mutex;
-    std::unordered_map<std::string, std::deque<ModelActivityEntry>> buffers;
+    Path log_directory;
+    mutable std::unordered_map<std::string, std::deque<ModelActivityEntry>> buffers;
     std::unordered_map<SubscriberId, Subscription> subscribers;
     SubscriberId next_subscriber_id{1};
 };

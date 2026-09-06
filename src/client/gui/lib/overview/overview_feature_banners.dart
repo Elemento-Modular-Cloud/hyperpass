@@ -105,18 +105,21 @@ class OverviewFeatureBanners extends ConsumerWidget {
               locked: banner.locked,
               onOpen: banner.onOpen,
               actions: banner.actions,
+              equalHeight: wide,
             ),
         ];
 
         if (wide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < children.length; i++) ...[
-                if (i > 0) const SizedBox(width: 14),
-                Expanded(child: children[i]),
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 14),
+                  Expanded(child: children[i]),
+                ],
               ],
-            ],
+            ),
           );
         }
 
@@ -141,6 +144,7 @@ class _ActionCard extends StatelessWidget {
     required this.locked,
     required this.onOpen,
     required this.actions,
+    this.equalHeight = false,
   });
 
   final IconData icon;
@@ -149,72 +153,87 @@ class _ActionCard extends StatelessWidget {
   final bool locked;
   final VoidCallback onOpen;
   final List<({String label, VoidCallback onTap})> actions;
+  final bool equalHeight;
 
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final radius = BorderRadius.circular(Brand.radius);
 
-    final card = CatalogueSurface(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    final content = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: locked ? null : onOpen,
+        borderRadius: BorderRadius.only(
+          topLeft: radius.topLeft,
+          topRight: radius.topRight,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: Brand.accent.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Brand.accent.withValues(alpha: 0.35),
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Brand.accent.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Brand.accent.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Center(
+                      child: FaIcon(icon, size: 22, color: Brand.accent),
+                    ),
                   ),
-                ),
-                child: Center(
-                  child: FaIcon(icon, size: 22, color: Brand.accent),
+                  const Spacer(),
+                  if (locked)
+                    Icon(
+                      Icons.lock_outline,
+                      size: 18,
+                      color: onSurface.withValues(alpha: 0.55),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: TextStyle(
+                  fontFamily: Brand.fontFamily,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: onSurface,
                 ),
               ),
-              const Spacer(),
-              if (locked)
-                Icon(
-                  Icons.lock_outline,
-                  size: 18,
-                  color: onSurface.withValues(alpha: 0.55),
+              const SizedBox(height: 8),
+              Text(
+                body,
+                style: TextStyle(
+                  fontFamily: Brand.fontFamily,
+                  fontSize: 13,
+                  height: 1.35,
+                  color: onSurface.withValues(alpha: 0.72),
                 ),
+              ),
+              if (equalHeight) const Spacer(),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: Brand.fontFamily,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            body,
-            style: TextStyle(
-              fontFamily: Brand.fontFamily,
-              fontSize: 13,
-              height: 1.35,
-              color: onSurface.withValues(alpha: 0.72),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final action in actions)
-                TextButton(
-                  onPressed: locked ? null : action.onTap,
-                  child: Text(action.label),
-                ),
-            ],
+        ),
+      ),
+    );
+
+    final card = CatalogueSurface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (equalHeight) Expanded(child: content) else content,
+          _ActionFooter(
+            radius: radius,
+            locked: locked,
+            actions: actions,
           ),
         ],
       ),
@@ -224,15 +243,83 @@ class _ActionCard extends StatelessWidget {
       opacity: locked ? 0.48 : 1,
       child: AbsorbPointer(
         absorbing: locked,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: locked ? null : onOpen,
-            borderRadius: BorderRadius.circular(Brand.radius),
-            child: card,
-          ),
-        ),
+        child: equalHeight ? SizedBox.expand(child: card) : card,
       ),
+    );
+  }
+}
+
+class _ActionFooter extends StatelessWidget {
+  const _ActionFooter({
+    required this.radius,
+    required this.locked,
+    required this.actions,
+  });
+
+  final BorderRadius radius;
+  final bool locked;
+  final List<({String label, VoidCallback onTap})> actions;
+
+  static const _rowHeight = 40.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final divider = Theme.of(context).dividerColor;
+
+    if (actions.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < actions.length; i++) ...[
+          if (i > 0) Container(height: 1, color: divider),
+          SizedBox(
+            height: _rowHeight,
+            child: Material(
+              color: Brand.accent,
+              borderRadius: i == actions.length - 1
+                  ? BorderRadius.only(
+                      bottomLeft: radius.bottomLeft,
+                      bottomRight: radius.bottomRight,
+                    )
+                  : BorderRadius.zero,
+              child: InkWell(
+                onTap: locked ? null : actions[i].onTap,
+                borderRadius: i == actions.length - 1
+                    ? BorderRadius.only(
+                        bottomLeft: radius.bottomLeft,
+                        bottomRight: radius.bottomRight,
+                      )
+                    : BorderRadius.zero,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: i == 0
+                        ? Border(top: BorderSide(color: divider))
+                        : null,
+                  ),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        actions[i].label,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: Brand.fontFamily,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Brand.voidBlack,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

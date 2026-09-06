@@ -26,6 +26,7 @@ import 'llm/instances/llm_downloaded_screen.dart';
 import 'llm/instances/llm_instances_screen.dart';
 import 'llm/llm_id.dart';
 import 'llm/providers.dart';
+import 'llm/setup/llm_setup_screen.dart';
 import 'multipass_auth_banner.dart';
 import 'overview/overview_screen.dart';
 import 'providers.dart';
@@ -320,9 +321,7 @@ class SideBar extends ConsumerWidget {
       icon: FontAwesomeIcons.microchip,
       selected: isLlmInstancesSelected(),
       label: l10n.sidebarRuntimeLabel,
-      badge: access.canUseLlms && loadedCount > 0
-          ? loadedCount.toString()
-          : null,
+      badge: loadedCount.toString(),
       locked: !access.canUseLlms,
       onPressed: () =>
           openOrPromptLocked(access.canUseLlms, LlmInstancesScreen.sidebarKey),
@@ -356,6 +355,27 @@ class SideBar extends ConsumerWidget {
           access.canUseLlms, LlmCredentialsScreen.sidebarKey),
     );
 
+    final missingInstallers = access.canUseLlms
+        ? ref.watch(llmBackendsProvider).maybeWhen(
+              data: (reply) => reply.backends
+                  .where((b) =>
+                      (b.id == 'llmfit' || b.id == 'llamacpp') &&
+                      b.status != 'ready')
+                  .length,
+              orElse: () => 0,
+            )
+        : 0;
+
+    final llmSetup = SidebarEntry(
+      icon: FontAwesomeIcons.gears,
+      selected: isSelected(LlmSetupScreen.sidebarKey),
+      label: l10n.sidebarInstallersLabel,
+      badge: missingInstallers > 0 ? missingInstallers.toString() : null,
+      locked: !access.canUseLlms,
+      onPressed: () =>
+          openOrPromptLocked(access.canUseLlms, LlmSetupScreen.sidebarKey),
+    );
+
     final services = SidebarEntry(
       icon: FontAwesomeIcons.cubes,
       selected: isSelected(ServicesScreen.sidebarKey),
@@ -369,9 +389,7 @@ class SideBar extends ConsumerWidget {
       icon: FontAwesomeIcons.screwdriverWrench,
       selected: isServiceInstancesSelected(),
       label: l10n.sidebarDeploymentsLabel,
-      badge: access.canUseServices && serviceCount > 0
-          ? serviceCount.toString()
-          : null,
+      badge: serviceCount.toString(),
       locked: !access.canUseServices,
       onPressed: () => openOrPromptLocked(
           access.canUseServices, ServiceInstancesScreen.sidebarKey),
@@ -497,8 +515,8 @@ class SideBar extends ConsumerWidget {
         header,
         overview,
         SidebarSectionHeader(l10n.sidebarSectionCompute),
-        instances,
         catalogue,
+        instances,
         cloudInit,
         SidebarSectionHeader(
           l10n.sidebarSectionAi,
@@ -515,6 +533,7 @@ class SideBar extends ConsumerWidget {
         services,
         serviceInstances,
         SidebarSectionHeader(l10n.sidebarSectionManage),
+        llmSetup,
         cache,
         help,
         const Spacer(),

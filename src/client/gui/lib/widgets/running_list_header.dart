@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../brand.dart';
 
 /// Shared chrome for the three “running workloads” list pages
-/// (Instances / Runtime / Deployments).
+/// (Instances / Running models / Deployments).
 class RunningListHeader extends StatelessWidget {
   const RunningListHeader({
     required this.title,
