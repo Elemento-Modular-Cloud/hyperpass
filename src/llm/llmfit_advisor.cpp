@@ -244,6 +244,28 @@ bool is_mlx_quant(const QString& quant)
     return quant.startsWith("mlx", Qt::CaseInsensitive);
 }
 
+// Conservative: only drop entries that are clearly MLX-oriented so browse/search
+// does not advertise unsupported backends while enable_mlx_backend is false.
+bool looks_like_mlx_only(const mp::ModelSuggestion& model)
+{
+    const auto runtime = QString::fromStdString(model.runtime()).toLower();
+    if (runtime.contains("mlx"))
+        return true;
+
+    if (is_mlx_quant(QString::fromStdString(model.best_quant())))
+        return true;
+
+    // Search-table hits often lack runtime/quant; catalog ids use -MLX / -MLX-Nbit.
+    for (const auto& label : {QString::fromStdString(model.id()),
+                              QString::fromStdString(model.name()),
+                              QString::fromStdString(model.hf_repo())})
+    {
+        if (label.contains("-MLX", Qt::CaseInsensitive))
+            return true;
+    }
+    return false;
+}
+
 QString pick_gguf_file(const QStringList& files, const QString& quant)
 {
     const auto usable = [&files] {
@@ -681,6 +703,13 @@ std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::recommend(MemorySize availab
     mpl::info(category, "running {} {}", binary, args.join(' '));
     const auto doc = parse_json_payload(run_llmfit(binary, args, 60000));
     auto models = models_from_json(doc);
+    if (!mp::enable_mlx_backend)
+    {
+        models.erase(std::remove_if(models.begin(),
+                                    models.end(),
+                                    [](const ModelSuggestion& m) { return looks_like_mlx_only(m); }),
+                     models.end());
+    }
     enrich_gguf_repo_hints(models);
 
     cache = CacheEntry{available_ram.in_bytes(), runtime, use_case, now, models};
@@ -763,6 +792,8 @@ std::vector<mp::ModelSuggestion> mp::LlmfitAdvisor::browse(MemorySize available_
     filtered.reserve(models.size());
     for (auto& model : models)
     {
+        if (!mp::enable_mlx_backend && looks_like_mlx_only(model))
+            continue;
         if (!model_matches_query(model, q))
             continue;
         if (!model_matches_runtime(model, runtime))
