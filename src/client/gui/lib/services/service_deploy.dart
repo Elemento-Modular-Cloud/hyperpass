@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../brand.dart';
 import '../catalogue/launch_form.dart';
 import '../cloud_init/cloud_init_store.dart';
+import '../ffi.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -64,12 +65,27 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
   final _formKey = GlobalKey<FormState>();
   final _request = LaunchRequest();
   late final ServiceParameterEditors _parameters;
+  late final String _generatedName;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _parameters = ServiceParameterEditors(widget.service.variables);
+    final taken = {
+      ...ref.read(elpVmNamesProvider),
+      ...ref.read(deletedVmsProvider),
+    };
+    while (true) {
+      final name = prefixedServiceInstanceName(
+        widget.service.id,
+        generatePetname(),
+      );
+      if (!taken.contains(name)) {
+        _generatedName = name;
+        break;
+      }
+    }
   }
 
   @override
@@ -83,7 +99,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final l10n = AppLocalizations.of(context)!;
     final service = widget.service;
     final branding = serviceBranding(service.id, service: service);
-    final randomName = ref.watch(randomNameProvider);
+    final randomName = _generatedName;
     final vmNames = ref.watch(elpVmNamesProvider);
     final deletedVms = ref.watch(deletedVmsProvider);
     final onSurface = Theme.of(context).colorScheme.onSurface;

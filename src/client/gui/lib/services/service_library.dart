@@ -30,6 +30,23 @@ final _versionSuffixPattern = RegExp(r'_v(\d+)$');
 String serviceFamily(String serviceId) =>
     serviceId.replaceFirst(_versionSuffixPattern, '');
 
+/// Hostname-safe lowercase opening for a generated service instance name.
+///
+/// VM names may only use `[A-Za-z0-9-]`, so `openwebui_v1` becomes
+/// `openwebui-v1`.
+String serviceInstanceNamePrefix(String serviceId) {
+  final slug = serviceId.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+  return slug.replaceAll(RegExp(r'^-+|-+$'), '');
+}
+
+/// `{model}-{petname}` so generated service VMs keep the catalog id up front.
+String prefixedServiceInstanceName(String serviceId, String generatedSuffix) {
+  final prefix = serviceInstanceNamePrefix(serviceId);
+  if (prefix.isEmpty) return generatedSuffix;
+  if (generatedSuffix.isEmpty) return prefix;
+  return '$prefix-$generatedSuffix';
+}
+
 /// A `{{placeholder}}` a service accepts, discovered by scanning its files.
 ///
 /// The manifests carry no parameter schema, so [key] and [documentation] are
