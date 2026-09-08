@@ -22,6 +22,8 @@ Environment:
   BUILD_DIR                 Build tree (default: ${ROOT}/build)
   ELP_SOCKET          Dev daemon socket (default: ${ELP_SOCKET})
   ELP_SERVER_ADDRESS  Overrides the socket if set
+  ELP_MARKETPLACE_DIR Clone-shaped marketplace root (default: .cache/elemento-marketplace)
+  ELP_MARKETPLACE_REF Git branch to clone when the checkout is missing
 EOF
 }
 
@@ -88,6 +90,9 @@ fi
 export ELP_SERVER_ADDRESS="${ELP_SERVER_ADDRESS:-unix:${ELP_SOCKET}}"
 export PATH="${BUILD_DIR}/bin:${PATH}"
 
+MARKETPLACE_DIR="$("${ROOT}/scripts/ensure-marketplace-checkout.sh")"
+export ELP_MARKETPLACE_DIR="${MARKETPLACE_DIR}"
+
 if [[ ! -S "$ELP_SOCKET" ]]; then
   echo "warning: dev daemon socket not found at ${ELP_SOCKET}" >&2
   echo "         Start the daemon: ./scripts/run-dev-daemon.sh" >&2
@@ -96,6 +101,7 @@ fi
 echo "==> Dev Electros LaunchPad GUI"
 echo "    binary:  ${GUI_APP}"
 echo "    daemon:  ${ELP_SERVER_ADDRESS}"
+echo "    market:  ${ELP_MARKETPLACE_DIR}"
 echo
 
 exec "$GUI_APP" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"

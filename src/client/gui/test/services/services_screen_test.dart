@@ -1,20 +1,15 @@
-import 'dart:io';
-
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:elp_gui/l10n/app_localizations.dart';
 import 'package:elp_gui/services/service_library.dart';
 import 'package:elp_gui/services/services_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 
-/// `rootBundle` never completes under `flutter test`, so the library is read
-/// from disk and injected. Asset delivery is covered by
-/// `service_cloud_init_test.dart`, which checks the pubspec declaration.
-MarketplaceLibrary loadLibraryFromDisk() {
-  return MarketplaceLibrary.parse(
-    File('assets/marketplace_services.json').readAsStringSync(),
-  );
-}
+import 'fixture_library.dart';
+
+/// `rootBundle` never completes under `flutter test`, so the seed is read
+/// from disk and injected.
+MarketplaceLibrary loadLibraryFromDisk() => loadSeedLibrary();
 
 Finder findCard(String serviceId) => find.byWidgetPredicate(
       (widget) => widget is ServiceCard && widget.service.id == serviceId,
@@ -36,7 +31,6 @@ void main() {
     );
   }
 
-  /// Filters down to one service and opens its detail page.
   Future<void> openDetail(WidgetTester tester, String query, String id) async {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
@@ -58,7 +52,6 @@ void main() {
     expect(find.text('Qdrant'), findsOneWidget);
     expect(find.text('MinIO'), findsOneWidget);
 
-    // Only n8n_v3 survives, so the shared display name appears once.
     expect(find.text('n8n Workflow Automation'), findsOneWidget);
     expect(findCard('n8n_v3'), findsOneWidget);
     expect(findCard('n8n_v2'), findsNothing);
@@ -74,7 +67,6 @@ void main() {
     expect(find.byType(ServiceCard), findsOneWidget);
     expect(findCard('minio_v1'), findsOneWidget);
 
-    // Qdrant is also named in the n8n and Open WebUI descriptions.
     await tester.enterText(find.byType(TextField), 'qdrant');
     await tester.pumpAndSettle();
     expect(find.byType(ServiceCard), findsNWidgets(3));
@@ -101,7 +93,6 @@ void main() {
     expect(find.text('Requirements'), findsOneWidget);
     expect(find.text('2 vCPUs'), findsOneWidget);
     expect(find.text('2 GiB RAM'), findsOneWidget);
-    // 5 GiB base disk on top of the 20 GiB the manifest wants to persist.
     expect(find.text('25 GiB disk'), findsOneWidget);
     expect(find.text('Ingress ports'), findsOneWidget);
     expect(find.text('443'), findsOneWidget);
@@ -125,7 +116,6 @@ void main() {
           'inside the VM on first boot.'),
       findsOneWidget,
     );
-    // Labelled by the setting it fills, with the authors' own note.
     expect(find.text('QDRANT__SERVICE__API_KEY'), findsOneWidget);
     expect(
       find.text('API key for REST / dashboard. '
@@ -153,7 +143,6 @@ void main() {
     final yaml = tester.widget<SelectableText>(rendered).data!;
     expect(yaml, startsWith('#cloud-config\n'));
     expect(yaml, contains('path: /opt/qdrant/docker-compose.yml'));
-    // Root growth is injected by the renderer, not by the service recipe.
     expect(yaml, contains('resize_rootfs: true'));
   });
 }

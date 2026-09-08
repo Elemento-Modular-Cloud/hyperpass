@@ -202,8 +202,8 @@ class ServiceTemplateLabel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final library = ref.watch(marketplaceLibraryProvider).asData?.value;
-    final template = library?.byId(serviceId);
-    final branding = serviceBranding(serviceId);
+    final template = library?.lookup(serviceId);
+    final branding = serviceBranding(serviceId, service: template);
     final label = template?.displayName ?? serviceId;
 
     return Row(

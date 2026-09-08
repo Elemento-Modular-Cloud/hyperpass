@@ -80,8 +80,8 @@ class ServiceInstanceDetailsScreen extends ConsumerWidget {
 
     final serviceId = info.info.serviceId;
     final library = ref.watch(marketplaceLibraryProvider).asData?.value;
-    final template = library?.byId(serviceId);
-    final branding = serviceBranding(serviceId);
+    final template = library?.lookup(serviceId);
+    final branding = serviceBranding(serviceId, service: template);
     final displayName = template?.displayName ?? serviceId;
     final status = info.instanceStatus.status;
     final buttonStyle = Theme.of(context).outlinedButtonTheme.style;
@@ -95,9 +95,8 @@ class ServiceInstanceDetailsScreen extends ConsumerWidget {
       return OutlinedButton(
         style: buttonStyle?.copyWith(
           shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-          backgroundColor: selected
-              ? const WidgetStatePropertyAll(Color(0xff333333))
-              : null,
+          backgroundColor:
+              selected ? const WidgetStatePropertyAll(Color(0xff333333)) : null,
           foregroundColor:
               selected ? const WidgetStatePropertyAll(Colors.white) : null,
         ),
@@ -355,7 +354,8 @@ class _HealthSummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        Text(label,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600)),
         if (status.healthDetail != null && status.healthDetail!.isNotEmpty) ...[
           const SizedBox(height: 4),
           Text(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:xterm/xterm.dart';
 
 /// Electros LaunchPad brand identity (Elemento-powered).
@@ -96,6 +97,30 @@ abstract final class Brand {
         searchHitBackgroundCurrent: Color(0xFF31FF26),
         searchHitForeground: Color(0xFF000000),
       );
+}
+
+/// Electros mark from [Brand.logoAsset].
+class BrandLogo extends StatelessWidget {
+  const BrandLogo({
+    super.key,
+    this.width,
+    this.height,
+    this.colorFilter,
+  });
+
+  final double? width;
+  final double? height;
+  final ColorFilter? colorFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      Brand.logoAsset,
+      width: width,
+      height: height,
+      colorFilter: colorFilter,
+    );
+  }
 }
 
 /// Renders [Brand.appName] with a lighter weight on the product suffix.

@@ -21,6 +21,10 @@ void main() {
       '  display_name: Demo\n'
       '  version: 1.0.0\n'
       '  description: A demo service\n'
+      '  color: "#4169E1"\n'
+      '  icon:\n'
+      '    svg: icon.svg\n'
+      '    fontawesome: database\n'
       'cloud_init:\n'
       '  entrypoint: cloud-init.yaml\n'
       'prerequisites:\n'
@@ -28,7 +32,11 @@ void main() {
       '    min_cpu: 1\n'
       '    min_memory_gb: 1\n',
     );
-    File('${service.path}/cloud-init.yaml').writeAsStringSync('#cloud-config\n');
+    File('${service.path}/cloud-init.yaml')
+        .writeAsStringSync('#cloud-config\n');
+    File('${service.path}/icon.svg').writeAsStringSync(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"></svg>\n',
+    );
 
     final bundle = await buildBundleFromServicesDir(
       root,
@@ -39,6 +47,10 @@ void main() {
 
     expect(library.commit, 'abc123');
     expect(library.byId('demo_v1')?.displayName, 'Demo');
+    expect(library.byId('demo_v1')?.color, '#4169E1');
+    expect(library.byId('demo_v1')?.icon?.svg, 'icon.svg');
+    expect(library.byId('demo_v1')?.icon?.fontAwesome, 'database');
+    expect(library.byId('demo_v1')?.iconSvg, contains('<svg'));
   });
 
   test('builds a bundle from a GitHub-style zipball', () {
@@ -56,6 +68,9 @@ metadata:
   display_name: Zipped
   version: 2.0.0
   description: From zip
+  icon:
+    svg: icon.svg
+    fontawesome: cube
 cloud_init:
   entrypoint: cloud-init.yaml
 prerequisites:
@@ -71,6 +86,12 @@ prerequisites:
         '#cloud-config\n',
       ),
     );
+    archive.addFile(
+      ArchiveFile.string(
+        '$prefix/icon.svg',
+        '<svg xmlns="http://www.w3.org/2000/svg"></svg>\n',
+      ),
+    );
 
     final library = MarketplaceLibrary.parse(
       serialiseBundle(
@@ -84,10 +105,13 @@ prerequisites:
 
     expect(library.commit, 'deadbeef');
     expect(library.byId('demo_v1')?.displayName, 'Zipped');
+    expect(library.byId('demo_v1')?.iconSvg, contains('<svg'));
+    expect(library.byId('demo_v1')?.icon?.fontAwesome, 'cube');
   });
 
   test('loads a direct JSON URL and caches it on disk', () async {
-    final cacheDir = await Directory.systemTemp.createTemp('marketplace-cache-');
+    final cacheDir =
+        await Directory.systemTemp.createTemp('marketplace-cache-');
     addTearDown(() => cacheDir.delete(recursive: true));
 
     const payload = '''
@@ -127,5 +151,73 @@ prerequisites:
       isTrue,
     );
     catalog.close();
+  });
+
+  test('resolves a clone root to its services/ directory', () async {
+    final clone = await Directory.systemTemp.createTemp('marketplace-clone-');
+    addTearDown(() => clone.delete(recursive: true));
+
+    final services = Directory('${clone.path}/services')..createSync();
+    final demo = Directory('${services.path}/demo_v1')..createSync();
+    File('${demo.path}/service.yaml').writeAsStringSync(
+      'api_version: elemento.cloud/v1\n'
+      'kind: ServiceTemplate\n'
+      'metadata:\n'
+      '  name: demo_v1\n'
+      '  display_name: From Clone\n'
+      '  version: 1.0.0\n'
+      '  description: Clone shaped\n'
+      'cloud_init:\n'
+      '  entrypoint: cloud-init.yaml\n'
+      'prerequisites:\n'
+      '  resources:\n'
+      '    min_cpu: 1\n'
+      '    min_memory_gb: 1\n',
+    );
+    File('${demo.path}/cloud-init.yaml').writeAsStringSync('#cloud-config\n');
+
+    expect(
+      resolveMarketplaceServicesDir(clone.path)?.path,
+      services.path,
+    );
+
+    final catalog = MarketplaceCatalog(
+      servicesDirectory: clone.path,
+      bundleUrl: '',
+    );
+    final json = await catalog.loadJson();
+    final library = MarketplaceLibrary.parse(json!);
+    expect(library.byId('demo_v1')?.displayName, 'From Clone');
+
+    File('${demo.path}/service.yaml').writeAsStringSync(
+      'api_version: elemento.cloud/v1\n'
+      'kind: ServiceTemplate\n'
+      'metadata:\n'
+      '  name: demo_v1\n'
+      '  display_name: Edited Live\n'
+      '  version: 1.0.1\n'
+      '  description: Picked up on reload\n'
+      'cloud_init:\n'
+      '  entrypoint: cloud-init.yaml\n'
+      'prerequisites:\n'
+      '  resources:\n'
+      '    min_cpu: 1\n'
+      '    min_memory_gb: 1\n',
+    );
+    final reloaded = MarketplaceLibrary.parse((await catalog.loadJson())!);
+    expect(reloaded.byId('demo_v1')?.displayName, 'Edited Live');
+    expect(reloaded.byId('demo_v1')?.version, '1.0.1');
+    catalog.close();
+  });
+
+  test('ignores git and editor paths when watching a checkout', () {
+    expect(ignoreMarketplaceWatchPath('/tmp/repo/.git/HEAD'), isTrue);
+    expect(ignoreMarketplaceWatchPath(r'C:\repo\.git\config'), isTrue);
+    expect(ignoreMarketplaceWatchPath('/tmp/repo/services/n8n/service.yaml~'),
+        isTrue);
+    expect(
+      ignoreMarketplaceWatchPath('/tmp/repo/services/n8n/service.yaml'),
+      isFalse,
+    );
   });
 }

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +8,10 @@ import 'package:yaml/yaml.dart';
 
 import 'marketplace_catalog.dart';
 
-const marketplaceBundleAsset = 'assets/marketplace_services.json';
+/// Last-resort catalog shipped in the app. Runtime prefers a live marketplace
+/// download (cached on disk); this seed is used only when that fails.
+/// Refresh with `scripts/fetch-marketplace-seed.py`.
+const marketplaceSeedAsset = 'assets/marketplace_seed.json';
 
 /// Placeholder syntax used by the marketplace service library, e.g.
 /// `{{qdrant_api_key}}`. Unsubstituted placeholders are intentional: the
@@ -15,7 +20,8 @@ final _placeholderPattern = RegExp(r'\{\{([A-Za-z0-9_]+)\}\}');
 
 /// `SOME_KEY=` at the start of a line. Placeholders live in the services' env
 /// files, so the assignment target names the setting a placeholder fills.
-final _assignmentPattern = RegExp(r'^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=');
+final _assignmentPattern =
+    RegExp(r'^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=');
 
 final _versionSuffixPattern = RegExp(r'_v(\d+)$');
 
@@ -61,6 +67,7 @@ List<ServiceVariable> _extractVariables(Map<String, String> sources) {
   final found = <String, ServiceVariable>{};
 
   for (final MapEntry(key: path, value: content) in sources.entries) {
+    if (path.endsWith('.svg')) continue;
     final comment = <String>[];
 
     for (final line in content.split('\n')) {
@@ -181,6 +188,17 @@ class ServiceFileSpec {
   final String permissions;
 }
 
+/// Catalog-only icon declared on `metadata.icon` (not written into the guest).
+class ServiceIconSpec {
+  const ServiceIconSpec({this.svg, this.fontAwesome});
+
+  /// Relative path of the catalog SVG, typically `icon.svg`.
+  final String? svg;
+
+  /// Font Awesome 6 free solid name without a `fa-` prefix.
+  final String? fontAwesome;
+}
+
 /// One `services/<id>/` directory from the elemento-marketplace library.
 class MarketplaceService {
   const MarketplaceService({
@@ -199,6 +217,8 @@ class MarketplaceService {
     this.readme,
     this.healthcheck,
     this.serviceInfo,
+    this.icon,
+    this.color,
   });
 
   /// Directory name, e.g. `qdrant_v1`. Unique within the library.
@@ -227,6 +247,21 @@ class MarketplaceService {
 
   /// Verbatim contents of the service directory, keyed by relative path.
   final Map<String, String> sources;
+
+  /// Optional catalog icon from `metadata.icon`.
+  final ServiceIconSpec? icon;
+
+  /// Catalog accent from `metadata.color` (`#RRGGBB`).
+  final String? color;
+
+  /// SVG markup when [icon] points at a bundled file.
+  String? get iconSvg {
+    final path = icon?.svg;
+    if (path == null || path.isEmpty) return null;
+    final body = sources[path];
+    if (body == null || !body.contains('<svg')) return null;
+    return body;
+  }
 
   List<int> get exposedPorts {
     final ports = firewall
@@ -265,6 +300,16 @@ class MarketplaceService {
       );
     }
 
+    final iconMeta = _asMap(metadata['icon']);
+    final svgName = iconMeta['svg'] as String?;
+    final faName = iconMeta['fontawesome'] as String?;
+    final icon = (svgName != null && svgName.isNotEmpty) ||
+            (faName != null && faName.isNotEmpty)
+        ? ServiceIconSpec(svg: svgName, fontAwesome: faName)
+        : null;
+    final colorRaw = metadata['color'];
+    final color = colorRaw == null ? null : '$colorRaw'.trim();
+
     return MarketplaceService(
       id: id,
       name: metadata['name'] as String? ?? id,
@@ -275,6 +320,8 @@ class MarketplaceService {
       readme: sources['README.md'],
       healthcheck: runtime['healthcheck'] as String?,
       serviceInfo: runtime['service_info'] as String?,
+      icon: icon,
+      color: (color == null || color.isEmpty) ? null : color,
       entrypoint: entrypoint,
       files: _asList(manifest['files']).map((raw) {
         final spec = _asMap(raw);
@@ -323,6 +370,19 @@ class MarketplaceLibrary {
   MarketplaceService? byId(String id) =>
       services.firstWhereOrNull((service) => service.id == id);
 
+  /// Exact id, else the newest catalogued release of the same family.
+  ///
+  /// Deployed instances keep their original directory id (`postgres_v1`) even
+  /// after the library folds that family down to a later release.
+  MarketplaceService? lookup(String id) {
+    final exact = byId(id);
+    if (exact != null) return exact;
+    final family = serviceFamily(id);
+    return services.firstWhereOrNull(
+      (service) => serviceFamily(service.id) == family,
+    );
+  }
+
   static MarketplaceLibrary parse(String json) {
     final bundle = jsonDecode(json) as Map<String, Object?>;
     final schema = bundle['schema'];
@@ -331,8 +391,8 @@ class MarketplaceLibrary {
     }
 
     final all = _asList(bundle['services'])
-        .map((entry) =>
-            MarketplaceService.fromBundleEntry(_asMap(entry).cast()))
+        .map(
+            (entry) => MarketplaceService.fromBundleEntry(_asMap(entry).cast()))
         .toList();
 
     // The library keeps superseded releases side by side (n8n, n8n_v2,
@@ -357,23 +417,27 @@ class MarketplaceLibrary {
     );
   }
 
-  /// Load the shipped Flutter asset only (tests / offline fallback).
-  static Future<MarketplaceLibrary> loadAsset([AssetBundle? assets]) async {
-    final json =
-        await (assets ?? rootBundle).loadString(marketplaceBundleAsset);
+  /// Load the shipped seed catalog (tests / last-resort fallback).
+  static Future<MarketplaceLibrary> loadSeed([AssetBundle? assets]) async {
+    final json = await (assets ?? rootBundle).loadString(marketplaceSeedAsset);
     return parse(json);
   }
 
-  /// Prefer a live marketplace download (with disk cache), else the asset.
-  static Future<MarketplaceLibrary> load([AssetBundle? assets]) async {
-    final catalog = MarketplaceCatalog();
+  /// Clone-shaped directory (`ELP_MARKETPLACE_DIR`), else zipball/cache,
+  /// else the shipped seed.
+  static Future<MarketplaceLibrary> load({
+    AssetBundle? assets,
+    MarketplaceCatalog? catalog,
+  }) async {
+    final resolved = catalog ?? MarketplaceCatalog();
+    final owns = catalog == null;
     try {
-      final json = await catalog.loadJson();
+      final json = await resolved.loadJson();
       if (json != null) return parse(json);
     } finally {
-      catalog.close();
+      if (owns) resolved.close();
     }
-    return loadAsset(assets);
+    return loadSeed(assets);
   }
 }
 
@@ -401,5 +465,28 @@ extension _FirstWhereOrNull<T> on List<T> {
 }
 
 final marketplaceLibraryProvider = FutureProvider<MarketplaceLibrary>((ref) {
-  return MarketplaceLibrary.load();
+  return _loadAndWatchMarketplace(ref);
 });
+
+Future<MarketplaceLibrary> _loadAndWatchMarketplace(Ref ref) async {
+  final catalog = MarketplaceCatalog();
+  ref.onDispose(catalog.close);
+
+  final servicesDir = resolveMarketplaceServicesDir(catalog.servicesDirectory);
+  if (servicesDir != null && servicesDir.existsSync()) {
+    Timer? debounce;
+    final subscription = servicesDir.watch(recursive: true).listen((event) {
+      if (ignoreMarketplaceWatchPath(event.path)) return;
+      debounce?.cancel();
+      debounce = Timer(marketplaceWatchDebounce, () {
+        ref.invalidateSelf();
+      });
+    });
+    ref.onDispose(() {
+      debounce?.cancel();
+      subscription.cancel();
+    });
+  }
+
+  return MarketplaceLibrary.load(catalog: catalog);
+}

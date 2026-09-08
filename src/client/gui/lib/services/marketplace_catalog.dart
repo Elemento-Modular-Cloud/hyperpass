@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 /// Default GitHub ref for the Elemento marketplace library.
-const marketplaceDefaultRef = 'main';
+const marketplaceDefaultRef = 'feat-cloudinit-imp';
 
 /// Repo that owns the live `services/` tree.
 const marketplaceRepoOwner = 'Elemento-Modular-Cloud';
@@ -16,16 +17,65 @@ const marketplaceRepoUrl =
 
 /// Optional direct JSON bundle URL (`ELP_MARKETPLACE_URL`).
 ///
-/// When unset, the catalog downloads the marketplace zipball from GitHub and
-/// assembles the same schema that `scripts/sync-marketplace-services.py`
-/// produces.
+/// Used only when [marketplaceDirOverride] is unset. Production is expected
+/// to populate a clone-shaped directory (via CDN) and point
+/// `ELP_MARKETPLACE_DIR` at it.
 String? marketplaceBundleUrlOverride() =>
     Platform.environment['ELP_MARKETPLACE_URL'];
 
-/// Optional local `services/` directory (`ELP_MARKETPLACE_DIR`) for offline
-/// development against a checkout.
-String? marketplaceServicesDirOverride() =>
-    Platform.environment['ELP_MARKETPLACE_DIR'];
+/// Clone root or `services/` tree (`ELP_MARKETPLACE_DIR`).
+///
+/// A checkout looks like the elemento-marketplace repo (`services/<id>/…`).
+/// The same layout is what a gated CDN drop will contain in production.
+String? marketplaceDirOverride() => Platform.environment['ELP_MARKETPLACE_DIR'];
+
+/// Resolves [path] to the `services/` directory of a marketplace checkout.
+///
+/// Accepts either the repo root (`…/elemento-marketplace`) or the `services/`
+/// folder itself.
+Directory? resolveMarketplaceServicesDir(String? path) {
+  if (path == null || path.isEmpty) return null;
+  final root = Directory(path);
+  final nested = Directory(
+    '${root.path}${Platform.pathSeparator}services',
+  );
+  if (nested.existsSync()) return nested;
+  return root;
+}
+
+/// Skip editor droppings and git internals when watching a checkout.
+bool ignoreMarketplaceWatchPath(String path) {
+  final normalised = path.replaceAll('\\', '/');
+  if (normalised.contains('/.git/')) return true;
+  final base = normalised.split('/').last;
+  return base == '.DS_Store' ||
+      base == 'Thumbs.db' ||
+      base.endsWith('~') ||
+      base.endsWith('.swp');
+}
+
+/// How long to wait after a burst of filesystem events before reloading.
+const marketplaceWatchDebounce = Duration(milliseconds: 400);
+
+/// HEAD of a git checkout at [path], or of its parent when [path] is
+/// `services/`. `local` when git is unavailable.
+Future<String> marketplaceCheckoutCommit(String path) async {
+  for (final candidate in [path, Directory(path).parent.path]) {
+    try {
+      final result = await Process.run(
+        'git',
+        ['-C', candidate, 'rev-parse', 'HEAD'],
+      );
+      if (result.exitCode == 0) {
+        final sha = (result.stdout as String).trim();
+        if (sha.isNotEmpty) return sha;
+      }
+    } on ProcessException {
+      // No git in PATH — treat as an unsigned drop (CDN / unpacked tree).
+    }
+  }
+  return 'local';
+}
 
 String marketplaceRef() =>
     Platform.environment['ELP_MARKETPLACE_REF'] ?? marketplaceDefaultRef;
@@ -40,7 +90,7 @@ const _cacheFileName = 'marketplace_services.json';
 const _excludedNames = {'.DS_Store', 'Thumbs.db'};
 
 /// Fetches the marketplace service library JSON: remote (or local dir) → disk
-/// cache. Returns null when the caller should use its shipped asset fallback.
+/// cache. Returns null when the caller should use its shipped seed fallback.
 class MarketplaceCatalog {
   MarketplaceCatalog({
     http.Client? httpClient,
@@ -53,8 +103,7 @@ class MarketplaceCatalog {
         _ownsClient = httpClient == null,
         _cacheDirectory = cacheDirectory,
         bundleUrl = bundleUrl ?? marketplaceBundleUrlOverride(),
-        servicesDirectory =
-            servicesDirectory ?? marketplaceServicesDirOverride(),
+        servicesDirectory = servicesDirectory ?? marketplaceDirOverride(),
         ref = ref ?? marketplaceRef(),
         githubToken = githubToken ?? marketplaceGithubToken();
 
@@ -65,7 +114,8 @@ class MarketplaceCatalog {
   /// Direct JSON bundle URL. Null means "assemble from the GitHub zipball".
   final String? bundleUrl;
 
-  /// Local `services/` tree used instead of the network when set.
+  /// Clone root or `services/` tree. When set, the catalog reads that
+  /// directory on every load (no zipball / JSON URL).
   final String? servicesDirectory;
 
   final String ref;
@@ -76,10 +126,11 @@ class MarketplaceCatalog {
   }
 
   /// Returns bundle JSON, or null when the caller should fall back to the
-  /// shipped asset.
+  /// shipped seed.
   Future<String?> loadJson({bool forceRefresh = false}) async {
-    final fromDir = await _loadFromServicesDirectory();
-    if (fromDir != null) return fromDir;
+    if (servicesDirectory != null && servicesDirectory!.isNotEmpty) {
+      return _loadFromServicesDirectory();
+    }
 
     final cacheFile = await _cacheFile();
     if (!forceRefresh && await cacheFile.exists()) {
@@ -108,18 +159,16 @@ class MarketplaceCatalog {
   Future<String?> _loadFromServicesDirectory() async {
     final path = servicesDirectory;
     if (path == null || path.isEmpty) return null;
-    final dir = Directory(path);
-    if (!await dir.exists()) {
+    final servicesDir = resolveMarketplaceServicesDir(path);
+    if (servicesDir == null || !await servicesDir.exists()) {
       throw StateError('ELP_MARKETPLACE_DIR does not exist: $path');
     }
     final bundle = await buildBundleFromServicesDir(
-      dir,
-      commit: 'local',
+      servicesDir,
+      commit: await marketplaceCheckoutCommit(path),
       repo: marketplaceRepoUrl,
     );
-    final json = serialiseBundle(bundle);
-    await _writeCache(await _cacheFile(), json);
-    return json;
+    return serialiseBundle(bundle);
   }
 
   Future<String?> _tryRefresh(File cacheFile, String? cachedCommit) async {
@@ -303,8 +352,7 @@ Map<String, Object?> buildBundleFromZipArchive(
     if (content == null) continue;
     final text = _decodeText(content);
     if (text == null) continue;
-    byService.putIfAbsent(serviceId, () => <String, String>{})[relative] =
-        text;
+    byService.putIfAbsent(serviceId, () => <String, String>{})[relative] = text;
   }
 
   final services = <Map<String, Object?>>[];

@@ -24,7 +24,7 @@ class ServiceDetailView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final branding = serviceBranding(service.id);
+    final branding = serviceBranding(service.id, service: service);
     final onSurface = Theme.of(context).colorScheme.onSurface;
 
     return PageSurface(
@@ -460,8 +460,7 @@ class _MutedText extends StatelessWidget {
         fontFamily: Brand.fontFamily,
         fontSize: 13,
         height: 1.4,
-        color:
-            Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
       ),
     );
   }

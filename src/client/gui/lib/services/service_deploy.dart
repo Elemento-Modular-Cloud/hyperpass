@@ -82,7 +82,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final service = widget.service;
-    final branding = serviceBranding(service.id);
+    final branding = serviceBranding(service.id, service: service);
     final randomName = ref.watch(randomNameProvider);
     final vmNames = ref.watch(elpVmNamesProvider);
     final deletedVms = ref.watch(deletedVmsProvider);

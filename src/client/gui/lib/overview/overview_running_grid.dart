@@ -45,8 +45,8 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
         .watch(serviceInstanceInfosProvider)
         .where((info) => info.instanceStatus.status == Status.RUNNING)
         .toList();
-    final llmModels = ref.watch(loadedModelsProvider).asData?.value.models ??
-        const [];
+    final llmModels =
+        ref.watch(loadedModelsProvider).asData?.value.models ?? const [];
     final library = ref.watch(marketplaceLibraryProvider).asData?.value;
 
     final showVms =
@@ -120,7 +120,7 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
                       _ServiceCard(
                         service: service,
                         displayName: library
-                                ?.byId(service.info.serviceId)
+                                ?.lookup(service.info.serviceId)
                                 ?.displayName ??
                             service.info.serviceId,
                       ),
@@ -161,8 +161,7 @@ class _VmCard extends ConsumerWidget {
     final ip = vm.instanceInfo.ipv4.isEmpty ? '—' : vm.instanceInfo.ipv4.first;
 
     return _WorkloadCard(
-      onTap: () =>
-          ref.read(sidebarKeyProvider.notifier).set(vm.id.sidebarKey),
+      onTap: () => ref.read(sidebarKeyProvider.notifier).set(vm.id.sidebarKey),
       leading: DistroLogo(
         vm.instanceInfo.os,
         release: vm.instanceInfo.currentRelease,
@@ -278,10 +277,16 @@ class _ServiceCard extends ConsumerWidget {
     final attention = health == ServiceHealthState.unhealthy ||
         health == ServiceHealthState.unreachable;
 
+    final library = ref.watch(marketplaceLibraryProvider).asData?.value;
+    final template = library?.lookup(service.info.serviceId);
+
     return _WorkloadCard(
       onTap: openDetails,
       leading: ServiceIconBadge(
-        branding: serviceBranding(service.info.serviceId),
+        branding: serviceBranding(
+          service.info.serviceId,
+          service: template,
+        ),
         size: 28,
       ),
       title: service.name,
@@ -477,9 +482,8 @@ class _TabChip extends StatelessWidget {
                 fontFamily: Brand.fontFamily,
                 fontSize: 13,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected
-                    ? Brand.accent
-                    : onSurface.withValues(alpha: 0.65),
+                color:
+                    selected ? Brand.accent : onSurface.withValues(alpha: 0.65),
               ),
             ),
             const SizedBox(height: 6),

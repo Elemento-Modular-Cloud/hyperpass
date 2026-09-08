@@ -20,8 +20,7 @@ class ServicesSearchNotifier extends Notifier<String> {
   void set(String value) => state = value;
 }
 
-final servicesSearchProvider =
-    NotifierProvider<ServicesSearchNotifier, String>(
+final servicesSearchProvider = NotifierProvider<ServicesSearchNotifier, String>(
   ServicesSearchNotifier.new,
 );
 
@@ -260,7 +259,7 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final service = widget.service;
-    final branding = serviceBranding(service.id);
+    final branding = serviceBranding(service.id, service: service);
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final radius = BorderRadius.circular(Brand.radius);
 
@@ -270,8 +269,8 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
       child: SizedBox(
         width: widget.width,
         child: CatalogueSurface(
-          borderColor: branding.accent
-              .withValues(alpha: _hovered ? 0.75 : 0.35),
+          borderColor:
+              branding.accent.withValues(alpha: _hovered ? 0.75 : 0.35),
           borderWidth: _hovered ? 1.5 : 1,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

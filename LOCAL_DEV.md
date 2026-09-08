@@ -73,6 +73,8 @@ elp shell alma-test
 ./scripts/run-dev-gui.sh
 ```
 
+The GUI reads a **clone-shaped marketplace directory** (`services/<id>/service.yaml`, …) from `ELP_MARKETPLACE_DIR` and reloads when those files change. `run-dev-gui.sh` clones [elemento-marketplace](https://github.com/Elemento-Modular-Cloud/elemento-marketplace) into `.cache/elemento-marketplace` if needed and fast-forwards that checkout when online (override with `ELP_MARKETPLACE_DIR` / `ELP_MARKETPLACE_REF`). Production will drop the same layout via CDN.
+
 Use **`build/bin/elp`**, not the system Multipass binary.
 
 First connection to a new daemon may require `elp authenticate`.
