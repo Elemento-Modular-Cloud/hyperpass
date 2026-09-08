@@ -12,17 +12,17 @@ abstract final class Brand {
   static final docsUrl = Uri.parse('https://www.elemento.cloud');
   static final installUrl = Uri.parse('https://www.elemento.cloud');
 
-  /// Electros / Elemento Starter Yellow accent.
-  static const accent = Color(0xFFFFA600);
+  /// Electros LaunchPad orange accent (`#FF5500`).
+  static const accent = Color(0xFFFF5500);
 
   /// Light tint for active sidebar rows on light theme.
-  static const accentLight = Color(0xFFFFE8B8);
+  static const accentLight = Color(0xFFFFCCB3);
 
   /// Darker accent for hover / pressed CTAs.
-  static const accentDark = Color(0xFFF28E00);
+  static const accentDark = Color(0xFFE04C00);
 
-  /// Elemento Starter Yellow — footer chrome (same as [accent]).
-  static const yellow = Color(0xFFFFA600);
+  /// Brand orange — footer chrome (same as [accent]).
+  static const yellow = accent;
 
   /// Status / online indicator (Electros `--green`).
   static const green = Color(0xFF28A745);
@@ -32,11 +32,11 @@ abstract final class Brand {
   static const workloadAi = accent;
   static const workloadService = Color(0xFF7B6CF0);
 
-  /// Lighter yellow (Elemento footer hover).
-  static const yellowLight = Color(0xFFFAB83A);
+  /// Lighter orange (Elemento footer hover).
+  static const yellowLight = Color(0xFFFF7733);
 
-  /// Darker yellow for Elemento footer hover.
-  static const yellowDark = Color(0xFFF28E00);
+  /// Darker orange for Elemento footer hover.
+  static const yellowDark = accentDark;
 
   /// Void Black — primary dark field (sidebar).
   static const voidBlack = Color(0xFF16161D);
@@ -73,7 +73,7 @@ abstract final class Brand {
   /// Terminal / log palette matching Electros LaunchPad (not distro themes).
   static TerminalTheme get terminalTheme => const TerminalTheme(
         cursor: accent,
-        selection: Color(0x66FFA600),
+        selection: Color(0x66FF5500),
         foreground: crystalWhite,
         background: voidBlack,
         black: Color(0xFF000000),

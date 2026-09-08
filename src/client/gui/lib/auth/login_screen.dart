@@ -210,10 +210,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     Brand.logoAsset,
                                     width: 34,
                                     height: 34,
-                                    colorFilter: const ColorFilter.mode(
-                                      Brand.accent,
-                                      BlendMode.srcIn,
-                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   BrandAppName(

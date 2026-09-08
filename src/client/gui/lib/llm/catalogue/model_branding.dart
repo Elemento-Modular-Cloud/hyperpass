@@ -23,7 +23,6 @@ const _fallback = ModelProviderBranding(
   displayName: 'Model',
   logoAsset: 'assets/atomos.svg',
   accent: Brand.accent,
-  logoTint: Brand.accent,
 );
 
 const _byFamily = <String, ModelProviderBranding>{

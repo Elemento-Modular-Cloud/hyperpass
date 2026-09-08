@@ -432,10 +432,6 @@ class SideBar extends ConsumerWidget {
                 Brand.logoAsset,
                 width: _SidebarStyle.brandLogoSize,
                 height: _SidebarStyle.brandLogoSize,
-                colorFilter: const ColorFilter.mode(
-                  Brand.accent,
-                  BlendMode.srcIn,
-                ),
               ),
               const SizedBox(width: 12),
               Expanded(

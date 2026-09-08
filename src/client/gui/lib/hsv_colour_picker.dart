@@ -35,7 +35,7 @@ class _HsvColourPickerState extends State<HsvColourPicker> {
     Color(0xFF1A1C20),
     Color(0xFFF5F5FA),
     Color(0xFFFFFFFF),
-    Color(0xFFFFA600),
+    Brand.accent,
     Color(0xFFFF0055),
     Color(0xFF00C853),
   ];

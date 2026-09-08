@@ -15,8 +15,7 @@ class NoVms extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
 
-    final logo = SvgPicture.asset(
-      Brand.logoAsset,
+    final logo = BrandLogo(
       width: 40,
       colorFilter: const ColorFilter.mode(Color(0xffD9D9D9), BlendMode.srcIn),
     );

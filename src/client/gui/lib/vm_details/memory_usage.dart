@@ -10,7 +10,7 @@ class MemoryUsage extends StatelessWidget {
 
   static Color get normalColor => ResourceMeter.fillFor(0);
   static Color get almostFullColor => ResourceMeter.fillFor(0.85);
-  static const backgroundColor = Color(0x3dFFA600);
+  static const backgroundColor = Color(0x3dFF5500);
 
   @override
   Widget build(BuildContext context) {

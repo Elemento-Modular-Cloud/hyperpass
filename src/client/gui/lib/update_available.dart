@@ -85,8 +85,7 @@ class UpdateAvailable extends StatelessWidget {
       color: _color,
       height: 40,
       width: 40,
-      child: SvgPicture.asset(
-        Brand.logoAsset,
+      child: BrandLogo(
         width: 25,
         colorFilter: const ColorFilter.mode(
           Brand.voidBlack,

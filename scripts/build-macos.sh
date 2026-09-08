@@ -185,6 +185,10 @@ fi
 if [[ "${DO_PACKAGE}" -eq 1 ]]; then
   echo "==> Packaging"
   cmake --build "${BUILD_DIR}" --target package --parallel "${JOBS}"
+  # Packaging's fixup-qemu-and-deps.sh mutates build/bin QEMU binaries in place
+  # and invalidates their signatures. Re-sign so the dev tree still runs.
+  echo "==> Re-signing dev QEMU binaries after package"
+  "${ROOT}/scripts/sign-dev-macos-binaries.sh" --build-dir "${BUILD_DIR}"
 fi
 
 echo "==> Done"

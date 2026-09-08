@@ -137,7 +137,9 @@ The Electros LaunchPad GUI can **list and manage** stock Multipass instances whe
 
 If elpd logs `Process crashed` for `qemu-system-aarch64` (including on `--version` or VM start), the build-tree QEMU likely lacks the **hypervisor** entitlement. vcpkg copies an unsigned binary into `build/bin/`; macOS kills it when HVF or Hypervisor.framework is involved.
 
-After each build, run (or rely on `./scripts/build-macos.sh`, which does this automatically):
+The same `Process crashed` for `qemu-img` (even on `info` / `--version`) means the binary's code signature is **invalid**. Packaging's `fixup-qemu-and-deps.sh` runs `install_name_tool` on `build/bin/qemu-img`, which breaks the vcpkg signature; macOS then SIGKILLs the process.
+
+After each build (and after packaging), run (or rely on `./scripts/build-macos.sh`, which does this automatically):
 
 ```bash
 ./scripts/sign-dev-macos-binaries.sh
@@ -148,6 +150,8 @@ Verify:
 ```bash
 codesign -dv --entitlements - build/bin/qemu-system-aarch64 | rg hypervisor
 build/bin/qemu-system-aarch64 --version
+codesign --verify --verbose build/bin/qemu-img
+build/bin/qemu-img --version
 ```
 
 Then restart the dev daemon: `./scripts/run-dev-daemon.sh --stop` and `./scripts/run-dev-daemon.sh`.

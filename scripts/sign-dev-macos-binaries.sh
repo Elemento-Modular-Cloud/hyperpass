@@ -55,8 +55,16 @@ for qemu in "${BIN_DIR}"/qemu-system-*; do
   signed=1
 done
 
+# dylibbundler / install_name_tool rewrite qemu-img and invalidate the vcpkg
+# signature. An invalid signature is SIGKILL'd by macOS (elpd: "Process crashed").
+if [[ -f "${BIN_DIR}/qemu-img" ]]; then
+  echo "==> Signing qemu-img"
+  codesign --force --sign "${SIGN_ID}" "${BIN_DIR}/qemu-img"
+  signed=1
+fi
+
 if [[ "${signed}" -eq 0 ]]; then
-  echo "warning: no qemu-system-* binary found under ${BIN_DIR}" >&2
+  echo "warning: no qemu-system-* or qemu-img binary found under ${BIN_DIR}" >&2
   exit 1
 fi
 

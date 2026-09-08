@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'appearance_settings.dart';
+import 'brand.dart';
 
 /// Full-window backdrop (Electros `body` wallpaper + `atmosphere-background`).
 class AppBackground extends ConsumerStatefulWidget {
@@ -223,7 +224,7 @@ class _AtmosphereBackground extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        const Color(0xFFFFA600).withValues(alpha: 0.18),
+                        Brand.accent.withValues(alpha: 0.18),
                         Colors.transparent,
                         const Color(0xFF0033FF).withValues(alpha: 0.22),
                       ],
