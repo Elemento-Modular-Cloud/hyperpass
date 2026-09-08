@@ -200,12 +200,7 @@ class _LlmCard extends ConsumerWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final mem = formatResourceBytes('${model.memoryClaimed}');
     final name = model.modelId.isNotEmpty ? model.modelId : model.instanceId;
-    final branding = modelProviderBranding(
-      provider: '',
-      id: model.modelId,
-      name: model.openaiId.isNotEmpty ? model.openaiId : name,
-      hfRepo: model.path,
-    );
+    final branding = brandingForLoaded(model);
 
     return _WorkloadCard(
       onTap: () => ref.read(sidebarKeyProvider.notifier).set(

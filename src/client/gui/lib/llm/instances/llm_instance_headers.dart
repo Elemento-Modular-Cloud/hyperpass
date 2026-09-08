@@ -8,6 +8,7 @@ import '../../sidebar.dart';
 import '../../tooltip.dart';
 import '../../vm_table/search_box.dart';
 import '../../vm_table/table.dart';
+import '../catalogue/model_branding.dart';
 import '../catalogue/model_capabilities.dart';
 import '../llm_id.dart';
 import '../providers.dart';
@@ -31,8 +32,8 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
   TableHeader(
     name: 'MODEL',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnModel),
-    width: 260,
-    minWidth: 160,
+    width: 280,
+    minWidth: 180,
     sortKey: (m) => m.openaiId.isEmpty ? m.modelId : m.openaiId,
     cellBuilder: (m) => LlmModelLink(m),
   ),
@@ -208,12 +209,25 @@ class LlmModelLink extends ConsumerWidget {
     final label = model.openaiId.isEmpty
         ? model.modelId
         : '${model.modelId} (${model.openaiId})';
+    final branding = brandingForLoaded(model);
 
     return Tooltip(
       message: label,
       child: InkWell(
         onTap: () => ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey),
-        child: Text(label, overflow: TextOverflow.ellipsis),
+        child: Row(
+          children: [
+            ModelProviderBadge(
+              branding: branding,
+              size: 22,
+              semanticsLabel: branding.displayName,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(label, overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
       ),
     );
   }

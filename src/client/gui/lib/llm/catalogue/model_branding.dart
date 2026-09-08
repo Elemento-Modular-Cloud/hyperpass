@@ -144,6 +144,14 @@ ModelProviderBranding brandingForSuggestion(ModelSuggestion model) =>
       hfRepo: model.hfRepo,
     );
 
+ModelProviderBranding brandingForLoaded(LoadedModelInfo model) =>
+    modelProviderBranding(
+      provider: '',
+      id: model.modelId,
+      name: model.openaiId.isNotEmpty ? model.openaiId : model.modelId,
+      hfRepo: model.path,
+    );
+
 class ModelProviderBadge extends StatelessWidget {
   const ModelProviderBadge({
     required this.branding,
