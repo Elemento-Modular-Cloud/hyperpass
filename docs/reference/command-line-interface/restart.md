@@ -3,6 +3,8 @@
 
 The `multipass restart` command without any argument will restart the {ref}`primary-instance` (and fail, if it doesn't exist). You can also pass one or more instance names or the `--all` option to restart more instances at the same time.
 
+Restart power-cycles the VM (stop then start). It does not run `sudo reboot` inside the guest.
+
 ```{note}
 Only instances in `Running` status can be restarted.
 ```

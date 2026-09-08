@@ -55,6 +55,7 @@ struct TestDaemonRestart : public mpt::DaemonTestFixture
         auto* ret_instance = instance_ptr.get();
 
         ON_CALL(*instance_ptr, get_name).WillByDefault(ReturnRef(mock_instance_name));
+        instance_ptr->state = state;
         EXPECT_CALL(*instance_ptr, current_state).WillRepeatedly(Return(state));
         EXPECT_CALL(mock_factory, create_virtual_machine).WillOnce(Return(std::move(instance_ptr)));
 
@@ -88,6 +89,10 @@ TEST_F(TestDaemonRestart, successfulRestartOkStatus)
     request.mutable_instance_names()->add_instance_name(mock_instance_name);
     auto [daemon, instance] = build_daemon_with_mock_instance(VMState::running);
 
+    EXPECT_CALL(*instance, shutdown(mp::VirtualMachine::ShutdownPolicy::Powerdown)).Times(1);
+    EXPECT_CALL(*instance, start()).Times(1);
+    EXPECT_CALL(*instance, wait_until_ssh_up).Times(1);
+
     ServerMock mock_server{};
     EXPECT_CALL(mock_server, Write(_, _)).Times(1);
 
@@ -116,6 +121,9 @@ TEST_F(TestDaemonRestart, restartFailsOnStoppedInstance)
     request.mutable_instance_names()->add_instance_name(mock_instance_name);
     auto [daemon, instance] = build_daemon_with_mock_instance(VMState::stopped);
 
+    EXPECT_CALL(*instance, shutdown).Times(0);
+    EXPECT_CALL(*instance, start).Times(0);
+
     auto status = call_daemon_slot(*daemon, &mp::Daemon::restart, request, ServerMock());
 
     EXPECT_EQ(status.error_code(), grpc::FAILED_PRECONDITION);
@@ -128,6 +136,9 @@ TEST_F(TestDaemonRestart, restartFailsOnUnknownInstanceState)
     mp::RestartRequest request{};
     request.mutable_instance_names()->add_instance_name(mock_instance_name);
     auto [daemon, instance] = build_daemon_with_mock_instance(VMState::unknown);
+
+    EXPECT_CALL(*instance, shutdown).Times(0);
+    EXPECT_CALL(*instance, start).Times(0);
 
     auto status = call_daemon_slot(*daemon, &mp::Daemon::restart, request, ServerMock());
 

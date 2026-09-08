@@ -397,6 +397,71 @@ TEST_F(QemuBackend, QMPHandlerProcessesInterleavedJson)
     machine->state = mp::VirtualMachine::State::running;
 }
 
+TEST_F(QemuBackend, resetWhileStartingDoesNotCallOnRestart)
+{
+    mpt::MockProcess* vmproc = nullptr;
+    process_factory->register_callback([this, &vmproc](mpt::MockProcess* process) {
+        if (process->program().startsWith(expected_qemu_system_prefix()) &&
+            !process->arguments().contains("-dump-vmstate"))
+        {
+            vmproc = process;
+        }
+    });
+
+    EXPECT_CALL(*mock_qemu_platform_factory, make_qemu_platform(_, _)).WillOnce([this](auto&&...) {
+        return std::move(mock_qemu_platform);
+    });
+
+    NiceMock<mpt::MockVMStatusMonitor> mock_monitor;
+    mp::QemuVirtualMachineFactory backend{data_dir.path(), az_manager};
+    auto machine = backend.create_virtual_machine(default_description, key_provider, mock_monitor);
+
+    EXPECT_CALL(mock_monitor, on_resume());
+    machine->start();
+    ASSERT_EQ(machine->state, mp::VirtualMachine::State::starting);
+    ASSERT_TRUE(vmproc);
+
+    EXPECT_CALL(mock_monitor, on_restart).Times(0);
+    EXPECT_CALL(*vmproc, read_all_standard_output())
+        .WillOnce(Return(R"({"event": "RESET", "data": {"guest": true, "reason": "guest-reset"}})"));
+    emit vmproc->ready_read_standard_output();
+
+    EXPECT_EQ(machine->state, mp::VirtualMachine::State::starting);
+}
+
+TEST_F(QemuBackend, resetWhileRunningCallsOnRestart)
+{
+    mpt::MockProcess* vmproc = nullptr;
+    process_factory->register_callback([this, &vmproc](mpt::MockProcess* process) {
+        if (process->program().startsWith(expected_qemu_system_prefix()) &&
+            !process->arguments().contains("-dump-vmstate"))
+        {
+            vmproc = process;
+        }
+    });
+
+    EXPECT_CALL(*mock_qemu_platform_factory, make_qemu_platform(_, _)).WillOnce([this](auto&&...) {
+        return std::move(mock_qemu_platform);
+    });
+
+    NiceMock<mpt::MockVMStatusMonitor> mock_monitor;
+    mp::QemuVirtualMachineFactory backend{data_dir.path(), az_manager};
+    auto machine = backend.create_virtual_machine(default_description, key_provider, mock_monitor);
+
+    EXPECT_CALL(mock_monitor, on_resume());
+    machine->start();
+    ASSERT_TRUE(vmproc);
+    machine->state = mp::VirtualMachine::State::running;
+
+    EXPECT_CALL(mock_monitor, persist_state_for(_, mp::VirtualMachine::State::restarting));
+    EXPECT_CALL(mock_monitor, on_restart(default_description.vm_name)).Times(1);
+    EXPECT_CALL(*vmproc, read_all_standard_output())
+        .WillOnce(Return(R"({"event": "RESET", "data": {"guest": true, "reason": "guest-reset"}})"));
+    emit vmproc->ready_read_standard_output();
+
+    EXPECT_EQ(machine->state, mp::VirtualMachine::State::restarting);
+}
+
 TEST_F(QemuBackend, throwsWhenShutdownWhileStarting)
 {
     mpt::MockProcess* vmproc = nullptr;

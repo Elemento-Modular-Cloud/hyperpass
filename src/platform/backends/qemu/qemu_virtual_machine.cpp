@@ -670,7 +670,7 @@ void mp::QemuVirtualMachine::initialize_vm_process()
         if (auto event = qmp_object.if_contains("event"))
         {
             auto event_str = value_to<std::string>(*event);
-            if (event_str == "RESET" && state != State::restarting)
+            if (event_str == "RESET" && state != State::restarting && state != State::starting)
             {
                 mpl::info(vm_name, "VM restarting");
                 on_restart();

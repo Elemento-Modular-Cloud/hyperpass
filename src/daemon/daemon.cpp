@@ -30,7 +30,6 @@
 #include <multipass/daemon_rpc_context.h>
 #include <multipass/exceptions/availability_zone_exceptions.h>
 #include <multipass/exceptions/create_image_exception.h>
-#include <multipass/exceptions/exitless_sshprocess_exceptions.h>
 #include <multipass/exceptions/ghost_instance_exception.h>
 #include <multipass/exceptions/image_vault_exceptions.h>
 #include <multipass/exceptions/invalid_memory_size_exception.h>
@@ -168,8 +167,6 @@ bool is_instance_home(const QString& target, const std::string& username)
 
 constexpr auto category = "daemon";
 constexpr auto instance_db_name = "multipassd-vm-instances.json";
-constexpr auto reboot_cmd = "sudo reboot";
-constexpr auto stop_ssh_cmd = "sudo systemctl stop ssh";
 constexpr auto sshfs_error_template =
     "Error enabling mount support in '{}'"
     "\n\nPlease install the 'multipass-sshfs' snap manually inside the instance.";
@@ -1008,49 +1005,6 @@ auto instances_running(const Instances& instances)
     }
 
     return false;
-}
-
-grpc::Status stop_accepting_ssh_connections(mp::VirtualMachine& vm)
-{
-    try
-    {
-        vm.ssh_exec(stop_ssh_cmd);
-    }
-    catch (const mp::SSHExecFailure& e)
-    {
-        return grpc::Status{grpc::StatusCode::FAILED_PRECONDITION,
-                            fmt::format("Could not stop sshd. '{}' exited with code {}.",
-                                        stop_ssh_cmd,
-                                        e.exit_code()),
-                            e.what()};
-    }
-
-    return grpc::Status::OK;
-}
-
-grpc::Status ssh_reboot(mp::VirtualMachine& vm)
-{
-    // This allows us to later detect when the machine has finished restarting by waiting for SSH to
-    // be back up. Otherwise, there would be a race condition, and we would be unable to distinguish
-    // whether it had ever been down.
-    stop_accepting_ssh_connections(vm);
-
-    try
-    {
-        vm.ssh_exec(reboot_cmd);
-    }
-    catch (const mp::SSHExecFailure& e)
-    {
-        return grpc::Status{grpc::StatusCode::FAILED_PRECONDITION,
-                            fmt::format("Reboot command exited with code {}", e.exit_code()),
-                            e.what()};
-    }
-    catch (const mp::SSHProcessTimeoutException&)
-    {
-        // this is the expected path
-    }
-
-    return grpc::Status::OK;
 }
 
 mp::InstanceStatus::Status grpc_instance_status_for(const mp::VirtualMachine::State& state)
@@ -2521,16 +2475,20 @@ try
         stop_mounts(vm.get_name());
 
         return reboot_vm(vm);
-    }); // 1st pass to reboot all targets
+    }); // 1st pass: stop all targets
 
     if (!status.ok())
     {
         return context->set_value(status);
     }
 
+    if (!instances_running(operative_instances))
+        config->factory->hypervisor_health_check();
+
     fmt::memory_buffer restart_errors;
     std::vector<std::string> restarting_vms;
     restarting_vms.reserve(instance_targets.size());
+    bool resource_exhausted = false;
     for (const auto& vm_it : instance_targets)
     {
         const auto& name = vm_it->first;
@@ -2555,11 +2513,22 @@ try
             }
         }
 
+        const auto claim = claim_vm(name);
+        if (!claim.accepted)
+        {
+            resource_exhausted = true;
+            fmt::format_to(std::back_inserter(restart_errors), "{}\n", claim.message);
+            continue;
+        }
+
+        vm.start();
         restarting_vms.push_back(name);
     }
 
     if (restarting_vms.empty())
-        return context->set_value(grpc_status_for(restart_errors));
+        return context->set_value(grpc_status_for(
+            restart_errors,
+            resource_exhausted ? grpc::StatusCode::RESOURCE_EXHAUSTED : grpc::StatusCode::OK));
 
     auto future_watcher = create_future_watcher();
     future_watcher->setFuture(
@@ -3765,8 +3734,8 @@ grpc::Status mp::Daemon::reboot_vm(VirtualMachine& vm)
         return grpc::Status{grpc::StatusCode::FAILED_PRECONDITION, std::move(msg), ""};
     }
 
-    mpl::debug(category, "Rebooting {}", vm.get_name());
-    return ssh_reboot(vm);
+    mpl::debug(category, "Restarting {} (stop+start)", vm.get_name());
+    return shutdown_vm(vm, std::chrono::milliseconds::zero());
 }
 
 grpc::Status mp::Daemon::shutdown_vm(VirtualMachine& vm, const std::chrono::milliseconds delay)
