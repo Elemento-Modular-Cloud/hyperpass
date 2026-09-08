@@ -4,6 +4,8 @@ import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yaml/yaml.dart';
 
+import 'marketplace_catalog.dart';
+
 const marketplaceBundleAsset = 'assets/marketplace_services.json';
 
 /// Placeholder syntax used by the marketplace service library, e.g.
@@ -313,8 +315,8 @@ class MarketplaceService {
 class MarketplaceLibrary {
   const MarketplaceLibrary({required this.commit, required this.services});
 
-  /// Commit of the pinned `3rd-party/elemento-marketplace` submodule the
-  /// bundle was generated from.
+  /// Commit of the marketplace library the bundle was generated from
+  /// (remote tip, local checkout, or shipped asset).
   final String commit;
   final List<MarketplaceService> services;
 
@@ -355,10 +357,23 @@ class MarketplaceLibrary {
     );
   }
 
-  static Future<MarketplaceLibrary> load([AssetBundle? assets]) async {
+  /// Load the shipped Flutter asset only (tests / offline fallback).
+  static Future<MarketplaceLibrary> loadAsset([AssetBundle? assets]) async {
     final json =
         await (assets ?? rootBundle).loadString(marketplaceBundleAsset);
     return parse(json);
+  }
+
+  /// Prefer a live marketplace download (with disk cache), else the asset.
+  static Future<MarketplaceLibrary> load([AssetBundle? assets]) async {
+    final catalog = MarketplaceCatalog();
+    try {
+      final json = await catalog.loadJson();
+      if (json != null) return parse(json);
+    } finally {
+      catalog.close();
+    }
+    return loadAsset(assets);
   }
 }
 

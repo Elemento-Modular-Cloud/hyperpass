@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Bundle the elemento-marketplace service library into a Flutter asset.
 
+The GUI prefers a live download of the marketplace (cached under the app
+support directory). The committed Flutter asset remains the offline /
+first-run fallback, so releases still ship a known-good snapshot.
+
 Flutter only bundles assets that live inside the GUI package and does not
 recurse into undeclared subdirectories, so the whole service library is
 flattened into a single JSON file that the existing `assets/` declaration
@@ -11,8 +15,8 @@ interpreting `service.yaml` (entrypoint, `files:` list) is left to the Dart
 side so this script needs no YAML dependency.
 
 Usage:
-    scripts/sync-marketplace-services.py           # regenerate the bundle
-    scripts/sync-marketplace-services.py --check   # fail if the bundle is stale
+    scripts/sync-marketplace-services.py           # regenerate the fallback asset
+    scripts/sync-marketplace-services.py --check   # fail if the asset is stale
 """
 
 import argparse

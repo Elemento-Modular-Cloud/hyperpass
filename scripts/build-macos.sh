@@ -149,9 +149,9 @@ if [[ "${DO_SUBMODULES}" -eq 1 ]]; then
   git submodule update --init --recursive
 fi
 
-# The Flutter GUI can only bundle assets from inside its own package, so the
-# elemento-marketplace service library is flattened into a single asset.
-echo "==> Syncing marketplace services into the GUI assets"
+# The Flutter GUI downloads the marketplace at runtime (with a local cache) and
+# falls back to a shipped asset. Keep that offline snapshot in sync for releases.
+echo "==> Syncing marketplace services into the GUI assets (offline fallback)"
 "${python3_bin}" "${ROOT}/scripts/sync-marketplace-services.py"
 
 mkdir -p "${BUILD_DIR}"

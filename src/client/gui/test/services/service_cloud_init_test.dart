@@ -15,7 +15,7 @@ MarketplaceLibrary loadLibraryFromDisk() {
   if (!bundle.existsSync()) {
     throw StateError(
       'Missing ${bundle.path}. '
-      'Run scripts/sync-marketplace-services.py to generate the bundle.',
+      'Run scripts/sync-marketplace-services.py to refresh the offline fallback asset.',
     );
   }
   return MarketplaceLibrary.parse(bundle.readAsStringSync());
@@ -24,10 +24,10 @@ MarketplaceLibrary loadLibraryFromDisk() {
 void main() {
   final library = loadLibraryFromDisk();
 
-  test('bundle is shipped as a Flutter asset', () {
-    // `rootBundle` does not resolve under `flutter test`, so the delivery
-    // contract is checked statically: the bundle must sit directly inside the
-    // asset directory that pubspec.yaml declares.
+  test('offline fallback asset is shipped', () {
+    // Runtime prefers a live marketplace download + disk cache; the committed
+    // asset is the cold-start / offline fallback. `rootBundle` does not resolve
+    // under `flutter test`, so the delivery contract is checked statically.
     expect(File(marketplaceBundleAsset).existsSync(), isTrue);
     expect(
       File('pubspec.yaml').readAsStringSync(),

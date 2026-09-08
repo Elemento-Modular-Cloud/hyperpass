@@ -8,6 +8,7 @@ environment:
 dependencies:
   flutter_localizations:
     sdk: flutter
+  archive: ^4.0.7
   async: ^2.13.0
   basics: ^0.10.0
   built_collection: ^5.1.1

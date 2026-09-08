@@ -92,10 +92,20 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Text(
-          l10n.servicesLoadError('$error'),
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              l10n.servicesLoadError('$error'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => ref.invalidate(marketplaceLibraryProvider),
+              child: Text(l10n.catalogueRefresh),
+            ),
+          ],
         ),
       ),
     );
@@ -128,13 +138,31 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
                     Expanded(child: _ServicesHeader(l10n: l10n)),
                     const SizedBox(width: 16),
                     SizedBox(width: 260, child: search),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: l10n.catalogueRefresh,
+                      onPressed: () =>
+                          ref.invalidate(marketplaceLibraryProvider),
+                      icon: const Icon(Icons.refresh),
+                    ),
                   ],
                 );
               }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _ServicesHeader(l10n: l10n),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _ServicesHeader(l10n: l10n)),
+                      IconButton(
+                        tooltip: l10n.catalogueRefresh,
+                        onPressed: () =>
+                            ref.invalidate(marketplaceLibraryProvider),
+                        icon: const Icon(Icons.refresh),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   search,
                 ],
