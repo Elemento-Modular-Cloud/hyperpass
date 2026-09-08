@@ -43,8 +43,12 @@ Future<({int exitCode, String stdout, String stderr})> runGuestCommand(
   );
 }
 
-/// Prefer passwordless sudo; fall back to the bare path if sudo is unavailable.
+/// Run [path] with passwordless sudo when available.
+///
+/// A failing script must not fall through to an unprivileged retry: marketplace
+/// images do not add the SSH user to the docker group, so `docker info` then
+/// reports "daemon not reachable" even though `sudo docker ps` works.
 String guestPrivilegedCommand(String path) {
   final escaped = path.replaceAll("'", r"'\''");
-  return "sudo -n '$escaped' 2>/dev/null || '$escaped'";
+  return "if sudo -n true >/dev/null 2>&1; then sudo -n -- '$escaped'; else '$escaped'; fi";
 }
