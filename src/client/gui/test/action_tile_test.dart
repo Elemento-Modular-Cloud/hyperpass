@@ -59,6 +59,7 @@ void main() {
       Status.DELAYED_SHUTDOWN,
       Status.SUSPENDING,
       Status.SUSPENDED,
+      Status.UNAVAILABLE,
     ];
 
     group('VmAction.start', () {
@@ -87,6 +88,12 @@ void main() {
             s,
             s == Status.STOPPED || s == Status.SUSPENDED || s == Status.RUNNING
           ),
+      ]);
+    });
+
+    group('VmAction.forceDelete', () {
+      runEnabledTests(VmAction.forceDelete, [
+        for (final s in allStatuses) (s, s != Status.DELETED),
       ]);
     });
 

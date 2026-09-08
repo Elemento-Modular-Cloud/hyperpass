@@ -86,6 +86,29 @@ class ServiceBulkActionsBar extends ConsumerWidget {
           ),
         );
       },
+      VmAction.forceDelete: (action) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => DeleteInstanceDialog(
+            force: true,
+            count: selected.length,
+            onDelete: () {
+              wrapInNotification((c, names) async {
+                await c.purge(names);
+                final bindings =
+                    ref.read(serviceInstanceBindingsProvider.notifier);
+                for (final name in names) {
+                  bindings.unbind(name);
+                }
+              })(action);
+              ref
+                  .read(selectedServiceInstancesProvider.notifier)
+                  .set(BuiltSet());
+            },
+          ),
+        );
+      },
     };
 
     return Row(

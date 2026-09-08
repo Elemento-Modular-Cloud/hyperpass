@@ -325,6 +325,28 @@ class _ServiceInstanceActions extends ConsumerWidget {
             );
           },
         ),
+        VmActionButton(
+          action: VmAction.forceDelete,
+          currentStatuses: [status],
+          function: () {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => DeleteInstanceDialog(
+                force: true,
+                onDelete: () {
+                  run(VmAction.forceDelete, () => client.purge([id.name]));
+                  ref
+                      .read(serviceInstanceBindingsProvider.notifier)
+                      .unbind(id.name);
+                  ref
+                      .read(sidebarKeyProvider.notifier)
+                      .set(ServiceInstancesScreen.sidebarKey);
+                },
+              ),
+            );
+          },
+        ),
       ],
     );
   }

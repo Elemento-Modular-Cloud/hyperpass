@@ -72,6 +72,18 @@ class BulkActionsBar extends ConsumerWidget {
           ),
         );
       },
+      VmAction.forceDelete: (action) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => DeleteInstanceDialog(
+            force: true,
+            count: selectedVms.length,
+            onDelete: () =>
+                wrapInNotification((c, names) => c.purge(names))(action),
+          ),
+        );
+      },
     };
 
     final actionButtons = [

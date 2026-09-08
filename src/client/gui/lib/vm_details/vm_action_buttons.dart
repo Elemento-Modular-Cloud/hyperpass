@@ -56,6 +56,16 @@ class VmActionButtons extends ConsumerWidget {
             ),
           );
         },
+        VmAction.forceDelete: (action) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => DeleteInstanceDialog(
+              force: true,
+              onDelete: () => wrapInNotification(client.purge)(action),
+            ),
+          );
+        },
       },
     };
 

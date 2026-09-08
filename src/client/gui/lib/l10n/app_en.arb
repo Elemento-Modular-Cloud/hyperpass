@@ -1,8 +1,8 @@
 {
     "@@locale": "en",
-    "vmActionLabel": "{action, select, start{Start} stop{Stop} suspend{Suspend} restart{Restart} delete{Delete} recover{Recover} purge{Purge} edit{Edit} other{}}",
+    "vmActionLabel": "{action, select, start{Start} stop{Stop} suspend{Suspend} restart{Restart} delete{Delete} forceDelete{Force delete} recover{Recover} purge{Purge} edit{Edit} other{}}",
     "@vmActionLabel": {
-        "description": "Button label for a VM action. The 'action' parameter is the lowercase enum name (start, stop, suspend, restart, delete, recover, purge, edit).",
+        "description": "Button label for a VM action. The 'action' parameter is the enum name (start, stop, suspend, restart, delete, forceDelete, recover, purge, edit).",
         "placeholders": {
             "action": {
                 "type": "String"
@@ -18,7 +18,7 @@
             }
         }
     },
-    "vmActionPastTense": "{action, select, start{Started} stop{Stopped} suspend{Suspended} restart{Restarted} delete{Deleted} recover{Recovered} purge{Purged} edit{Edited} other{}}",
+    "vmActionPastTense": "{action, select, start{Started} stop{Stopped} suspend{Suspended} restart{Restarted} delete{Deleted} forceDelete{Force deleted} recover{Recovered} purge{Purged} edit{Edited} other{}}",
     "@vmActionPastTense": {
         "description": "Past-tense form of a VM action, used in success notifications. The 'action' parameter is the lowercase enum name.",
         "placeholders": {
@@ -27,7 +27,7 @@
             }
         }
     },
-    "vmActionContinuousTense": "{action, select, start{Starting} stop{Stopping} suspend{Suspending} restart{Restarting} delete{Deleting} recover{Recovering} purge{Purging} edit{Editing} other{}}",
+    "vmActionContinuousTense": "{action, select, start{Starting} stop{Stopping} suspend{Suspending} restart{Restarting} delete{Deleting} forceDelete{Force deleting} recover{Recovering} purge{Purging} edit{Editing} other{}}",
     "@vmActionContinuousTense": {
         "description": "Continuous-tense form of a VM action, used in progress notifications. The 'action' parameter is the lowercase enum name.",
         "placeholders": {
@@ -1090,6 +1090,28 @@
                 "type": "int"
             }
         }
+    },
+    "forceDeleteInstanceTitle": "{count, plural, =1{Force delete instance?} other{Force delete instances?}}",
+    "@forceDeleteInstanceTitle": {
+        "description": "Title of the force-delete instance confirmation dialog",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "forceDeleteInstanceBody": "{count, plural, =1{This instance will be powered off immediately and permanently deleted. You can't recover it, and the disk may be left inconsistent.} other{These instances will be powered off immediately and permanently deleted. You can't recover them, and their disks may be left inconsistent.}}",
+    "@forceDeleteInstanceBody": {
+        "description": "Body text of the force-delete instance confirmation dialog",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "forceDeleteConfirm": "Force delete",
+    "@forceDeleteConfirm": {
+        "description": "Confirm button label for the force-delete instance dialog"
     },
     "commonDelete": "Delete",
     "@commonDelete": {
