@@ -39,9 +39,10 @@ struct ApiConfig
     bool use_https{true};
     std::string cert_file; // optional PEM path (with key_file)
     std::string key_file;
-    std::string cert_pem;         // resolved material
+    std::string cert_pem;         // resolved leaf material
     std::string key_pem;
-    std::string tls_fingerprint;  // AtomOS SHA-256 colon form
+    std::string ca_pem;           // CA (or leaf, when operator-supplied) for GET /ca.crt
+    std::string tls_fingerprint;  // AtomOS SHA-256 colon form of the leaf
 };
 
 struct ListenEndpoint

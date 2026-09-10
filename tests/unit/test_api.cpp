@@ -20,20 +20,32 @@
 #include "auth_middleware.h"
 #include "config.h"
 #include "handlers/handlers.h"
+#include "https_certs.h"
 #include "multipass_discovery.h"
 #include "operation_tracker.h"
 #include "tls_fingerprint.h"
 #include "vm_registry.h"
 
 #include <multipass/constants.h>
+#include <multipass/format.h>
 #include <multipass/rpc/multipass.grpc.pb.h>
+
+#include "mock_logger.h"
+#include "temp_dir.h"
 
 #include <boost/json.hpp>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+
 #include <filesystem>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace mp = multipass;
 namespace mpt = multipass::test;
@@ -49,6 +61,7 @@ TEST(ApiAuth, publicPathsAreUnauthenticated)
     EXPECT_TRUE(api::is_public_path("/healthz"));
     EXPECT_TRUE(api::is_public_path("/readyz"));
     EXPECT_TRUE(api::is_public_path("/fingerprint"));
+    EXPECT_TRUE(api::is_public_path("/ca.crt"));
     EXPECT_TRUE(api::is_public_path("/api/v1/authenticate/cert"));
     EXPECT_FALSE(api::is_public_path("/api/v1.0/running"));
     EXPECT_FALSE(api::is_public_path("/api/v1.0/get_machine"));
@@ -309,3 +322,108 @@ TEST(ApiCanallocate, matcherMemCapacityAndAliases)
     EXPECT_TRUE(api::can_allocate_from_available(4096, 4096));
     EXPECT_FALSE(api::can_allocate_from_available(1024, 2048));
 }
+
+namespace
+{
+struct PemX509
+{
+    explicit PemX509(const std::string& pem)
+        : bio{BIO_new_mem_buf(pem.data(), static_cast<int>(pem.size()))},
+          cert{PEM_read_bio_X509(bio, nullptr, nullptr, nullptr), X509_free}
+    {
+        EXPECT_NE(bio, nullptr);
+        EXPECT_NE(cert.get(), nullptr);
+    }
+
+    ~PemX509()
+    {
+        BIO_free(bio);
+    }
+
+    PemX509(const PemX509&) = delete;
+    PemX509& operator=(const PemX509&) = delete;
+
+    BIO* bio;
+    std::unique_ptr<X509, decltype(&X509_free)> cert;
+};
+
+bool has_eku(X509& cert, int nid)
+{
+    int crit = 0;
+    auto* eku = reinterpret_cast<STACK_OF(ASN1_OBJECT)*>(
+        X509_get_ext_d2i(&cert, NID_ext_key_usage, &crit, nullptr));
+    if (!eku)
+        return false;
+    bool found = false;
+    for (int i = 0; i < sk_ASN1_OBJECT_num(eku); ++i)
+    {
+        if (OBJ_obj2nid(sk_ASN1_OBJECT_value(eku, i)) == nid)
+            found = true;
+    }
+    sk_ASN1_OBJECT_pop_free(eku, ASN1_OBJECT_free);
+    return found;
+}
+
+std::vector<std::string> san_entries(X509& cert)
+{
+    std::vector<std::string> out;
+    auto* names = reinterpret_cast<GENERAL_NAMES*>(
+        X509_get_ext_d2i(&cert, NID_subject_alt_name, nullptr, nullptr));
+    if (!names)
+        return out;
+    for (int i = 0; i < sk_GENERAL_NAME_num(names); ++i)
+    {
+        auto* name = sk_GENERAL_NAME_value(names, i);
+        if (name->type == GEN_DNS)
+        {
+            const auto* str = name->d.dNSName;
+            out.emplace_back(fmt::format("DNS:{}",
+                                         std::string(reinterpret_cast<const char*>(ASN1_STRING_get0_data(str)),
+                                                     static_cast<std::size_t>(ASN1_STRING_length(str)))));
+        }
+        else if (name->type == GEN_IPADD)
+        {
+            const auto* ip = name->d.iPAddress;
+            if (ASN1_STRING_length(ip) == 4)
+            {
+                const auto* d = ASN1_STRING_get0_data(ip);
+                out.push_back(fmt::format("IP:{}.{}.{}.{}", d[0], d[1], d[2], d[3]));
+            }
+        }
+    }
+    sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free);
+    return out;
+}
+} // namespace
+
+TEST(ApiHttpsCerts, generatesCaAndServerAuthLeafWithSans)
+{
+    mpt::MockLogger::Scope logger_scope = mpt::MockLogger::inject();
+    mpt::TempDir temp_dir;
+    const auto material =
+        api::load_or_create_https_certs(temp_dir.path(), {"127.0.0.1", "192.168.67.1"});
+
+    EXPECT_THAT(material.ca_pem, HasSubstr("BEGIN CERTIFICATE"));
+    EXPECT_THAT(material.cert_pem, HasSubstr("BEGIN CERTIFICATE"));
+    EXPECT_THAT(material.key_pem, HasSubstr("BEGIN"));
+
+    const PemX509 ca{material.ca_pem};
+    const PemX509 leaf{material.cert_pem};
+    EXPECT_GT(X509_check_ca(ca.cert.get()), 0);
+    EXPECT_TRUE(has_eku(*leaf.cert, NID_server_auth));
+    EXPECT_FALSE(has_eku(*leaf.cert, NID_client_auth));
+
+    const auto sans = san_entries(*leaf.cert);
+    EXPECT_THAT(sans, Contains("DNS:localhost"));
+    EXPECT_THAT(sans, Contains("IP:127.0.0.1"));
+    EXPECT_THAT(sans, Contains("IP:192.168.67.1"));
+
+    const auto fp = api::fingerprint_from_pem(material.cert_pem);
+    EXPECT_THAT(fp, HasSubstr(":"));
+    EXPECT_NE(fp, api::fingerprint_from_pem(material.ca_pem));
+
+    const auto reused = api::load_or_create_https_certs(temp_dir.path(), {"10.0.0.1"});
+    EXPECT_EQ(reused.cert_pem, material.cert_pem);
+    EXPECT_EQ(reused.ca_pem, material.ca_pem);
+}
+

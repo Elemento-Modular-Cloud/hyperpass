@@ -27,7 +27,7 @@ bool mp::api::is_public_path(std::string_view path)
     // AtomOS Service requires Bearer on / and /version.
     // Probe extras and TLS fingerprint discovery stay public.
     return path == "/healthz" || path == "/readyz" || path == "/fingerprint" ||
-           path == "/api/v1/authenticate/cert";
+           path == "/ca.crt" || path == "/api/v1/authenticate/cert";
 }
 
 bool mp::api::is_openai_inference_path(std::string_view path)

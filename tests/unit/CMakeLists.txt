@@ -104,6 +104,7 @@ add_executable(multipass_cpp_tests
   test_instance_settings_handler.cpp
   test_ip_address.cpp
   test_json_utils.cpp
+  test_llama_server_process_spec.cpp
   test_log.cpp
   test_log_location.cpp
   test_memory_size.cpp

@@ -79,6 +79,7 @@ private:
     void handle_started();
     void run_and_wait_until_finished(const int timeout);
     qint64 pid = 0;
+    qint64 stderr_logged_bytes = 0;
 };
 
 } // namespace multipass

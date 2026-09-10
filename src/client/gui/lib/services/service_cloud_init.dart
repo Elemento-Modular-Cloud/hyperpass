@@ -1,5 +1,6 @@
 import 'package:yaml/yaml.dart';
 
+import 'gateway_ca.dart';
 import 'service_library.dart';
 
 /// Renders a marketplace service directory into a single cloud-config
@@ -13,6 +14,7 @@ import 'service_library.dart';
 String renderServiceCloudInit(
   MarketplaceService service, {
   Map<String, String> variables = const {},
+  String? gatewayCaPem,
 }) {
   final entrypointText = service.sources[service.entrypoint]!;
   final parsed = _toPlain(loadYaml(entrypointText));
@@ -44,7 +46,9 @@ String renderServiceCloudInit(
     config['write_files'] = writeFiles;
   }
 
-  return emitCloudConfig(_ensureRootfsGrowth(config));
+  return emitCloudConfig(
+    _ensureGatewayCa(_ensureRootfsGrowth(config), gatewayCaPem),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +94,63 @@ Map<String, Object?> _ensureRootfsGrowth(Map<String, Object?> config) {
 
 const _rootfsGrowRuncmd =
     r"""/bin/sh -c 'set -eux; src=$(readlink -f "$(findmnt -n -o SOURCE /)"); disk="/dev/$(lsblk -no PKNAME "$src")"; part=$(lsblk -no PARTN "$src"); growpart "$disk" "$part" || true; resize2fs "$src" || true; df -h /'""";
+
+/// Installs the LaunchPad HTTPS CA so guests trust https://192.168.67.1:7777
+/// before marketplace `runcmd` (configure + docker compose) runs.
+Map<String, Object?> _ensureGatewayCa(
+  Map<String, Object?> config,
+  String? gatewayCaPem,
+) {
+  final pem = gatewayCaPem?.trim() ?? '';
+  if (!looksLikePemCertificate(pem)) return config;
+
+  final result = Map<String, Object?>.of(config);
+
+  final writeFiles = _mutableList(result['write_files']);
+  final already = writeFiles.any(
+    (entry) =>
+        entry is Map && entry['path'] == gatewayCaGuestPath,
+  );
+  if (!already) {
+    writeFiles.insert(0, <String, Object?>{
+      'path': gatewayCaGuestPath,
+      'owner': 'root:root',
+      'permissions': '0644',
+      'content': pem.endsWith('\n') ? pem : '$pem\n',
+    });
+    result['write_files'] = writeFiles;
+  }
+
+  final packages = _mutableList(result['packages']);
+  if (!packages.contains('ca-certificates')) {
+    packages.insert(0, 'ca-certificates');
+    result['packages'] = packages;
+  }
+
+  final runcmd = _mutableList(result['runcmd']);
+  if (!_runcmdUpdatesCaCertificates(runcmd)) {
+    runcmd.insert(0, gatewayCaUpdateRuncmd);
+    result['runcmd'] = runcmd;
+  }
+
+  return result;
+}
+
+bool _runcmdUpdatesCaCertificates(List<Object?> runcmd) {
+  for (final entry in runcmd) {
+    if (entry is String && entry.contains('update-ca-certificates')) {
+      return true;
+    }
+    if (entry is List &&
+        entry.any(
+          (part) =>
+              part is String && part.contains('update-ca-certificates'),
+        )) {
+      return true;
+    }
+  }
+  return false;
+}
 
 bool _runcmdGrowsRootfs(List<Object?> runcmd) {
   for (final entry in runcmd) {

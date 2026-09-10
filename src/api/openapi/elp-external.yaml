@@ -203,6 +203,24 @@ paths:
           description: Fingerprint
         "503":
           description: HTTPS disabled
+  /ca.crt:
+    get:
+      summary: Local HTTPS CA (PEM)
+      description: |
+        Returns the PEM CA that signed this process's HTTPS certificate (auto-generated
+        LaunchPad CA), or the served leaf when `--cert` / AtomOS certs are used.
+        Guests install this so service UIs can call `https://192.168.67.1:7777` with
+        verify on. Unauthenticated, same class as `/fingerprint`.
+      security: []
+      responses:
+        "200":
+          description: PEM certificate
+          content:
+            application/x-pem-file:
+              schema:
+                type: string
+        "503":
+          description: HTTPS disabled
   /healthz:
     get:
       summary: Liveness (extra)

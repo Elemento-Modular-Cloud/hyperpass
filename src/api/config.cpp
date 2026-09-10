@@ -16,12 +16,12 @@
  */
 
 #include "config.h"
+#include "https_certs.h"
 #include "tls_fingerprint.h"
 
 #include <multipass/cli/client_common.h>
 #include <multipass/constants.h>
 #include <multipass/format.h>
-#include <multipass/ssl_cert_provider.h>
 #include <multipass/standard_paths.h>
 #include <multipass/utils.h>
 
@@ -176,22 +176,21 @@ void mp::api::prepare_tls(ApiConfig& config)
         }
         config.cert_pem = MP_UTILS.contents_of(QString::fromStdString(config.cert_file));
         config.key_pem = MP_UTILS.contents_of(QString::fromStdString(config.key_file));
+        config.ca_pem = config.cert_pem;
     }
     else if (try_load_atomos_certs(config))
     {
         // Co-located AtomOS install: reuse atomos.crt/key so Electros TOFU pin covers the VM API.
+        config.ca_pem = config.cert_pem;
     }
     else
     {
         const QDir cert_dir{default_https_cert_dir()};
-        if (!cert_dir.exists())
-            QDir().mkpath(cert_dir.path());
-
-        // Empty server name => local self-signed pair under our data dir (do not use
-        // the gRPC daemon root-cert path that a non-empty name would trigger).
-        mp::SSLCertProvider provider{cert_dir.path()};
-        config.cert_pem = provider.PEM_certificate();
-        config.key_pem = provider.PEM_signing_key();
+        const auto hosts = parse_listen_endpoint(config.listen_address).hosts;
+        const auto material = load_or_create_https_certs(cert_dir.path(), hosts);
+        config.cert_pem = material.cert_pem;
+        config.key_pem = material.key_pem;
+        config.ca_pem = material.ca_pem;
     }
 
     config.tls_fingerprint = fingerprint_from_pem(config.cert_pem);

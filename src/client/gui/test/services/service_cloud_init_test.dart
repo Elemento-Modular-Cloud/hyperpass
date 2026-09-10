@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:elp_gui/services/gateway_ca.dart';
 import 'package:elp_gui/services/service_cloud_init.dart';
 import 'package:elp_gui/services/service_library.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -161,6 +162,39 @@ void main() {
 
     expect(env['content'], contains('QDRANT__SERVICE__API_KEY=s3cret'));
     expect(env['content'], isNot(contains('{{api_key}}')));
+  });
+
+  test('injects gateway CA before growpart and marketplace runcmd', () {
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIBdemo\n-----END CERTIFICATE-----\n';
+    final rendered = renderServiceCloudInit(
+      fixtureService(id: 'demo_v1'),
+      gatewayCaPem: pem,
+    );
+    final config = loadYaml(rendered) as YamlMap;
+
+    expect(config['packages'], contains('ca-certificates'));
+    final runcmd = config['runcmd'] as YamlList;
+    expect(runcmd.first, gatewayCaUpdateRuncmd);
+    expect(runcmd[1].toString(), contains('growpart'));
+
+    final writeFiles = config['write_files'] as YamlList;
+    final ca = writeFiles.firstWhere(
+      (entry) => (entry as YamlMap)['path'] == gatewayCaGuestPath,
+    ) as YamlMap;
+    expect(ca['owner'], 'root:root');
+    expect(ca['permissions'], '0644');
+    expect(ca['content'], pem);
+  });
+
+  test('skips gateway CA inject without a PEM', () {
+    final rendered = renderServiceCloudInit(fixtureService(id: 'demo_v1'));
+    final config = loadYaml(rendered) as YamlMap;
+    expect(config['packages'], isNot(contains('ca-certificates')));
+    expect(
+      (config['runcmd'] as YamlList).first.toString(),
+      contains('growpart'),
+    );
+    expect(config['write_files'], isNull);
   });
 
   test('filling every parameter leaves no placeholders behind', () {

@@ -194,6 +194,20 @@ void mp::api::ApiServer::register_routes(httplib::Server& server)
     });
     server.Get("/fingerprint", fingerprint_handler);
 
+    server.Get("/ca.crt", [this](const httplib::Request&, httplib::Response& res) {
+        if (!config.use_https || config.ca_pem.empty())
+        {
+            json::object body;
+            body["error"] = "https_disabled";
+            body["message"] = "CA certificate available only when serving HTTPS (default; disabled via --http)";
+            res.status = 503;
+            res.set_content(json::serialize(body), "application/json");
+            return;
+        }
+        res.status = 200;
+        res.set_content(config.ca_pem, "application/x-pem-file");
+    });
+
     register_service_handlers(server, *elp_backend, *vm_registry);
     register_health_handlers(server, *elp_backend, multipass_backend.get());
     register_instance_handlers(server, *elp_backend, multipass_backend.get());

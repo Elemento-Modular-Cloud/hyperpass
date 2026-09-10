@@ -568,18 +568,18 @@
         "aliases": "tumbleweed, opensuse-tumbleweed, tw",
         "items": {
             "arm64": {
-                "id": "2b609ad876efc924e8ee2bd8eb574a991e2be2799a1c14e142ec2b2a1c803c2b",
+                "id": "2576399b3a1425b600e6a67ba42edbbb2895e755df9ac43423d369ab273c6527",
                 "image_location": "https://download.opensuse.org/ports/aarch64/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.aarch64-Cloud.qcow2",
                 "min_disk": 2147483648,
-                "size": 288490496,
-                "version": "20260806"
+                "size": 289932800,
+                "version": "20260830"
             },
             "x86_64": {
-                "id": "74ae90cadf0e375fb557b0e960f8ff7696802f2fc4bfca7caa09bc537743ceab",
+                "id": "84c8a472f839d9002f2c0494989749437542c17e621258a8c8a345a1e9d96237",
                 "image_location": "https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2",
                 "min_disk": 2147483648,
-                "size": 317006848,
-                "version": "20260821"
+                "size": 319331840,
+                "version": "20260908"
             }
         },
         "os": "openSUSE",

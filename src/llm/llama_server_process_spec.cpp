@@ -18,6 +18,7 @@
 #include "llama_server_process_spec.h"
 
 namespace mp = multipass;
+namespace mpl = multipass::logging;
 
 mp::LlamaServerProcessSpec::LlamaServerProcessSpec(QString program,
                                                    QString model_path,
@@ -56,15 +57,28 @@ QStringList mp::LlamaServerProcessSpec::arguments() const
                      "--alias",
                      openai_id,
                      "--n-gpu-layers",
-                     QString::number(n_gpu_layers)};
+                     QString::number(n_gpu_layers),
+                     "--parallel",
+                     "1"};
     if (max_tokens > 0)
         args << "--n-predict" << QString::number(max_tokens);
     return args;
 }
 
+mpl::Level mp::LlamaServerProcessSpec::error_log_level() const
+{
+    // llama-server writes informational boot logs to stderr.
+    return mpl::Level::debug;
+}
+
 QProcessEnvironment mp::LlamaServerProcessSpec::environment() const
 {
     auto env = ProcessSpec::environment();
+    // Prefer env over CLI flags so older llama-server builds ignore unknown
+    // options instead of refusing to start. b10819 honors these (llama.cpp#25655).
+    env.insert("LLAMA_ARG_CORS_ORIGINS", "localhost");
+    env.insert("LLAMA_ARG_WEBUI", "0");
+    env.insert("LLAMA_ARG_UI", "0");
     if (library_dir.isEmpty())
         return env;
 

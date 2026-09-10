@@ -8,7 +8,7 @@ AtomOS VM surface temporarily on matcher port **7777** (Service/Meson canonical
 | Area | Status |
 |------|--------|
 | Bearer auth (Bruno) | Required on all Service paths (`/`, `/version`, `/api/v1.0/*`); probes `/healthz` `/readyz` and fingerprint paths exempt |
-| HTTPS + AtomOS TLS fingerprint | HTTPS by default (opt out with `--http`); Electros peer-TLS `:7777`; `GET /api/v1/authenticate/cert?host=` dials remote `:7777`/`:7772`; `/fingerprint` returns local cert |
+| HTTPS + AtomOS TLS fingerprint | HTTPS by default (opt out with `--http`); Electros peer-TLS `:7777`; `GET /api/v1/authenticate/cert?host=` dials remote `:7777`/`:7772`; `/fingerprint` returns local leaf; `/ca.crt` returns the CA PEM |
 | `GET /` ping | Implemented (auth required) |
 | `GET /version` | Implemented (auth required) |
 | `GET /api/v1.0/canallocate` | Implemented — remaining ResourcePool RAM in MiB; POST body `req.mem.capacity` / `memory_mib` / `ram` can make `canallocate` false |

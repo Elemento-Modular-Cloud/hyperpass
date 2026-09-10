@@ -52,7 +52,7 @@ OpenAI inference (`sk-elp-` keys only; matcher token is rejected):
 | POST | `/v1/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 | POST | `/v1/embeddings` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 
-Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/api/v1/authenticate/cert`.  
+Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/ca.crt`, `/api/v1/authenticate/cert`.  
 Extra (matcher auth): `/v1/instances`.
 
 ## HTTPS + fingerprint
@@ -70,7 +70,14 @@ curl -k "https://127.0.0.1:7777/api/v1/authenticate/cert?host=172.16.25.197"
 # Local cert convenience:
 ./scripts/run-dev-api.sh --token secret
 curl -k https://127.0.0.1:7777/fingerprint
+curl -k https://127.0.0.1:7777/ca.crt
 ```
+
+Auto-generated HTTPS uses a local CA plus a `serverAuth` leaf with SAN
+`DNS:localhost`, `IP:127.0.0.1`, and `IP:192.168.67.1` (plus any extra `--listen`
+hosts), stored as `ca.pem` / `server.pem` under `…/elp-api/https/`. `/ca.crt`
+returns the CA PEM so LaunchPad VMs can trust `https://192.168.67.1:7777`.
+The Electros fingerprint is still SHA-256 of the **leaf**.
 
 HTTPS is the default so Electros can dial this host's `:7777` TLS the same way it
 does for AtomOS matcher.
@@ -84,10 +91,11 @@ Options:
 | `--cert` / `ELP_API_CERT` | Existing certificate PEM (HTTPS is default) |
 | `--key` / `ELP_API_KEY` | Matching private key PEM |
 
-Providing `--cert`/`--key` uses those PEMs. Otherwise Electros LaunchPad prefers shared
-`/etc/elemento/certs/atomos.{crt,key}` when present, else auto-generates under
-`…/elp-api/https/`. On AtomOS hosts, prefer the shared `atomos.*` pair so one
-Electros TOFU pin covers matcher and Electros LaunchPad.
+Providing `--cert`/`--key` uses those PEMs (`/ca.crt` then returns the leaf).
+Otherwise Electros LaunchPad prefers shared `/etc/elemento/certs/atomos.{crt,key}`
+when present, else auto-generates a CA + server pair under `…/elp-api/https/`.
+On AtomOS hosts, prefer the shared `atomos.*` pair so one Electros TOFU pin
+covers matcher and Electros LaunchPad.
 
 ## Auth
 

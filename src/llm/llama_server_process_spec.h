@@ -40,6 +40,7 @@ public:
     QString program() const override;
     QStringList arguments() const override;
     QProcessEnvironment environment() const override;
+    logging::Level error_log_level() const override;
     QString apparmor_profile() const override;
     QString identifier() const override;
 

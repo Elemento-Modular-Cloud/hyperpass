@@ -16,6 +16,7 @@ import '../vm_details/disk_slider.dart';
 import '../vm_details/mapping_slider.dart';
 import '../vm_details/ram_slider.dart';
 import '../vm_details/spec_input.dart';
+import 'gateway_ca.dart';
 import 'service_branding.dart';
 import 'service_cloud_init.dart';
 import 'service_instance_id.dart';
@@ -213,16 +214,24 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final service = widget.service;
 
     try {
+      final gatewayCaPem = await fetchGatewayCaPem();
       _request.cloudInitUserData = renderServiceCloudInit(
         service,
         variables: _parameters.values,
+        gatewayCaPem: gatewayCaPem,
       );
     } catch (error) {
+      if (!mounted) return;
       setState(() {
-        _error = l10n.serviceDeployFailure(service.displayName, '$error');
+        _error = l10n.serviceDeployFailure(
+          service.displayName,
+          l10n.serviceDeployGatewayCaFailure(gatewayCaUrl, '$error'),
+        );
       });
       return;
     }
+
+    if (!mounted) return;
 
     // Leaving `image` unset launches the daemon's default Ubuntu LTS.
     _request.serviceId = service.id;
@@ -255,7 +264,11 @@ Future<String> saveServiceCloudInit(
 ) async {
   final store = await ref.read(cloudInitStoreProvider.future);
   final name = serviceCloudInitName(service);
-  await store.write(name, renderServiceCloudInit(service));
+  final gatewayCaPem = await fetchGatewayCaPem();
+  await store.write(
+    name,
+    renderServiceCloudInit(service, gatewayCaPem: gatewayCaPem),
+  );
   ref.invalidate(cloudInitConfigsProvider);
   return name;
 }

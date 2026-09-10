@@ -81,14 +81,23 @@ mp::BasicProcess::BasicProcess(std::shared_ptr<mp::ProcessSpec> spec)
     QObject::connect(&process, &QProcess::readyReadStandardError, [this]() {
         // Using readAllStandardError() removes it from buffer for Process consumers, so peek()
         // instead. This copies the implementation of QProcess::readAllStandardError() replacing the
-        // read with peek.
+        // read with peek. Track how much of the unread buffer we already logged so chatty
+        // processes (llama-server) are not re-dumped in full on every readyRead.
         auto original = process.readChannel();
         process.setReadChannel(QProcess::StandardError);
         QByteArray data = process.peek(process.bytesAvailable());
         process.setReadChannel(original);
+        if (data.size() < stderr_logged_bytes)
+            stderr_logged_bytes = 0;
+        if (data.size() <= stderr_logged_bytes)
+            return;
+        const QByteArray delta = data.mid(static_cast<int>(stderr_logged_bytes));
+        stderr_logged_bytes = data.size();
+        if (delta.isEmpty())
+            return;
         mpl::log_message(process_spec->error_log_level(),
                          qUtf8Printable(process_spec->program()),
-                         qUtf8Printable(data));
+                         qUtf8Printable(delta));
     });
 }
 

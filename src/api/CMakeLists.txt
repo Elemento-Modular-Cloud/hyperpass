@@ -20,6 +20,7 @@ add_library(elp_api STATIC
   auth_middleware.cpp
   config.cpp
   grpc_backend.cpp
+  https_certs.cpp
   multipass_discovery.cpp
   operation_tracker.cpp
   server.cpp

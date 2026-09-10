@@ -2384,6 +2384,18 @@
             }
         }
     },
+    "serviceDeployGatewayCaFailure": "Could not fetch the LaunchPad LLM gateway CA from {url} ({error}). Start elp-api with HTTPS and try again.",
+    "@serviceDeployGatewayCaFailure": {
+        "description": "Error when GET /ca.crt fails during service deploy",
+        "placeholders": {
+            "url": {
+                "type": "String"
+            },
+            "error": {
+                "type": "String"
+            }
+        }
+    },
     "serviceInstancesLabel": "Deployments",
     "@serviceInstancesLabel": {
         "description": "Page title for deployed service instances"

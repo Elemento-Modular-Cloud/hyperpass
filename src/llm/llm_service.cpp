@@ -621,6 +621,40 @@ void mp::LlmService::load_model_impl(
     bool& runner_transferred)
 {
     const auto model_id = request->model_id();
+
+    // A second Load of the same model used to spawn another llama-server (new
+    // UUID, new port). Two copies of a GGUF with the default 4 slots is an easy
+    // OOM on a laptop. Reuse the live instance instead.
+    {
+        std::optional<LoadModelReply> reused;
+        {
+            std::lock_guard lock{mutex};
+            for (auto& [_, existing] : sessions)
+            {
+                if (existing.model_id != model_id || !session_is_live(existing))
+                    continue;
+                existing.last_used = std::chrono::steady_clock::now();
+                LoadModelReply reply;
+                reply.set_instance_id(existing.instance_id);
+                reply.set_model_id(existing.model_id);
+                reply.set_openai_id(existing.openai_id);
+                reply.set_port(static_cast<uint32_t>(existing.port));
+                reply.set_memory_claimed(static_cast<uint64_t>(existing.memory.in_bytes()));
+                reply.set_reply_message("already loaded");
+                reused = std::move(reply);
+                break;
+            }
+        }
+        if (reused)
+        {
+            log_lifecycle(reused->instance_id(),
+                          "info",
+                          fmt::format("load reused existing instance for {}", model_id));
+            server->Write(*reused);
+            return;
+        }
+    }
+
     const auto instance_id = mp::utils::make_uuid();
     log_lifecycle(instance_id, "info", fmt::format("load started for {}", model_id));
 
