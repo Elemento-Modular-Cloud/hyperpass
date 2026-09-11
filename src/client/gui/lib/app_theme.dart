@@ -46,14 +46,36 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     dividerColor: isDark ? Colors.white24 : const Color(0xffe0e0e0),
     colorScheme: ColorScheme(
       brightness: brightness,
-      primary: Brand.accent,
+      primary: Brand.primary,
       onPrimary: Brand.voidBlack,
-      secondary: Brand.accentDark,
-      onSecondary: Brand.voidBlack,
-      error: const Color(0xffC7162B),
+      secondary: isDark ? Brand.blackLight : Brand.greyBody,
+      onSecondary: onSurface,
+      error: Brand.destructive,
       onError: Brand.crystalWhite,
       surface: surface,
       onSurface: onSurface,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: isDark
+          ? Brand.voidBlack.withValues(alpha: kModalUnderlayAlpha)
+          : Brand.whiteLight,
+      surfaceTintColor: Colors.transparent,
+      elevation: 16,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Brand.radius),
+        side: BorderSide(color: outline.withValues(alpha: isDark ? 0.35 : 0.2)),
+      ),
+      titleTextStyle: TextStyle(
+        color: onSurface,
+        fontFamily: Brand.fontFamily,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+      ),
+      contentTextStyle: TextStyle(
+        color: onSurface,
+        fontFamily: Brand.fontFamily,
+        fontSize: 14,
+      ),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: surface,
@@ -102,9 +124,9 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
       fillColor: inputFill,
       filled: true,
-      focusedBorder: UnderlineInputBorder(
-        borderSide: BorderSide(width: 2, color: onSurface),
-        borderRadius: BorderRadius.zero,
+      focusedBorder: OutlineInputBorder(
+        borderSide: const BorderSide(width: 2, color: Brand.primary),
+        borderRadius: BorderRadius.circular(Brand.radius),
       ),
       enabledBorder: UnderlineInputBorder(
         borderSide: BorderSide(width: 2, color: onSurface.withAlpha(80)),
@@ -112,6 +134,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
       ),
       isDense: true,
       suffixIconColor: onSurface,
+      focusColor: Brand.primary,
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
@@ -123,18 +146,40 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
         ),
         side: BorderSide(color: outline),
         textStyle: const TextStyle(fontFamily: Brand.fontFamily, fontSize: 16),
+      ).copyWith(
+        side: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.focused)) {
+            return const BorderSide(color: Brand.primary, width: 2);
+          }
+          return BorderSide(color: outline);
+        }),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        backgroundColor: Brand.accent,
-        disabledForegroundColor: Brand.voidBlack.withAlpha(128),
-        foregroundColor: Brand.voidBlack,
-        padding: const EdgeInsets.all(16),
+        foregroundColor: Brand.primary,
+        disabledForegroundColor: onSurface.withAlpha(128),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Brand.radius),
         ),
-        textStyle: const TextStyle(fontFamily: Brand.fontFamily, fontSize: 16),
+        textStyle: const TextStyle(fontFamily: Brand.fontFamily, fontSize: 14),
+      ).copyWith(
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.hovered)) {
+            return Brand.primary.withValues(alpha: 0.10);
+          }
+          if (states.contains(WidgetState.pressed)) {
+            return Brand.primary.withValues(alpha: 0.16);
+          }
+          return Colors.transparent;
+        }),
+        side: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.focused)) {
+            return const BorderSide(color: Brand.primary, width: 2);
+          }
+          return BorderSide.none;
+        }),
       ),
     ),
     textTheme: TextTheme(
@@ -154,7 +199,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     ),
     textSelectionTheme: TextSelectionThemeData(
       cursorColor: onSurface,
-      selectionColor: Brand.accent.withAlpha(100),
+      selectionColor: Brand.primary.withAlpha(100),
     ),
     tabBarTheme: TabBarThemeData(
       indicator: BoxDecoration(
@@ -175,7 +220,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
       tabAlignment: TabAlignment.start,
     ),
     sliderTheme: SliderThemeData(
-      activeTrackColor: Brand.accent,
+      activeTrackColor: Brand.primary,
       inactiveTrackColor:
           isDark ? Colors.white24 : const Color(0xffd9d9d9),
       overlayShape: SliderComponentShape.noThumb,
@@ -187,12 +232,28 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     ),
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return Brand.accent;
+        if (states.contains(WidgetState.selected)) return Brand.primary;
         return Colors.transparent;
       }),
       checkColor: WidgetStateProperty.all(Brand.voidBlack),
-      side: BorderSide(color: onSurface),
+      side: WidgetStateBorderSide.resolveWith((states) {
+        if (states.contains(WidgetState.focused)) {
+          return const BorderSide(color: Brand.primary, width: 2);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return const BorderSide(color: Brand.primary);
+        }
+        return BorderSide(color: onSurface);
+      }),
     ),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return Brand.primary;
+        return onSurface.withValues(alpha: 0.6);
+      }),
+      overlayColor: WidgetStateProperty.all(Brand.primaryMuted),
+    ),
+    focusColor: Brand.primaryMuted,
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       elevation: 0,
@@ -203,7 +264,7 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
         fontSize: 14,
         color: onSurface,
       ),
-      actionTextColor: Brand.accent,
+      actionTextColor: Brand.primary,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Brand.radius),
         side: BorderSide(color: onSurface.withValues(alpha: isDark ? 0.18 : 0.12)),

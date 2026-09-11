@@ -19,6 +19,7 @@ import '../services/services_screen.dart';
 import '../sidebar.dart';
 import '../vm_details/cpu_sparkline.dart';
 import '../vm_table/vm_table_headers.dart';
+import '../widgets/launchpad_button.dart';
 import '../widgets/resource_meter.dart';
 
 enum OverviewRunningTab { all, vms, llms, services }
@@ -260,7 +261,7 @@ class _ServiceCard extends ConsumerWidget {
     final healthColor = switch (health) {
       ServiceHealthState.healthy => Brand.green,
       ServiceHealthState.unhealthy => const Color(0xFFE35D6A),
-      ServiceHealthState.unreachable => Brand.accentDark,
+      ServiceHealthState.unreachable => Brand.critical,
       ServiceHealthState.unknown => onSurface.withValues(alpha: 0.55),
     };
     void openDetails() {
@@ -533,12 +534,12 @@ class _EmptyRunning extends ConsumerWidget {
             runSpacing: 8,
             alignment: WrapAlignment.center,
             children: [
-              TextButton.icon(
+              LaunchPadButton.primary(
                 onPressed: () => ref
                     .read(sidebarKeyProvider.notifier)
                     .set(CatalogueScreen.sidebarKey),
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(l10n.overviewHeroNewVm),
+                icon: Icons.add,
+                child: Text(l10n.overviewHeroNewVm),
               ),
               OutlinedButton(
                 onPressed: () => ref

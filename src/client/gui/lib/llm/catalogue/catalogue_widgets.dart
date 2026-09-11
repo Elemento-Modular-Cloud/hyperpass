@@ -10,6 +10,8 @@ import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 import '../../tooltip.dart';
 import '../../vm_table/table.dart' as vmtable;
+import '../../widgets/card_action_row.dart';
+import '../../widgets/launchpad_button.dart';
 import '../llm_features.dart';
 import '../llm_load.dart';
 import '../providers.dart';
@@ -217,7 +219,6 @@ class _LlmTopPickCardState extends ConsumerState<LlmTopPickCard> {
     final blurb = topPickBlurb(model);
     final params = llmModelParams(model);
     final capabilities = capabilitiesForSuggestion(model);
-    final radius = BorderRadius.circular(Brand.radius);
     final meta = [
       if (branding.displayName.isNotEmpty) branding.displayName,
       if (params.isNotEmpty) params,
@@ -232,8 +233,7 @@ class _LlmTopPickCardState extends ConsumerState<LlmTopPickCard> {
         width: widget.width,
         height: 230,
         child: CatalogueSurface(
-          borderColor: branding.accent
-              .withValues(alpha: _hovered ? 0.75 : 0.35),
+          borderColor: _hovered ? Brand.primary.withValues(alpha: 0.45) : null,
           borderWidth: _hovered ? 1.5 : 1,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -305,65 +305,22 @@ class _LlmTopPickCardState extends ConsumerState<LlmTopPickCard> {
                   ),
                 ),
               ),
-              _TopPickActions(
-                radius: radius,
-                downloadLabel: l10n.modelsDownload,
-                onDownload: () => ref
-                    .read(modelDownloadQueueProvider.notifier)
-                    .enqueueDownload(
-                      model.id,
-                      model.bestQuant,
-                      hfRepo: modelDownloadRepo(model),
-                    ),
+              CardActionRow(
+                actions: [
+                  CardAction(
+                    label: l10n.modelsDownload,
+                    kind: LaunchPadButtonKind.primary,
+                    onTap: () => ref
+                        .read(modelDownloadQueueProvider.notifier)
+                        .enqueueDownload(
+                          model.id,
+                          model.bestQuant,
+                          hfRepo: modelDownloadRepo(model),
+                        ),
+                  ),
+                ],
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopPickActions extends StatelessWidget {
-  const _TopPickActions({
-    required this.radius,
-    required this.onDownload,
-    required this.downloadLabel,
-  });
-
-  final BorderRadius radius;
-  final VoidCallback onDownload;
-  final String downloadLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: Material(
-        color: Brand.accent,
-        borderRadius: BorderRadius.only(
-          bottomLeft: radius.bottomLeft,
-          bottomRight: radius.bottomRight,
-        ),
-        child: InkWell(
-          onTap: onDownload,
-          borderRadius: BorderRadius.only(
-            bottomLeft: radius.bottomLeft,
-            bottomRight: radius.bottomRight,
-          ),
-          child: Center(
-            child: Text(
-              downloadLabel,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: Brand.fontFamily,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Brand.voidBlack,
-              ),
-            ),
           ),
         ),
       ),
@@ -573,7 +530,7 @@ class LlmCatalogTable extends ConsumerWidget {
           children: [
             _CatalogAction(
               label: l10n.modelsDownload,
-              color: scheme.primary,
+              color: Brand.primary,
               onTap: () =>
                   ref.read(modelDownloadQueueProvider.notifier).enqueueDownload(
                         m.id,
@@ -583,7 +540,7 @@ class LlmCatalogTable extends ConsumerWidget {
             ),
             _CatalogAction(
               label: l10n.modelsLoad,
-              color: scheme.primary,
+              color: scheme.onSurface.withValues(alpha: 0.75),
               onTap: () => loadLlmModel(
                     context,
                     ref,

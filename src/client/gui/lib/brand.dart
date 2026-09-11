@@ -13,31 +13,55 @@ abstract final class Brand {
   static final docsUrl = Uri.parse('https://www.elemento.cloud');
   static final installUrl = Uri.parse('https://www.elemento.cloud');
 
-  /// Electros LaunchPad orange accent (`#FF5500`).
-  static const accent = Color(0xFFFF5500);
+  /// LaunchPad orange sampled from [logoAsset] (`rgb(255,122,0)`).
+  static const primary = Color(0xFFFF7A00);
+
+  /// Hover state for primary actions.
+  static const primaryHover = Color(0xFFE56E00);
+
+  /// Pressed / active state for primary actions.
+  static const primaryActive = Color(0xFFCC6200);
+
+  /// Translucent primary for fills, focus glow, and selected chips.
+  static const primaryMuted = Color(0x2EFF7A00);
+
+  /// Alias of [primary] for existing call sites.
+  static const accent = primary;
 
   /// Light tint for active sidebar rows on light theme.
   static const accentLight = Color(0xFFFFCCB3);
 
-  /// Darker accent for hover / pressed CTAs.
-  static const accentDark = Color(0xFFE04C00);
+  /// Alias of [primaryHover] for existing call sites.
+  static const accentDark = primaryHover;
 
-  /// Brand orange — footer chrome (same as [accent]).
-  static const yellow = accent;
+  /// @Deprecated — use [primary]. Kept so footer chrome compiles.
+  static const yellow = primary;
 
   /// Status / online indicator (Electros `--green`).
   static const green = Color(0xFF28A745);
 
+  /// Capacity warning (true yellow — never LaunchPad orange).
+  static const warning = Color(0xFFE8C547);
+
+  /// Information / network / normal utilization.
+  static const info = Color(0xFF6CB6FF);
+
+  /// Critical utilization and error chrome.
+  static const critical = Color(0xFFE35D6A);
+
+  /// Destructive button fill.
+  static const destructive = Color(0xFFC7162B);
+
   /// Fixed palette for host resource split (VMs / AI / services).
   static const workloadVm = Color(0xFF2F9E88);
-  static const workloadAi = accent;
+  static const workloadAi = Color(0xFFC792EA);
   static const workloadService = Color(0xFF7B6CF0);
 
-  /// Lighter orange (Elemento footer hover).
-  static const yellowLight = Color(0xFFFF7733);
+  /// @Deprecated — use [primaryHover].
+  static const yellowLight = primaryHover;
 
-  /// Darker orange for Elemento footer hover.
-  static const yellowDark = accentDark;
+  /// @Deprecated — use [primaryActive].
+  static const yellowDark = primaryActive;
 
   /// Void Black — primary dark field (sidebar).
   static const voidBlack = Color(0xFF16161D);
@@ -63,6 +87,9 @@ abstract final class Brand {
   /// Body text on light surfaces (`--grey-darker`).
   static const greyDarker = Color(0xFF4A4E53);
 
+  /// Dialog barrier over the app chrome.
+  static const barrier = Color(0xCC0A0A10);
+
   /// Corner radius used for buttons, cards, and inputs.
   static const radius = 6.0;
 
@@ -73,22 +100,22 @@ abstract final class Brand {
 
   /// Terminal / log palette matching Electros LaunchPad (not distro themes).
   static TerminalTheme get terminalTheme => const TerminalTheme(
-        cursor: accent,
-        selection: Color(0x66FF5500),
+        cursor: primary,
+        selection: Color(0x66FF7A00),
         foreground: crystalWhite,
         background: voidBlack,
         black: Color(0xFF000000),
-        red: Color(0xFFE35D6A),
+        red: critical,
         green: green,
-        yellow: accent,
-        blue: Color(0xFF6CB6FF),
+        yellow: warning,
+        blue: info,
         magenta: Color(0xFFC792EA),
         cyan: Color(0xFF89DDFF),
         white: crystalWhite,
         brightBlack: greyBody,
         brightRed: Color(0xFFFF7B72),
         brightGreen: Color(0xFF3DD68C),
-        brightYellow: yellowLight,
+        brightYellow: warning,
         brightBlue: Color(0xFF79C0FF),
         brightMagenta: Color(0xFFD2A8FF),
         brightCyan: Color(0xFFA5F3FC),
@@ -174,9 +201,35 @@ class BrandAppName extends StatelessWidget {
 /// is adjusted.
 const double kFlutterOpacityCompensationPercent = 5;
 
-/// Shared underlay alpha for sidebar, cards, and full-page surfaces so they
-/// read at the same opacity over wallpapers.
+/// Surface roles with predictable opacity / elevation.
+enum SurfaceRole {
+  app,
+  sidebar,
+  card,
+  panel,
+  elevated,
+  modal,
+}
+
+/// Shared underlay alpha for atmospheric surfaces (sidebar + catalog cards).
 const double kPanelUnderlayAlpha = 0.52;
+
+/// Underlay alpha for functional page surfaces (instances, settings, logs).
+const double kFunctionalUnderlayAlpha = 0.86;
+
+/// Underlay alpha for menus and dropdowns.
+const double kElevatedUnderlayAlpha = 0.92;
+
+/// Underlay alpha for dialogs.
+const double kModalUnderlayAlpha = 0.94;
+
+double underlayAlphaFor(SurfaceRole role) => switch (role) {
+      SurfaceRole.app => 0,
+      SurfaceRole.sidebar || SurfaceRole.card => kPanelUnderlayAlpha,
+      SurfaceRole.panel => kFunctionalUnderlayAlpha,
+      SurfaceRole.elevated => kElevatedUnderlayAlpha,
+      SurfaceRole.modal => kModalUnderlayAlpha,
+    };
 
 double renderOpacityAlpha(double storedOpacityPercent) {
   return ((storedOpacityPercent + kFlutterOpacityCompensationPercent) / 100)
@@ -294,10 +347,16 @@ class GlassTokens extends ThemeExtension<GlassTokens> {
   /// Glass themes keep an opaque [cardSolid] and need this tint for readability.
   /// Solid (non-glass) mode already encodes opacity in [fill]/[cardSolid], so
   /// no extra underlay is applied.
-  Color? get panelUnderlay {
+  Color? get panelUnderlay => underlayFor(SurfaceRole.card);
+
+  Color? underlayFor(SurfaceRole role) {
     if (cardSolid.a < 1.0) return null;
-    return cardSolid.withValues(alpha: kPanelUnderlayAlpha);
+    final alpha = underlayAlphaFor(role);
+    if (alpha <= 0) return null;
+    return cardSolid.withValues(alpha: alpha);
   }
+
+  Color get modalFill => cardSolid.withValues(alpha: kModalUnderlayAlpha);
 
   /// Apply [kFlutterOpacityCompensationPercent] to semi-transparent tokens.
   GlassTokens withRenderOpacityCompensation() {

@@ -15,6 +15,7 @@ class GlassPanel extends StatelessWidget {
   final BorderRadius? borderRadius;
   final Border? border;
   final Color? baseColor;
+  final SurfaceRole role;
 
   const GlassPanel({
     super.key,
@@ -26,6 +27,7 @@ class GlassPanel extends StatelessWidget {
     this.borderRadius,
     this.border,
     this.baseColor,
+    this.role = SurfaceRole.card,
   });
 
   @override
@@ -35,8 +37,7 @@ class GlassPanel extends StatelessWidget {
     final radius = borderRadius ?? BorderRadius.circular(Brand.radius);
     final edge = border ?? Border.all(color: glass.border);
     final useBlur = blurSigma > 0;
-    // Same underlay for sidebar, cards, and pages unless a caller overrides.
-    final underlay = baseColor ?? glass.panelUnderlay;
+    final underlay = baseColor ?? glass.underlayFor(role);
 
     Widget panel = Stack(
       children: [

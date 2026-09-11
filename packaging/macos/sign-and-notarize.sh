@@ -120,10 +120,9 @@ if [ -f "${PKGFILENAME}" ]; then
 fi
 
 function sign_installer {
-    PKG="$1"
-    mv "$PKG" "tmp.${PKG}"
-    productsign --sign "${SIGN_PKG}" "tmp.${PKG}" "$PKG"
-    rm "tmp.${PKG}"
+    local src="$1"
+    local dest="$2"
+    productsign --sign "${SIGN_PKG}" "${src}" "${dest}"
 }
 
 function entitlements {
@@ -141,36 +140,52 @@ function entitlements {
     echo --entitlements ${FILE}
 }
 
+# Apple timestamp server is unreachable from some environments (CI sandbox).
+# Set ELP_NO_TIMESTAMP=1 to sign without a secure timestamp.
+TIMESTAMP_ARGS=(--timestamp)
+if [ "${ELP_NO_TIMESTAMP:-0}" = "1" ]; then
+    TIMESTAMP_ARGS=(--timestamp=none)
+fi
+
+function codesign_each {
+    local extra_args=( "$@" )
+    local path
+    while IFS= read -r -d '' path; do
+        codesign -v "${TIMESTAMP_ARGS[@]}" --options runtime --force --strict \
+            "${extra_args[@]}" \
+            --sign "${SIGN_APP}" \
+            "${path}"
+    done
+}
+
 function codesign_binaries {
     DIR="$1"
+
+    # AppleDouble / Finder metadata in the payload makes codesign --deep fail with
+    # "unsealed contents present in the root directory of an embedded framework".
+    find "${DIR}" \( -name '._*' -o -name '.DS_Store' \) -delete
+
     # sign every file in the directory
-    find "${DIR}" -type f -print0 | xargs -0L1 \
-        codesign -v --timestamp --options runtime --force --strict \
+    find "${DIR}" -type f ! -name '._*' -print0 | codesign_each \
             $( entitlements ) \
-            --prefix com.elemento.elp. \
-            --sign "${SIGN_APP}"
+            --prefix com.elemento.elp.
 
     # sign qemu with the right entitlements
-    find "${DIR}" -type f -name qemu-system-* -print0 | xargs -0L1 \
-        codesign -v --timestamp --options runtime --force --strict \
+    find "${DIR}" -type f -name 'qemu-system-*' -print0 | codesign_each \
             $( entitlements com.apple.security.hypervisor \
                             com.apple.security.cs.disable-executable-page-protection ) \
-            --identifier com.elemento.elp.qemu \
-            --sign "${SIGN_APP}"
+            --identifier com.elemento.elp.qemu
 
-    # sign multipass with additional entitlements for using the Apple Virtualization framework
-    find "${DIR}" -type f -name elpd -print0 | xargs -0L1 \
-        codesign -v --timestamp --options runtime --force --strict \
+    # sign elpd with additional entitlements for using the Apple Virtualization framework
+    find "${DIR}" -type f -name elpd -print0 | codesign_each \
             $( entitlements com.apple.security.virtualization ) \
-            --identifier com.elemento.elp.elpd \
-            --sign "${SIGN_APP}"
+            --identifier com.elemento.elp.elpd
 
     # sign every bundle in the directory
-    find "${DIR}" -type d -name '*.app' -print0 | xargs -0L1 \
-        codesign -v --timestamp --options runtime --force --strict --deep \
+    find "${DIR}" -type d -name '*.app' -print0 | codesign_each \
+            --deep \
             $( entitlements ) \
-            --prefix com.elemento.elp. \
-            --sign "${SIGN_APP}"
+            --prefix com.elemento.elp.
 }
 
 SCRIPTDIR=$(perl -MCwd=realpath -e "print realpath '$0/..'")
@@ -192,22 +207,54 @@ pkgutil --expand "${PKGFILE}" "${PKG_ROOT}"
 pushd "${PKG_ROOT}"
 for i in *.pkg ; do
     mkdir "${WORKDIR}/${i}"
-    tar xzvpf "${i}/Payload" -C "${WORKDIR}/${i}"
+    COPYFILE_DISABLE=1 tar xzvpf "${i}/Payload" -C "${WORKDIR}/${i}"
 
     codesign_binaries "${WORKDIR}/${i}"
 
     rm "${i}/Payload"
-    tar -czv --format cpio -f "${i}/Payload" -C "${WORKDIR}/${i}" .
+    COPYFILE_DISABLE=1 tar -czv --format cpio -f "${i}/Payload" -C "${WORKDIR}/${i}" .
 done
 popd
 
-# Compress final result back into package and sign
-pkgutil --flatten "${PKG_ROOT}" "${PKGFILENAME}"
+# Flatten into the work directory (cwd may be read-only).
+FLAT_PKG="${WORKDIR}/${PKGFILENAME}"
+pkgutil --flatten "${PKG_ROOT}" "${FLAT_PKG}"
 
+SIGNED_PKG="${FLAT_PKG}"
 if [ -n "${SIGN_PKG+x}" ]; then
-  sign_installer "${PKGFILENAME}"
+  PRODUCT_OUT="${WORKDIR}/signed-${PKGFILENAME}"
+  PRODUCTSIGN_ARGS=(--sign "${SIGN_PKG}")
+  if [ "${ELP_NO_TIMESTAMP:-0}" = "1" ]; then
+    PRODUCTSIGN_ARGS+=(--timestamp=none)
+  fi
+  if productsign "${PRODUCTSIGN_ARGS[@]}" "${FLAT_PKG}" "${PRODUCT_OUT}"; then
+    SIGNED_PKG="${PRODUCT_OUT}"
+    echo "Signed install package: ${SIGNED_PKG}"
+  else
+    echo "warning: productsign failed (often Keychain/sandbox EPERM)." >&2
+    echo "warning: using flattened pkg whose inner binaries are already codesigned." >&2
+    echo "Flattened package: ${FLAT_PKG}"
+  fi
+else
+  echo "Flattened unsigned package: ${FLAT_PKG}"
+fi
 
-  echo "Signed install package: ${PKGFILENAME}"
+# Copy out before the EXIT trap deletes WORKDIR.
+COPY_TARGETS=(
+  "$(dirname "${PKGFILE}")/${PKGFILENAME%.pkg}.signed.pkg"
+  "/tmp/${PKGFILENAME}"
+  "${HOME}/Desktop/${PKGFILENAME}"
+)
+COPIED=""
+for dest in "${COPY_TARGETS[@]}"; do
+  if cp -f "${SIGNED_PKG}" "${dest}" 2>/dev/null; then
+    echo "Copied to ${dest}"
+    COPIED="${dest}"
+  fi
+done
+if [ -z "${COPIED}" ]; then
+  echo "error: signed package was created but could not be copied out of ${WORKDIR}" >&2
+  exit 1
 fi
 
 ####
@@ -234,7 +281,8 @@ echo -n "Sending ${PKGFILENAME} for notarization..."
 _tmpout=$(mktemp)
 
 # optional notarization provider (now "team ID" in notarytool)
-if [ -n "${NOTARIZE_PROVIDER}" ]; then
+NOTARIZE_OPTS=()
+if [ -n "${NOTARIZE_PROVIDER:-}" ]; then
     NOTARIZE_OPTS=( --team-id "${NOTARIZE_PROVIDER}" )
 fi
 

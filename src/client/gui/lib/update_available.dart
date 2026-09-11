@@ -11,6 +11,7 @@ import 'notifications/notifications_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'platform/platform.dart';
 import 'providers.dart';
+import 'widgets/launchpad_button.dart';
 
 class UpdateNotifier extends Notifier<UpdateInfo> {
   @override
@@ -99,8 +100,9 @@ class UpdateAvailable extends StatelessWidget {
       style: const TextStyle(fontSize: 16),
     );
 
-    final button = TextButton(
+    final button = LaunchPadButton.primary(
       onPressed: launchInstallUrl,
+      compact: true,
       child: Text(l10n.updateAvailableUpgrade),
     );
 
@@ -143,12 +145,13 @@ class UpdateAvailableNotification extends StatelessWidget {
             style: const TextStyle(fontSize: 16),
           ),
           const SizedBox(height: 12),
-          TextButton(
+          LaunchPadButton.primary(
             onPressed: () async {
               await launchInstallUrl();
               if (!context.mounted) return;
               closeNotification(context);
             },
+            compact: true,
             child: Text(l10n.updateAvailableUpgrade,
                 style: const TextStyle(fontSize: 14)),
           ),

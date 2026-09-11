@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../brand.dart';
 import '../widgets/resource_meter.dart';
 
 class MemoryUsage extends StatelessWidget {
@@ -10,7 +11,7 @@ class MemoryUsage extends StatelessWidget {
 
   static Color get normalColor => ResourceMeter.fillFor(0);
   static Color get almostFullColor => ResourceMeter.fillFor(0.85);
-  static const backgroundColor = Color(0x3dFF5500);
+  static Color get backgroundColor => Brand.primaryMuted;
 
   @override
   Widget build(BuildContext context) {

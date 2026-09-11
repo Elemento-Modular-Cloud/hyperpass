@@ -7,6 +7,7 @@ import '../../catalogue/catalogue_surface.dart';
 import '../../copyable_text.dart';
 import '../../l10n/app_localizations.dart';
 import '../../page_surface.dart';
+import '../../widgets/launchpad_button.dart';
 import '../../providers.dart';
 import '../llm_id.dart';
 import '../providers.dart';
@@ -24,6 +25,7 @@ class LlmCredentialsScreen extends ConsumerWidget {
 
     final draft = await showDialog<_KeyDraft>(
       context: context,
+      barrierColor: Brand.barrier,
       builder: (ctx) => _KeyEditorDialog(
         title: l10n.modelsCreateKey,
         confirmLabel: l10n.modelsCreateKey,
@@ -40,8 +42,9 @@ class LlmCredentialsScreen extends ConsumerWidget {
           );
       if (!context.mounted) return;
       await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
+      context: context,
+      barrierColor: Brand.barrier,
+      builder: (ctx) => AlertDialog(
           title: Text(l10n.modelsKeyCreatedTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -86,6 +89,7 @@ class LlmCredentialsScreen extends ConsumerWidget {
 
     final draft = await showDialog<_KeyDraft>(
       context: context,
+      barrierColor: Brand.barrier,
       builder: (ctx) => _KeyEditorDialog(
         title: l10n.modelsKeyEditTitle,
         confirmLabel: l10n.commonSave,
@@ -178,8 +182,9 @@ class LlmCredentialsScreen extends ConsumerWidget {
             _SectionCard(
               title: l10n.modelsKeysHeading,
               subtitle: l10n.modelsKeysIntro,
-              trailing: TextButton(
+              trailing: LaunchPadButton.primary(
                 onPressed: () => _createKey(context, ref),
+                compact: true,
                 child: Text(l10n.modelsCreateKey),
               ),
               child: keys.when(
@@ -421,12 +426,14 @@ class _ApiKeyCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                TextButton(
+                LaunchPadButton.secondary(
                   onPressed: onEdit,
+                  compact: true,
                   child: Text(l10n.modelsKeyEditAccess),
                 ),
-                TextButton(
+                LaunchPadButton.destructive(
                   onPressed: onRevoke,
+                  compact: true,
                   child: Text(l10n.modelsRevokeKey),
                 ),
               ],
@@ -465,13 +472,11 @@ class _ScopeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: emphasized
-            ? Brand.accent.withValues(alpha: 0.16)
-            : onSurface.withValues(alpha: 0.06),
+        color: emphasized ? Brand.primaryMuted : onSurface.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: emphasized
-              ? Brand.accent.withValues(alpha: 0.45)
+              ? Brand.primary.withValues(alpha: 0.45)
               : onSurface.withValues(alpha: 0.14),
         ),
       ),
@@ -480,7 +485,7 @@ class _ScopeChip extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
-          color: emphasized ? Brand.accent : onSurface.withValues(alpha: 0.8),
+          color: emphasized ? Brand.primary : onSurface.withValues(alpha: 0.8),
         ),
       ),
     );
@@ -660,11 +665,11 @@ class _KeyEditorDialogState extends State<_KeyEditorDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        LaunchPadButton.secondary(
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.commonCancel),
         ),
-        TextButton(
+        LaunchPadButton.primary(
           onPressed: !_canSave
               ? null
               : () => Navigator.pop(
@@ -736,8 +741,9 @@ class _HfTokenFieldState extends ConsumerState<_HfTokenField> {
           ),
         ),
         const SizedBox(width: 8),
-        TextButton(
+        LaunchPadButton.primary(
           onPressed: _dirty ? _save : null,
+          compact: true,
           child: Text(AppLocalizations.of(context)!.commonSave),
         ),
       ],

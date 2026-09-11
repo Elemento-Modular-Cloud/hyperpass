@@ -72,9 +72,30 @@ List<String> electrosLocalStorageDirs() {
   ];
 }
 
-/// Newest mtime among Electros Local Storage leveldb files.
-DateTime? electrosLocalStorageModified() {
-  DateTime? newest;
+const _maxLevelDbScanBytes = 8 * 1024 * 1024;
+const _jsonWindowBytes = 8 * 1024;
+
+const _asciiWallpaperType = <int>[
+  0x22, 0x77, 0x61, 0x6c, 0x6c, 0x70, 0x61, 0x70, 0x65, 0x72,
+  0x54, 0x79, 0x70, 0x65, 0x22,
+];
+
+final _utf16LeWallpaperType = [
+  for (final b in _asciiWallpaperType) ...[b, 0x00],
+];
+
+String? _cachedLevelDbFingerprint;
+ElectrosAppearanceSnapshot? _cachedLevelDbSnapshot;
+
+class _LevelDbFile {
+  _LevelDbFile(this.file, this.modified, this.size);
+  final File file;
+  final DateTime modified;
+  final int size;
+}
+
+List<_LevelDbFile> _listLevelDbFiles() {
+  final files = <_LevelDbFile>[];
   for (final dirPath in electrosLocalStorageDirs()) {
     final dir = Directory(dirPath);
     if (!dir.existsSync()) continue;
@@ -82,10 +103,27 @@ DateTime? electrosLocalStorageModified() {
       if (entity is! File) continue;
       final name = entity.uri.pathSegments.last;
       if (!name.endsWith('.log') && !name.endsWith('.ldb')) continue;
-      final modified = entity.statSync().modified;
-      if (newest == null || modified.isAfter(newest)) {
-        newest = modified;
-      }
+      final stat = entity.statSync();
+      files.add(_LevelDbFile(entity, stat.modified, stat.size));
+    }
+  }
+  return files;
+}
+
+String _levelDbFingerprint(List<_LevelDbFile> files) {
+  final parts = [
+    for (final f in files)
+      '${f.file.path}:${f.modified.millisecondsSinceEpoch}:${f.size}',
+  ]..sort();
+  return parts.join('|');
+}
+
+/// Newest mtime among Electros Local Storage leveldb files.
+DateTime? electrosLocalStorageModified() {
+  DateTime? newest;
+  for (final file in _listLevelDbFiles()) {
+    if (newest == null || file.modified.isAfter(newest)) {
+      newest = file.modified;
     }
   }
   return newest;
@@ -93,81 +131,137 @@ DateTime? electrosLocalStorageModified() {
 
 /// Reads Electros `AppearanceHandler` JSON from Chromium/Electron Local Storage.
 ElectrosAppearanceSnapshot? readElectrosAppearanceFromLocalStorage() {
+  final files = _listLevelDbFiles();
+  final fingerprint = _levelDbFingerprint(files);
+  if (fingerprint == _cachedLevelDbFingerprint) {
+    return _cachedLevelDbSnapshot;
+  }
+
   AppearanceSettingsJson? best;
   var bestScore = -1;
   DateTime? bestModified;
 
-  for (final dirPath in electrosLocalStorageDirs()) {
-    final dir = Directory(dirPath);
-    if (!dir.existsSync()) continue;
-
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) {
-          final name = f.uri.pathSegments.last;
-          return name.endsWith('.log') || name.endsWith('.ldb');
-        })
-        .toList()
-      ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
-
-    for (final file in files) {
-      final found = _scanLevelDbFile(file);
-      for (final entry in found) {
-        if (entry.score >= bestScore) {
-          bestScore = entry.score;
-          best = entry.json;
-          bestModified = file.statSync().modified;
-        }
+  files.sort((a, b) => b.modified.compareTo(a.modified));
+  for (final file in files) {
+    if (file.size <= 0 || file.size > _maxLevelDbScanBytes) continue;
+    final found = scanLevelDbAppearanceBytes(file.file.readAsBytesSync());
+    final ageScore = file.modified.millisecondsSinceEpoch ~/ 1000000;
+    for (final json in found) {
+      final score = json.keys.length * 10 +
+          (json['wallpaper'] != null ? 5 : 0) +
+          (json['cardColour'] != null ? 3 : 0) +
+          ageScore;
+      if (score >= bestScore) {
+        bestScore = score;
+        best = json;
+        bestModified = file.modified;
       }
     }
   }
 
-  if (best == null) return null;
-  return ElectrosAppearanceSnapshot(
-    json: best,
-    modified: bestModified ?? DateTime.fromMillisecondsSinceEpoch(0),
-  );
+  final snapshot = best == null
+      ? null
+      : ElectrosAppearanceSnapshot(
+          json: best,
+          modified: bestModified ?? DateTime.fromMillisecondsSinceEpoch(0),
+        );
+  _cachedLevelDbFingerprint = fingerprint;
+  _cachedLevelDbSnapshot = snapshot;
+  return snapshot;
 }
 
-class _ScannedAppearance {
-  _ScannedAppearance(this.json, this.score);
-  final AppearanceSettingsJson json;
-  final int score;
+/// Finds non-nested `{"wallpaperType":...}` records in LevelDB bytes.
+List<AppearanceSettingsJson> scanLevelDbAppearanceBytes(List<int> bytes) {
+  final results = <AppearanceSettingsJson>[];
+  _collectAppearanceJson(bytes, _asciiWallpaperType, 1, results);
+  _collectAppearanceJson(bytes, _utf16LeWallpaperType, 2, results);
+  return results;
 }
 
-List<_ScannedAppearance> _scanLevelDbFile(File file) {
-  final bytes = file.readAsBytesSync();
-  final texts = <String>[
-    utf8.decode(bytes, allowMalformed: true),
-    _decodeUtf16Le(bytes),
-  ];
-
-  final results = <_ScannedAppearance>[];
-  final pattern = RegExp(r'\{[^{}]*"wallpaperType"[^{}]*\}');
-  for (final text in texts) {
-    for (final match in pattern.allMatches(text)) {
+void _collectAppearanceJson(
+  List<int> bytes,
+  List<int> needle,
+  int stride,
+  List<AppearanceSettingsJson> results,
+) {
+  var start = 0;
+  while (true) {
+    final hit = _indexOfBytes(bytes, needle, start);
+    if (hit < 0) break;
+    final window = _jsonWindow(bytes, hit, stride);
+    if (window != null) {
       try {
-        final json = jsonDecode(match.group(0)!) as Map<String, dynamic>;
-        if (!json.containsKey('wallpaperType')) continue;
-        // Prefer more complete records (cardColour, wallpaper path, etc.).
-        final score = json.keys.length * 10 +
-            (json['wallpaper'] != null ? 5 : 0) +
-            (json['cardColour'] != null ? 3 : 0) +
-            file.statSync().modified.millisecondsSinceEpoch ~/ 1000000;
-        results.add(_ScannedAppearance(json, score));
+        final text = stride == 2
+            ? _decodeUtf16Le(window)
+            : utf8.decode(window, allowMalformed: true);
+        final decoded = jsonDecode(text);
+        if (decoded is Map<String, dynamic> &&
+            decoded.containsKey('wallpaperType')) {
+          results.add(decoded);
+        }
       } catch (_) {
         // Ignore truncated LevelDB fragments.
       }
     }
+    start = hit + needle.length;
   }
-  return results;
+}
+
+int _indexOfBytes(List<int> haystack, List<int> needle, int start) {
+  if (needle.isEmpty || start > haystack.length - needle.length) return -1;
+  final first = needle[0];
+  final lastIndex = haystack.length - needle.length;
+  for (var i = start; i <= lastIndex; i++) {
+    if (haystack[i] != first) continue;
+    var matched = true;
+    for (var j = 1; j < needle.length; j++) {
+      if (haystack[i + j] != needle[j]) {
+        matched = false;
+        break;
+      }
+    }
+    if (matched) return i;
+  }
+  return -1;
+}
+
+List<int>? _jsonWindow(List<int> bytes, int needleAt, int stride) {
+  final open = stride == 2 ? const [0x7b, 0x00] : const [0x7b];
+  final close = stride == 2 ? const [0x7d, 0x00] : const [0x7d];
+  final minStart = needleAt > _jsonWindowBytes ? needleAt - _jsonWindowBytes : 0;
+
+  var openAt = -1;
+  for (var i = needleAt; i >= minStart; i -= stride) {
+    if (_bytesEqualAt(bytes, i, close)) return null;
+    if (_bytesEqualAt(bytes, i, open)) {
+      openAt = i;
+      break;
+    }
+  }
+  if (openAt < 0) return null;
+
+  final maxEnd = (openAt + _jsonWindowBytes).clamp(0, bytes.length);
+  for (var i = needleAt; i < maxEnd; i += stride) {
+    if (_bytesEqualAt(bytes, i, open) && i != openAt) return null;
+    if (_bytesEqualAt(bytes, i, close)) {
+      return bytes.sublist(openAt, i + stride);
+    }
+  }
+  return null;
+}
+
+bool _bytesEqualAt(List<int> haystack, int index, List<int> needle) {
+  if (index < 0 || index + needle.length > haystack.length) return false;
+  for (var i = 0; i < needle.length; i++) {
+    if (haystack[index + i] != needle[i]) return false;
+  }
+  return true;
 }
 
 String _decodeUtf16Le(List<int> bytes) {
-  final codeUnits = <int>[];
+  final codeUnits = List<int>.filled(bytes.length ~/ 2, 0);
   for (var i = 0; i + 1 < bytes.length; i += 2) {
-    codeUnits.add(bytes[i] | (bytes[i + 1] << 8));
+    codeUnits[i >> 1] = bytes[i] | (bytes[i + 1] << 8);
   }
   return String.fromCharCodes(codeUnits);
 }

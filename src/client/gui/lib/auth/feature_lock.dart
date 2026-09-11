@@ -46,8 +46,8 @@ void promptFeatureLocked(BuildContext context, WidgetRef ref) {
             },
             style: TextButton.styleFrom(
               backgroundColor: Colors.transparent,
-              foregroundColor: Brand.accent,
-              disabledForegroundColor: Brand.accent.withValues(alpha: 0.45),
+              foregroundColor: Brand.primary,
+              disabledForegroundColor: Brand.primary.withValues(alpha: 0.45),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,

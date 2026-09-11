@@ -127,5 +127,27 @@ void main() {
       expect(tokens.refreshToken, 'refresh-2');
       client.close();
     });
+
+    test('throws when the portal does not respond in time', () async {
+      final client = PortalAuthClient(
+        requestTimeout: const Duration(milliseconds: 20),
+        httpClient: MockClient((request) async {
+          await Future<void>.delayed(const Duration(seconds: 2));
+          return http.Response('{}', 200);
+        }),
+      );
+
+      expect(
+        () => client.refresh('r1'),
+        throwsA(
+          isA<PortalAuthException>().having(
+            (e) => e.message,
+            'message',
+            'Portal refresh timed out.',
+          ),
+        ),
+      );
+      client.close();
+    });
   });
 }

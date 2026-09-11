@@ -166,14 +166,14 @@ class _ActionCard extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Brand.accent.withValues(alpha: 0.14),
+                      color: Brand.primaryMuted,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Brand.accent.withValues(alpha: 0.35),
+                        color: Brand.primary.withValues(alpha: 0.35),
                       ),
                     ),
                     child: Center(
-                      child: FaIcon(icon, size: 22, color: Brand.accent),
+                      child: FaIcon(icon, size: 22, color: Brand.primary),
                     ),
                   ),
                   const Spacer(),
@@ -316,23 +316,22 @@ class _FooterButtonState extends State<_FooterButton> {
     Color foreground;
     if (filled) {
       background = _pressed
-          ? Brand.accent.withValues(alpha: 0.82)
+          ? Brand.primary.withValues(alpha: 0.82)
           : _hovered
-              ? Brand.accent.withValues(alpha: 0.92)
-              : Brand.accent;
+              ? Brand.primary.withValues(alpha: 0.92)
+              : Brand.primary;
       foreground = Brand.voidBlack;
     } else {
       background = _pressed
-          ? Brand.accent.withValues(alpha: 0.18)
+          ? Brand.primary.withValues(alpha: 0.18)
           : _hovered
-              ? Brand.accent.withValues(alpha: 0.10)
+              ? Brand.primary.withValues(alpha: 0.10)
               : Colors.transparent;
-      foreground = Brand.accent;
+      foreground = Brand.primary;
     }
 
     return MouseRegion(
-      cursor:
-          enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
       onExit: enabled
           ? (_) => setState(() {
@@ -356,7 +355,7 @@ class _FooterButtonState extends State<_FooterButton> {
               top: widget.topBorder
                   ? BorderSide(
                       color: widget.outlined
-                          ? Brand.accent.withValues(alpha: 0.55)
+                          ? Brand.primary.withValues(alpha: 0.55)
                           : widget.dividerColor,
                     )
                   : BorderSide.none,

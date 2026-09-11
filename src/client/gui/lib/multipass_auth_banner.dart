@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'brand.dart';
 import 'l10n/app_localizations.dart';
+import 'widgets/launchpad_button.dart';
 import 'providers.dart';
 
 /// Banner shown when Multipass is reachable but the GUI client cert is not trusted.
@@ -11,6 +13,7 @@ class MultipassAuthBanner extends ConsumerWidget {
   static Future<void> showAuthDialog(BuildContext context) {
     return showDialog(
       context: context,
+      barrierColor: Brand.barrier,
       builder: (_) => const MultipassAuthDialog(),
     );
   }
@@ -109,11 +112,11 @@ class _MultipassAuthDialogState extends ConsumerState<MultipassAuthDialog> {
         ],
       ),
       actions: [
-        TextButton(
+        LaunchPadButton.secondary(
           onPressed: _busy ? null : () => Navigator.of(context).pop(),
           child: Text(l10n.commonCancel),
         ),
-        TextButton(
+        LaunchPadButton.primary(
           onPressed: _busy ? null : _authenticate,
           child: _busy
               ? const SizedBox(

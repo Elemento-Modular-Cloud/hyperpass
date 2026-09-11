@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../notifications/notifications_provider.dart';
 import '../platform/platform.dart';
 import '../providers.dart';
+import '../widgets/launchpad_button.dart';
 import 'mount_points.dart';
 import 'vm_details.dart';
 
@@ -49,7 +50,7 @@ class _MountDetailsState extends ConsumerState<MountDetails> {
       onSaved: doMount,
     );
 
-    final saveButton = TextButton(
+    final saveButton = LaunchPadButton.primary(
       onPressed: () {
         if (!(formKey.currentState?.validate() ?? false)) return;
         formKey.currentState?.save();

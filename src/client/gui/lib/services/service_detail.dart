@@ -6,6 +6,7 @@ import '../catalogue/catalogue_surface.dart';
 import '../catalogue/launch_form.dart' show formatDiskSize;
 import '../l10n/app_localizations.dart';
 import '../page_surface.dart';
+import '../widgets/launchpad_button.dart';
 import 'service_branding.dart';
 import 'service_cloud_init.dart';
 import 'service_deploy.dart';
@@ -240,7 +241,7 @@ class _ActionRow extends ConsumerWidget {
       spacing: 12,
       runSpacing: 8,
       children: [
-        TextButton(
+        LaunchPadButton.primary(
           onPressed: () => showServiceDeployDialog(context, service),
           child: Text(l10n.serviceDeployAction),
         ),

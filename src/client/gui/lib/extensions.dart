@@ -102,9 +102,9 @@ extension TextSpanExt on TextSpan {
       text: text,
       children: children,
       style: (style ?? noStyle).copyWith(
-        color: hovered ? Brand.accentDark : Brand.accent,
+        color: hovered ? Brand.primaryHover : Brand.primary,
         decoration: hovered ? TextDecoration.underline : null,
-        decorationColor: Brand.accent,
+        decorationColor: Brand.primary,
       ),
       recognizer: TapGestureRecognizer()..onTap = callback,
       onEnter: (_) => ref.read(_hoveredLinkProvider.notifier).set(this),

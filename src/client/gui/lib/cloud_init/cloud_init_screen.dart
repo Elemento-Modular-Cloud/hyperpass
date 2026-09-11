@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../confirmation_dialog.dart';
 import '../l10n/app_localizations.dart';
 import '../page_surface.dart';
+import '../widgets/launchpad_button.dart';
 import 'cloud_init_store.dart';
 import 'yaml_highlight_controller.dart';
 
@@ -266,7 +267,7 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(l10n.commonCancel),
             ),
-            TextButton(
+            LaunchPadButton.primary(
               onPressed: () {
                 if (!(formKey.currentState?.validate() ?? false)) return;
                 Navigator.pop(dialogContext, controller.text.trim());

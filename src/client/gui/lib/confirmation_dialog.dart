@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'widgets/launchpad_button.dart';
+
 class ConfirmationDialog extends StatelessWidget {
   final String title;
   final Widget body;
@@ -56,10 +58,12 @@ class ConfirmationDialog extends StatelessWidget {
         ],
       ),
       actions: [
-        OutlinedButton(onPressed: onInaction, child: Text(inactionText)),
-        TextButton(
+        LaunchPadButton.secondary(
+          onPressed: onInaction,
+          child: Text(inactionText),
+        ),
+        LaunchPadButton.destructive(
           onPressed: onAction,
-          style: TextButton.styleFrom(backgroundColor: const Color(0xffC7162B)),
           child: Text(actionText),
         ),
       ],

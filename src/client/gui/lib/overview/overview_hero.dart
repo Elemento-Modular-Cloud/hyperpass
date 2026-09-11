@@ -14,6 +14,7 @@ import '../services/service_instances_screen.dart';
 import '../services/services_screen.dart';
 import '../sidebar.dart';
 import '../vm_table/vm_table_screen.dart';
+import '../widgets/launchpad_button.dart';
 
 class OverviewHero extends ConsumerWidget {
   const OverviewHero({super.key});
@@ -104,12 +105,12 @@ class OverviewHero extends ConsumerWidget {
                             spacing: 10,
                             runSpacing: 10,
                             children: [
-                              TextButton.icon(
+                              LaunchPadButton.primary(
                                 onPressed: () => ref
                                     .read(sidebarKeyProvider.notifier)
                                     .set(CatalogueScreen.sidebarKey),
-                                icon: const Icon(Icons.add, size: 16),
-                                label: Text(l10n.overviewHeroNewVm),
+                                icon: Icons.add,
+                                child: Text(l10n.overviewHeroNewVm),
                               ),
                               Opacity(
                                 opacity: access.canUseLlms ? 1 : 0.45,

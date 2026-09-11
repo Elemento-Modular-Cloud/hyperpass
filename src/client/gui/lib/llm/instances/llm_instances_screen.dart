@@ -7,6 +7,7 @@ import '../../providers.dart';
 import '../../sidebar.dart';
 import '../../vm_table/search_box.dart';
 import '../../vm_table/table.dart' as vmtable;
+import '../../widgets/launchpad_button.dart';
 import '../../widgets/running_list_header.dart';
 import '../catalogue/llm_catalogue_screen.dart';
 import '../host_resource_gauges.dart';
@@ -37,7 +38,7 @@ class LlmInstancesScreen extends ConsumerWidget {
             RunningListHeader(
               title: l10n.llmInstancesLabel,
               subtitle: l10n.llmInstancesSubtitle,
-              action: TextButton(
+              action: LaunchPadButton.primary(
                 onPressed: () => ref
                     .read(sidebarKeyProvider.notifier)
                     .set(LlmDownloadedScreen.sidebarKey),

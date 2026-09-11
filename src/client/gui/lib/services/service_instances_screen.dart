@@ -8,6 +8,7 @@ import '../sidebar.dart';
 import '../vm_table/search_box.dart';
 import '../vm_table/table.dart' as vmtable;
 import '../llm/host_resource_gauges.dart';
+import '../widgets/launchpad_button.dart';
 import '../widgets/running_list_header.dart';
 import 'service_bulk_actions.dart';
 import 'service_instance_headers.dart';
@@ -43,7 +44,7 @@ class ServiceInstancesScreen extends ConsumerWidget {
             RunningListHeader(
               title: l10n.serviceInstancesLabel,
               subtitle: l10n.serviceInstancesSubtitle,
-              action: TextButton(
+              action: LaunchPadButton.primary(
                 onPressed: () => ref
                     .read(sidebarKeyProvider.notifier)
                     .set(ServicesScreen.sidebarKey),

@@ -26,43 +26,59 @@ class PortalAuthException implements Exception {
 
 /// Direct Elemento Portal auth (userpass + refresh). No local auth daemon.
 class PortalAuthClient {
-  PortalAuthClient({http.Client? httpClient})
+  PortalAuthClient({http.Client? httpClient, Duration? requestTimeout})
       : _client = httpClient ?? http.Client(),
-        _ownsClient = httpClient == null;
+        _ownsClient = httpClient == null,
+        requestTimeout = requestTimeout ?? defaultRequestTimeout;
+
+  static const defaultRequestTimeout = Duration(seconds: 8);
 
   final http.Client _client;
   final bool _ownsClient;
+  final Duration requestTimeout;
 
   void close() {
     if (_ownsClient) _client.close();
+  }
+
+  Future<http.Response> _post(Uri url, Object body, String action) {
+    return _client
+        .post(
+          url,
+          headers: const {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(
+          requestTimeout,
+          onTimeout: () => throw PortalAuthException(
+            'Portal $action timed out.',
+          ),
+        );
   }
 
   Future<PortalAuthTokens> login({
     required String username,
     required String password,
   }) async {
-    final response = await _client.post(
+    final response = await _post(
       PortalConfig.userpassUrl,
-      headers: const {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
+      {
         'username': username,
         'password': password,
-      }),
+      },
+      'login',
     );
     return _parseTokenResponse(response, action: 'login');
   }
 
   Future<PortalAuthTokens> refresh(String refreshToken) async {
-    final response = await _client.post(
+    final response = await _post(
       PortalConfig.refreshUrl,
-      headers: const {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({'refresh_token': refreshToken}),
+      {'refresh_token': refreshToken},
+      'refresh',
     );
     return _parseTokenResponse(response, action: 'refresh');
   }

@@ -6,6 +6,7 @@ import '../notifications.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../tooltip.dart';
+import '../widgets/launchpad_button.dart';
 import 'vm_details.dart';
 
 class BridgedDetails extends ConsumerStatefulWidget {
@@ -87,7 +88,7 @@ class _BridgedDetailsState extends ConsumerState<BridgedDetails> {
       },
     );
 
-    final saveButton = TextButton(
+    final saveButton = LaunchPadButton.primary(
       onPressed: () {
         formKey.currentState?.save();
         setState(() => editing = false);

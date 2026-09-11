@@ -174,7 +174,7 @@ abstract final class _SidebarStyle {
       };
 
   static Color sectionColor(AppearanceTheme theme) =>
-      foreground(theme).withAlpha(140);
+      foreground(theme).withValues(alpha: 0.78);
 }
 
 class SidebarSectionHeader extends ConsumerWidget {
@@ -489,7 +489,7 @@ class SideBar extends ConsumerWidget {
                 width: _SidebarStyle.footerLogoSize,
                 height: _SidebarStyle.footerLogoSize,
                 colorFilter: const ColorFilter.mode(
-                  Brand.yellow,
+                  Brand.primary,
                   BlendMode.srcIn,
                 ),
               ),
@@ -497,7 +497,7 @@ class SideBar extends ConsumerWidget {
               Text(
                 Brand.companyName,
                 style: const TextStyle(
-                  color: Brand.yellow,
+                  color: Brand.primary,
                   fontFamily: Brand.fontFamily,
                   fontSize: _SidebarStyle.footerSize,
                   fontWeight: FontWeight.bold,
@@ -575,6 +575,7 @@ class SideBar extends ConsumerWidget {
         child: SizedBox(
           width: SideBar.width,
           child: GlassPanel(
+            role: SurfaceRole.sidebar,
             borderRadius: radius,
             border: Border(
               top: BorderSide(color: glass.border),
@@ -857,7 +858,7 @@ class _SidebarSystemSectionState extends ConsumerState<_SidebarSystemSection> {
                     Icon(
                       Icons.circle,
                       size: 8,
-                      color: _healthy ? Brand.green : Brand.yellow,
+                      color: _healthy ? Brand.green : Brand.warning,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -940,7 +941,7 @@ class _SidebarStatusRow extends ConsumerWidget {
       appearanceSettingsProvider.select((settings) => settings.theme),
     );
     final fg = _SidebarStyle.foreground(appearanceTheme);
-    final dot = online ? Brand.green : Brand.yellow;
+    final dot = online ? Brand.green : Brand.warning;
 
     final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -1031,6 +1032,13 @@ class SidebarEntry extends ConsumerWidget {
         child: InkWell(
           onTap: onPressed,
           hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
+          focusColor: Brand.primaryMuted,
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.focused)) {
+              return Brand.primaryMuted;
+            }
+            return null;
+          }),
           child: SizedBox(
             height: height,
             child: Padding(

@@ -11,6 +11,7 @@ import '../catalogue/catalogue_surface.dart';
 import '../hsv_colour_picker.dart';
 import '../l10n/app_localizations.dart';
 import '../switch.dart';
+import '../widgets/launchpad_button.dart';
 import '../wallpaper_store.dart';
 
 class AppearanceSettingsSection extends ConsumerWidget {
@@ -564,11 +565,11 @@ class _SimpleColourPickerState extends State<_SimpleColourPicker> {
         ),
       ),
       actions: [
-        TextButton(
+        LaunchPadButton.secondary(
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        TextButton(
+        LaunchPadButton.primary(
           onPressed: () => Navigator.pop(context, _colour),
           child: const Text('Apply'),
         ),

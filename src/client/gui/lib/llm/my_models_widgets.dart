@@ -12,6 +12,8 @@ import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../tooltip.dart';
 import '../vm_table/table.dart' as vmtable;
+import '../widgets/card_action_row.dart';
+import '../widgets/launchpad_button.dart';
 import 'catalogue/model_branding.dart';
 import 'catalogue/model_capabilities.dart';
 import 'llm_load.dart';
@@ -280,8 +282,6 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
       if (quant.isNotEmpty) quant,
       if (sizeLabel.isNotEmpty) sizeLabel,
     ].join(' · ');
-    final radius = BorderRadius.circular(Brand.radius);
-
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -289,8 +289,7 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
         width: widget.width,
         height: 220,
         child: CatalogueSurface(
-          borderColor:
-              branding.accent.withValues(alpha: _hovered ? 0.75 : 0.35),
+          borderColor: _hovered ? Brand.primary.withValues(alpha: 0.45) : null,
           borderWidth: _hovered ? 1.5 : 1,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -366,126 +365,35 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                   ),
                 ),
               ),
-              _CachedModelActions(
-                radius: radius,
-                loadLabel: l10n.modelsLoad,
-                detailsLabel: l10n.modelsOpenPath,
-                deleteLabel: l10n.commonDelete,
-                onLoad: () => loadLlmModel(
-                  context,
-                  ref,
-                  modelId: model.id,
-                  quant: model.bestQuant,
-                  hfRepo: modelDownloadRepo(model),
-                ),
-                onDetails: () =>
-                    showCachedModelDetails(context, model, hints: topPicks),
-                onDelete: () => confirmDeleteCachedModel(context, ref, model),
+              CardActionRow(
+                actions: [
+                  CardAction(
+                    label: l10n.modelsLoad,
+                    kind: LaunchPadButtonKind.primary,
+                    onTap: () => loadLlmModel(
+                      context,
+                      ref,
+                      modelId: model.id,
+                      quant: model.bestQuant,
+                      hfRepo: modelDownloadRepo(model),
+                    ),
+                  ),
+                  CardAction(
+                    label: l10n.modelsOpenPath,
+                    onTap: () =>
+                        showCachedModelDetails(context, model, hints: topPicks),
+                  ),
+                  CardAction(
+                    label: l10n.commonDelete,
+                    kind: LaunchPadButtonKind.destructive,
+                    onTap: () =>
+                        confirmDeleteCachedModel(context, ref, model),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CachedModelActions extends StatelessWidget {
-  const _CachedModelActions({
-    required this.radius,
-    required this.onLoad,
-    required this.onDetails,
-    required this.onDelete,
-    required this.loadLabel,
-    required this.detailsLabel,
-    required this.deleteLabel,
-  });
-
-  final BorderRadius radius;
-  final VoidCallback onLoad;
-  final VoidCallback onDetails;
-  final VoidCallback onDelete;
-  final String loadLabel;
-  final String detailsLabel;
-  final String deleteLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final error = Theme.of(context).colorScheme.error;
-    final divider = Theme.of(context).dividerColor;
-
-    Widget action({
-      required VoidCallback onTap,
-      required String label,
-      required BorderRadius borderRadius,
-      Color? color,
-      Color? textColor,
-      FontWeight weight = FontWeight.w500,
-      bool topBorder = false,
-    }) {
-      return Expanded(
-        child: Material(
-          color: color ?? Colors.transparent,
-          borderRadius: borderRadius,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: borderRadius,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border:
-                    topBorder ? Border(top: BorderSide(color: divider)) : null,
-                borderRadius: borderRadius,
-              ),
-              child: Center(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: Brand.fontFamily,
-                    fontSize: 12,
-                    fontWeight: weight,
-                    color: textColor ?? onSurface,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 40,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          action(
-            onTap: onLoad,
-            label: loadLabel,
-            borderRadius: BorderRadius.only(bottomLeft: radius.bottomLeft),
-            color: Brand.accent,
-            weight: FontWeight.w600,
-            textColor: Brand.voidBlack,
-          ),
-          Container(width: 1, color: divider),
-          action(
-            onTap: onDetails,
-            label: detailsLabel,
-            borderRadius: BorderRadius.zero,
-            topBorder: true,
-          ),
-          Container(width: 1, color: divider),
-          action(
-            onTap: onDelete,
-            label: deleteLabel,
-            borderRadius: BorderRadius.only(bottomRight: radius.bottomRight),
-            topBorder: true,
-            textColor: error,
-          ),
-        ],
       ),
     );
   }

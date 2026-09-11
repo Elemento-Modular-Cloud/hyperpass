@@ -5,6 +5,8 @@ import '../brand.dart';
 import '../distro_branding.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
+import '../widgets/card_action_row.dart';
+import '../widgets/launchpad_button.dart';
 import 'catalogue.dart';
 import 'catalogue_entry.dart';
 import 'catalogue_launch.dart';
@@ -52,7 +54,6 @@ class _ImageCardState extends ConsumerState<ImageCard> {
       });
     }
 
-    final radius = BorderRadius.circular(Brand.radius);
     final locked = widget.locked;
 
     return Opacity(
@@ -65,9 +66,9 @@ class _ImageCardState extends ConsumerState<ImageCard> {
           child: SizedBox(
             width: widget.width,
             child: CatalogueSurface(
-              borderColor: _hovered && !locked
-                  ? branding.accent.withValues(alpha: 0.75)
-                  : branding.accent.withValues(alpha: locked ? 0.2 : 0.35),
+              borderColor: locked
+                  ? null
+                  : (_hovered ? Brand.primary.withValues(alpha: 0.45) : null),
               borderWidth: _hovered && !locked ? 1.5 : 1,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -129,7 +130,6 @@ class _ImageCardState extends ConsumerState<ImageCard> {
                           _VersionSelector(
                             entry: widget.entry,
                             selectedImage: selectedImage,
-                            accent: branding.accent,
                             enabled: !locked,
                           ),
                           const SizedBox(height: 8),
@@ -148,25 +148,33 @@ class _ImageCardState extends ConsumerState<ImageCard> {
                       ),
                     ),
                   ),
-                  _CardActionBar(
-                    radius: radius,
-                    onLaunch: () =>
-                        launchCatalogueImage(context, ref, selectedImage),
-                    onCloudInit: () {
-                      configureCatalogueImage(
-                        ref,
-                        selectedImage,
-                        requireCloudInit: true,
-                      );
-                      Scaffold.of(context).openEndDrawer();
-                    },
-                    onConfigure: () {
-                      configureCatalogueImage(ref, selectedImage);
-                      Scaffold.of(context).openEndDrawer();
-                    },
-                    launchLabel: l10n.commonLaunch,
-                    cloudInitLabel: l10n.cloudInitLaunchCardButton,
-                    configureLabel: l10n.commonConfigure,
+                  CardActionRow(
+                    actions: [
+                      CardAction(
+                        label: l10n.commonLaunch,
+                        kind: LaunchPadButtonKind.primary,
+                        onTap: () =>
+                            launchCatalogueImage(context, ref, selectedImage),
+                      ),
+                      CardAction(
+                        label: l10n.cloudInitLaunchCardButton,
+                        onTap: () {
+                          configureCatalogueImage(
+                            ref,
+                            selectedImage,
+                            requireCloudInit: true,
+                          );
+                          Scaffold.of(context).openEndDrawer();
+                        },
+                      ),
+                      CardAction(
+                        label: l10n.commonConfigure,
+                        onTap: () {
+                          configureCatalogueImage(ref, selectedImage);
+                          Scaffold.of(context).openEndDrawer();
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -178,117 +186,15 @@ class _ImageCardState extends ConsumerState<ImageCard> {
   }
 }
 
-class _CardActionBar extends StatelessWidget {
-  const _CardActionBar({
-    required this.radius,
-    required this.onLaunch,
-    required this.onCloudInit,
-    required this.onConfigure,
-    required this.launchLabel,
-    required this.cloudInitLabel,
-    required this.configureLabel,
-  });
-
-  final BorderRadius radius;
-  final VoidCallback onLaunch;
-  final VoidCallback onCloudInit;
-  final VoidCallback onConfigure;
-  final String launchLabel;
-  final String cloudInitLabel;
-  final String configureLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final divider = Theme.of(context).dividerColor;
-
-    Widget action({
-      required VoidCallback onTap,
-      required String label,
-      required BorderRadius borderRadius,
-      Color? color,
-      FontWeight weight = FontWeight.w500,
-      Color? textColor,
-      bool topBorder = false,
-    }) {
-      return Expanded(
-        child: Material(
-          color: color ?? Colors.transparent,
-          borderRadius: borderRadius,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: borderRadius,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: topBorder
-                    ? Border(top: BorderSide(color: divider))
-                    : null,
-                borderRadius: borderRadius,
-              ),
-              child: Center(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: Brand.fontFamily,
-                    fontSize: 12,
-                    fontWeight: weight,
-                    color: textColor ?? onSurface,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 40,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          action(
-            onTap: onLaunch,
-            label: launchLabel,
-            borderRadius: BorderRadius.only(bottomLeft: radius.bottomLeft),
-            color: Brand.accent,
-            weight: FontWeight.w600,
-            textColor: Brand.voidBlack,
-          ),
-          Container(width: 1, color: divider),
-          action(
-            onTap: onCloudInit,
-            label: cloudInitLabel,
-            borderRadius: BorderRadius.zero,
-            topBorder: true,
-          ),
-          Container(width: 1, color: divider),
-          action(
-            onTap: onConfigure,
-            label: configureLabel,
-            borderRadius: BorderRadius.only(bottomRight: radius.bottomRight),
-            topBorder: true,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _VersionSelector extends ConsumerWidget {
   const _VersionSelector({
     required this.entry,
     required this.selectedImage,
-    required this.accent,
     this.enabled = true,
   });
 
   final CatalogueEntry entry;
   final ImageInfo selectedImage;
-  final Color accent;
   final bool enabled;
 
   static const _height = 34.0;
@@ -308,7 +214,7 @@ class _VersionSelector extends ConsumerWidget {
           color: canSelect ? fill : onSurface.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(Brand.radius),
           border: Border.all(
-            color: accent.withValues(alpha: canSelect ? 0.35 : 0.2),
+            color: onSurface.withValues(alpha: canSelect ? 0.22 : 0.12),
           ),
         ),
         child: canSelect

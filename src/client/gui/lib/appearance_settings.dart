@@ -207,7 +207,13 @@ void _mirrorAppearanceToElemento(AppearanceSettings settings) {
 }
 
 /// Loads appearance preferring the newest of `~/.elemento/appearance` and Electros.
-AppearanceSettings loadAppearanceSettings({String? sharedPrefsRaw}) {
+///
+/// [includeElectrosLocalStorage] is expensive (Chromium LevelDB). Skip it on
+/// the first frame and merge Electros afterwards.
+AppearanceSettings loadAppearanceSettings({
+  String? sharedPrefsRaw,
+  bool includeElectrosLocalStorage = true,
+}) {
   final file = elementoAppearanceFile();
   AppearanceSettings? fromFile;
   DateTime? fileModified;
@@ -216,7 +222,10 @@ AppearanceSettings loadAppearanceSettings({String? sharedPrefsRaw}) {
     fileModified = file.statSync().modified;
   }
 
-  final electros = readElectrosAppearanceFromLocalStorage();
+  ElectrosAppearanceSnapshot? electros;
+  if (includeElectrosLocalStorage) {
+    electros = readElectrosAppearanceFromLocalStorage();
+  }
   AppearanceSettings? fromElectros;
   DateTime? electrosModified;
   if (electros != null) {
@@ -251,9 +260,13 @@ class AppearanceSettingsNotifier extends Notifier<AppearanceSettings> {
     final prefs = ref.read(sharedPreferencesProvider);
     final initial = loadAppearanceSettings(
       sharedPrefsRaw: prefs.getString(appearanceStorageKey),
+      includeElectrosLocalStorage: false,
     );
 
     _startElementoWatchers();
+    Future<void>.microtask(() {
+      if (ref.mounted) _reloadFromElemento();
+    });
     return initial;
   }
 

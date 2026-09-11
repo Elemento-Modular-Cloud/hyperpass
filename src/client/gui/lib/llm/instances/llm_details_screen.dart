@@ -7,6 +7,7 @@ import 'package:xterm/xterm.dart';
 import '../../brand.dart';
 import '../../l10n/app_localizations.dart';
 import '../../page_surface.dart';
+import '../../widgets/launchpad_button.dart';
 import '../../providers.dart';
 import '../llm_id.dart';
 import '../providers.dart' as llm;
@@ -120,7 +121,11 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
                     style: const TextStyle(fontSize: 12),
                   ),
                   const SizedBox(width: 12),
-                  TextButton(onPressed: _unload, child: Text(l10n.modelsUnload)),
+                  LaunchPadButton.secondary(
+                    onPressed: _unload,
+                    compact: true,
+                    child: Text(l10n.modelsUnload),
+                  ),
                 ] else if (_streamEnded)
                   Text(l10n.modelsLoadedEmpty, style: const TextStyle(fontSize: 12)),
               ],

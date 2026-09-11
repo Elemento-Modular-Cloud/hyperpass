@@ -131,7 +131,6 @@ class OverviewSystemRail extends ConsumerWidget {
                 label: l10n.overviewGaugeCpu,
                 percent: (cpuPct * 100).round(),
                 detail: '$claimedCpus / $cpus vCPU',
-                color: Brand.accent,
                 segments: ResourceMeter.workloadSegments(
                   claims: [
                     for (final claim in daemon?.claims ?? const [])
@@ -150,7 +149,6 @@ class OverviewSystemRail extends ConsumerWidget {
                 percent: (memPct * 100).round(),
                 detail:
                     '${formatResourceBytes('$usedHost')} / ${formatResourceBytes('$memory')}',
-                color: Brand.yellowLight,
                 segments: ResourceMeter.workloadSegments(
                   claims: [
                     for (final claim in daemon?.claims ?? const [])
@@ -170,7 +168,6 @@ class OverviewSystemRail extends ConsumerWidget {
                 detail: diskTotal > 0
                     ? '${formatResourceBytes('$diskUsed')} / ${formatResourceBytes('$diskTotal')}'
                     : '—',
-                color: const Color(0xFF6CB6FF),
               ),
               const SizedBox(height: 18),
               Text(
@@ -231,7 +228,7 @@ class OverviewSystemRail extends ConsumerWidget {
               _SparkRow(
                 label: l10n.overviewGaugeCpu,
                 values: history.map((s) => s.cpuPct).toList(),
-                color: Brand.accent,
+                color: Brand.info,
                 valueLabel: history.isEmpty
                     ? '—'
                     : '${history.last.cpuPct.round()}%',
@@ -240,7 +237,7 @@ class OverviewSystemRail extends ConsumerWidget {
               _SparkRow(
                 label: l10n.overviewGaugeMemory,
                 values: history.map((s) => s.memoryPct).toList(),
-                color: Brand.yellowLight,
+                color: Brand.info.withValues(alpha: 0.75),
                 valueLabel: formatResourceBytes('$usedHost'),
               ),
               const SizedBox(height: 10),
@@ -249,7 +246,7 @@ class OverviewSystemRail extends ConsumerWidget {
                 values: _normalizeSpark(
                   history.map((s) => s.networkInBps).toList(),
                 ),
-                color: Brand.accent,
+                color: Brand.info,
                 valueLabel:
                     '↓ ${formatResourceRate(history.isEmpty ? 0 : history.last.networkInBps)}',
               ),
@@ -292,14 +289,12 @@ class _ResourceRow extends StatelessWidget {
     required this.label,
     required this.percent,
     required this.detail,
-    required this.color,
     this.segments = const [],
   });
 
   final String label;
   final int percent;
   final String detail;
-  final Color color;
   final List<ResourceMeterSegment> segments;
 
   @override
@@ -346,9 +341,7 @@ class _ResourceRow extends StatelessWidget {
           label: '',
           valueText: '',
           progress: (percent / 100).clamp(0.0, 1.0),
-          segments: segments.isEmpty
-              ? [ResourceMeterSegment(color: color, weight: 1)]
-              : segments,
+          segments: segments,
           compact: true,
           showLabel: false,
         ),
@@ -585,7 +578,7 @@ class _HealthyBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final color = healthy ? Brand.green : Brand.accentDark;
+    final color = healthy ? Brand.green : Brand.warning;
     final label =
         healthy ? l10n.overviewStatusHealthy : l10n.overviewStatusDegraded;
 

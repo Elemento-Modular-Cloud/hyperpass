@@ -11,6 +11,7 @@ import '../ffi.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../sidebar.dart';
+import '../widgets/launchpad_button.dart';
 import '../vm_details/cpus_slider.dart';
 import '../vm_details/disk_slider.dart';
 import '../vm_details/mapping_slider.dart';
@@ -193,11 +194,11 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
         ),
       ),
       actions: [
-        OutlinedButton(
+        LaunchPadButton.secondary(
           onPressed: () => Navigator.pop(context),
           child: Text(l10n.commonCancel),
         ),
-        TextButton(
+        LaunchPadButton.primary(
           onPressed: _deploy,
           child: Text(l10n.serviceDeployAction),
         ),

@@ -35,13 +35,13 @@ class ResourceMeter extends StatelessWidget {
   final bool showLabel;
   final List<ResourceMeterSegment> segments;
 
-  static const warningThreshold = 0.8;
-  static const criticalThreshold = 0.92;
+  static const warningThreshold = 0.7;
+  static const criticalThreshold = 0.9;
 
   static Color fillFor(double progress) {
-    if (progress >= criticalThreshold) return const Color(0xFFE35D6A);
-    if (progress >= warningThreshold) return Brand.accentDark;
-    return Brand.accent;
+    if (progress >= criticalThreshold) return Brand.critical;
+    if (progress >= warningThreshold) return Brand.warning;
+    return Brand.info.withValues(alpha: 0.75);
   }
 
   /// Builds VM / AI / service segments from scheduler claim weights.
@@ -123,7 +123,7 @@ class ResourceMeter extends StatelessWidget {
               FaIcon(
                 icon,
                 size: compact ? 10 : 11,
-                color: Brand.accent.withValues(alpha: 0.9),
+                color: fill.withValues(alpha: 0.9),
               ),
               SizedBox(width: compact ? 6 : 8),
             ],

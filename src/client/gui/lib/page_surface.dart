@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'brand.dart';
 import 'catalogue/catalogue_surface.dart';
 
 /// Full-page readable surface over wallpapers (Electros content cards).
@@ -12,6 +13,7 @@ class PageSurface extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(28, 24, 28, 24),
     this.margin = const EdgeInsets.fromLTRB(24, 24, 24, 20),
     this.baseColor,
+    this.role = SurfaceRole.panel,
     super.key,
   });
 
@@ -19,6 +21,7 @@ class PageSurface extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry margin;
   final Color? baseColor;
+  final SurfaceRole role;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +30,7 @@ class PageSurface extends StatelessWidget {
       child: CatalogueSurface(
         padding: padding,
         baseColor: baseColor,
+        role: role,
         child: child,
       ),
     );

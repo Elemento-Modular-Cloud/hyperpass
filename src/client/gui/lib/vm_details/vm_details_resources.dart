@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../notifications.dart';
 import '../providers.dart';
 import '../tooltip.dart';
+import '../widgets/launchpad_button.dart';
 import 'cpus_slider.dart';
 import 'disk_slider.dart';
 import 'ram_slider.dart';
@@ -102,7 +103,7 @@ class _ResourcesDetailsState extends ConsumerState<ResourcesDetails> {
             },
           );
 
-    final saveButton = TextButton(
+    final saveButton = LaunchPadButton.primary(
       onPressed: () {
         if (!formKey.currentState!.validate()) return;
         formKey.currentState!.save();

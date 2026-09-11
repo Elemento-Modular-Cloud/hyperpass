@@ -12,6 +12,7 @@ import '../providers.dart';
 import '../sidebar.dart';
 import '../switch.dart';
 import '../vm_details/memory_usage.dart';
+import '../widgets/launchpad_button.dart';
 import '../widgets/running_list_header.dart';
 import 'bulk_actions.dart';
 import 'header_selection.dart';
@@ -76,7 +77,7 @@ class Vms extends ConsumerWidget {
     final heading = RunningListHeader(
       title: l10n.vmTableAllInstances,
       subtitle: l10n.instancesSubtitle,
-      action: TextButton(
+      action: LaunchPadButton.primary(
         onPressed: goToCatalogue,
         child: Text(l10n.commonLaunch),
       ),

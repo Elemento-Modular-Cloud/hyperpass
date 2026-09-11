@@ -14,6 +14,7 @@ import '../platform/platform.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import '../switch.dart';
+import '../widgets/launchpad_button.dart';
 import '../vm_details/cpus_slider.dart';
 import '../vm_details/disk_slider.dart';
 import '../vm_details/mapping_slider.dart';
@@ -278,7 +279,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       child: Text(l10n.mountsAddMount),
     );
 
-    final saveMountButton = TextButton(
+    final saveMountButton = LaunchPadButton.primary(
       onPressed: () {
         final mountFormState = mountFormKey.currentState;
         if (mountFormState == null) return;
@@ -445,7 +446,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       ],
     );
 
-    final launchButton = TextButton(
+    final launchButton = LaunchPadButton.primary(
       onPressed: () => launch(imageInfo),
       child: Text(l10n.commonLaunch),
     );

@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
+import '../brand.dart';
 import '../l10n/app_localizations.dart';
 import '../overview/recent_activity.dart';
 import '../providers.dart';
 import '../sidebar.dart';
+import '../widgets/launchpad_button.dart';
 import 'instances/llm_instances_screen.dart';
 import 'llm_features.dart';
 import 'providers.dart';
@@ -53,16 +55,17 @@ Future<void> loadLlmModel(
     if (!context.mounted) return;
     final picked = await showDialog<String>(
       context: context,
+      barrierColor: Brand.barrier,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.modelsPickRuntimeTitle),
         content: Text(l10n.modelsPickRuntimeBody),
         actions: [
           for (final backend in ready)
-            TextButton(
+            LaunchPadButton.primary(
               onPressed: () => Navigator.pop(ctx, backend.id),
               child: Text(_runtimeLabel(l10n, backend.id, backend.name)),
             ),
-          TextButton(
+          LaunchPadButton.secondary(
             onPressed: () => Navigator.pop(ctx),
             child: Text(l10n.commonCancel),
           ),
@@ -112,6 +115,7 @@ Future<_LoadLimits?> _promptLoadLimits(
   final maxController = TextEditingController(text: '$_defaultMaxTokens');
   final result = await showDialog<_LoadLimits>(
     context: context,
+    barrierColor: Brand.barrier,
     builder: (ctx) => AlertDialog(
       title: Text(l10n.modelsLoadLimitsTitle),
       content: Column(
@@ -145,11 +149,11 @@ Future<_LoadLimits?> _promptLoadLimits(
         ],
       ),
       actions: [
-        TextButton(
+        LaunchPadButton.secondary(
           onPressed: () => Navigator.pop(ctx),
           child: Text(l10n.commonCancel),
         ),
-        TextButton(
+        LaunchPadButton.primary(
           onPressed: () {
             final ctxSize = int.tryParse(ctxController.text.trim());
             final maxTokens = int.tryParse(maxController.text.trim());

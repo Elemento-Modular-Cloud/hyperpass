@@ -7,6 +7,8 @@ import 'package:intersperse/intersperse.dart';
 import '../brand.dart';
 import '../catalogue/catalogue_surface.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/card_action_row.dart';
+import '../widgets/launchpad_button.dart';
 import '../widgets/rounded_search_field.dart';
 import 'service_branding.dart';
 import 'service_deploy.dart';
@@ -261,16 +263,13 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
     final service = widget.service;
     final branding = serviceBranding(service.id, service: service);
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final radius = BorderRadius.circular(Brand.radius);
-
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: SizedBox(
         width: widget.width,
         child: CatalogueSurface(
-          borderColor:
-              branding.accent.withValues(alpha: _hovered ? 0.75 : 0.35),
+          borderColor: _hovered ? Brand.primary.withValues(alpha: 0.45) : null,
           borderWidth: _hovered ? 1.5 : 1,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -337,106 +336,24 @@ class _ServiceCardState extends ConsumerState<ServiceCard> {
                   ),
                 ),
               ),
-              _ServiceCardActions(
-                radius: radius,
-                onDetails: () => ref
-                    .read(selectedServiceProvider.notifier)
-                    .select(service.id),
-                onDeploy: () => showServiceDeployDialog(context, service),
-                detailsLabel: l10n.servicesCardDetails,
-                deployLabel: l10n.serviceDeployAction,
+              CardActionRow(
+                actions: [
+                  CardAction(
+                    label: l10n.serviceDeployAction,
+                    kind: LaunchPadButtonKind.primary,
+                    onTap: () => showServiceDeployDialog(context, service),
+                  ),
+                  CardAction(
+                    label: l10n.servicesCardDetails,
+                    onTap: () => ref
+                        .read(selectedServiceProvider.notifier)
+                        .select(service.id),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ServiceCardActions extends StatelessWidget {
-  const _ServiceCardActions({
-    required this.radius,
-    required this.onDetails,
-    required this.onDeploy,
-    required this.detailsLabel,
-    required this.deployLabel,
-  });
-
-  final BorderRadius radius;
-  final VoidCallback onDetails;
-  final VoidCallback onDeploy;
-  final String detailsLabel;
-  final String deployLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final divider = Theme.of(context).dividerColor;
-
-    Widget action({
-      required VoidCallback onTap,
-      required String label,
-      required BorderRadius borderRadius,
-      Color? color,
-      Color? textColor,
-      FontWeight weight = FontWeight.w500,
-      bool topBorder = false,
-    }) {
-      return Expanded(
-        child: Material(
-          color: color ?? Colors.transparent,
-          borderRadius: borderRadius,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: borderRadius,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border:
-                    topBorder ? Border(top: BorderSide(color: divider)) : null,
-                borderRadius: borderRadius,
-              ),
-              child: Center(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: Brand.fontFamily,
-                    fontSize: 12,
-                    fontWeight: weight,
-                    color: textColor ?? onSurface,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 40,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          action(
-            onTap: onDeploy,
-            label: deployLabel,
-            borderRadius: BorderRadius.only(bottomLeft: radius.bottomLeft),
-            color: Brand.accent,
-            weight: FontWeight.w600,
-            textColor: Brand.voidBlack,
-          ),
-          Container(width: 1, color: divider),
-          action(
-            onTap: onDetails,
-            label: detailsLabel,
-            borderRadius: BorderRadius.only(bottomRight: radius.bottomRight),
-            topBorder: true,
-          ),
-        ],
       ),
     );
   }
