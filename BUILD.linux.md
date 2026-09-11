@@ -1,6 +1,35 @@
 # Build instructions for Linux
 
-## Environment Setup
+## Arch Linux
+
+Build and package the full stack (`elpd` daemon, `elp` CLI, `elp` GUI) as an
+installable Arch package:
+
+```
+sudo pacman -S devtools
+./scripts/build-arch.sh
+```
+
+This renders [`packaging/archlinux/PKGBUILD.in`](packaging/archlinux/PKGBUILD.in)
+against the current checkout and builds it in a clean, sandboxed chroot via
+devtools' `extra-x86_64-build` (bootstrapped automatically on first run).
+Pass `--no-sandbox` to build with a plain `makepkg` in the current
+environment instead (you'll need every package listed in the rendered
+PKGBUILD's `depends`/`makedepends` installed yourself). See
+`./scripts/build-arch.sh --help` for all options.
+
+The build compiles Qt6, gRPC, Boost, and QEMU from source via vcpkg (see
+`vcpkg.json`) — but only the **first** time: the script bind-mounts a
+persistent cache directory (`build/vcpkg-binary-cache` by default) into the
+chroot and points vcpkg's binary cache at it, so later builds, even in a
+freshly recreated chroot, reuse those binaries instead of recompiling them.
+Delete that directory to force a full rebuild from scratch.
+
+Install the resulting package with `pacman -U <package>.pkg.tar.zst`; this
+installs `elpd`/`elp`/the GUI, a systemd unit (`systemctl enable --now
+elpd`), and desktop/icon/completion files.
+
+## Ubuntu / apt-based distributions
 
 ### Build dependencies
 

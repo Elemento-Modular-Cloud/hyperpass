@@ -1,0 +1,11 @@
+[Unit]
+Description=Electros LaunchPad daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/elpd
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
