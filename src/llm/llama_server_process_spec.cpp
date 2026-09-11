@@ -27,7 +27,8 @@ mp::LlamaServerProcessSpec::LlamaServerProcessSpec(QString program,
                                                    int ctx_size,
                                                    int n_gpu_layers,
                                                    int max_tokens,
-                                                   QString library_dir)
+                                                   QString library_dir,
+                                                   QString mmproj_path)
     : program_{std::move(program)},
       model_path{std::move(model_path)},
       openai_id{std::move(openai_id)},
@@ -35,7 +36,8 @@ mp::LlamaServerProcessSpec::LlamaServerProcessSpec(QString program,
       ctx_size{ctx_size},
       n_gpu_layers{n_gpu_layers},
       max_tokens{max_tokens},
-      library_dir{std::move(library_dir)}
+      library_dir{std::move(library_dir)},
+      mmproj_path{std::move(mmproj_path)}
 {
 }
 
@@ -60,6 +62,8 @@ QStringList mp::LlamaServerProcessSpec::arguments() const
                      QString::number(n_gpu_layers),
                      "--parallel",
                      "1"};
+    if (!mmproj_path.isEmpty())
+        args << "--mmproj" << mmproj_path;
     if (max_tokens > 0)
         args << "--n-predict" << QString::number(max_tokens);
     return args;

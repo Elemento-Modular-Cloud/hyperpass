@@ -27,7 +27,10 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     childBuilder: (_) => const SelectAllLlmCheckbox(),
     width: 50,
     minWidth: 50,
-    cellBuilder: (m) => SelectLlmCheckbox(m.instanceId),
+    cellBuilder: (m) => SelectLlmCheckbox(
+      m.instanceId,
+      key: ValueKey(m.instanceId),
+    ),
   ),
   TableHeader(
     name: 'MODEL',

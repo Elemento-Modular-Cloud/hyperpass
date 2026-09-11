@@ -95,7 +95,12 @@ class PendingLlmUnloads extends Notifier<Set<String>> {
     return const {};
   }
 
-  void add(String instanceId) => state = {...state, instanceId};
+  void add(String instanceId) => addAll([instanceId]);
+
+  void addAll(Iterable<String> instanceIds) {
+    final next = {...state, ...instanceIds.where((id) => id.isNotEmpty)};
+    if (next.length != state.length) state = next;
+  }
 
   void remove(String instanceId) {
     if (!state.contains(instanceId)) return;
@@ -153,22 +158,41 @@ class PendingLlmLoads extends Notifier<List<PendingLlmLoad>> {
 final pendingLlmLoadsProvider =
     NotifierProvider<PendingLlmLoads, List<PendingLlmLoad>>(PendingLlmLoads.new);
 
-Future<void> unloadLlmInstance(String instanceId) async {
+Future<void> unloadLlmInstances(Iterable<String> instanceIds) async {
   // Use the app-wide container so post-await updates stay safe after the
   // running-models list rebuilds / unmounts the widget that started unload.
+  final ids = [
+    for (final id in instanceIds)
+      if (id.isNotEmpty) id,
+  ];
+  if (ids.isEmpty) return;
+
   final pending = providerContainer.read(pendingLlmUnloadsProvider.notifier);
-  pending.add(instanceId);
-  try {
-    await providerContainer.read(grpcClientProvider).unloadModel(instanceId);
-    providerContainer.invalidate(loadedModelsProvider);
-    providerContainer.read(recentActivityProvider.notifier).record(
-          title: 'Unloaded model',
-          detail: instanceId,
-        );
-  } catch (_) {
-    providerContainer.read(pendingLlmUnloadsProvider.notifier).remove(instanceId);
-    rethrow;
+  pending.addAll(ids);
+
+  Object? firstError;
+  StackTrace? firstTrace;
+  for (final id in ids) {
+    try {
+      await providerContainer.read(grpcClientProvider).unloadModel(id);
+      providerContainer.read(recentActivityProvider.notifier).record(
+            title: 'Unloaded model',
+            detail: id,
+          );
+    } catch (error, stack) {
+      pending.remove(id);
+      firstError ??= error;
+      firstTrace ??= stack;
+    }
   }
+  providerContainer.invalidate(loadedModelsProvider);
+  if (firstError != null) {
+    Error.throwWithStackTrace(firstError, firstTrace!);
+  }
+}
+
+Future<void> unloadLlmInstance(String instanceId) async {
+  await unloadLlmInstances([instanceId]);
 }
 
 final loadedLlmIdsProvider = Provider<List<LlmInstanceId>>((ref) {

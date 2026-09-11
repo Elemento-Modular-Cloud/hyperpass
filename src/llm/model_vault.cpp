@@ -16,6 +16,7 @@
  */
 
 #include "model_vault.h"
+#include "gguf_file_pick.h"
 
 #include <multipass/file_ops.h>
 #include <multipass/format.h>
@@ -45,10 +46,10 @@ bool is_sharded_gguf(const std::string& filename)
     return filename.find("-of-") != std::string::npos;
 }
 
-bool looks_like_gguf(const QString& path)
+bool looks_like_gguf(const QString& path, qint64 min_size = 1024 * 1024)
 {
     QFileInfo info{path};
-    if (!info.exists() || info.size() < 1024 * 1024)
+    if (!info.exists() || info.size() < min_size)
         return false;
     QFile file{path};
     if (!file.open(QIODevice::ReadOnly))
@@ -119,76 +120,79 @@ mp::ModelArtifact mp::ModelVault::pull(const std::string& model_id,
                                        const std::string& filename,
                                        const std::string& quant,
                                        const std::string& hf_token,
-                                       const ProgressMonitor& monitor)
+                                       const ProgressMonitor& monitor,
+                                       const std::string& mmproj_filename)
 {
     if (filename.empty() || repo.empty())
         throw std::runtime_error("model resolve did not produce a Hugging Face repo and filename");
-    if (is_sharded_gguf(filename))
+    if (is_sharded_gguf(filename) || is_sharded_gguf_name(QString::fromStdString(filename)))
         throw std::runtime_error(
             "sharded/split GGUF is not supported; pick a single-file quantization");
+    if (is_mmproj_gguf(QString::fromStdString(filename)))
+        throw std::runtime_error(
+            "refusing to store a CLIP mmproj projector as the main GGUF; load it with --mmproj");
 
     if (auto existing = find(model_id))
     {
-        if (looks_like_gguf(QString::fromStdString(existing->path)))
+        const auto existing_name = QFileInfo{QString::fromStdString(existing->path)}.fileName();
+        if (!is_mmproj_gguf(QString::fromStdString(existing->filename)) &&
+            !is_mmproj_gguf(existing_name) &&
+            looks_like_gguf(QString::fromStdString(existing->path)))
         {
             touch(model_id);
+            if (!mmproj_filename.empty() && existing->mmproj_path.empty())
+                return ensure_mmproj(model_id, repo, mmproj_filename, hf_token, monitor);
             return *find(model_id);
         }
-        QFile::remove(QString::fromStdString(existing->path));
+        if (is_mmproj_gguf(QString::fromStdString(existing->filename)) ||
+            is_mmproj_gguf(existing_name))
+        {
+            forget_index(model_id);
+        }
+        else
+        {
+            QFile::remove(QString::fromStdString(existing->path));
+            forget_index(model_id);
+        }
     }
 
     const auto dest = artifact_path(repo, filename);
-    if (QFileInfo{dest}.exists() && looks_like_gguf(dest))
+    if (!(QFileInfo{dest}.exists() && looks_like_gguf(dest)))
     {
-        ModelArtifact art;
-        art.id = model_id;
-        art.repo = repo;
-        art.filename = filename;
-        art.quant = quant;
-        art.path = dest.toStdString();
-        art.size_bytes = QFileInfo{dest}.size();
-        art.last_accessed = QDateTime::currentSecsSinceEpoch();
-        artifacts.erase(std::remove_if(artifacts.begin(),
-                                       artifacts.end(),
-                                       [&](const auto& a) { return a.id == model_id; }),
-                        artifacts.end());
-        artifacts.push_back(art);
-        save();
-        return art;
-    }
-    if (QFileInfo{dest}.exists())
-        QFile::remove(dest);
+        if (QFileInfo{dest}.exists())
+            QFile::remove(dest);
 
-    const auto parent = QFileInfo{dest}.absolutePath();
-    const auto available = MP_UTILS.filesystem_bytes_available(parent);
-    if (available >= 0 && available < 256LL * 1024 * 1024)
-        throw std::runtime_error("not enough disk space to download the model");
+        const auto parent = QFileInfo{dest}.absolutePath();
+        const auto available = MP_UTILS.filesystem_bytes_available(parent);
+        if (available >= 0 && available < 256LL * 1024 * 1024)
+            throw std::runtime_error("not enough disk space to download the model");
 
-    const auto url = huggingface_file_url(repo, filename);
-    mpl::info("llm", "downloading {} -> {}", url.toString(), dest);
+        const auto url = huggingface_file_url(repo, filename);
+        mpl::info("llm", "downloading {} -> {}", url.toString(), dest);
 
-    downloader.clear_headers();
-    if (!hf_token.empty())
-        downloader.set_header("Authorization",
-                              QByteArray{"Bearer "} + QByteArray::fromStdString(hf_token));
-
-    mp::vault::DeleteOnException guard{dest.toStdString()};
-    try
-    {
-        downloader.download_to(url, dest, -1, 0, monitor);
-    }
-    catch (...)
-    {
         downloader.clear_headers();
-        throw;
-    }
-    downloader.clear_headers();
+        if (!hf_token.empty())
+            downloader.set_header("Authorization",
+                                  QByteArray{"Bearer "} + QByteArray::fromStdString(hf_token));
 
-    if (!looks_like_gguf(dest))
-    {
-        QFile::remove(dest);
-        throw std::runtime_error(
-            "downloaded file is not a GGUF; the Hugging Face URL is missing or returned HTML");
+        mp::vault::DeleteOnException guard{dest.toStdString()};
+        try
+        {
+            downloader.download_to(url, dest, -1, 0, monitor);
+        }
+        catch (...)
+        {
+            downloader.clear_headers();
+            throw;
+        }
+        downloader.clear_headers();
+
+        if (!looks_like_gguf(dest))
+        {
+            QFile::remove(dest);
+            throw std::runtime_error(
+                "downloaded file is not a GGUF; the Hugging Face URL is missing or returned HTML");
+        }
     }
 
     ModelArtifact art;
@@ -199,8 +203,19 @@ mp::ModelArtifact mp::ModelVault::pull(const std::string& model_id,
     art.path = dest.toStdString();
     art.size_bytes = QFileInfo{dest}.size();
     art.last_accessed = QDateTime::currentSecsSinceEpoch();
+    artifacts.erase(std::remove_if(artifacts.begin(),
+                                   artifacts.end(),
+                                   [&](const auto& a) { return a.id == model_id; }),
+                    artifacts.end());
     artifacts.push_back(art);
     save();
+
+    if (!mmproj_filename.empty())
+        return ensure_mmproj(model_id, repo, mmproj_filename, hf_token, monitor);
+
+    if (auto sibling = find_sibling_mmproj(dest); !sibling.isEmpty())
+        return attach_mmproj(model_id, sibling.toStdString());
+
     return art;
 }
 
@@ -212,13 +227,89 @@ bool mp::ModelVault::remove(const std::string& model_id)
     if (it == artifacts.end())
         return false;
     const auto path = QString::fromStdString(it->path);
+    const auto mmproj = QString::fromStdString(it->mmproj_path);
     const auto parent = QFileInfo{path}.absoluteDir();
     QFile::remove(path);
+    if (!mmproj.isEmpty() && mmproj != path)
+        QFile::remove(mmproj);
     artifacts.erase(it);
     save();
     if (parent.exists() && parent.isEmpty())
         parent.rmdir(".");
     return true;
+}
+
+void mp::ModelVault::forget_index(const std::string& model_id)
+{
+    const auto before = artifacts.size();
+    artifacts.erase(std::remove_if(artifacts.begin(),
+                                   artifacts.end(),
+                                   [&](const auto& a) { return a.id == model_id; }),
+                    artifacts.end());
+    if (artifacts.size() != before)
+        save();
+}
+
+mp::ModelArtifact mp::ModelVault::attach_mmproj(const std::string& model_id,
+                                                const std::string& mmproj_path)
+{
+    for (auto& art : artifacts)
+    {
+        if (art.id != model_id)
+            continue;
+        art.mmproj_path = mmproj_path;
+        art.mmproj_filename = QFileInfo{QString::fromStdString(mmproj_path)}.fileName().toStdString();
+        art.last_accessed = QDateTime::currentSecsSinceEpoch();
+        save();
+        return art;
+    }
+    throw std::runtime_error(fmt::format("cannot attach mmproj: model '{}' is not in the vault", model_id));
+}
+
+mp::ModelArtifact mp::ModelVault::ensure_mmproj(const std::string& model_id,
+                                                const std::string& repo,
+                                                const std::string& mmproj_filename,
+                                                const std::string& hf_token,
+                                                const ProgressMonitor& monitor)
+{
+    auto existing = find(model_id);
+    if (!existing)
+        throw std::runtime_error(fmt::format("cannot download mmproj: model '{}' is not in the vault", model_id));
+    if (!existing->mmproj_path.empty() &&
+        looks_like_gguf(QString::fromStdString(existing->mmproj_path), 64 * 1024))
+        return *existing;
+
+    const auto dest = artifact_path(repo, mmproj_filename);
+    if (!(QFileInfo{dest}.exists() && looks_like_gguf(dest, 64 * 1024)))
+    {
+        if (QFileInfo{dest}.exists())
+            QFile::remove(dest);
+
+        const auto url = huggingface_file_url(repo, mmproj_filename);
+        mpl::info("llm", "downloading mmproj {} -> {}", url.toString(), dest);
+
+        downloader.clear_headers();
+        if (!hf_token.empty())
+            downloader.set_header("Authorization",
+                                  QByteArray{"Bearer "} + QByteArray::fromStdString(hf_token));
+        mp::vault::DeleteOnException guard{dest.toStdString()};
+        try
+        {
+            downloader.download_to(url, dest, -1, 0, monitor);
+        }
+        catch (...)
+        {
+            downloader.clear_headers();
+            throw;
+        }
+        downloader.clear_headers();
+        if (!looks_like_gguf(dest, 64 * 1024))
+        {
+            QFile::remove(dest);
+            throw std::runtime_error("downloaded mmproj is not a GGUF");
+        }
+    }
+    return attach_mmproj(model_id, dest.toStdString());
 }
 
 void mp::ModelVault::touch(const std::string& model_id)
@@ -254,6 +345,8 @@ void mp::ModelVault::load()
         art.filename = obj.value("filename").toString().toStdString();
         art.quant = obj.value("quant").toString().toStdString();
         art.path = obj.value("path").toString().toStdString();
+        art.mmproj_filename = obj.value("mmproj_filename").toString().toStdString();
+        art.mmproj_path = obj.value("mmproj_path").toString().toStdString();
         art.size_bytes = static_cast<long long>(obj.value("size_bytes").toDouble());
         art.last_accessed = static_cast<long long>(obj.value("last_accessed").toDouble());
         if (!art.id.empty())
@@ -272,6 +365,8 @@ void mp::ModelVault::save() const
         obj.insert("filename", QString::fromStdString(art.filename));
         obj.insert("quant", QString::fromStdString(art.quant));
         obj.insert("path", QString::fromStdString(art.path));
+        obj.insert("mmproj_filename", QString::fromStdString(art.mmproj_filename));
+        obj.insert("mmproj_path", QString::fromStdString(art.mmproj_path));
         obj.insert("size_bytes", static_cast<double>(art.size_bytes));
         obj.insert("last_accessed", static_cast<double>(art.last_accessed));
         array.append(obj);

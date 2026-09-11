@@ -35,7 +35,8 @@ public:
                            int ctx_size,
                            int n_gpu_layers,
                            int max_tokens = 0,
-                           QString library_dir = {});
+                           QString library_dir = {},
+                           QString mmproj_path = {});
 
     QString program() const override;
     QStringList arguments() const override;
@@ -53,6 +54,7 @@ private:
     int n_gpu_layers;
     int max_tokens;
     QString library_dir;
+    QString mmproj_path;
 };
 
 } // namespace multipass

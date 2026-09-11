@@ -17,6 +17,7 @@
 
 #include "llmfit_advisor.h"
 #include "binary_locator.h"
+#include "gguf_file_pick.h"
 #include "managed_tools.h"
 
 #include <multipass/constants.h>
@@ -266,43 +267,6 @@ bool looks_like_mlx_only(const mp::ModelSuggestion& model)
     return false;
 }
 
-QString pick_gguf_file(const QStringList& files, const QString& quant)
-{
-    const auto usable = [&files] {
-        QStringList out;
-        for (const auto& file : files)
-        {
-            if (!file.contains("-of-"))
-                out << file;
-        }
-        return out;
-    }();
-    if (usable.isEmpty())
-        return {};
-
-    auto exact = [&](const QString& tag) -> QString {
-        const auto needle = QString{"-%1.gguf"}.arg(tag);
-        for (const auto& file : usable)
-        {
-            if (file.endsWith(needle, Qt::CaseInsensitive))
-                return file;
-        }
-        return {};
-    };
-
-    if (!quant.isEmpty() && !is_mlx_quant(quant))
-    {
-        if (auto hit = exact(quant); !hit.isEmpty())
-            return hit;
-    }
-    for (const auto& pref : {"Q4_K_M", "Q5_K_M", "Q6_K", "Q4_K_S", "Q8_0", "Q4_0"})
-    {
-        if (auto hit = exact(pref); !hit.isEmpty())
-            return hit;
-    }
-    return usable.first();
-}
-
 std::optional<mp::ResolvedGguf> parse_download_list(const QString& text, const QString& quant)
 {
     static const QRegularExpression repo_re{
@@ -322,13 +286,14 @@ std::optional<mp::ResolvedGguf> parse_download_list(const QString& text, const Q
     for (auto it = file_re.globalMatch(text); it.hasNext();)
         files << it.next().captured(1);
 
-    const auto filename = pick_gguf_file(files, quant);
+    const auto filename = mp::pick_gguf_file(files, quant);
     if (repo.isEmpty() || filename.isEmpty())
         return std::nullopt;
 
     mp::ResolvedGguf resolved;
     resolved.repo = repo.toStdString();
     resolved.filename = filename.toStdString();
+    resolved.mmproj_filename = mp::pick_mmproj_file(files).toStdString();
     return resolved;
 }
 
@@ -842,10 +807,13 @@ std::optional<mp::ResolvedGguf> mp::LlmfitAdvisor::resolve(const std::string& mo
             if (resolved)
             {
                 mpl::info(category,
-                          "resolved {} -> {}/{}",
+                          "resolved {} -> {}/{}{}",
                           query,
                           resolved->repo,
-                          resolved->filename);
+                          resolved->filename,
+                          resolved->mmproj_filename.empty()
+                              ? ""
+                              : fmt::format(" (mmproj {})", resolved->mmproj_filename));
             }
             return resolved;
         }

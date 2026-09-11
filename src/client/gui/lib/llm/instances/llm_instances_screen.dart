@@ -137,9 +137,7 @@ class _LlmInstancesBody extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: vmtable.Table<LoadedModelInfo>(
-              key: ValueKey(
-                models.map((m) => m.instanceId).join(','),
-              ),
+              key: const ValueKey('llm-instances-table'),
               headers: llmInstanceHeaders,
               data: models,
               finalRow: List.generate(

@@ -8,13 +8,20 @@ import '../providers.dart';
 class SelectedLlmInstancesNotifier extends Notifier<BuiltSet<String>> {
   @override
   BuiltSet<String> build() {
-    ref.watch(llmSearchProvider);
-    ref.watch(sidebarKeyProvider);
+    // Listen rather than watch: watching rebuilds this notifier and wipes
+    // selection back to BuiltSet() in the middle of a bulk Unload.
+    ref.listen(llmSearchProvider, (_, __) {
+      if (state.isNotEmpty) state = BuiltSet();
+    });
+    ref.listen(sidebarKeyProvider, (_, __) {
+      if (state.isNotEmpty) state = BuiltSet();
+    });
     ref.listen(loadedLlmIdsProvider, (_, ids) {
       final available = {for (final id in ids) id.instanceId};
-      state = state.rebuild(
+      final next = state.rebuild(
         (set) => set.removeWhere((id) => !available.contains(id)),
       );
+      if (next != state) state = next;
     });
     return BuiltSet();
   }

@@ -35,6 +35,8 @@ struct ModelArtifact
     std::string filename;
     std::string quant;
     std::string path;
+    std::string mmproj_filename;
+    std::string mmproj_path;
     long long size_bytes{0};
     long long last_accessed{0};
 };
@@ -53,10 +55,19 @@ public:
                        const std::string& filename,
                        const std::string& quant,
                        const std::string& hf_token,
-                       const ProgressMonitor& monitor);
+                       const ProgressMonitor& monitor,
+                       const std::string& mmproj_filename = {});
 
     bool remove(const std::string& model_id);
     void touch(const std::string& model_id);
+    void forget_index(const std::string& model_id);
+    ModelArtifact attach_mmproj(const std::string& model_id, const std::string& mmproj_path);
+
+    ModelArtifact ensure_mmproj(const std::string& model_id,
+                                const std::string& repo,
+                                const std::string& mmproj_filename,
+                                const std::string& hf_token,
+                                const ProgressMonitor& monitor);
 
 private:
     void load();

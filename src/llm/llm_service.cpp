@@ -19,6 +19,7 @@
 
 #include "backend_probe.h"
 #include "binary_locator.h"
+#include "gguf_file_pick.h"
 #include "llama_server_process_spec.h"
 #include "managed_tools.h"
 #include "mlx_server_process_spec.h"
@@ -43,6 +44,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMetaObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
@@ -55,6 +57,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <future>
@@ -416,12 +419,36 @@ mp::ModelArtifact mp::LlmService::ensure_pulled(const std::string& model_id,
                                                 const ProgressMonitor& monitor)
 {
     if (auto existing = vault.find(model_id))
-        return *existing;
+    {
+        const auto path_name =
+            QFileInfo{QString::fromStdString(existing->path)}.fileName();
+        const bool projector = is_mmproj_gguf(QString::fromStdString(existing->filename)) ||
+                               is_mmproj_gguf(path_name);
+        if (!projector)
+        {
+            if (existing->mmproj_path.empty())
+            {
+                if (auto sibling = find_sibling_mmproj(QString::fromStdString(existing->path));
+                    !sibling.isEmpty())
+                    return vault.attach_mmproj(model_id, sibling.toStdString());
+            }
+            return *existing;
+        }
+    }
 
     const auto resolved = resolve_or_throw(model_id, quant, hf_repo);
     if (resolved.filename.empty())
         throw std::runtime_error("llmfit listed the repo but did not name a GGUF file");
-    return vault.pull(model_id, resolved.repo, resolved.filename, quant, hf_token(), monitor);
+    if (is_mmproj_gguf(QString::fromStdString(resolved.filename)))
+        throw std::runtime_error(
+            "could not find a main GGUF (only a CLIP mmproj projector was listed)");
+    return vault.pull(model_id,
+                      resolved.repo,
+                      resolved.filename,
+                      quant,
+                      hf_token(),
+                      monitor,
+                      resolved.mmproj_filename);
 }
 
 void mp::LlmService::find_models(
@@ -560,12 +587,34 @@ void mp::LlmService::stop_process(Process* process)
         return;
     }
 
+    // Post to the Process QObject (affinity = llama-server runner thread), not
+    // process->thread() as a QTimer context. The QThread object lives on the
+    // worker that created it, which has no event loop, so that path deadlocks
+    // and only the first bulk-unload RPC ever finishes.
     auto done = std::make_shared<std::promise<void>>();
-    QTimer::singleShot(0, process->thread(), [process, done]() {
+    const auto posted = QMetaObject::invokeMethod(
+        process,
+        [process, done]() {
+            stop_process_on_thread(process);
+            try
+            {
+                done->set_value();
+            }
+            catch (const std::future_error&)
+            {
+            }
+        },
+        Qt::QueuedConnection);
+    if (!posted)
+    {
         stop_process_on_thread(process);
-        done->set_value();
-    });
-    done->get_future().wait();
+        return;
+    }
+    if (done->get_future().wait_for(std::chrono::seconds(8)) == std::future_status::timeout)
+    {
+        mpl::warn(category, "timed out waiting to stop inference process on its thread");
+        stop_process_on_thread(process);
+    }
 }
 
 void mp::LlmService::load_model(
@@ -722,7 +771,8 @@ void mp::LlmService::load_model_impl(
                 ctx,
                 gpu_layers(kind),
                 max_tokens,
-                library_dir));
+                library_dir,
+                QString::fromStdString(art.mmproj_path)));
         }
         session.process->start();
         if (!session.process->wait_for_started(10000))
@@ -779,24 +829,38 @@ void mp::LlmService::unload_instance(const std::string& instance_id)
     std::unique_ptr<Process> dying;
     std::unique_ptr<QThread> runner_thread;
     qint64 adopted_pid = 0;
+    bool missing = false;
     {
         std::lock_guard lock{mutex};
         auto it = sessions.find(instance_id);
         if (it == sessions.end())
         {
             pool.release(instance_id);
-            persist_sessions();
-            return;
+            missing = true;
         }
-        dying = std::move(it->second.process);
-        runner_thread = std::move(it->second.runner_thread);
-        adopted_pid = it->second.pid;
-        sessions.erase(it);
-        pool.release(instance_id);
+        else
+        {
+            dying = std::move(it->second.process);
+            runner_thread = std::move(it->second.runner_thread);
+            adopted_pid = it->second.pid;
+            sessions.erase(it);
+            pool.release(instance_id);
+        }
+    }
+    if (missing)
+    {
+        persist_sessions();
+        return;
     }
     keys.revoke_for_instance(instance_id);
     if (dying)
+    {
+        // Stopping the process emits finished, which was connected back to
+        // unload_instance. That re-entry used to persist_sessions() while still
+        // holding mutex (deadlock) and blocked the next bulk-unload RPC.
+        QObject::disconnect(dying.get(), nullptr, this, nullptr);
         stop_process(dying.get());
+    }
     else if (adopted_pid > 0)
         mpu::terminate_pid(adopted_pid);
     if (runner_thread)

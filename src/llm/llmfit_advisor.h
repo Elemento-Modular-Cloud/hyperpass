@@ -35,6 +35,7 @@ struct ResolvedGguf
 {
     std::string repo;
     std::string filename;
+    std::string mmproj_filename;
     std::string url;
 };
 

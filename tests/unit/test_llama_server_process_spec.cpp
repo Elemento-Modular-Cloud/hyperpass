@@ -68,11 +68,20 @@ TEST(TestLlamaServerProcessSpec, argumentsBindLoopbackWithSingleSlot)
                                  "1"}));
 }
 
-TEST(TestLlamaServerProcessSpec, argumentsIncludeNPredictWhenCapped)
+TEST(TestLlamaServerProcessSpec, argumentsIncludeMmprojWhenProvided)
 {
-    const auto spec = make_spec(512);
-    EXPECT_TRUE(spec.arguments().contains("--n-predict"));
-    EXPECT_TRUE(spec.arguments().contains("512"));
+    const auto spec = mp::LlamaServerProcessSpec{"/opt/llama-server",
+                                                 "/models/gemma.gguf",
+                                                 "gemma-abc",
+                                                 52792,
+                                                 8192,
+                                                 99,
+                                                 0,
+                                                 {},
+                                                 "/models/gemma-mmproj.gguf"};
+    const auto args = spec.arguments();
+    EXPECT_TRUE(args.contains("--mmproj"));
+    EXPECT_EQ(args.at(args.indexOf("--mmproj") + 1), "/models/gemma-mmproj.gguf");
 }
 
 TEST(TestLlamaServerProcessSpec, stderrIsDebugBecauseLlamaLogsInfoThere)

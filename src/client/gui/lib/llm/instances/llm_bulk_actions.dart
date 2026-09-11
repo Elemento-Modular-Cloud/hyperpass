@@ -30,9 +30,7 @@ class LlmBulkActionsBar extends ConsumerWidget {
                       : l10n.bulkActionModelCount(ids.length);
                   ref.read(notificationsProvider.notifier).addOperation(
                         () async {
-                          for (final id in ids) {
-                            await unloadLlmInstance(id);
-                          }
+                          await unloadLlmInstances(ids);
                           providerContainer
                               .read(selectedLlmInstancesProvider.notifier)
                               .set(BuiltSet());
