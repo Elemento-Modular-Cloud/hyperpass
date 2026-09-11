@@ -252,7 +252,8 @@ class SideBar extends ConsumerWidget {
     final selectedSidebarKey = ref.watch(sidebarKeyProvider);
     final sidebarKeyNotifier = sidebarKeyProvider.notifier;
     final vmNames = ref.watch(vmIdsProvider);
-    final loadedCount = ref.watch(loadedLlmIdsProvider).length;
+    final loadedCount = ref.watch(loadedLlmIdsProvider).length +
+        ref.watch(pendingLlmLoadsProvider).length;
     final serviceCount = ref.watch(serviceInstanceIdsProvider).length;
     // Rediscover service instances whose daemon tag was lost.
     ref.watch(serviceInstanceSyncProvider);

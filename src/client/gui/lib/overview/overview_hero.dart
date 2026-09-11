@@ -33,7 +33,8 @@ class OverviewHero extends ConsumerWidget {
     final runningServices = ref.watch(serviceInstanceInfosProvider).where(
           (info) => info.instanceStatus.status == Status.RUNNING,
         ).length;
-    final runningLlms = ref.watch(loadedLlmIdsProvider).length;
+    final runningLlms = ref.watch(loadedLlmIdsProvider).length +
+        ref.watch(pendingLlmLoadsProvider).length;
     final total = runningVms + runningServices + runningLlms;
     final healthy = ref.watch(daemonAvailableProvider);
     final access = ref.watch(featureAccessProvider);

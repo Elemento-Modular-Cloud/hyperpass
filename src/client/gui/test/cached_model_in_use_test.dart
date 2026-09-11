@@ -38,4 +38,32 @@ void main() {
     ];
     expect(isCachedModelInUse(model, loaded), isTrue);
   });
+
+  test('pending load placeholder is starting', () {
+    const pending = PendingLlmLoad(
+      id: 'pending-load-1',
+      modelId: 'Gemma-2-9B',
+      runtime: 'llamacpp',
+      ctxSize: 8192,
+      maxTokens: 0,
+    );
+    expect(isPendingLlmLoad(pending.placeholder), isTrue);
+    expect(pending.placeholder.state, pendingLlmLoadState);
+    expect(pending.placeholder.modelId, 'Gemma-2-9B');
+  });
+
+  test('pending load counts as in use', () {
+    final model = ModelSuggestion()..id = 'Gemma-2-9B';
+    const pending = PendingLlmLoad(
+      id: 'pending-load-1',
+      modelId: 'Gemma-2-9B',
+      runtime: 'llamacpp',
+      ctxSize: 8192,
+      maxTokens: 0,
+    );
+    expect(
+      isCachedModelInUse(model, const [], pendingLoads: [pending]),
+      isTrue,
+    );
+  });
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:grpc/grpc.dart';
 
 import '../brand.dart';
 import '../l10n/app_localizations.dart';
+import '../notifications.dart';
 import '../overview/recent_activity.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -80,30 +83,67 @@ Future<void> loadLlmModel(
   final limits = await _promptLoadLimits(context, l10n);
   if (limits == null) return;
 
+  final pending = PendingLlmLoad(
+    id: '$pendingLlmLoadIdPrefix${DateTime.now().microsecondsSinceEpoch}',
+    modelId: modelId,
+    runtime: runtime,
+    ctxSize: limits.ctxSize,
+    maxTokens: limits.maxTokens,
+  );
+  ref.read(pendingLlmLoadsProvider.notifier).add(pending);
+  ref.read(sidebarKeyProvider.notifier).set(LlmInstancesScreen.sidebarKey);
+
+  unawaited(
+    _completeLlmLoad(
+      pending: pending,
+      modelId: modelId,
+      quant: quant,
+      hfRepo: hfRepo,
+      runtime: runtime,
+      ctxSize: limits.ctxSize,
+      maxTokens: limits.maxTokens,
+    ),
+  );
+}
+
+Future<void> _completeLlmLoad({
+  required PendingLlmLoad pending,
+  required String modelId,
+  required String quant,
+  required String hfRepo,
+  required String runtime,
+  required int ctxSize,
+  required int maxTokens,
+}) async {
   try {
-    final client = ref.read(grpcClientProvider);
-    if (!isModelCached(ref, modelId)) {
-      await for (final _ in client.pullModel(modelId, quant: quant, hfRepo: hfRepo)) {}
-      ref.invalidate(loadedModelsProvider);
+    final client = providerContainer.read(grpcClientProvider);
+    if (!isModelCachedFromContainer(modelId)) {
+      await for (final _ in client.pullModel(
+        modelId,
+        quant: quant,
+        hfRepo: hfRepo,
+      )) {}
+      providerContainer.invalidate(loadedModelsProvider);
     }
     await client
         .loadModel(
           modelId,
           quant: quant,
           runtime: runtime,
-          ctxSize: limits.ctxSize,
-          maxTokens: limits.maxTokens,
+          ctxSize: ctxSize,
+          maxTokens: maxTokens,
         )
         .last;
-    ref.invalidate(loadedModelsProvider);
-    ref.read(recentActivityProvider.notifier).record(
+    providerContainer.invalidate(loadedModelsProvider);
+    providerContainer.read(recentActivityProvider.notifier).record(
           title: 'Loaded $modelId',
           detail: runtime,
         );
-    ref.read(sidebarKeyProvider.notifier).set(LlmInstancesScreen.sidebarKey);
   } catch (e) {
     final message = e is GrpcError ? (e.message ?? '$e') : '$e';
-    messenger.showSnackBar(SnackBar(content: Text(message)));
+    providerContainer.read(notificationsProvider.notifier).addError(message);
+  } finally {
+    providerContainer.read(pendingLlmLoadsProvider.notifier).remove(pending.id);
   }
 }
 
@@ -183,5 +223,15 @@ String _runtimeLabel(AppLocalizations l10n, String id, String name) {
 
 bool isModelCached(WidgetRef ref, String modelId) {
   final cached = ref.read(loadedModelsProvider).asData?.value.cached ?? const [];
+  return cached.any((m) => m.id == modelId);
+}
+
+bool isModelCachedFromContainer(String modelId) {
+  final cached = providerContainer
+          .read(loadedModelsProvider)
+          .asData
+          ?.value
+          .cached ??
+      const [];
   return cached.any((m) => m.id == modelId);
 }

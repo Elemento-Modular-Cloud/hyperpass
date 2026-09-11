@@ -325,6 +325,14 @@
     "@llmTableColumnState": {
         "description": "LLM instances table column for runtime state"
     },
+    "llmStateStarting": "Starting",
+    "@llmStateStarting": {
+        "description": "Runtime state while a model is still coming up after Load"
+    },
+    "llmStateLoaded": "Loaded",
+    "@llmStateLoaded": {
+        "description": "Runtime state when a model is ready for inference"
+    },
     "llmTableColumnPort": "PORT",
     "@llmTableColumnPort": {
         "description": "LLM instances table column for localhost port"

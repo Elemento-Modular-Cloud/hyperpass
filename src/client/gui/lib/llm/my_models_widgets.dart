@@ -182,7 +182,8 @@ Future<void> confirmDeleteCachedModel(
 ) async {
   final loaded = ref.read(loadedModelsProvider).asData?.value.models ??
       const <LoadedModelInfo>[];
-  if (isCachedModelInUse(model, loaded)) return;
+  final pendingLoads = ref.read(pendingLlmLoadsProvider);
+  if (isCachedModelInUse(model, loaded, pendingLoads: pendingLoads)) return;
 
   final l10n = AppLocalizations.of(context)!;
   await showDialog<void>(
@@ -278,7 +279,10 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
     final capabilities = capabilitiesForSuggestion(model, hints: topPicks);
     final loaded = ref.watch(loadedModelsProvider).asData?.value.models ??
         const <LoadedModelInfo>[];
-    final inUse = isCachedModelInUse(model, loaded);
+    final pendingLoads = ref.watch(pendingLlmLoadsProvider);
+    final inUse =
+        isCachedModelInUse(model, loaded, pendingLoads: pendingLoads);
+    final loadPending = pendingLoads.any((load) => load.modelId == model.id);
     final sizeLabel = model.memoryRequiredGb > 0
         ? '${model.memoryRequiredGb.toStringAsFixed(1)} GiB'
         : (model.diskSizeGb > 0
@@ -377,13 +381,15 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                   CardAction(
                     label: l10n.modelsLoad,
                     kind: LaunchPadButtonKind.primary,
-                    onTap: () => loadLlmModel(
-                      context,
-                      ref,
-                      modelId: model.id,
-                      quant: model.bestQuant,
-                      hfRepo: modelDownloadRepo(model),
-                    ),
+                    onTap: loadPending
+                        ? null
+                        : () => loadLlmModel(
+                              context,
+                              ref,
+                              modelId: model.id,
+                              quant: model.bestQuant,
+                              hfRepo: modelDownloadRepo(model),
+                            ),
                   ),
                   CardAction(
                     label: l10n.modelsOpenPath,

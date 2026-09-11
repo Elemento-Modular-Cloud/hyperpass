@@ -55,10 +55,10 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
   TableHeader(
     name: 'STATE',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnState),
-    width: 90,
-    minWidth: 64,
+    width: 110,
+    minWidth: 80,
     sortKey: (m) => m.state,
-    cellBuilder: (m) => Text(m.state, overflow: TextOverflow.ellipsis),
+    cellBuilder: (m) => _LlmStateCell(model: m),
   ),
   TableHeader(
     name: 'PORT',
@@ -66,7 +66,7 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     width: 72,
     minWidth: 56,
     sortKey: (m) => m.port.toString().padLeft(6, '0'),
-    cellBuilder: (m) => Text('${m.port}'),
+    cellBuilder: (m) => Text(m.port > 0 ? '${m.port}' : '—'),
   ),
   TableHeader(
     name: 'MEMORY',
@@ -75,6 +75,9 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     minWidth: 72,
     sortKey: (m) => m.memoryClaimed.toString().padLeft(12, '0'),
     cellBuilder: (m) {
+      if (isPendingLlmLoad(m) || m.memoryClaimed.toInt() <= 0) {
+        return const Text('—');
+      }
       final bytes = m.memoryClaimed.toInt();
       final gib = bytes / (1024 * 1024 * 1024);
       return Text(gib >= 1 ? '${gib.toStringAsFixed(1)} GiB' : '$bytes B');
@@ -86,7 +89,9 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     width: 96,
     minWidth: 72,
     sortKey: (m) => m.ctxSize.toString().padLeft(8, '0'),
-    cellBuilder: (m) => Text(m.ctxSize > 0 ? '${m.ctxSize}' : '4096'),
+    cellBuilder: (m) => Text(
+      m.ctxSize > 0 ? '${m.ctxSize}' : (isPendingLlmLoad(m) ? '—' : '4096'),
+    ),
   ),
   TableHeader(
     name: 'MAX TOKENS',
@@ -119,6 +124,7 @@ class SelectAllLlmCheckbox extends ConsumerWidget {
             ?.value
             .models
             .where((m) => !pending.contains(m.instanceId))
+            .where((m) => !isPendingLlmLoad(m))
             .where((m) {
               if (search.isEmpty) return true;
               final q = search.toLowerCase();
@@ -152,6 +158,9 @@ class SelectLlmCheckbox extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (instanceId.startsWith(pendingLlmLoadIdPrefix)) {
+      return const Center(child: Checkbox(value: false, onChanged: null));
+    }
     final selected = ref.watch(
       selectedLlmInstancesProvider.select((s) => s.contains(instanceId)),
     );
@@ -163,6 +172,37 @@ class SelectLlmCheckbox extends ConsumerWidget {
             .toggle(instanceId, checked!),
       ),
     );
+  }
+}
+
+class _LlmStateCell extends StatelessWidget {
+  const _LlmStateCell({required this.model});
+
+  final LoadedModelInfo model;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (isPendingLlmLoad(model)) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              l10n.llmStateStarting,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      );
+    }
+    final label = model.state == 'loaded' ? l10n.llmStateLoaded : model.state;
+    return Text(label, overflow: TextOverflow.ellipsis);
   }
 }
 
@@ -210,11 +250,14 @@ class LlmModelLink extends ConsumerWidget {
         ? model.modelId
         : '${model.modelId} (${model.openaiId})';
     final branding = brandingForLoaded(model);
+    final pending = isPendingLlmLoad(model);
 
     return Tooltip(
       message: label,
       child: InkWell(
-        onTap: () => ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey),
+        onTap: pending
+            ? null
+            : () => ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey),
         child: Row(
           children: [
             ModelProviderBadge(
@@ -240,6 +283,9 @@ class LlmActivityLink extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (isPendingLlmLoad(model)) {
+      return const SizedBox.shrink();
+    }
     final l10n = AppLocalizations.of(context)!;
     final id =
         LlmInstanceId(instanceId: model.instanceId, modelId: model.modelId);

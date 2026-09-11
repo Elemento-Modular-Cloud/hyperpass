@@ -275,6 +275,7 @@ class _ModelsTable extends ConsumerWidget {
         }
 
         final loaded = reply.models;
+        final pendingLoads = ref.watch(pendingLlmLoadsProvider);
         var totalBytes = 0;
         for (final model in models) {
           totalBytes += cachedModelDiskBytes(model);
@@ -328,9 +329,11 @@ class _ModelsTable extends ConsumerWidget {
             width: 120,
             minWidth: 88,
             sortKey: (model) =>
-                isCachedModelInUse(model, loaded) ? '1' : '0',
+                isCachedModelInUse(model, loaded, pendingLoads: pendingLoads)
+                    ? '1'
+                    : '0',
             cellBuilder: (model) => Text(
-              isCachedModelInUse(model, loaded)
+              isCachedModelInUse(model, loaded, pendingLoads: pendingLoads)
                   ? l10n.cacheModelsInUse
                   : l10n.cacheModelsAvailable,
             ),
@@ -342,7 +345,8 @@ class _ModelsTable extends ConsumerWidget {
             width: 72,
             minWidth: 56,
             cellBuilder: (model) {
-              final inUse = isCachedModelInUse(model, loaded);
+              final inUse =
+                  isCachedModelInUse(model, loaded, pendingLoads: pendingLoads);
               return Align(
                 alignment: Alignment.centerRight,
                 child: IconButton(

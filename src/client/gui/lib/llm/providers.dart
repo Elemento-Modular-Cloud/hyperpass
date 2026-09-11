@@ -106,6 +106,53 @@ class PendingLlmUnloads extends Notifier<Set<String>> {
 final pendingLlmUnloadsProvider =
     NotifierProvider<PendingLlmUnloads, Set<String>>(PendingLlmUnloads.new);
 
+class PendingLlmLoad {
+  const PendingLlmLoad({
+    required this.id,
+    required this.modelId,
+    required this.runtime,
+    required this.ctxSize,
+    required this.maxTokens,
+  });
+
+  final String id;
+  final String modelId;
+  final String runtime;
+  final int ctxSize;
+  final int maxTokens;
+
+  LoadedModelInfo get placeholder => LoadedModelInfo(
+        instanceId: id,
+        modelId: modelId,
+        backend: runtime,
+        state: pendingLlmLoadState,
+        ctxSize: ctxSize,
+        maxTokens: maxTokens,
+      );
+}
+
+const pendingLlmLoadState = 'starting';
+const pendingLlmLoadIdPrefix = 'pending-load-';
+
+bool isPendingLlmLoad(LoadedModelInfo model) =>
+    model.state == pendingLlmLoadState ||
+    model.instanceId.startsWith(pendingLlmLoadIdPrefix);
+
+class PendingLlmLoads extends Notifier<List<PendingLlmLoad>> {
+  @override
+  List<PendingLlmLoad> build() => const [];
+
+  void add(PendingLlmLoad load) => state = [...state, load];
+
+  void remove(String id) {
+    if (!state.any((load) => load.id == id)) return;
+    state = [for (final load in state) if (load.id != id) load];
+  }
+}
+
+final pendingLlmLoadsProvider =
+    NotifierProvider<PendingLlmLoads, List<PendingLlmLoad>>(PendingLlmLoads.new);
+
 Future<void> unloadLlmInstance(String instanceId) async {
   // Use the app-wide container so post-await updates stay safe after the
   // running-models list rebuilds / unmounts the widget that started unload.
@@ -140,8 +187,10 @@ final loadedLlmIdsProvider = Provider<List<LlmInstanceId>>((ref) {
 /// True when a cached GGUF is currently loaded for inference.
 bool isCachedModelInUse(
   ModelSuggestion model,
-  Iterable<LoadedModelInfo> loaded,
-) {
+  Iterable<LoadedModelInfo> loaded, {
+  Iterable<PendingLlmLoad> pendingLoads = const [],
+}) {
+  if (pendingLoads.any((load) => load.modelId == model.id)) return true;
   for (final instance in loaded) {
     if (instance.modelId == model.id) return true;
     if (model.path.isNotEmpty &&

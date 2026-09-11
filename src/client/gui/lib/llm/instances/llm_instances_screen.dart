@@ -1,3 +1,4 @@
+import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,6 +29,7 @@ class LlmInstancesScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final loaded = ref.watch(loadedModelsProvider);
     final pending = ref.watch(pendingLlmUnloadsProvider);
+    final starting = ref.watch(pendingLlmLoadsProvider);
     final search = ref.watch(llmSearchProvider);
     final selected = ref.watch(selectedLlmInstancesProvider);
 
@@ -51,66 +53,104 @@ class LlmInstancesScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             Expanded(
               child: loaded.when(
-                data: (reply) {
-                  final models = reply.models
+                skipLoadingOnReload: true,
+                data: (reply) => _LlmInstancesBody(
+                  live: reply.models
                       .where((m) => !pending.contains(m.instanceId))
-                      .where((m) {
-                        if (search.isEmpty) return true;
-                        final q = search.toLowerCase();
-                        return m.modelId.toLowerCase().contains(q) ||
-                            m.openaiId.toLowerCase().contains(q) ||
-                            m.backend.toLowerCase().contains(q);
-                      })
-                      .toList(growable: false);
-                  if (reply.models
-                      .where((m) => !pending.contains(m.instanceId))
-                      .isEmpty) {
-                    return const NoLlmInstances();
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Spacer(),
-                          SearchBox(
-                            key: const ValueKey('llm-search'),
-                            hint: l10n.searchBoxHintModels,
-                            provider: llmSearchProvider,
-                          ),
-                        ],
+                      .toList(growable: false),
+                  starting: starting,
+                  search: search,
+                  selected: selected,
+                ),
+                loading: () => starting.isEmpty
+                    ? const Center(child: CircularProgressIndicator())
+                    : _LlmInstancesBody(
+                        live: const [],
+                        starting: starting,
+                        search: search,
+                        selected: selected,
                       ),
-                      const LlmBulkActionsBar(),
-                      const SizedBox(height: 10),
-                      Flexible(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: vmtable.Table<LoadedModelInfo>(
-                            key: ValueKey(
-                              models.map((m) => m.instanceId).join(','),
-                            ),
-                            headers: llmInstanceHeaders,
-                            data: models,
-                            finalRow: List.generate(
-                              llmInstanceHeaders.length,
-                              (_) => const SizedBox.shrink(),
-                            ),
-                            isSelected: (m) =>
-                                selected.contains(m.instanceId),
-                          ),
-                        ),
+                error: (e, _) => starting.isEmpty
+                    ? Center(child: Text('$e'))
+                    : _LlmInstancesBody(
+                        live: const [],
+                        starting: starting,
+                        search: search,
+                        selected: selected,
                       ),
-                    ],
-                  );
-                },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('$e')),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LlmInstancesBody extends StatelessWidget {
+  const _LlmInstancesBody({
+    required this.live,
+    required this.starting,
+    required this.search,
+    required this.selected,
+  });
+
+  final List<LoadedModelInfo> live;
+  final List<PendingLlmLoad> starting;
+  final String search;
+  final BuiltSet<String> selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (live.isEmpty && starting.isEmpty) {
+      return const NoLlmInstances();
+    }
+
+    final models = [
+      ...live,
+      for (final load in starting) load.placeholder,
+    ].where((m) {
+      if (search.isEmpty) return true;
+      final q = search.toLowerCase();
+      return m.modelId.toLowerCase().contains(q) ||
+          m.openaiId.toLowerCase().contains(q) ||
+          m.backend.toLowerCase().contains(q);
+    }).toList(growable: false);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Spacer(),
+            SearchBox(
+              key: const ValueKey('llm-search'),
+              hint: l10n.searchBoxHintModels,
+              provider: llmSearchProvider,
+            ),
+          ],
+        ),
+        const LlmBulkActionsBar(),
+        const SizedBox(height: 10),
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: vmtable.Table<LoadedModelInfo>(
+              key: ValueKey(
+                models.map((m) => m.instanceId).join(','),
+              ),
+              headers: llmInstanceHeaders,
+              data: models,
+              finalRow: List.generate(
+                llmInstanceHeaders.length,
+                (_) => const SizedBox.shrink(),
+              ),
+              isSelected: (m) => selected.contains(m.instanceId),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
