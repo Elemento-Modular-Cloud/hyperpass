@@ -15,17 +15,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ secrets.MULTIPASS_CI_BOT_ID }}
-          private-key: ${{ secrets.MULTIPASS_CI_BOT_KEY }}
-
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -47,23 +38,10 @@ jobs:
       - name: Create PR
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "[distro] Update Cloud Images info"
           branch: "update-cloud-images"
           title: "[distro] Update Cloud Images information"
           body: "Automatic update of cloud image information."
-          sign-commits: true
           add-paths: |
             data/distributions/distribution-info.json
-
-      - name: Report workflow failure
-        if: ${{ failure() }}
-        uses: mattermost/action-mattermost-notify@master
-        with:
-          MATTERMOST_WEBHOOK_URL: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
-          MATTERMOST_CHANNEL: multipass-notifications
-          TEXT: |
-            :red_circle: @mp
-            Scheduled [Update Cloud Images](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) workflow failed.
-          MATTERMOST_USERNAME: ${{ github.triggering_actor }}
-          MATTERMOST_ICON_URL: https://www.flaticon.com/free-icon/github-logo_25231

@@ -19,7 +19,9 @@ import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
 import 'cloud_init/cloud_init_screen.dart';
 import 'daemon_unavailable.dart';
+import 'downloads/download_status_list.dart';
 import 'help.dart';
+import 'layout/compact_layout.dart';
 import 'logger.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
 import 'llm/credentials/llm_credentials_screen.dart';
@@ -59,9 +61,10 @@ void main() async {
 
   final sharedPreferences = await SharedPreferences.getInstance();
   await windowManager.ensureInitialized();
+  final screenSize = await getCurrentScreenSize();
   final windowOptions = WindowOptions(
     center: true,
-    minimumSize: const Size(750, 450),
+    minimumSize: computeMinimumWindowSize(screenSize),
     size: await deriveWindowSize(sharedPreferences),
     title: Brand.appName,
     backgroundColor: Colors.transparent,
@@ -100,6 +103,25 @@ class ElectrosLaunchPadApp extends ConsumerWidget {
       home: const UpdateSystemNotificationListener(child: App()),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) {
+        final size = MediaQuery.sizeOf(context);
+        final compact = CompactLayout.isCompactSize(size);
+        final media = MediaQuery.of(context);
+        final scaled = compact
+            ? media.copyWith(
+                textScaler: TextScaler.linear(
+                  media.textScaler.scale(1) * CompactLayout.compactTextScale,
+                ),
+              )
+            : media;
+        return MediaQuery(
+          data: scaled,
+          child: CompactScope(
+            isCompact: compact,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
     );
   }
 }
@@ -291,7 +313,8 @@ class _AppState extends ConsumerState<App> with WindowListener {
     );
 
     final hotkey = ref.watch(hotkeyProvider);
-    final sidebarWidth = SideBar.totalWidth;
+    final collapsed = sidebarCollapsedOf(context, ref);
+    final sidebarWidth = SideBar.totalWidthFor(collapsed);
 
     return Stack(
       children: [
@@ -319,7 +342,20 @@ class _AppState extends ConsumerState<App> with WindowListener {
         ...chrome,
         const Align(
           alignment: Alignment.bottomRight,
-          child: SizedBox(width: 400, child: NotificationList()),
+          child: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                  child: DownloadStatusList(),
+                ),
+                NotificationList(),
+              ],
+            ),
+          ),
         ),
         const DaemonUnavailable(),
         Positioned(

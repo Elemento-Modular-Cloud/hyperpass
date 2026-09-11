@@ -90,31 +90,37 @@ class VmDetailsHeader extends ConsumerWidget {
       ],
     );
 
-    final list = [
-      Expanded(
-        child: Row(
-          children: [
-            Flexible(
-              child: CopyableText(
-                id.name.nonBreaking,
-                style:
-                    const TextStyle(fontSize: 24, fontWeight: FontWeight.w300),
-              ),
-            ),
-            DaemonSourceChip(id.source),
-          ],
-        ),
-      ),
-      locationButtons,
-      cpu,
-      memory,
-      disk,
-      VmActionButtons(id),
-    ];
-
     return Padding(
       padding: EdgeInsets.zero,
-      child: Row(children: list.gap(width: 40).toList()),
+      child: Wrap(
+        spacing: 24,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 160, maxWidth: 420),
+            child: Row(
+              children: [
+                Flexible(
+                  child: CopyableText(
+                    id.name.nonBreaking,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                ),
+                DaemonSourceChip(id.source),
+              ],
+            ),
+          ),
+          locationButtons,
+          cpu,
+          memory,
+          disk,
+          VmActionButtons(id),
+        ],
+      ),
     );
   }
 }

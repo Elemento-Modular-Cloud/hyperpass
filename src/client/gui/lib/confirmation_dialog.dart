@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'layout/compact_layout.dart';
 import 'widgets/launchpad_button.dart';
 
 class ConfirmationDialog extends StatelessWidget {
@@ -48,7 +49,7 @@ class ConfirmationDialog extends StatelessWidget {
         children: [
           const Divider(),
           SizedBox(
-            width: width,
+            width: CompactLayout.dialogWidth(context, width),
             child: Padding(
               padding: const EdgeInsets.only(top: 8, bottom: 4),
               child: body,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../layout/compact_layout.dart';
 import '../../page_surface.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
@@ -46,7 +47,7 @@ class LlmInstancesScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const HostResourceGauges(),
+            HostResourceGauges(compact: CompactScope.of(context)),
             const SizedBox(height: 16),
             Expanded(
               child: loaded.when(
@@ -84,22 +85,18 @@ class LlmInstancesScreen extends ConsumerWidget {
                       Flexible(
                         child: Padding(
                           padding: const EdgeInsets.all(8),
-                          child: SizedBox(
-                            height: (models.length + 2) * 50,
-                            width: double.infinity,
-                            child: vmtable.Table<LoadedModelInfo>(
-                              key: ValueKey(
-                                models.map((m) => m.instanceId).join(','),
-                              ),
-                              headers: llmInstanceHeaders,
-                              data: models,
-                              finalRow: List.generate(
-                                llmInstanceHeaders.length,
-                                (_) => const SizedBox.shrink(),
-                              ),
-                              isSelected: (m) =>
-                                  selected.contains(m.instanceId),
+                          child: vmtable.Table<LoadedModelInfo>(
+                            key: ValueKey(
+                              models.map((m) => m.instanceId).join(','),
                             ),
+                            headers: llmInstanceHeaders,
+                            data: models,
+                            finalRow: List.generate(
+                              llmInstanceHeaders.length,
+                              (_) => const SizedBox.shrink(),
+                            ),
+                            isSelected: (m) =>
+                                selected.contains(m.instanceId),
                           ),
                         ),
                       ),

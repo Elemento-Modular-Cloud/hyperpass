@@ -162,19 +162,37 @@ class MultipassOnlineNotifier extends Notifier<bool> {
 /// Sidebar-facing Multipass connectivity for the status row.
 enum MultipassSidebarStatus { hidden, online, offline, needsAuth, disabled }
 
-final multipassSidebarStatusProvider = Provider<MultipassSidebarStatus>((ref) {
-  if (!_showMultipassEnabled(ref)) {
-    return MultipassSidebarStatus.disabled;
-  }
-  if (ref.watch(multipassNeedsAuthProvider)) {
-    return MultipassSidebarStatus.needsAuth;
-  }
-  if (ref.watch(multipassGrpcClientProvider) == null) {
-    return MultipassSidebarStatus.offline;
-  }
-  return ref.watch(multipassOnlineProvider)
+bool isSystemHealthy(bool daemonUp, MultipassSidebarStatus multipass) =>
+    daemonUp &&
+    (multipass == MultipassSidebarStatus.online ||
+        multipass == MultipassSidebarStatus.hidden ||
+        multipass == MultipassSidebarStatus.disabled);
+
+/// Resolves Multipass sidebar state. Missing Multipass is [hidden], not [offline].
+MultipassSidebarStatus resolveMultipassSidebarStatus({
+  required bool showEnabled,
+  required bool discovered,
+  required bool needsAuth,
+  required bool clientAvailable,
+  required bool online,
+}) {
+  if (!showEnabled) return MultipassSidebarStatus.disabled;
+  if (!discovered) return MultipassSidebarStatus.hidden;
+  if (needsAuth) return MultipassSidebarStatus.needsAuth;
+  if (!clientAvailable) return MultipassSidebarStatus.offline;
+  return online
       ? MultipassSidebarStatus.online
       : MultipassSidebarStatus.offline;
+}
+
+final multipassSidebarStatusProvider = Provider<MultipassSidebarStatus>((ref) {
+  return resolveMultipassSidebarStatus(
+    showEnabled: _showMultipassEnabled(ref),
+    discovered: discoverMultipassConnection() != null,
+    needsAuth: ref.watch(multipassNeedsAuthProvider),
+    clientAvailable: ref.watch(multipassGrpcClientProvider) != null,
+    online: ref.watch(multipassOnlineProvider),
+  );
 });
 
 final multipassVmInfosStreamProvider =

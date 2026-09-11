@@ -5,6 +5,7 @@ import '../appearance_settings.dart';
 import '../auth/feature_access.dart';
 import '../brand.dart';
 import '../catalogue/catalogue.dart';
+import '../layout/compact_layout.dart';
 import '../l10n/app_localizations.dart';
 import '../llm/catalogue/llm_catalogue_screen.dart';
 import '../llm/instances/llm_instances_screen.dart';
@@ -36,6 +37,30 @@ class OverviewHero extends ConsumerWidget {
     final total = runningVms + runningServices + runningLlms;
     final healthy = ref.watch(daemonAvailableProvider);
     final access = ref.watch(featureAccessProvider);
+    final compact = CompactScope.of(context);
+
+    final workloads = _LocalWorkloadsCard(
+      total: total,
+      vms: runningVms,
+      llms: runningLlms,
+      services: runningServices,
+      healthy: healthy,
+      baseColor: glass.cardSolid,
+      onOpenAll: () {},
+      onOpenVms: () => ref
+          .read(sidebarKeyProvider.notifier)
+          .set(VmTableScreen.sidebarKey),
+      onOpenLlms: access.canUseLlms
+          ? () => ref
+              .read(sidebarKeyProvider.notifier)
+              .set(LlmInstancesScreen.sidebarKey)
+          : () {},
+      onOpenServices: access.canUseServices
+          ? () => ref
+              .read(sidebarKeyProvider.notifier)
+              .set(ServiceInstancesScreen.sidebarKey)
+          : () {},
+    );
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(Brand.radius + 2),
@@ -58,113 +83,111 @@ class OverviewHero extends ConsumerWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+            padding: EdgeInsets.fromLTRB(
+              compact ? 16 : 28,
+              compact ? 16 : 28,
+              compact ? 16 : 28,
+              compact ? 16 : 24,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text.rich(
-                            TextSpan(
-                              style: TextStyle(
-                                fontFamily: Brand.fontFamily,
-                                fontSize: 34,
-                                fontWeight: FontWeight.w700,
-                                height: 1.15,
-                                color: onSurface,
-                              ),
-                              children: [
-                                TextSpan(text: l10n.overviewHeroTitleLead),
-                                TextSpan(
-                                  text: l10n.overviewHeroTitleAccent,
-                                  style: const TextStyle(color: Brand.accent),
-                                ),
-                              ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final stack = compact || constraints.maxWidth < 720;
+                    final title = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text.rich(
+                          TextSpan(
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: compact ? 26 : 34,
+                              fontWeight: FontWeight.w700,
+                              height: 1.15,
+                              color: onSurface,
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 560),
-                            child: Text(
-                              l10n.overviewHeroSubtitle,
-                              style: TextStyle(
-                                fontFamily: Brand.fontFamily,
-                                fontSize: 14,
-                                height: 1.45,
-                                color: onSurface.withValues(alpha: 0.78),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
                             children: [
-                              LaunchPadButton.primary(
-                                onPressed: () => ref
-                                    .read(sidebarKeyProvider.notifier)
-                                    .set(CatalogueScreen.sidebarKey),
-                                icon: Icons.add,
-                                child: Text(l10n.overviewHeroNewVm),
-                              ),
-                              Opacity(
-                                opacity: access.canUseLlms ? 1 : 0.45,
-                                child: AbsorbPointer(
-                                  absorbing: !access.canUseLlms,
-                                  child: OutlinedButton(
-                                    onPressed: () => ref
-                                        .read(sidebarKeyProvider.notifier)
-                                        .set(LlmCatalogueScreen.sidebarKey),
-                                    child: Text(l10n.overviewHeroRunModel),
-                                  ),
-                                ),
-                              ),
-                              Opacity(
-                                opacity: access.canUseServices ? 1 : 0.45,
-                                child: AbsorbPointer(
-                                  absorbing: !access.canUseServices,
-                                  child: OutlinedButton(
-                                    onPressed: () => ref
-                                        .read(sidebarKeyProvider.notifier)
-                                        .set(ServicesScreen.sidebarKey),
-                                    child: Text(l10n.overviewHeroStartService),
-                                  ),
-                                ),
+                              TextSpan(text: l10n.overviewHeroTitleLead),
+                              TextSpan(
+                                text: l10n.overviewHeroTitleAccent,
+                                style: const TextStyle(color: Brand.accent),
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 560),
+                          child: Text(
+                            l10n.overviewHeroSubtitle,
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: 14,
+                              height: 1.45,
+                              color: onSurface.withValues(alpha: 0.78),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            LaunchPadButton.primary(
+                              onPressed: () => ref
+                                  .read(sidebarKeyProvider.notifier)
+                                  .set(CatalogueScreen.sidebarKey),
+                              icon: Icons.add,
+                              child: Text(l10n.overviewHeroNewVm),
+                            ),
+                            Opacity(
+                              opacity: access.canUseLlms ? 1 : 0.45,
+                              child: AbsorbPointer(
+                                absorbing: !access.canUseLlms,
+                                child: OutlinedButton(
+                                  onPressed: () => ref
+                                      .read(sidebarKeyProvider.notifier)
+                                      .set(LlmCatalogueScreen.sidebarKey),
+                                  child: Text(l10n.overviewHeroRunModel),
+                                ),
+                              ),
+                            ),
+                            Opacity(
+                              opacity: access.canUseServices ? 1 : 0.45,
+                              child: AbsorbPointer(
+                                absorbing: !access.canUseServices,
+                                child: OutlinedButton(
+                                  onPressed: () => ref
+                                      .read(sidebarKeyProvider.notifier)
+                                      .set(ServicesScreen.sidebarKey),
+                                  child: Text(l10n.overviewHeroStartService),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                    if (stack) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          title,
+                          const SizedBox(height: 16),
+                          workloads,
                         ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    _LocalWorkloadsCard(
-                      total: total,
-                      vms: runningVms,
-                      llms: runningLlms,
-                      services: runningServices,
-                      healthy: healthy,
-                      baseColor: glass.cardSolid,
-                      onOpenAll: () {},
-                      onOpenVms: () => ref
-                          .read(sidebarKeyProvider.notifier)
-                          .set(VmTableScreen.sidebarKey),
-                      onOpenLlms: access.canUseLlms
-                          ? () => ref
-                              .read(sidebarKeyProvider.notifier)
-                              .set(LlmInstancesScreen.sidebarKey)
-                          : () {},
-                      onOpenServices: access.canUseServices
-                          ? () => ref
-                              .read(sidebarKeyProvider.notifier)
-                              .set(ServiceInstancesScreen.sidebarKey)
-                          : () {},
-                    ),
-                  ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: title),
+                        const SizedBox(width: 16),
+                        workloads,
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -212,7 +235,7 @@ class _LocalWorkloadsCard extends StatelessWidget {
         onTap: onOpenAll,
         borderRadius: BorderRadius.circular(Brand.radius),
         child: Container(
-          width: 260,
+          width: CompactScope.of(context) ? double.infinity : 260,
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Brand.radius),
@@ -323,10 +346,10 @@ class _HeroBackdrop extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fallback = ColoredBox(color: themeBackgroundColor(settings.theme));
-    final file = wallpaperImageFile(settings);
-    if (file != null) {
-      return Image.file(
-        file,
+    final image = wallpaperImageProvider(settings);
+    if (image != null) {
+      return Image(
+        image: image,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
@@ -335,10 +358,10 @@ class _HeroBackdrop extends ConsumerWidget {
       );
     }
     if (settings.wallpaperType == WallpaperType.provider) {
-      final url = ref.watch(providerWallpaperUrlProvider).asData?.value;
-      if (url != null && url.isNotEmpty) {
-        return Image.network(
-          url,
+      final file = ref.watch(providerWallpaperFileProvider).asData?.value;
+      if (file != null) {
+        return Image.file(
+          file,
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,

@@ -129,6 +129,13 @@ class AppearanceSettingsSection extends ConsumerWidget {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
+                  _AssetWallpaperTile(
+                    label: l10n.appearanceWallpaperDefault,
+                    selected: appearance.wallpaperType ==
+                            WallpaperType.image &&
+                        isBundledWallpaper(appearance.wallpaper),
+                    onTap: notifier.setDefaultWallpaper,
+                  ),
                   _WallpaperTile(
                     label: l10n.appearanceWallpaperNone,
                     icon: Icons.block,
@@ -314,6 +321,69 @@ class _ThemeButton extends StatelessWidget {
               color: foreground,
               fontFamily: Brand.fontFamily,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AssetWallpaperTile extends StatelessWidget {
+  const _AssetWallpaperTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Brand.radius),
+        child: Container(
+          width: 100,
+          height: 72,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Brand.radius),
+            border: Border.all(
+              color: selected ? Brand.accent : onSurface.withValues(alpha: 0.2),
+              width: selected ? 2 : 1,
+            ),
+            image: const DecorationImage(
+              image: AssetImage(kDefaultWallpaperAsset),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(Brand.radius - 1),
+                ),
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontFamily: Brand.fontFamily,
+                ),
+              ),
             ),
           ),
         ),

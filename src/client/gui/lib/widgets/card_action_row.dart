@@ -37,11 +37,13 @@ class CardActionRow extends StatelessWidget {
       final filled = action.kind == LaunchPadButtonKind.primary;
       final destructive = action.kind == LaunchPadButtonKind.destructive;
       final color = filled ? Brand.primary : Colors.transparent;
-      final textColor = filled
-          ? Brand.voidBlack
-          : destructive
-              ? error
-              : onSurface;
+      final enabled = action.onTap != null;
+      final textColor = (filled
+              ? Brand.voidBlack
+              : destructive
+                  ? error
+                  : onSurface)
+          .withValues(alpha: enabled ? 1 : 0.38);
 
       return Expanded(
         child: Material(

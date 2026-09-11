@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:grpc/grpc.dart';
 
+import '../downloads/download_manager.dart';
 import '../overview/recent_activity.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -48,22 +48,30 @@ final llmBackendsProvider = FutureProvider((ref) async {
 
 class LlmBackendInstalls extends Notifier<Map<String, int>> {
   @override
-  Map<String, int> build() => const {};
+  Map<String, int> build() {
+    return {
+      for (final job in ref.watch(downloadManagerProvider))
+        if (job.kind == DownloadKind.llmRuntime && job.isActive)
+          job.modelId: job.percent,
+    };
+  }
 
   Future<void> install(String backendId) async {
-    if (state.containsKey(backendId)) return;
-    state = {...state, backendId: 0};
-    try {
-      final client = ref.read(grpcClientProvider);
-      await for (final reply in client.installLlmBackend(backendId)) {
-        state = {...state, backendId: reply.progressPercent};
-        if (reply.status == 'ready' || reply.status == 'error') break;
-      }
-    } finally {
-      final next = {...state}..remove(backendId);
-      state = next;
-      ref.invalidate(llmBackendsProvider);
-    }
+    ref.read(downloadManagerProvider.notifier).enqueue(
+      kind: DownloadKind.llmRuntime,
+      label: backendId,
+      dedupKey: 'runtime:$backendId',
+      modelId: backendId,
+      execute: (controller) async {
+        final client = ref.read(grpcClientProvider);
+        await for (final reply in client.installLlmBackend(backendId)) {
+          if (controller.isCancelled) break;
+          controller.setPercent(reply.progressPercent);
+          if (reply.status == 'ready' || reply.status == 'error') break;
+        }
+        ref.invalidate(llmBackendsProvider);
+      },
+    );
   }
 }
 
@@ -128,6 +136,30 @@ final loadedLlmIdsProvider = Provider<List<LlmInstanceId>>((ref) {
     error: (_, __) => const [],
   );
 });
+
+/// True when a cached GGUF is currently loaded for inference.
+bool isCachedModelInUse(
+  ModelSuggestion model,
+  Iterable<LoadedModelInfo> loaded,
+) {
+  for (final instance in loaded) {
+    if (instance.modelId == model.id) return true;
+    if (model.path.isNotEmpty &&
+        instance.path.isNotEmpty &&
+        instance.path == model.path) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// On-disk size for a vault entry. Cached list_models rows store file size in
+/// [ModelSuggestion.memoryRequiredGb]; catalog rows use [diskSizeGb].
+int cachedModelDiskBytes(ModelSuggestion model) {
+  final gb = model.diskSizeGb > 0 ? model.diskSizeGb : model.memoryRequiredGb;
+  if (gb <= 0) return 0;
+  return (gb * 1024 * 1024 * 1024).round();
+}
 
 class CatalogFilters {
   final String search;
@@ -334,69 +366,60 @@ class ModelDownloadJob {
 }
 
 class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
-  Future<void>? _pump;
-
   @override
-  List<ModelDownloadJob> build() => const [];
+  List<ModelDownloadJob> build() {
+    return [
+      for (final job in ref.watch(downloadManagerProvider))
+        if (job.kind == DownloadKind.llmModel)
+          ModelDownloadJob(
+            jobKey: job.id,
+            modelId: job.modelId,
+            hfRepo: job.hfRepo,
+            quant: job.quant,
+            status: switch (job.status) {
+              DownloadStatus.queued => ModelJobStatus.queued,
+              DownloadStatus.running => ModelJobStatus.running,
+              DownloadStatus.done => ModelJobStatus.done,
+              DownloadStatus.error ||
+              DownloadStatus.cancelled =>
+                ModelJobStatus.error,
+            },
+            percent: job.percent,
+            error: job.error,
+            path: job.path,
+          ),
+    ];
+  }
 
   int get activeCount =>
       state.where((j) => j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running).length;
 
   void enqueueDownload(String modelId, String quant, {String hfRepo = ''}) {
-    final busy = state.any((j) =>
-        j.modelId == modelId &&
-        (j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running));
-    if (busy) return;
-
-    final jobKey = '${modelId}_${DateTime.now().microsecondsSinceEpoch}';
-    state = [
-      ...state.where((j) => j.modelId != modelId || j.status == ModelJobStatus.error),
-      ModelDownloadJob(
-        jobKey: jobKey,
-        modelId: modelId,
-        hfRepo: hfRepo,
-        quant: quant,
-      ),
-    ];
-    ref.read(sidebarKeyProvider.notifier).set(LlmDownloadedScreen.sidebarKey);
-    _pump ??= _run();
-  }
-
-  void _patch(String jobKey, ModelDownloadJob Function(ModelDownloadJob) update) {
-    state = [
-      for (final job in state)
-        if (job.jobKey == jobKey) update(job) else job,
-    ];
-  }
-
-  Future<void> _run() async {
-    try {
-      while (true) {
-        final pending = state.where((j) => j.status == ModelJobStatus.queued).toList();
-        if (pending.isEmpty) return;
-        final job = pending.first;
-        _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.running));
-        try {
-          final client = ref.read(grpcClientProvider);
-          var savedPath = '';
-          await for (final reply in client.pullModel(job.modelId, quant: job.quant, hfRepo: job.hfRepo)) {
-            final raw = int.tryParse(reply.launchProgress.percentComplete) ?? 0;
-            if (reply.path.isNotEmpty) savedPath = reply.path;
-            _patch(job.jobKey, (j) => j.copyWith(percent: raw.clamp(0, 100), path: savedPath));
-          }
-          _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.done, percent: 100, path: savedPath));
-          ref.invalidate(loadedModelsProvider);
-        } catch (e) {
-          final message = e is GrpcError ? (e.message ?? '$e') : '$e';
-          _patch(job.jobKey, (j) => j.copyWith(status: ModelJobStatus.error, error: message));
+    ref.read(downloadManagerProvider.notifier).enqueue(
+      kind: DownloadKind.llmModel,
+      label: modelId,
+      dedupKey: 'llm:$modelId',
+      modelId: modelId,
+      quant: quant,
+      hfRepo: hfRepo,
+      execute: (controller) async {
+        final client = ref.read(grpcClientProvider);
+        var savedPath = '';
+        await for (final reply in client.pullModel(
+          modelId,
+          quant: quant,
+          hfRepo: hfRepo,
+        )) {
+          if (controller.isCancelled) break;
+          final raw = int.tryParse(reply.launchProgress.percentComplete) ?? 0;
+          if (reply.path.isNotEmpty) savedPath = reply.path;
+          controller.setPercent(raw);
+          if (savedPath.isNotEmpty) controller.setPath(savedPath);
         }
-      }
-    } finally {
-      _pump = null;
-      if (state.any((j) => j.status == ModelJobStatus.queued)) {
-        _pump = _run();
-      }
-    }
+        ref.invalidate(loadedModelsProvider);
+      },
+    );
+    ref.read(sidebarKeyProvider.notifier).set(LlmDownloadedScreen.sidebarKey);
   }
 }
 

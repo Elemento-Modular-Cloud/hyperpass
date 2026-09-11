@@ -165,6 +165,14 @@
     "@sidebarInstances": {
         "description": "Sidebar navigation label for the Instances screen"
     },
+    "sidebarExpandTooltip": "Expand sidebar",
+    "@sidebarExpandTooltip": {
+        "description": "Tooltip for expanding the compact sidebar"
+    },
+    "sidebarCollapseTooltip": "Collapse sidebar",
+    "@sidebarCollapseTooltip": {
+        "description": "Tooltip for collapsing the sidebar on small displays"
+    },
     "sidebarSectionVms": "VMs",
     "@sidebarSectionVms": {
         "description": "Sidebar section heading for virtual machine navigation"
@@ -571,6 +579,10 @@
     "@modelsTabDownloaded": {
         "description": "My models tab listing cached GGUF files and active downloads"
     },
+    "downloadsHeading": "Downloads",
+    "@downloadsHeading": {
+        "description": "Heading for the global download queue overlay"
+    },
     "modelsActiveDownloadsHeading": "Active downloads",
     "@modelsActiveDownloadsHeading": {
         "description": "Heading above in-progress model downloads"
@@ -807,7 +819,7 @@
     "@modelsDeleteCachedTitle": {
         "description": "Confirmation title when deleting a cached model"
     },
-    "modelsDeleteCachedBody": "This will permanently remove the GGUF file from disk. Loaded models are unloaded first.",
+    "modelsDeleteCachedBody": "This will permanently remove the GGUF file from disk.",
     "@modelsDeleteCachedBody": {
         "description": "Confirmation body when deleting a cached model"
     },
@@ -932,6 +944,38 @@
     "cacheTableTotal": "Total",
     "@cacheTableTotal": {
         "description": "Label for the cache table totals row"
+    },
+    "cacheImagesHeading": "Images",
+    "@cacheImagesHeading": {
+        "description": "Section heading for cached VM images on the Storage page"
+    },
+    "cacheModelsHeading": "Models",
+    "@cacheModelsHeading": {
+        "description": "Section heading for downloaded LLM GGUFs on the Storage page"
+    },
+    "cacheModelsEmpty": "No downloaded models",
+    "@cacheModelsEmpty": {
+        "description": "Empty state when no LLM GGUFs are on disk"
+    },
+    "cacheModelsStatName": "MODEL",
+    "@cacheModelsStatName": {
+        "description": "Storage table column header for downloaded model name"
+    },
+    "cacheModelsStatStatus": "STATUS",
+    "@cacheModelsStatStatus": {
+        "description": "Storage table column header for whether a model is loaded"
+    },
+    "cacheModelsInUse": "In use",
+    "@cacheModelsInUse": {
+        "description": "Status when a downloaded model is currently loaded"
+    },
+    "cacheModelsAvailable": "Available",
+    "@cacheModelsAvailable": {
+        "description": "Status when a downloaded model is not loaded"
+    },
+    "cacheDeleteModelInUseTooltip": "Unload this model before deleting it",
+    "@cacheDeleteModelInUseTooltip": {
+        "description": "Tooltip when delete is disabled because the model is loaded"
     },
     "cloudInitLabel": "Cloud-init",
     "@cloudInitLabel": {
@@ -1275,6 +1319,10 @@
     "appearanceWallpaperLabel": "Wallpaper",
     "@appearanceWallpaperLabel": {
         "description": "Label above wallpaper mode tiles"
+    },
+    "appearanceWallpaperDefault": "Shuttle launch",
+    "@appearanceWallpaperDefault": {
+        "description": "Wallpaper tile for the packed default shuttle-launch image"
     },
     "appearanceWallpaperNone": "None",
     "@appearanceWallpaperNone": {

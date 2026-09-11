@@ -6,6 +6,7 @@ import '../../brand.dart';
 import '../../catalogue/catalogue_surface.dart';
 import '../../copyable_text.dart';
 import '../../l10n/app_localizations.dart';
+import '../../layout/compact_layout.dart';
 import '../../page_surface.dart';
 import '../../widgets/launchpad_button.dart';
 import '../../providers.dart';
@@ -541,7 +542,7 @@ class _KeyEditorDialogState extends State<_KeyEditorDialog> {
     return AlertDialog(
       title: Text(widget.title),
       content: SizedBox(
-        width: 460,
+        width: CompactLayout.dialogWidth(context, 460),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

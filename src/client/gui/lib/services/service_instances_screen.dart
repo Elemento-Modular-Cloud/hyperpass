@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
+import '../layout/compact_layout.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -52,7 +53,7 @@ class ServiceInstancesScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const HostResourceGauges(),
+            HostResourceGauges(compact: CompactScope.of(context)),
             const SizedBox(height: 16),
             Expanded(
               child: allInstances.isEmpty
@@ -75,21 +76,17 @@ class ServiceInstancesScreen extends ConsumerWidget {
                         Flexible(
                           child: Padding(
                             padding: const EdgeInsets.all(8),
-                            child: SizedBox(
-                              height: (instances.length + 2) * 50,
-                              width: double.infinity,
-                              child: vmtable.Table<TaggedVmInfo>(
-                                key: ValueKey(
-                                  instances.map((i) => i.name).join(','),
-                                ),
-                                headers: serviceInstanceHeaders,
-                                data: instances,
-                                finalRow: List.generate(
-                                  serviceInstanceHeaders.length,
-                                  (_) => const SizedBox.shrink(),
-                                ),
-                                isSelected: (info) => selected.contains(info.id),
+                            child: vmtable.Table<TaggedVmInfo>(
+                              key: ValueKey(
+                                instances.map((i) => i.name).join(','),
                               ),
+                              headers: serviceInstanceHeaders,
+                              data: instances,
+                              finalRow: List.generate(
+                                serviceInstanceHeaders.length,
+                                (_) => const SizedBox.shrink(),
+                              ),
+                              isSelected: (info) => selected.contains(info.id),
                             ),
                           ),
                         ),

@@ -24,10 +24,7 @@ class OverviewSystemRail extends ConsumerWidget {
     final daemon = ref.watch(daemonInfoProvider).asData?.value;
     final daemonUp = ref.watch(daemonAvailableProvider);
     final multipass = ref.watch(multipassSidebarStatusProvider);
-    final healthy = daemonUp &&
-        (multipass == MultipassSidebarStatus.online ||
-            multipass == MultipassSidebarStatus.hidden ||
-            multipass == MultipassSidebarStatus.disabled);
+    final healthy = isSystemHealthy(daemonUp, multipass);
     final history = ref.watch(hostMetricsHistoryProvider);
 
     final memory = daemon?.memory.toInt() ?? 0;

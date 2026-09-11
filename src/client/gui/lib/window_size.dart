@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:window_size/window_size.dart';
 
+import 'layout/compact_layout.dart';
 import 'logger.dart';
 
 const windowWidthKey = 'windowWidth';
@@ -55,26 +56,35 @@ Future<Size> deriveWindowSize(SharedPreferences sharedPreferences) async {
   return size ?? computeDefaultWindowSize(screenSize);
 }
 
+Size computeMinimumWindowSize(Size? screenSize) =>
+    CompactLayout.computeMinimumWindowSize(screenSize);
+
 Size computeDefaultWindowSize(Size? screenSize) {
   const windowSizeFactor = 0.8;
   final (screenWidth, screenHeight) = (screenSize?.width, screenSize?.height);
   final aspectRatioFactor = screenSize?.flipped.aspectRatio;
+  final minSize = computeMinimumWindowSize(screenSize);
 
   final defaultWidth = switch (screenWidth) {
-    null || <= 1024 => 750.0,
+    null => CompactLayout.preferredMinWidth,
+    <= 1024 => minSize.width,
     >= 1600 => 1400.0,
     _ => screenWidth * windowSizeFactor,
   };
 
   final defaultHeight = switch (screenHeight) {
-    null || <= 576 => 450.0,
+    null => CompactLayout.preferredMinHeight,
+    <= 576 => minSize.height,
     >= 900 => 822.0,
     _ => aspectRatioFactor != null
         ? defaultWidth * aspectRatioFactor
         : screenHeight * windowSizeFactor,
   };
 
-  final size = Size(defaultWidth, defaultHeight);
+  final size = Size(
+    defaultWidth < minSize.width ? minSize.width : defaultWidth,
+    defaultHeight < minSize.height ? minSize.height : defaultHeight,
+  );
   logger.d('Computed default window size: ${size.s()}');
   return size;
 }

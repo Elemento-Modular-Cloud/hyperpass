@@ -17,9 +17,11 @@ import 'brand.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
 import 'cloud_init/cloud_init_screen.dart';
+import 'downloads/download_manager.dart';
 import 'glass_panel.dart';
 import 'help.dart';
 import 'l10n/app_localizations.dart';
+import 'layout/compact_layout.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
 import 'llm/credentials/llm_credentials_screen.dart';
 import 'llm/instances/llm_downloaded_screen.dart';
@@ -29,6 +31,7 @@ import 'llm/providers.dart';
 import 'llm/setup/llm_setup_screen.dart';
 import 'multipass_auth_banner.dart';
 import 'overview/overview_screen.dart';
+import 'platform/platform.dart';
 import 'providers.dart';
 import 'services/service_bindings.dart';
 import 'services/service_instance_id.dart';
@@ -189,6 +192,9 @@ class SidebarSectionHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (sidebarCollapsedOf(context, ref)) {
+      return const SizedBox(height: 8);
+    }
     final appearanceTheme = ref.watch(
       appearanceSettingsProvider.select((settings) => settings.theme),
     );
@@ -232,6 +238,9 @@ class SideBar extends ConsumerWidget {
 
   static double get totalWidth => width + gutter;
 
+  static double totalWidthFor(bool collapsed) =>
+      (collapsed ? mpPlatform.sidebarCollapsedWidth : width) + gutter;
+
   const SideBar({super.key});
 
   @override
@@ -251,6 +260,7 @@ class SideBar extends ConsumerWidget {
     final multipassStatus = ref.watch(multipassSidebarStatusProvider);
     final access = ref.watch(featureAccessProvider);
     final fg = _SidebarStyle.foreground(appearanceTheme);
+    final collapsed = sidebarCollapsedOf(context, ref);
 
     bool isSelected(String key) => key == selectedSidebarKey;
 
@@ -327,12 +337,7 @@ class SideBar extends ConsumerWidget {
           openOrPromptLocked(access.canUseLlms, LlmInstancesScreen.sidebarKey),
     );
 
-    final activeDownloads = ref
-        .watch(modelDownloadQueueProvider)
-        .where((j) =>
-            j.status == ModelJobStatus.queued ||
-            j.status == ModelJobStatus.running)
-        .length;
+    final activeDownloads = ref.watch(downloadManagerProvider).where((j) => j.isActive).length;
 
     final llmDownloaded = SidebarEntry(
       icon: FontAwesomeIcons.download,
@@ -423,32 +428,62 @@ class SideBar extends ConsumerWidget {
 
     final header = DragToMoveArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        padding: EdgeInsets.fromLTRB(collapsed ? 4 : 16, 4, collapsed ? 4 : 16, 4),
         child: SizedBox(
           height: _SidebarStyle.brandAreaHeight,
-          child: Row(
-            children: [
-              SvgPicture.asset(
-                Brand.logoAsset,
-                width: _SidebarStyle.brandLogoSize,
-                height: _SidebarStyle.brandLogoSize,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: BrandAppName(
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: _SidebarStyle.headerTitleColor(appearanceTheme),
-                    fontFamily: Brand.fontFamily,
-                    fontSize: _SidebarStyle.brandTitleSize,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
+          child: collapsed
+              ? Center(
+                  child: IconButton(
+                    tooltip: l10n.sidebarExpandTooltip,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () =>
+                        ref.read(sidebarForceExpandedProvider.notifier).toggle(),
+                    icon: SvgPicture.asset(
+                      Brand.logoAsset,
+                      width: 28,
+                      height: 28,
+                    ),
                   ),
+                )
+              : Row(
+                  children: [
+                    SvgPicture.asset(
+                      Brand.logoAsset,
+                      width: _SidebarStyle.brandLogoSize,
+                      height: _SidebarStyle.brandLogoSize,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: BrandAppName(
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _SidebarStyle.headerTitleColor(appearanceTheme),
+                          fontFamily: Brand.fontFamily,
+                          fontSize: _SidebarStyle.brandTitleSize,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                      ),
+                    ),
+                    if (CompactScope.of(context))
+                      IconButton(
+                        tooltip: l10n.sidebarCollapseTooltip,
+                        padding: EdgeInsets.zero,
+                        constraints:
+                            const BoxConstraints(minWidth: 28, minHeight: 28),
+                        iconSize: 16,
+                        onPressed: () => ref
+                            .read(sidebarForceExpandedProvider.notifier)
+                            .toggle(),
+                        icon: Icon(
+                          Icons.chevron_left,
+                          color: fg,
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -493,16 +528,18 @@ class SideBar extends ConsumerWidget {
                   BlendMode.srcIn,
                 ),
               ),
-              const SizedBox(width: 6),
-              Text(
-                Brand.companyName,
-                style: const TextStyle(
-                  color: Brand.primary,
-                  fontFamily: Brand.fontFamily,
-                  fontSize: _SidebarStyle.footerSize,
-                  fontWeight: FontWeight.bold,
+              if (!collapsed) ...[
+                const SizedBox(width: 6),
+                Text(
+                  Brand.companyName,
+                  style: const TextStyle(
+                    color: Brand.primary,
+                    fontFamily: Brand.fontFamily,
+                    fontSize: _SidebarStyle.footerSize,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -573,7 +610,7 @@ class SideBar extends ConsumerWidget {
           right: SideBar.gutter,
         ),
         child: SizedBox(
-          width: SideBar.width,
+          width: collapsed ? mpPlatform.sidebarCollapsedWidth : SideBar.width,
           child: GlassPanel(
             role: SurfaceRole.sidebar,
             borderRadius: radius,
@@ -633,8 +670,9 @@ class _SidebarAccountBadge extends ConsumerWidget {
         ? _SidebarStyle.activeFg(appearanceTheme)
         : _SidebarStyle.foreground(appearanceTheme);
     final isDarkTheme = appearanceTheme != AppearanceTheme.light;
+    final collapsed = sidebarCollapsedOf(context, ref);
 
-    if (auth is AuthGuest) {
+    Widget avatarRow({required Widget avatar, required Widget text}) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
         child: Material(
@@ -650,55 +688,60 @@ class _SidebarAccountBadge extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Brand.accent.withValues(alpha: 0.25),
-                    child: const Icon(
-                      Icons.person_outline,
-                      size: 16,
-                      color: Brand.accent,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.sidebarGuestHeading,
-                          style: TextStyle(
-                            fontFamily: Brand.fontFamily,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
-                            color: fg.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          l10n.sidebarGuestSignIn,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: Brand.fontFamily,
-                            fontSize: _SidebarStyle.statusSize,
-                            color: fg,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.login,
-                    size: 16,
-                    color: fg.withValues(alpha: 0.45),
-                  ),
+                  avatar,
+                  if (!collapsed) ...[
+                    const SizedBox(width: 10),
+                    Expanded(child: text),
+                  ],
                 ],
               ),
             ),
           ),
         ),
       );
+    }
+
+    if (auth is AuthGuest) {
+      final content = avatarRow(
+        avatar: CircleAvatar(
+          radius: 14,
+          backgroundColor: Brand.accent.withValues(alpha: 0.25),
+          child: const Icon(
+            Icons.person_outline,
+            size: 16,
+            color: Brand.accent,
+          ),
+        ),
+        text: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.sidebarGuestHeading,
+              style: TextStyle(
+                fontFamily: Brand.fontFamily,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: fg.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              l10n.sidebarGuestSignIn,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: Brand.fontFamily,
+                fontSize: _SidebarStyle.statusSize,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      );
+      return collapsed
+          ? Tooltip(message: l10n.sidebarGuestSignIn, child: content)
+          : content;
     }
 
     if (auth is! AuthAuthenticated) return const SizedBox.shrink();
@@ -759,40 +802,42 @@ class _SidebarAccountBadge extends ConsumerWidget {
                     },
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.sidebarAccountHeading,
-                        style: TextStyle(
-                          fontFamily: Brand.fontFamily,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                          color: fg.withValues(alpha: 0.5),
+                if (!collapsed) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.sidebarAccountHeading,
+                          style: TextStyle(
+                            fontFamily: Brand.fontFamily,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                            color: fg.withValues(alpha: 0.5),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: Brand.fontFamily,
-                          fontSize: _SidebarStyle.statusSize,
-                          color: fg,
+                        const SizedBox(height: 2),
+                        Text(
+                          email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: Brand.fontFamily,
+                            fontSize: _SidebarStyle.statusSize,
+                            color: fg,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right,
-                  size: 16,
-                  color: fg.withValues(alpha: 0.45),
-                ),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: fg.withValues(alpha: 0.45),
+                  ),
+                ],
               ],
             ),
           ),
@@ -823,11 +868,7 @@ class _SidebarSystemSection extends ConsumerStatefulWidget {
 class _SidebarSystemSectionState extends ConsumerState<_SidebarSystemSection> {
   var _expanded = false;
 
-  bool get _healthy =>
-      widget.daemonUp &&
-      (widget.multipassStatus == MultipassSidebarStatus.online ||
-          widget.multipassStatus == MultipassSidebarStatus.hidden ||
-          widget.multipassStatus == MultipassSidebarStatus.disabled);
+  bool get _healthy => isSystemHealthy(widget.daemonUp, widget.multipassStatus);
 
   @override
   Widget build(BuildContext context) {
@@ -839,6 +880,23 @@ class _SidebarSystemSectionState extends ConsumerState<_SidebarSystemSection> {
     final isDarkTheme = appearanceTheme != AppearanceTheme.light;
     final summary =
         _healthy ? l10n.overviewSystemsHealthy : l10n.sidebarSystemAttention;
+    final collapsed = sidebarCollapsedOf(context, ref);
+
+    if (collapsed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Center(
+          child: Tooltip(
+            message: summary,
+            child: Icon(
+              Icons.circle,
+              size: 8,
+              color: _healthy ? Brand.green : Brand.warning,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
@@ -906,7 +964,11 @@ class _SidebarSystemSectionState extends ConsumerState<_SidebarSystemSection> {
               child: Column(
                 children: [
                   widget.daemonStatus,
-                  widget.multipassStatusRow,
+                  if (widget.multipassStatus !=
+                          MultipassSidebarStatus.hidden &&
+                      widget.multipassStatus !=
+                          MultipassSidebarStatus.disabled)
+                    widget.multipassStatusRow,
                 ],
               ),
             ),
@@ -1025,7 +1087,8 @@ class SidebarEntry extends ConsumerWidget {
       ),
     );
 
-    return Opacity(
+    final collapsed = sidebarCollapsedOf(context, ref);
+    final row = Opacity(
       opacity: locked ? 0.42 : 1,
       child: Material(
         color: selected && !locked ? activeBg : Colors.transparent,
@@ -1049,43 +1112,53 @@ class SidebarEntry extends ConsumerWidget {
               child: Row(
                 children: [
                   iconChild,
-                  Expanded(
-                    child: Text(
-                      label,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: fg,
-                        fontFamily: Brand.fontFamily,
-                        fontSize: fontSize,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  if (locked)
-                    Icon(
-                      Icons.lock_outline,
-                      size: 12,
-                      color: fg.withValues(alpha: 0.8),
-                    )
-                  else if (badge != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDarkTheme
-                            ? Brand.black
-                            : Brand.greyBody.withAlpha(60),
-                        borderRadius: BorderRadius.circular(Brand.radius),
-                      ),
+                  if (!collapsed) ...[
+                    Expanded(
                       child: Text(
-                        badge!,
+                        label,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: fg,
-                          fontSize: 11,
+                          fontFamily: Brand.fontFamily,
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w400,
                         ),
+                      ),
+                    ),
+                    if (locked)
+                      Icon(
+                        Icons.lock_outline,
+                        size: 12,
+                        color: fg.withValues(alpha: 0.8),
+                      )
+                    else if (badge != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDarkTheme
+                              ? Brand.black
+                              : Brand.greyBody.withAlpha(60),
+                          borderRadius: BorderRadius.circular(Brand.radius),
+                        ),
+                        child: Text(
+                          badge!,
+                          style: TextStyle(
+                            color: fg,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                  ] else if (badge != null)
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Brand.accent,
+                        shape: BoxShape.circle,
                       ),
                     ),
                 ],
@@ -1095,5 +1168,10 @@ class SidebarEntry extends ConsumerWidget {
         ),
       ),
     );
+
+    if (collapsed) {
+      return Tooltip(message: label, child: row);
+    }
+    return row;
   }
 }

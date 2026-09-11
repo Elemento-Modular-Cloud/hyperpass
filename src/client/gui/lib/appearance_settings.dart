@@ -7,9 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'background_providers.dart';
 import 'brand.dart';
+import 'downloads/download_manager.dart';
 import 'elemento_paths.dart';
 import 'providers.dart';
 import 'wallpaper_store.dart';
+
+/// Packed first-run wallpaper (space shuttle launch).
+const kDefaultWallpaperAsset = 'assets/backgrounds/spaceshuttle_launch.jpg';
 
 /// Electros `AppearanceHandler.wallpaperType` (note: `atomosphere` typo preserved).
 enum WallpaperType {
@@ -31,8 +35,8 @@ enum AppearanceTheme {
 @immutable
 class AppearanceSettings {
   const AppearanceSettings({
-    this.wallpaperType = WallpaperType.atmosphere,
-    this.wallpaper,
+    this.wallpaperType = WallpaperType.image,
+    this.wallpaper = kDefaultWallpaperAsset,
     this.wallpaperBrightness = 100,
     this.wallpaperBlur = 0,
     this.useGlassmorphism = true,
@@ -351,6 +355,13 @@ class AppearanceSettingsNotifier extends Notifier<AppearanceSettings> {
     ));
   }
 
+  Future<void> setDefaultWallpaper() async {
+    await update(state.copyWith(
+      wallpaperType: WallpaperType.image,
+      wallpaper: kDefaultWallpaperAsset,
+    ));
+  }
+
   Future<void> importImageWallpaper(String sourcePath) async {
     final store = await WallpaperStore.open();
     final file = await store.importFrom(sourcePath);
@@ -447,14 +458,31 @@ Color themeBackgroundColor(AppearanceTheme theme) => switch (theme) {
       AppearanceTheme.highContrast => const Color(0xFF000000),
     };
 
+bool isBundledWallpaper(String? path) {
+  if (path == null || path.isEmpty) return false;
+  return path == kDefaultWallpaperAsset || path.startsWith('assets/');
+}
+
 File? wallpaperImageFile(AppearanceSettings settings) {
   if (settings.wallpaperType != WallpaperType.image) {
     return null;
   }
   final path = normalizeWallpaperPath(settings.wallpaper);
-  if (path == null || path.isEmpty) return null;
+  if (path == null || path.isEmpty || isBundledWallpaper(path)) return null;
   final file = File(path);
   return file.existsSync() ? file : null;
+}
+
+/// Image provider for [WallpaperType.image], including the packed default asset.
+ImageProvider? wallpaperImageProvider(AppearanceSettings settings) {
+  if (settings.wallpaperType != WallpaperType.image) return null;
+  final path = normalizeWallpaperPath(settings.wallpaper);
+  if (path == null || path.isEmpty || isBundledWallpaper(path)) {
+    return const AssetImage(kDefaultWallpaperAsset);
+  }
+  final file = File(path);
+  if (file.existsSync()) return FileImage(file);
+  return null;
 }
 
 /// Resolves a POTD/network wallpaper URL for [WallpaperType.provider].
@@ -468,4 +496,36 @@ final providerWallpaperUrlProvider = FutureProvider<String?>((ref) async {
 
   final image = await BackgroundProviderService.fetchLatest(raw);
   return image?.imgUrl;
+});
+
+/// Downloads the current POTD image through the shared download manager.
+final providerWallpaperFileProvider = FutureProvider<File?>((ref) async {
+  final settings = ref.watch(appearanceSettingsProvider);
+  if (settings.wallpaperType != WallpaperType.provider) return null;
+
+  final url = await ref.watch(providerWallpaperUrlProvider.future);
+  if (url == null || url.isEmpty) return null;
+
+  final reference = settings.wallpaper ?? 'provider';
+  final safeRef = reference.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  final dest = File(
+    '${elementoBackgroundsDirectory().path}${Platform.pathSeparator}potd-$safeRef.jpg',
+  );
+  if (dest.existsSync() && dest.lengthSync() > 0) return dest;
+
+  await ref.read(downloadManagerProvider.notifier).enqueueAndWait(
+        kind: DownloadKind.potd,
+        label: 'Wallpaper ($reference)',
+        dedupKey: 'potd:$url',
+        execute: (controller) async {
+          await downloadUrlToFile(
+            url,
+            dest,
+            onProgress: controller.setPercent,
+            isCancelled: () => controller.isCancelled,
+          );
+          if (!controller.isCancelled) controller.setPath(dest.path);
+        },
+      );
+  return dest.existsSync() ? dest : null;
 });

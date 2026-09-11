@@ -9,6 +9,7 @@ import '../catalogue/launch_form.dart';
 import '../cloud_init/cloud_init_store.dart';
 import '../ffi.dart';
 import '../l10n/app_localizations.dart';
+import '../layout/compact_layout.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import '../widgets/launchpad_button.dart';
@@ -125,7 +126,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
         ],
       ),
       content: SizedBox(
-        width: 620,
+        width: CompactLayout.dialogWidth(context, 620),
         // Services expose up to 25 parameters, so the body has to scroll
         // within a bounded box rather than grow the dialog off-screen.
         height: min(620, MediaQuery.of(context).size.height * 0.65),

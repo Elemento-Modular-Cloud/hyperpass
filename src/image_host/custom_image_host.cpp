@@ -43,13 +43,11 @@ namespace
 {
 constexpr auto category = "custom_image_host";
 constexpr auto no_remote{""};
-constexpr auto manifest_endpoint{"https://raw.githubusercontent.com/canonical/multipass/refs/heads/"
-                                 "main/data/distributions/distribution-info.json"};
 
 auto get_manifest_url()
 {
     return qEnvironmentVariable(mp::distributions_url_env_var).isEmpty()
-             ? QString{manifest_endpoint}
+             ? QString{mp::default_distributions_url}
              : qEnvironmentVariable(mp::distributions_url_env_var);
 }
 

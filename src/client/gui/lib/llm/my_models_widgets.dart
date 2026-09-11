@@ -180,6 +180,10 @@ Future<void> confirmDeleteCachedModel(
   WidgetRef ref,
   ModelSuggestion model,
 ) async {
+  final loaded = ref.read(loadedModelsProvider).asData?.value.models ??
+      const <LoadedModelInfo>[];
+  if (isCachedModelInUse(model, loaded)) return;
+
   final l10n = AppLocalizations.of(context)!;
   await showDialog<void>(
     context: context,
@@ -272,6 +276,9 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
     final topPicks =
         ref.watch(topPicksModelsProvider).asData?.value ?? const [];
     final capabilities = capabilitiesForSuggestion(model, hints: topPicks);
+    final loaded = ref.watch(loadedModelsProvider).asData?.value.models ??
+        const <LoadedModelInfo>[];
+    final inUse = isCachedModelInUse(model, loaded);
     final sizeLabel = model.memoryRequiredGb > 0
         ? '${model.memoryRequiredGb.toStringAsFixed(1)} GiB'
         : (model.diskSizeGb > 0
@@ -386,8 +393,9 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                   CardAction(
                     label: l10n.commonDelete,
                     kind: LaunchPadButtonKind.destructive,
-                    onTap: () =>
-                        confirmDeleteCachedModel(context, ref, model),
+                    onTap: inUse
+                        ? null
+                        : () => confirmDeleteCachedModel(context, ref, model),
                   ),
                 ],
               ),

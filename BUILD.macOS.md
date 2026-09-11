@@ -160,27 +160,27 @@ Once it is complete, you will have a Multipass.pkg file in the build directory.
 Local third-party catalog
 -------------------------
 
-A local build includes `CustomVMImageHost`, which lists Debian, Fedora, AlmaLinux, and Rocky Linux from a JSON manifest.
+A local build includes `CustomVMImageHost`, which lists Debian, Fedora, AlmaLinux, Rocky Linux, and other distros from a JSON manifest.
 
-By default the daemon fetches
-`https://raw.githubusercontent.com/canonical/multipass/refs/heads/main/data/distributions/distribution-info.json`.
-To use a catalog from this tree (or any other file/URL), set `MULTIPASS_DISTRIBUTIONS_URL` on **multipassd**:
+By default the daemon fetches the catalog published on GitHub Pages:
+`https://elemento-modular-cloud.github.io/elp/distribution-info.json`.
+To use a catalog from this tree (or any other file/URL), set `ELP_DISTRIBUTIONS_URL` on **elpd**:
 
 ```text
-MULTIPASS_DISTRIBUTIONS_URL=/absolute/path/to/data/distributions/distribution-info.json
+ELP_DISTRIBUTIONS_URL=/absolute/path/to/data/distributions/distribution-info.json
 # or
-MULTIPASS_DISTRIBUTIONS_URL=https://example.com/distribution-info.json
+ELP_DISTRIBUTIONS_URL=https://example.com/distribution-info.json
 ```
 
 On macOS, add an `EnvironmentVariables` entry for that key in
-`/Library/LaunchDaemons/com.canonical.multipassd.plist`, then:
+`/Library/LaunchDaemons/com.elemento.elpd.plist`, then:
 
 ```text
-sudo launchctl unload /Library/LaunchDaemons/com.canonical.multipassd.plist
-sudo launchctl load /Library/LaunchDaemons/com.canonical.multipassd.plist
+sudo launchctl unload /Library/LaunchDaemons/com.elemento.elpd.plist
+sudo launchctl load /Library/LaunchDaemons/com.elemento.elpd.plist
 ```
 
-Verify with `multipass find` and a GUI Catalogue refresh. `launch almalinux` and `launch rocky` should appear in the listing.
+Verify with `elp find` and a GUI Catalogue refresh. `launch almalinux` and `launch rocky` should appear in the listing.
 
 For running this build beside an already-installed Multipass (recommended while developing), see [`LOCAL_DEV.md`](./LOCAL_DEV.md).
 

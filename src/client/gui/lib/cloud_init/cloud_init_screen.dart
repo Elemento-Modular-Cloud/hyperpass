@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../confirmation_dialog.dart';
 import '../l10n/app_localizations.dart';
+import '../layout/compact_layout.dart';
 import '../page_surface.dart';
 import '../widgets/launchpad_button.dart';
 import 'cloud_init_store.dart';
@@ -241,7 +242,7 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
           shape: const Border(),
           title: Text(title),
           content: SizedBox(
-            width: 420,
+            width: CompactLayout.dialogWidth(dialogContext, 420),
             child: Form(
               key: formKey,
               child: TextFormField(

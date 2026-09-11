@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../catalogue/catalogue.dart';
 import '../daemon_source.dart';
 import '../l10n/app_localizations.dart';
+import '../layout/compact_layout.dart';
 import '../llm/host_resource_gauges.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -150,7 +151,7 @@ class Vms extends ConsumerWidget {
       children: [
         heading,
         const SizedBox(height: 8),
-        const HostResourceGauges(),
+        HostResourceGauges(compact: CompactScope.of(context)),
         const SizedBox(height: 16),
         vmFilters,
         const BulkActionsBar(),
@@ -158,15 +159,11 @@ class Vms extends ConsumerWidget {
         Flexible(
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child: SizedBox(
-              height: (infos.length + 2) * 50,
-              width: double.infinity,
-              child: Table<TaggedVmInfo>(
-                headers: enabledHeaders,
-                data: infos.toList(),
-                finalRow: totalUsageRow,
-                isSelected: (info) => selectedVms.contains(info.id),
-              ),
+            child: Table<TaggedVmInfo>(
+              headers: enabledHeaders,
+              data: infos.toList(),
+              finalRow: totalUsageRow,
+              isSelected: (info) => selectedVms.contains(info.id),
             ),
           ),
         ),

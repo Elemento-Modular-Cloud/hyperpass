@@ -53,6 +53,8 @@ constexpr auto home_automount_dir = "Home";
 constexpr auto multipass_storage_env_var = "ELP_STORAGE";
 constexpr auto driver_env_var = "ELP_VM_DRIVER";
 constexpr auto distributions_url_env_var = "ELP_DISTRIBUTIONS_URL";
+constexpr auto default_distributions_url =
+    "https://elemento-modular-cloud.github.io/elp/distribution-info.json";
 constexpr auto server_address_env_var = "ELP_SERVER_ADDRESS";
 constexpr auto api_listen_env_var = "ELP_API_LISTEN";
 constexpr auto api_token_env_var = "ELP_API_TOKEN";

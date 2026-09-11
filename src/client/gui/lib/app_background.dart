@@ -76,17 +76,17 @@ class _ImageWallpaper extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fallback = ColoredBox(color: themeBackgroundColor(settings.theme));
 
-    final file = wallpaperImageFile(settings);
-    if (file != null) {
-      return _WallpaperImage(source: FileImage(file), settings: settings);
+    final image = wallpaperImageProvider(settings);
+    if (image != null) {
+      return _WallpaperImage(source: image, settings: settings);
     }
 
     if (settings.wallpaperType == WallpaperType.provider) {
-      final urlAsync = ref.watch(providerWallpaperUrlProvider);
-      return urlAsync.when(
-        data: (url) {
-          if (url == null || url.isEmpty) return fallback;
-          return _WallpaperImage(source: NetworkImage(url), settings: settings);
+      final fileAsync = ref.watch(providerWallpaperFileProvider);
+      return fileAsync.when(
+        data: (file) {
+          if (file == null) return fallback;
+          return _WallpaperImage(source: FileImage(file), settings: settings);
         },
         loading: () => fallback,
         error: (_, __) => fallback,

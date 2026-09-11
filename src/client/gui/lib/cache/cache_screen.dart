@@ -3,12 +3,16 @@ import 'package:flutter/material.dart' hide Table;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
+import '../auth/feature_access.dart';
 import '../confirmation_dialog.dart';
 import '../copyable_text.dart';
 import '../distro_branding.dart';
 import '../extensions.dart';
 import '../ffi.dart';
 import '../l10n/app_localizations.dart';
+import '../llm/catalogue/model_branding.dart';
+import '../llm/my_models_widgets.dart';
+import '../llm/providers.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../vm_table/table.dart';
@@ -30,6 +34,7 @@ class CacheScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final cacheAsync = ref.watch(cacheInfoProvider);
+    final showModels = ref.watch(featureAccessProvider).canUseLlms;
 
     return Scaffold(
       body: PageSurface(
@@ -40,12 +45,18 @@ class CacheScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: Text(
-                    l10n.cacheLabel,
-                    style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
+                    l10n.sidebarStorageLabel,
+                    style: const TextStyle(
+                      fontSize: 37,
+                      fontWeight: FontWeight.w300,
+                    ),
                   ),
                 ),
                 TextButton(
-                  onPressed: () => ref.invalidate(cacheInfoProvider),
+                  onPressed: () {
+                    ref.invalidate(cacheInfoProvider);
+                    ref.invalidate(loadedModelsProvider);
+                  },
                   child: Text(l10n.cacheRefresh),
                 ),
                 const SizedBox(width: 8),
@@ -71,15 +82,34 @@ class CacheScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
+            Text(
+              l10n.cacheImagesHeading,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 8),
             Expanded(
+              flex: showModels ? 3 : 1,
               child: cacheAsync.when(
                 skipLoadingOnRefresh: false,
-                data: (reply) => _buildTable(context, ref, reply, l10n),
+                data: (reply) => _buildImageTable(context, ref, reply, l10n),
                 error: (error, _) => _buildError(context, ref, error, l10n),
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
               ),
             ),
+            if (showModels) ...[
+              const SizedBox(height: 24),
+              Text(
+                l10n.cacheModelsHeading,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                flex: 2,
+                child: _ModelsTable(),
+              ),
+            ],
           ],
         ),
       ),
@@ -138,25 +168,14 @@ class CacheScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTable(
+  Widget _buildImageTable(
     BuildContext context,
     WidgetRef ref,
     CacheInfoReply reply,
     AppLocalizations l10n,
   ) {
     if (reply.images.isEmpty) {
-      return Center(
-        child: Text(
-          l10n.cacheEmpty,
-          style: TextStyle(
-            fontSize: 16,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.6),
-          ),
-        ),
-      );
+      return _EmptyHint(l10n.cacheEmpty);
     }
 
     final headers = <TableHeader<CacheImageInfo>>[
@@ -238,6 +257,156 @@ class CacheScreen extends ConsumerWidget {
       headers: headers,
       data: reply.images,
       finalRow: totalRow,
+    );
+  }
+}
+
+class _ModelsTable extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final modelsAsync = ref.watch(loadedModelsProvider);
+
+    return modelsAsync.when(
+      data: (reply) {
+        final models = reply.cached;
+        if (models.isEmpty) {
+          return _EmptyHint(l10n.cacheModelsEmpty);
+        }
+
+        final loaded = reply.models;
+        var totalBytes = 0;
+        for (final model in models) {
+          totalBytes += cachedModelDiskBytes(model);
+        }
+
+        final headers = <TableHeader<ModelSuggestion>>[
+          TableHeader(
+            name: 'MODEL',
+            childBuilder: (_) =>
+                TableHeader.defaultHeaderBuilder(l10n.cacheModelsStatName),
+            width: 280,
+            minWidth: 160,
+            sortKey: (model) => model.name.isNotEmpty ? model.name : model.id,
+            cellBuilder: (model) {
+              final title = model.name.isEmpty ? model.id : model.name;
+              final branding = brandingForSuggestion(model);
+              return Row(
+                children: [
+                  ModelProviderBadge(
+                    branding: branding,
+                    size: 28,
+                    semanticsLabel: branding.displayName,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: CopyableText(
+                      title.isNotBlank ? title.nonBreaking : '-',
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          TableHeader(
+            name: 'SIZE',
+            childBuilder: (_) =>
+                TableHeader.defaultHeaderBuilder(l10n.cacheStatSize),
+            width: 140,
+            minWidth: 100,
+            sortKey: (model) =>
+                cachedModelDiskBytes(model).toString().padLeft(20, '0'),
+            cellBuilder: (model) {
+              final bytes = cachedModelDiskBytes(model);
+              return Text(bytes > 0 ? humanReadableMemory(bytes) : '-');
+            },
+          ),
+          TableHeader(
+            name: 'STATUS',
+            childBuilder: (_) =>
+                TableHeader.defaultHeaderBuilder(l10n.cacheModelsStatStatus),
+            width: 120,
+            minWidth: 88,
+            sortKey: (model) =>
+                isCachedModelInUse(model, loaded) ? '1' : '0',
+            cellBuilder: (model) => Text(
+              isCachedModelInUse(model, loaded)
+                  ? l10n.cacheModelsInUse
+                  : l10n.cacheModelsAvailable,
+            ),
+          ),
+          TableHeader(
+            name: 'ACTIONS',
+            childBuilder: (_) =>
+                TableHeader.defaultHeaderBuilder(l10n.cacheStatActions),
+            width: 72,
+            minWidth: 56,
+            cellBuilder: (model) {
+              final inUse = isCachedModelInUse(model, loaded);
+              return Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  tooltip: inUse
+                      ? l10n.cacheDeleteModelInUseTooltip
+                      : l10n.modelsDeleteCachedTooltip,
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: inUse
+                      ? null
+                      : () => confirmDeleteCachedModel(context, ref, model),
+                ),
+              );
+            },
+          ),
+        ];
+
+        final totalRow = [
+          Container(
+            margin: const EdgeInsets.all(10),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              l10n.cacheTableTotal,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.all(10),
+            alignment: Alignment.centerLeft,
+            child: Text(
+              totalBytes > 0 ? humanReadableMemory(totalBytes) : '-',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox.shrink(),
+          const SizedBox.shrink(),
+        ];
+
+        return Table(
+          headers: headers,
+          data: models,
+          finalRow: totalRow,
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => _EmptyHint('$error'),
+    );
+  }
+}
+
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint(this.message);
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        message,
+        style: TextStyle(
+          fontSize: 16,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
+      ),
     );
   }
 }

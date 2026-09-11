@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:basics/basics.dart';
 import 'package:flutter/material.dart' hide Switch, ImageInfo;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:rxdart/rxdart.dart';
+import 'package:fpdart/fpdart.dart' hide State;
 
 import '../confirmation_dialog.dart';
+import '../downloads/download_manager.dart';
 import '../ffi.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
@@ -633,23 +634,62 @@ Future<bool> initiateLaunchFlow(
   final launchingVmsNotifier = ref.read(launchingVmsProvider.notifier);
 
   launchingVmsNotifier.add(launchRequest, os: os);
-  final cancelCompleter = Completer<void>();
-  final launchStream = grpcClient
-      .launch(
-        launchRequest,
-        mountRequests: mountRequests,
-        cancel: cancelCompleter.future,
-      )
-      .doOnDone(() => launchingVmsNotifier.remove(launchRequest.instanceName));
+  unawaited(() async {
+    try {
+      await ref.read(downloadManagerProvider.notifier).enqueueAndWait(
+        kind: DownloadKind.vmImage,
+        label: launchRequest.instanceName,
+        dedupKey: 'vm:${launchRequest.instanceName}',
+        execute: (controller) async {
+          if (controller.isCancelled) return;
+          final cancelCompleter = Completer<void>();
+          unawaited(controller.whenCancelled.then((_) {
+            if (!cancelCompleter.isCompleted) cancelCompleter.complete();
+          }));
+          final launchStream = grpcClient.launch(
+            launchRequest,
+            mountRequests: mountRequests,
+            cancel: cancelCompleter.future,
+          );
+          final broadcast =
+              StreamController<Either<LaunchReply, MountReply>?>.broadcast();
+          final sub = launchStream.listen(
+            (event) {
+              event?.match((reply) {
+                if (reply.whichCreateOneof() ==
+                    LaunchReply_CreateOneof.launchProgress) {
+                  final pct =
+                      int.tryParse(reply.launchProgress.percentComplete) ?? 0;
+                  controller.setPercent(pct);
+                }
+              }, (_) {});
+              if (!broadcast.isClosed) broadcast.add(event);
+            },
+            onError: (Object error, StackTrace stack) {
+              if (!broadcast.isClosed) {
+                broadcast.addError(error, stack);
+                broadcast.close();
+              }
+            },
+            onDone: broadcast.close,
+          );
+          ref.read(notificationsProvider.notifier).add(
+                LaunchingNotification(
+                  name: launchRequest.instanceName,
+                  cancelCompleter: cancelCompleter,
+                  stream: broadcast.stream,
+                  successSidebarKey: successSidebarKey,
+                ),
+              );
+          await broadcast.done;
+          await sub.cancel();
+        },
+      );
+    } finally {
+      launchingVmsNotifier.remove(launchRequest.instanceName);
+    }
+  }());
 
-  final notification = LaunchingNotification(
-    name: launchRequest.instanceName,
-    cancelCompleter: cancelCompleter,
-    stream: launchStream,
-    successSidebarKey: successSidebarKey,
-  );
-
-  ref.read(notificationsProvider.notifier).add(notification);
   ref.read(recentActivityProvider.notifier).record(
         title: 'Launching ${launchRequest.instanceName}',
         detail: os.isEmpty ? 'VM' : os,

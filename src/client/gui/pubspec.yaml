@@ -76,6 +76,7 @@ flutter:
   assets:
     - assets/
     - assets/llm/
+    - assets/backgrounds/
   fonts:
     - family: RedHatDisplay
       fonts:

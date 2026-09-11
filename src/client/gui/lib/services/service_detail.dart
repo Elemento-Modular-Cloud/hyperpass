@@ -5,6 +5,7 @@ import '../brand.dart';
 import '../catalogue/catalogue_surface.dart';
 import '../catalogue/launch_form.dart' show formatDiskSize;
 import '../l10n/app_localizations.dart';
+import '../layout/compact_layout.dart';
 import '../page_surface.dart';
 import '../widgets/launchpad_button.dart';
 import 'service_branding.dart';
@@ -292,7 +293,7 @@ class _ActionRow extends ConsumerWidget {
           ],
         ),
         content: SizedBox(
-          width: 720,
+          width: CompactLayout.dialogWidth(context, 720),
           height: 480,
           child: SingleChildScrollView(
             child: SelectableText(
