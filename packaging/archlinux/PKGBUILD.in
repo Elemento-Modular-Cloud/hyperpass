@@ -36,6 +36,7 @@ makedepends=(
   'cmake'
   'ninja'
   'pkgconf'
+  'rust' # rxx/ Rust component built via cargo (BUILD.linux.md's rustup step)
   'clang'
   'llvm'
   'lld'
