@@ -25,6 +25,18 @@ chroot and points vcpkg's binary cache at it, so later builds, even in a
 freshly recreated chroot, reuse those binaries instead of recompiling them.
 Delete that directory to force a full rebuild from scratch.
 
+One dependency, `libkeybinder3` (needed by the GUI's `hotkey_manager`
+Flutter plugin), is AUR-only — a sandboxed chroot can't reach the AUR
+itself, so build and inject it once before the first build:
+
+```
+git clone https://aur.archlinux.org/libkeybinder3.git /tmp/libkeybinder3
+(cd /tmp/libkeybinder3 && makepkg -s)
+./scripts/build-arch.sh -- -I /tmp/libkeybinder3/libkeybinder3-*.pkg.tar.zst
+```
+
+(For `--no-sandbox` builds, just `makepkg -si` it normally instead.)
+
 Install the resulting package with `pacman -U <package>.pkg.tar.zst`; this
 installs `elpd`/`elp`/the GUI, a systemd unit (`systemctl enable --now
 elpd`), and desktop/icon/completion files.

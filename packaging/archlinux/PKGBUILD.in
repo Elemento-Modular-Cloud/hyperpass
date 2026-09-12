@@ -30,6 +30,7 @@ depends=(
   'libnotify'
   'libayatana-appindicator'
   'gtkmm3'
+  'libkeybinder3' # AUR — GUI's hotkey_manager plugin links keybinder-3.0 at runtime too
 )
 makedepends=(
   'git'
@@ -74,10 +75,14 @@ makedepends=(
   'glib2'
   'pixman'
 )
-# Not in the official repos as of writing; install from the AUR first
-# (e.g. `yay -S libkeybinder3`) or the build will fail to configure gtkmm's
-# tray-icon integration:
-#   libkeybinder3 (AUR)
+# libkeybinder3 (declared in depends above, for the GUI's hotkey_manager
+# Flutter plugin) is AUR-only, not in the official repos. A sandboxed
+# extra-x86_64-build chroot can't reach the AUR itself, so build it and
+# inject it into the chroot first:
+#   git clone https://aur.archlinux.org/libkeybinder3.git /tmp/libkeybinder3
+#   (cd /tmp/libkeybinder3 && makepkg -s)
+#   ./scripts/build-arch.sh -- -I /tmp/libkeybinder3/libkeybinder3-*.pkg.tar.zst
+# For --no-sandbox builds, just `makepkg -si` it normally first.
 options=('!lto') # heavy C++ TUs (Qt/gRPC-generated code); LTO here is not worth the build time
 source=("elp::git+@REPO_SOURCE@")
 sha256sums=('SKIP')
