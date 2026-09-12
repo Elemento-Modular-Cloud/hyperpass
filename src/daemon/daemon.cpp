@@ -3138,15 +3138,18 @@ catch (const std::exception& e)
 
 namespace
 {
-// Bridges a synthetic, internal `launch` invocation (intent_create reuses
-// Daemon::create_vm to launch each member) into the real IntentCreateReply
-// stream the client actually sees.
+// Bridges a synthetic, internal `launch` invocation (intent_create and
+// intent_add_member both reuse Daemon::create_vm to launch each member)
+// into whichever real reply stream the client actually sees — IntentCreateReply
+// for intent_create, IntentAddMemberReply for intent_add_member. Templated on
+// the outer reply/request types so both call sites can share this adapter.
+template <typename OuterReply, typename OuterRequest>
 class IntentMemberLaunchSink
     : public grpc::ServerReaderWriterInterface<mp::LaunchReply, mp::LaunchRequest>
 {
 public:
     explicit IntentMemberLaunchSink(
-        grpc::ServerReaderWriterInterface<mp::IntentCreateReply, mp::IntentCreateRequest>* outer)
+        grpc::ServerReaderWriterInterface<OuterReply, OuterRequest>* outer)
         : outer{outer}
     {
     }
@@ -3170,7 +3173,7 @@ public:
     {
         if (!reply.log_line().empty())
         {
-            mp::IntentCreateReply forwarded;
+            OuterReply forwarded;
             forwarded.set_log_line(reply.log_line());
             outer->Write(forwarded);
         }
@@ -3178,7 +3181,7 @@ public:
     }
 
 private:
-    grpc::ServerReaderWriterInterface<mp::IntentCreateReply, mp::IntentCreateRequest>* outer;
+    grpc::ServerReaderWriterInterface<OuterReply, OuterRequest>* outer;
 };
 
 // A one-shot DaemonRpcContext for a single intent member's internal launch:
@@ -3341,7 +3344,7 @@ try
 
     auto launch_requests = std::make_shared<std::vector<LaunchRequest>>(std::move(*built));
     std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> sink =
-        std::make_shared<IntentMemberLaunchSink>(server);
+        std::make_shared<IntentMemberLaunchSink<IntentCreateReply, IntentCreateRequest>>(server);
 
     launch_intent_members(
         launch_requests,
@@ -3390,7 +3393,8 @@ try
 
     auto launch_requests = std::make_shared<std::vector<LaunchRequest>>(std::move(*built));
     std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> sink =
-        std::make_shared<IntentMemberLaunchSink>(server);
+        std::make_shared<IntentMemberLaunchSink<IntentAddMemberReply, IntentAddMemberRequest>>(
+            server);
 
     launch_intent_members(
         launch_requests,
