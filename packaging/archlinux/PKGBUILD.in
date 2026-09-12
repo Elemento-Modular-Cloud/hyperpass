@@ -100,7 +100,13 @@ prepare() {
   # usable `git describe`. Tag the disposable build clone locally (this
   # never touches the repository it was cloned from) so both work
   # unmodified; the pkgver() fallback above still covers this failing.
-  git describe --tags >/dev/null 2>&1 || git tag v0.0.0-dev
+  # Must be annotated: versioning.cmake calls plain `git describe` (no
+  # --tags), which ignores lightweight tags. An annotated tag needs a
+  # committer identity, which a fresh chroot's git has none of, so set
+  # one inline rather than depending on any global gitconfig.
+  git describe --tags >/dev/null 2>&1 || \
+    git -c user.name="build" -c user.email="build@localhost" \
+      tag -a v0.0.0-dev -m "local build"
 }
 
 build() {
