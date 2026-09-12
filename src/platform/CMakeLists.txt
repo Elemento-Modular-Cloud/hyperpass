@@ -16,14 +16,24 @@ function(add_target TARGET_NAME)
   if(LINUX)
     add_library(${TARGET_NAME} STATIC
       platform_linux.cpp
-      platform_unix.cpp)
+      platform_unix.cpp
+      mdns_service.cpp
+      mdns_service_linux.cpp)
+
+    find_package(PkgConfig REQUIRED)
+    # Arch's avahi package ships no separate avahi-common.pc — avahi-client.pc's own Libs:
+    # already includes -lavahi-common, so only avahi-client needs to be requested here.
+    pkg_check_modules(AVAHI REQUIRED IMPORTED_TARGET avahi-client)
 
     target_link_libraries(${TARGET_NAME}
-      logger_linux)
+      logger_linux
+      PkgConfig::AVAHI)
   elseif(MSVC)
     add_library(${TARGET_NAME} STATIC
       platform_proprietary.cpp
-      platform_win.cpp)
+      platform_win.cpp
+      mdns_service.cpp
+      mdns_service_noop.cpp)
     qt6_disable_unicode_defines(${TARGET_NAME})
     target_link_libraries(${TARGET_NAME}
       jsoncpp_static
@@ -36,7 +46,11 @@ function(add_target TARGET_NAME)
     add_library(${TARGET_NAME} STATIC
       platform_osx.cpp
       platform_proprietary.cpp
-      platform_unix.cpp)
+      platform_unix.cpp
+      mdns_service.cpp
+      mdns_service_macos.cpp)
+    # dns_sd.h's classic API (DNSServiceRegister/Browse/Resolve) ships as part of libSystem;
+    # no extra framework to link against.
     target_link_libraries(${TARGET_NAME}
       shared_macos)
   endif()

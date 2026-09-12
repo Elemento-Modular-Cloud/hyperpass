@@ -608,6 +608,58 @@ grpc::Status mp::DaemonRpc::wait_ready(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::migrate(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<MigrateReply, MigrateRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_migrate,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::list_network_hosts(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ListNetworkHostsReply, ListNetworkHostsRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_list_network_hosts,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::add_known_host(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<AddKnownHostReply, AddKnownHostRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_add_known_host,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::remove_known_host(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<RemoveKnownHostReply, RemoveKnownHostRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_remove_known_host,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::zones(grpc::ServerContext* context,
                                   grpc::ServerReaderWriter<ZonesReply, ZonesRequest>* server)
 {

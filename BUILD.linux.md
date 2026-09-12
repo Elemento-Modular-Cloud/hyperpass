@@ -39,6 +39,18 @@ uses for things like the catalogue's per-service gateway CA fetch — without
 it running, deploying anything from the Catalogue fails with a connection-
 refused error trying to reach `127.0.0.1:7777/ca.crt`.
 
+Migrating an instance/intent to another host (`elp migrate`, or the GUI's
+"Migrate" action) also needs:
+- `avahi-daemon.service` running (`sudo systemctl enable --now avahi-daemon`)
+  for elpd to advertise/discover other hosts on the network. This is
+  optional — migration itself still works with a manually-added host (GUI's
+  Migration Hosts page, or `elp migrate --to user@host` directly); avahi is
+  only what populates the automatic "discovered on network" list.
+- Working SSH access (key-based, no password prompt) from this machine to
+  the target as the user given in `user@host` — migration shells out to
+  `ssh`/`rsync` under the hood, using your own `~/.ssh/config`/agent, and
+  `elp` already installed with its daemon running on the target.
+
 ## Ubuntu / apt-based distributions
 
 ### Build dependencies

@@ -32,6 +32,7 @@
 #include "cmd/launch.h"
 #include "cmd/list.h"
 #include "cmd/llm.h"
+#include "cmd/migrate.h"
 #include "cmd/mount.h"
 #include "cmd/networks.h"
 #include "cmd/prefer.h"
@@ -121,6 +122,7 @@ mp::Client::Client(ClientConfig& config)
     add_command<cmd::Version>();
     add_command<cmd::Clone>();
     add_command<cmd::Intent>();
+    add_command<cmd::Migrate>();
     add_command<cmd::WaitReady>();
     add_command<cmd::DisableZones>();
     add_command<cmd::EnableZones>();

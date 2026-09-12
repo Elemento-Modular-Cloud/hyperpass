@@ -7,6 +7,7 @@ import '../copyable_text.dart';
 import '../daemon_source.dart';
 import '../extensions.dart';
 import '../l10n/app_localizations.dart';
+import '../migrate/migrate_screen.dart';
 import '../multipass_chip.dart';
 import '../providers.dart';
 import 'cpu_sparkline.dart';
@@ -119,6 +120,12 @@ class VmDetailsHeader extends ConsumerWidget {
           memory,
           disk,
           VmActionButtons(id),
+          if (id.source == DaemonSource.elp)
+            IconButton(
+              tooltip: 'Migrate to another host',
+              icon: const Icon(Icons.moving),
+              onPressed: () => showMigrateDialog(context, ref, name: id.name),
+            ),
         ],
       ),
     );

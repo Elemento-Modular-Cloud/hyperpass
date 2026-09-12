@@ -24,6 +24,7 @@
 #include <multipass/delayed_shutdown_timer.h>
 #include <multipass/format.h>
 #include <multipass/intent_spec.h>
+#include <multipass/mdns_service.h>
 #include <multipass/mount_handler.h>
 #include <multipass/resource_pool.h>
 #include <multipass/virtual_machine.h>
@@ -56,6 +57,7 @@ public:
 
     void persist_instances();
     void persist_intents();
+    void persist_known_hosts();
 
 protected:
     using InstanceTable = std::unordered_map<std::string, VirtualMachine::ShPtr>;
@@ -221,6 +223,25 @@ public slots:
         grpc::ServerReaderWriterInterface<WaitReadyReply, WaitReadyRequest>* server,
         DaemonRpcContext* context);
 
+    virtual void migrate(const MigrateRequest* request,
+                        grpc::ServerReaderWriterInterface<MigrateReply, MigrateRequest>* server,
+                        DaemonRpcContext* context);
+
+    virtual void list_network_hosts(
+        const ListNetworkHostsRequest* request,
+        grpc::ServerReaderWriterInterface<ListNetworkHostsReply, ListNetworkHostsRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void add_known_host(
+        const AddKnownHostRequest* request,
+        grpc::ServerReaderWriterInterface<AddKnownHostReply, AddKnownHostRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void remove_known_host(
+        const RemoveKnownHostRequest* request,
+        grpc::ServerReaderWriterInterface<RemoveKnownHostReply, RemoveKnownHostRequest>* server,
+        DaemonRpcContext* context);
+
 private:
     void release_resources(const std::string& instance);
     void create_vm(const CreateRequest* request,
@@ -333,11 +354,14 @@ private:
     std::unique_ptr<ResourcePool> resource_pool;
     std::unique_ptr<class LlmDispatcher> llm_dispatcher;
     QThread llm_thread;
+    std::unique_ptr<MdnsService> mdns_service;
 
 protected:
     std::unordered_map<std::string, VMSpecs> vm_instance_specs;
     std::unordered_map<std::string, IntentSpec> intents;
     InstanceTable operative_instances;
+    std::unordered_map<std::string, std::string> known_hosts; // label -> "user@host"
+    std::unordered_map<std::string, MdnsHostInfo> discovered_hosts; // label -> info
 
     bool is_bridged(const std::string& instance_name) const;
     void add_bridged_interface(const std::string& instance_name);

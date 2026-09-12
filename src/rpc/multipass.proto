@@ -55,6 +55,10 @@ service Rpc {
     rpc zones_state (stream ZonesStateRequest) returns (stream ZonesStateReply);
     rpc cache_info (stream CacheInfoRequest) returns (stream CacheInfoReply);
     rpc cache_delete (stream CacheDeleteRequest) returns (stream CacheDeleteReply);
+    rpc migrate (stream MigrateRequest) returns (stream MigrateReply);
+    rpc list_network_hosts (stream ListNetworkHostsRequest) returns (stream ListNetworkHostsReply);
+    rpc add_known_host (stream AddKnownHostRequest) returns (stream AddKnownHostReply);
+    rpc remove_known_host (stream RemoveKnownHostRequest) returns (stream RemoveKnownHostReply);
 
     rpc find_models (stream FindModelsRequest) returns (stream FindModelsReply);
     rpc pull_model (stream PullModelRequest) returns (stream PullModelReply);
@@ -700,6 +704,9 @@ message DaemonInfoReply {
     // Cumulative host interface counters (loopback excluded). Clients derive rates.
     uint64 network_rx_bytes = 18;
     uint64 network_tx_bytes = 19;
+    // Driver name (config->factory->get_backend_directory_name(), e.g. "qemu"), advertised
+    // over mDNS alongside host_os/host_arch so peers can be told apart at a glance.
+    string backend = 20;
 }
 
 message ResourceClaimInfo {
@@ -707,6 +714,62 @@ message ResourceClaimInfo {
     string kind = 2;
     uint64 memory_bytes = 3;
     uint32 cpus = 4;
+}
+
+message MigrateRequest {
+    string name = 1; // a VM instance name or an intent name
+    string target = 2; // "user@host", reachable over SSH with elp already installed there
+    bool copy = 3; // keep the source instance(s)/session(s) instead of deleting them
+    int32 verbosity_level = 4;
+}
+
+message MigrateReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+// One host on the network (or manually added), as shown in the GUI's migration target
+// picker. Discovered hosts come from mDNS browsing; known hosts are the persisted
+// manually-added fallback (the plan's own cross-subnet/no-multicast escape hatch).
+message NetworkHost {
+    string label = 1; // friendly name: the mDNS service name, or the label given to add_known_host
+    string target = 2; // "user@host"; only set once a user has been supplied (see GUI flow)
+    string host_name = 3;
+    string host_os = 4;
+    string host_arch = 5;
+    string backend = 6;
+    string address = 7; // resolved IP/hostname (discovered hosts only)
+    bool discovered = 8; // true: found via mDNS; false: manually added via add_known_host
+}
+
+message ListNetworkHostsRequest {
+    int32 verbosity_level = 1;
+}
+
+message ListNetworkHostsReply {
+    repeated NetworkHost hosts = 1;
+    string log_line = 2;
+}
+
+message AddKnownHostRequest {
+    string label = 1;
+    string target = 2; // "user@host"
+    int32 verbosity_level = 3;
+}
+
+message AddKnownHostReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+message RemoveKnownHostRequest {
+    string label = 1;
+    int32 verbosity_level = 2;
+}
+
+message RemoveKnownHostReply {
+    string log_line = 1;
+    string reply_message = 2;
 }
 
 message WaitReadyRequest {

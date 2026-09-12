@@ -1356,6 +1356,29 @@ bool mp::LlmService::has_instance(const std::string& instance_id) const
     return sessions.find(instance_id) != sessions.end();
 }
 
+std::optional<mp::LoadedModelInfo> mp::LlmService::instance_info(const std::string& instance_id) const
+{
+    std::lock_guard lock{mutex};
+    auto it = sessions.find(instance_id);
+    if (it == sessions.end())
+        return std::nullopt;
+
+    const auto& session = it->second;
+    LoadedModelInfo info;
+    info.set_instance_id(session.instance_id);
+    info.set_model_id(session.model_id);
+    info.set_openai_id(session.openai_id);
+    info.set_backend(session.backend);
+    info.set_path(session.path);
+    info.set_port(static_cast<uint32_t>(session.port));
+    info.set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
+    info.set_max_tokens(session.max_tokens);
+    info.set_ctx_size(session.ctx_size);
+    info.set_intent(session.intent);
+    info.set_intent_role(session.intent_role);
+    return info;
+}
+
 std::optional<mp::LoadedSession*> mp::LlmService::session_by_openai_id(const std::string& openai_id)
 {
     std::lock_guard lock{mutex};

@@ -33,6 +33,10 @@ depends=(
   'libkeybinder3' # GUI's hotkey_manager plugin links keybinder-3.0 at runtime
   'libsecret' # flutter_secure_storage_linux plugin
   'apparmor' # libapparmor.so.1, linked by elpd/libdart_ffi.so at runtime too
+  'avahi' # elpd links libavahi-client/-common for mDNS host discovery (migration feature);
+          # also provides the avahi-daemon service migration's mDNS side needs running
+  'openssh' # migration shells out to `ssh`/`rsync -e ssh` to reach a migration target
+  'rsync'
 )
 makedepends=(
   'git'

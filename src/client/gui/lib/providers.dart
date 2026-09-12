@@ -326,6 +326,28 @@ final intentNamesProvider = Provider<BuiltSet<String>>((ref) {
   return {for (final intent in intents) intent.name}.toBuiltSet();
 });
 
+/// Candidate migration targets: hosts discovered on the network via mDNS, merged with the
+/// manually-added "known hosts" list (see `Daemon::list_network_hosts` for how these merge —
+/// a discovered host whose label matches a known one carries that known host's saved target).
+final networkHostsStreamProvider = StreamProvider<List<NetworkHost>>((ref) async* {
+  if (!ref.watch(daemonAvailableProvider)) {
+    yield const [];
+    return;
+  }
+  final grpcClient = ref.watch(grpcClientProvider);
+  while (true) {
+    final timer = Future.delayed(2900.milliseconds);
+    try {
+      yield await grpcClient.listNetworkHosts();
+    } catch (error, stackTrace) {
+      logger.w('Error on polling list_network_hosts', error: error, stackTrace: stackTrace);
+      yield const [];
+    }
+    await timer;
+    await Future.delayed(100.milliseconds);
+  }
+});
+
 class AllVmInfosNotifier extends Notifier<List<TaggedVmInfo>> {
   @override
   List<TaggedVmInfo> build() {

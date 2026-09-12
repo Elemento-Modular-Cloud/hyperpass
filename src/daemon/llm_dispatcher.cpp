@@ -88,6 +88,12 @@ bool mp::LlmDispatcher::has_instance(const std::string& instance_id) const
     return llm_service && llm_service->has_instance(instance_id);
 }
 
+std::optional<mp::LoadedModelInfo> mp::LlmDispatcher::instance_info(
+    const std::string& instance_id) const
+{
+    return llm_service ? llm_service->instance_info(instance_id) : std::nullopt;
+}
+
 template <typename Work>
 void mp::LlmDispatcher::run_sync(DaemonRpcContext* context, Work&& work)
 {

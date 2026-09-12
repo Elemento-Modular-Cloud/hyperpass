@@ -420,6 +420,29 @@ class GrpcClient {
     );
   }
 
+  Future<MigrateReply?> migrate(String name, String target, {bool copy = false}) {
+    return doRpc(
+      _client.migrate,
+      MigrateRequest(name: name, target: target, copy: copy),
+    );
+  }
+
+  Future<List<NetworkHost>> listNetworkHosts() {
+    return doRpc(_client.list_network_hosts, ListNetworkHostsRequest(), log: false)
+        .then((r) => r?.hosts.toList() ?? const []);
+  }
+
+  Future<AddKnownHostReply?> addKnownHost(String label, String target) {
+    return doRpc(
+      _client.add_known_host,
+      AddKnownHostRequest(label: label, target: target),
+    );
+  }
+
+  Future<RemoveKnownHostReply?> removeKnownHost(String label) {
+    return doRpc(_client.remove_known_host, RemoveKnownHostRequest(label: label));
+  }
+
   Future<void> authenticate(String passphrase) {
     return doRpc(
       _client.authenticate,

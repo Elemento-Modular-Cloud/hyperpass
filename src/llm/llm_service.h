@@ -129,6 +129,9 @@ public:
     std::optional<LoadedSession*> session_by_openai_id(const std::string& openai_id);
     bool is_loaded(const std::string& model_id) const;
     bool has_instance(const std::string& instance_id) const;
+    // A snapshot of one session's fields (for migration's "redefine the same LLM on the
+    // target" step), or nullopt if instance_id isn't currently loaded.
+    std::optional<LoadedModelInfo> instance_info(const std::string& instance_id) const;
 
 private:
     enum class BackendKind

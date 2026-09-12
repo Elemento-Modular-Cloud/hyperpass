@@ -5,6 +5,7 @@ import '../confirmation_dialog.dart';
 import '../l10n/app_localizations.dart';
 import '../layout/compact_layout.dart';
 import '../llm/llm_id.dart';
+import '../migrate/migrate_screen.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -119,6 +120,11 @@ class _IntentCard extends ConsumerWidget {
                   tooltip: 'Add member',
                   icon: const Icon(Icons.add),
                   onPressed: () => showAddMemberDialog(context, ref, intent.name),
+                ),
+                IconButton(
+                  tooltip: 'Migrate',
+                  icon: const Icon(Icons.moving),
+                  onPressed: () => showMigrateDialog(context, ref, name: intent.name),
                 ),
                 IconButton(
                   tooltip: 'Delete intent',

@@ -48,6 +48,8 @@
 #include <multipass/name_generator.h>
 #include <multipass/network_interface.h>
 #include <multipass/platform.h>
+#include <multipass/process/process.h>
+#include <multipass/process/simple_process_spec.h>
 #include <multipass/query.h>
 #include <multipass/resource_pool.h>
 #include <multipass/settings/bool_setting_spec.h>
@@ -171,6 +173,7 @@ bool is_instance_home(const QString& target, const std::string& username)
 constexpr auto category = "daemon";
 constexpr auto instance_db_name = "multipassd-vm-instances.json";
 constexpr auto intent_db_name = "multipassd-intents.json";
+constexpr auto known_hosts_db_name = "multipassd-known-hosts.json";
 constexpr auto sshfs_error_template =
     "Error enabling mount support in '{}'"
     "\n\nPlease install the 'multipass-sshfs' snap manually inside the instance.";
@@ -404,6 +407,34 @@ std::unordered_map<std::string, mp::IntentSpec> load_intents_db(const mp::Path& 
         {
             mpl::warn(category, "Ignoring malformed intent in database: {} ({})", key, e.what());
         }
+    }
+    return reconstructed_records;
+}
+
+// Manually-added migration targets ("label" -> "user@host"), the always-available fallback
+// to mDNS discovery for hosts on a different subnet/VLAN where multicast doesn't reach.
+std::unordered_map<std::string, std::string> load_known_hosts_db(const mp::Path& data_path)
+{
+    QDir data_dir{data_path};
+    QFile db_file{data_dir.filePath(known_hosts_db_name)};
+    if (!db_file.open(QIODevice::ReadOnly))
+        return {};
+
+    boost::json::value records;
+    try
+    {
+        records = boost::json::parse(std::string_view(db_file.readAll()));
+    }
+    catch (const std::runtime_error&)
+    {
+        return {};
+    }
+
+    std::unordered_map<std::string, std::string> reconstructed_records;
+    for (const auto& [key, record] : records.as_object())
+    {
+        if (record.is_string())
+            reconstructed_records.emplace(key, std::string(record.as_string()));
     }
     return reconstructed_records;
 }
@@ -693,6 +724,16 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_
     QObject::connect(&rpc, &mp::DaemonRpc::on_cache_info, &daemon, &mp::Daemon::cache_info);
     QObject::connect(&rpc, &mp::DaemonRpc::on_cache_delete, &daemon, &mp::Daemon::cache_delete);
     QObject::connect(&rpc, &mp::DaemonRpc::on_wait_ready, &daemon, &mp::Daemon::wait_ready);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_migrate, &daemon, &mp::Daemon::migrate);
+    QObject::connect(&rpc,
+                     &mp::DaemonRpc::on_list_network_hosts,
+                     &daemon,
+                     &mp::Daemon::list_network_hosts);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_add_known_host, &daemon, &mp::Daemon::add_known_host);
+    QObject::connect(&rpc,
+                     &mp::DaemonRpc::on_remove_known_host,
+                     &daemon,
+                     &mp::Daemon::remove_known_host);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones, &daemon, &mp::Daemon::zones);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones_state, &daemon, &mp::Daemon::zones_state);
     if (llm_dispatcher)
@@ -1479,6 +1520,27 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
 
     intents = load_intents_db(mp::utils::backend_directory_path(
         config->data_directory, config->factory->get_backend_directory_name()));
+    known_hosts = load_known_hosts_db(mp::utils::backend_directory_path(
+        config->data_directory, config->factory->get_backend_directory_name()));
+
+    {
+        MdnsAdvertisement advertisement;
+        advertisement.host_name = QHostInfo::localHostName().toStdString();
+        advertisement.host_os = QSysInfo::prettyProductName().toStdString();
+        advertisement.host_arch = QSysInfo::currentCpuArchitecture().toStdString();
+        advertisement.backend = config->factory->get_backend_directory_name().toStdString();
+        mdns_service = mp::make_mdns_service(advertisement);
+
+        QObject::connect(mdns_service.get(),
+                         &MdnsService::host_discovered,
+                         this,
+                         [this](MdnsHostInfo info) { discovered_hosts[info.label] = std::move(info); });
+        QObject::connect(mdns_service.get(),
+                         &MdnsService::host_removed,
+                         this,
+                         [this](std::string label) { discovered_hosts.erase(label); });
+        mdns_service->start();
+    }
 
     std::vector<std::string> invalid_specs;
 
@@ -3767,6 +3829,620 @@ catch (const std::exception& e)
     context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
 }
 
+namespace
+{
+// Migration drives the target purely through its own local `elp` CLI over SSH (rather than
+// a new daemon-to-daemon RPC): the target's elpd already auto-trusts a client cert connecting
+// over its local unix socket, so this avoids needing the target's local.passphrase set and a
+// prior `elp authenticate` run just to migrate something there. See the migration plan section
+// for the fuller rationale.
+
+std::string shell_quote(const std::string& s)
+{
+    std::string out = "'";
+    for (char c : s)
+        out += (c == '\'') ? "'\\''" : std::string(1, c);
+    out += "'";
+    return out;
+}
+
+std::string join_shell_command(const std::vector<std::string>& args)
+{
+    std::string cmd;
+    for (const auto& a : args)
+    {
+        if (!cmd.empty())
+            cmd += ' ';
+        cmd += shell_quote(a);
+    }
+    return cmd;
+}
+
+struct RemoteResult
+{
+    bool ok{false};
+    QString output;
+    QString error;
+};
+
+// Runs `remote_command` on `target` ("user@host") over ssh, optionally piping `stdin_data`
+// into it (forwarded transparently through the ssh tunnel to the remote process' own stdin —
+// e.g. this is how `elp launch --cloud-init -` receives cloud-init content without needing a
+// remote temp file). `remote_command` is executed by the target's login shell, so anything
+// assembled from user-controlled fragments must already be shell-escaped by the caller
+// (see join_shell_command/shell_quote).
+RemoteResult run_ssh_raw(const std::string& target,
+                        const std::string& remote_command,
+                        const std::string& stdin_data,
+                        int timeout_ms)
+{
+    const QStringList args{"-o",
+                          "BatchMode=yes",
+                          "-o",
+                          "StrictHostKeyChecking=accept-new",
+                          "-T",
+                          QString::fromStdString(target),
+                          QString::fromStdString(remote_command)};
+    auto process = mp::platform::make_process(mp::simple_process_spec("ssh", args));
+    process->start();
+    if (!process->wait_for_started(timeout_ms))
+        return {false, {}, "ssh failed to start (is it on PATH?)"};
+    if (!stdin_data.empty())
+        process->write(QByteArray::fromStdString(stdin_data));
+    process->close_write_channel();
+    if (!process->wait_for_finished(timeout_ms))
+        return {false, process->read_all_standard_output(), "ssh timed out"};
+
+    const auto state = process->process_state();
+    const auto out = process->read_all_standard_output();
+    const auto err = process->read_all_standard_error();
+    if (!state.completed_successfully())
+        return {false, out, err.isEmpty() ? state.failure_message() : QString(err)};
+    return {true, out, {}};
+}
+
+RemoteResult run_ssh(const std::string& target,
+                     const std::vector<std::string>& remote_args,
+                     const std::string& stdin_data = {},
+                     int timeout_ms = 120000)
+{
+    return run_ssh_raw(target, join_shell_command(remote_args), stdin_data, timeout_ms);
+}
+
+// rsync's own remote-path argument (user@host:/path) is parsed by rsync itself, not passed
+// through a shell the way an ssh command string is — dest_path is not shell_quote'd here.
+RemoteResult run_rsync(const std::string& source_path,
+                      const std::string& target,
+                      const std::string& dest_path,
+                      int timeout_ms)
+{
+    const QStringList args{
+        "-az",
+        "-e",
+        "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new",
+        "--mkpath",
+        QString::fromStdString(source_path) + "/",
+        QString::fromStdString(target) + ":" + QString::fromStdString(dest_path)};
+    auto process = mp::platform::make_process(mp::simple_process_spec("rsync", args));
+    const auto state = process->execute(timeout_ms);
+    const auto out = process->read_all_standard_output();
+    const auto err = process->read_all_standard_error();
+    if (!state.completed_successfully())
+        return {false, out, err.isEmpty() ? state.failure_message() : QString(err)};
+    return {true, out, {}};
+}
+
+struct MigrateVmMember
+{
+    std::string role; // empty for a standalone (non-intent) instance
+    std::string instance_name;
+    std::string image;
+    std::string remote_name;
+    std::string cloud_init_user_data;
+    int num_cores{1};
+    std::string mem_size;
+    std::string disk_space;
+    std::unordered_map<std::string, mp::VMMount> mounts; // keyed by target_path
+};
+
+struct MigrateLlmMember
+{
+    std::string role;
+    std::string instance_name; // the loaded session's instance_id, for unloading on success
+    std::string model_id;
+    std::string runtime; // "llamacpp" | "mlx", same strings LoadedSession::backend already uses
+    int ctx_size{4096};
+    int max_tokens{0};
+};
+
+struct MigrationOutcome
+{
+    bool success{false};
+    std::string message;
+    std::vector<std::string> log_lines;
+};
+
+std::string image_arg_for(const MigrateVmMember& member)
+{
+    return member.remote_name.empty() ? member.image
+                                      : fmt::format("{}:{}", member.remote_name, member.image);
+}
+
+// Redefines one standalone VM member on the target via `elp launch`, piping cloud-init (if
+// any) through the ssh tunnel's stdin, then `elp mount`s each of its mounts (having already
+// rsynced their host-side source directories there — see perform_migration).
+bool migrate_standalone_vm(const MigrateVmMember& member,
+                           const std::string& target,
+                           MigrationOutcome& outcome)
+{
+    std::vector<std::string> args{"elp",
+                                  "launch",
+                                  image_arg_for(member),
+                                  "--name",
+                                  member.instance_name,
+                                  "--cpus",
+                                  std::to_string(member.num_cores),
+                                  "--memory",
+                                  member.mem_size,
+                                  "--disk",
+                                  member.disk_space};
+    if (!member.cloud_init_user_data.empty())
+    {
+        args.push_back("--cloud-init");
+        args.push_back("-");
+    }
+
+    outcome.log_lines.push_back(
+        fmt::format("Relaunching \"{}\" on {}...", member.instance_name, target));
+    auto result = run_ssh(target, args, member.cloud_init_user_data, 600000);
+    if (!result.ok)
+    {
+        outcome.message = fmt::format("Failed to launch \"{}\" on {}: {}",
+                                      member.instance_name,
+                                      target,
+                                      result.error.toStdString());
+        return false;
+    }
+
+    for (const auto& [target_path, mount] : member.mounts)
+    {
+        outcome.log_lines.push_back(
+            fmt::format("Syncing mount {} -> {}...", mount.get_source_path(), target));
+        auto rsync_result = run_rsync(mount.get_source_path(), target, mount.get_source_path(), 1800000);
+        if (!rsync_result.ok)
+        {
+            outcome.message = fmt::format("Failed to sync mount \"{}\": {}",
+                                          mount.get_source_path(),
+                                          rsync_result.error.toStdString());
+            return false;
+        }
+
+        auto mount_result = run_ssh(
+            target,
+            {"elp", "mount", mount.get_source_path(), fmt::format("{}:{}", member.instance_name, target_path)},
+            {},
+            60000);
+        if (!mount_result.ok)
+        {
+            outcome.message = fmt::format(
+                "Launched \"{}\" on {}, but mounting \"{}\" there failed: {}",
+                member.instance_name,
+                target,
+                target_path,
+                mount_result.error.toStdString());
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// Redefines a whole intent's members in one `elp intent create` call on the target: VM
+// members with cloud-init need it staged as a remote temp file first (the --instance spec's
+// cloud-init field is a path the target's own elp CLI reads locally, unlike a plain `elp
+// launch`, which can take it over stdin instead).
+bool migrate_intent(const std::string& intent_name,
+                    const std::vector<MigrateVmMember>& vm_members,
+                    const std::vector<MigrateLlmMember>& llm_members,
+                    const std::string& target,
+                    MigrationOutcome& outcome)
+{
+    std::vector<std::string> remote_tmp_files;
+    std::vector<std::string> args{"elp", "intent", "create", intent_name};
+
+    for (const auto& member : vm_members)
+    {
+        std::string cloud_init_path;
+        if (!member.cloud_init_user_data.empty())
+        {
+            cloud_init_path =
+                fmt::format("/tmp/elp-migrate-{}-{}.yaml",
+                           intent_name,
+                           member.role.empty() ? member.instance_name : member.role);
+            outcome.log_lines.push_back(
+                fmt::format("Staging cloud-init for \"{}\" on {}...", member.role, target));
+            auto put = run_ssh_raw(target,
+                                   fmt::format("cat > {}", shell_quote(cloud_init_path)),
+                                   member.cloud_init_user_data,
+                                   60000);
+            if (!put.ok)
+            {
+                outcome.message = fmt::format("Failed to stage cloud-init for \"{}\" on {}: {}",
+                                              member.role,
+                                              target,
+                                              put.error.toStdString());
+                return false;
+            }
+            remote_tmp_files.push_back(cloud_init_path);
+        }
+
+        args.push_back("--instance");
+        args.push_back(fmt::format("{}:{}:{}:{}:{}:{}",
+                                   member.role,
+                                   image_arg_for(member),
+                                   cloud_init_path,
+                                   member.num_cores,
+                                   member.mem_size,
+                                   member.disk_space));
+    }
+
+    for (const auto& member : llm_members)
+    {
+        args.push_back("--model");
+        args.push_back(fmt::format("{}:{}", member.role, member.model_id));
+    }
+
+    outcome.log_lines.push_back(fmt::format("Creating intent \"{}\" on {}...", intent_name, target));
+    auto result = run_ssh(target, args, {}, 900000);
+
+    if (!remote_tmp_files.empty())
+    {
+        std::vector<std::string> rm_args{"rm", "-f"};
+        rm_args.insert(rm_args.end(), remote_tmp_files.begin(), remote_tmp_files.end());
+        run_ssh(target, rm_args, {}, 30000); // best-effort cleanup, failure not fatal
+    }
+
+    if (!result.ok)
+    {
+        outcome.message =
+            fmt::format("Failed to create intent \"{}\" on {}: {}", intent_name, target, result.error.toStdString());
+        return false;
+    }
+
+    for (const auto& member : vm_members)
+    {
+        for (const auto& [target_path, mount] : member.mounts)
+        {
+            const auto remote_instance = fmt::format("{}-{}", intent_name, member.role);
+            outcome.log_lines.push_back(
+                fmt::format("Syncing mount {} -> {}...", mount.get_source_path(), target));
+            auto rsync_result =
+                run_rsync(mount.get_source_path(), target, mount.get_source_path(), 1800000);
+            if (!rsync_result.ok)
+            {
+                outcome.message = fmt::format("Failed to sync mount \"{}\": {}",
+                                              mount.get_source_path(),
+                                              rsync_result.error.toStdString());
+                return false;
+            }
+
+            auto mount_result = run_ssh(
+                target,
+                {"elp", "mount", mount.get_source_path(), fmt::format("{}:{}", remote_instance, target_path)},
+                {},
+                60000);
+            if (!mount_result.ok)
+            {
+                outcome.message = fmt::format("Intent created on {}, but mounting \"{}\" for \"{}\" failed: {}",
+                                              target,
+                                              target_path,
+                                              member.role,
+                                              mount_result.error.toStdString());
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+MigrationOutcome perform_migration(const std::string& name,
+                                   bool is_intent,
+                                   const std::string& target,
+                                   std::vector<MigrateVmMember> vm_members,
+                                   std::vector<MigrateLlmMember> llm_members)
+{
+    MigrationOutcome outcome;
+
+    if (is_intent)
+    {
+        // One combined `elp intent create ... --instance ... --model ...` call, exactly
+        // mirroring how intent_create/build_intent_member_load_requests already accept both
+        // kinds of member together — this is what actually (re-)registers each member (VM or
+        // LLM) into the target's own intents map; `elp llm load --intent` alone only tags the
+        // session, it doesn't touch the registry (see Daemon::migrate's own doc comment).
+        if (!migrate_intent(name, vm_members, llm_members, target, outcome))
+            return outcome;
+    }
+    else
+    {
+        assert(vm_members.size() == 1 && llm_members.empty());
+        if (!migrate_standalone_vm(vm_members.front(), target, outcome))
+            return outcome;
+    }
+
+    outcome.success = true;
+    outcome.message = fmt::format("\"{}\" migrated to {}.", name, target);
+    return outcome;
+}
+} // namespace
+
+void mp::Daemon::migrate(const MigrateRequest* request,
+                        grpc::ServerReaderWriterInterface<MigrateReply, MigrateRequest>* server,
+                        DaemonRpcContext* context)
+try
+{
+    const auto& name = request->name();
+    const auto& target = request->target();
+    const auto copy = request->copy();
+
+    if (name.empty())
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Please provide an instance or intent name", ""});
+    if (target.find('@') == std::string::npos)
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Target must be in \"user@host\" form", ""});
+
+    std::vector<MigrateVmMember> vm_members;
+    std::vector<MigrateLlmMember> llm_members;
+    const auto is_intent = intents.count(name) > 0;
+
+    if (is_intent)
+    {
+        for (const auto& member : intents.at(name).members)
+        {
+            if (member.kind == "llm")
+            {
+                auto info = llm_dispatcher ? llm_dispatcher->instance_info(member.instance_name)
+                                           : std::nullopt;
+                if (!info)
+                    return context->set_value(
+                        {grpc::StatusCode::FAILED_PRECONDITION,
+                         fmt::format("LLM member \"{}\" is not currently loaded; cannot migrate",
+                                    member.role),
+                         ""});
+                llm_members.push_back({member.role,
+                                       member.instance_name,
+                                       info->model_id(),
+                                       info->backend(),
+                                       info->ctx_size(),
+                                       info->max_tokens()});
+            }
+            else
+            {
+                auto spec_it = vm_instance_specs.find(member.instance_name);
+                if (spec_it == vm_instance_specs.end())
+                    return context->set_value(
+                        {grpc::StatusCode::FAILED_PRECONDITION,
+                         fmt::format("VM member \"{}\" not found; cannot migrate", member.role),
+                         ""});
+                const auto& specs = spec_it->second;
+                vm_members.push_back({member.role,
+                                      member.instance_name,
+                                      specs.image,
+                                      specs.remote_name,
+                                      specs.cloud_init_user_data,
+                                      specs.num_cores,
+                                      specs.mem_size.human_readable(),
+                                      specs.disk_space.human_readable(),
+                                      specs.mounts});
+            }
+        }
+        if (vm_members.empty() && llm_members.empty())
+            return context->set_value({grpc::StatusCode::FAILED_PRECONDITION,
+                                       fmt::format("Intent \"{}\" has no members to migrate", name),
+                                       ""});
+    }
+    else
+    {
+        auto spec_it = vm_instance_specs.find(name);
+        if (spec_it == vm_instance_specs.end())
+            return context->set_value(
+                {grpc::StatusCode::NOT_FOUND,
+                 fmt::format("\"{}\" is not an existing intent or instance name", name),
+                 ""});
+        const auto& specs = spec_it->second;
+        vm_members.push_back({"",
+                              name,
+                              specs.image,
+                              specs.remote_name,
+                              specs.cloud_init_user_data,
+                              specs.num_cores,
+                              specs.mem_size.human_readable(),
+                              specs.disk_space.human_readable(),
+                              specs.mounts});
+    }
+
+    // Stop every VM member first (v1 constraint, matches existing snapshot semantics — no live
+    // migration): synchronous, on the daemon's own thread, same call `elp stop --force` uses.
+    // LLM members aren't stopped; there's nothing to make consistent before copying a read-only
+    // model file, and "redefine" for them just means loading the model fresh on the target.
+    for (const auto& member : vm_members)
+    {
+        auto vm_it = operative_instances.find(member.instance_name);
+        if (vm_it != operative_instances.end())
+            switch_off_vm(*vm_it->second);
+    }
+
+    // The actual ssh/rsync work happens on a background thread (QtConcurrent, the same async
+    // pattern create_vm's own preparation step already uses) so it can't block the daemon for
+    // however long the network transfer takes; only the commit step below is marshaled back to
+    // the daemon's own thread via QFutureWatcher::finished (as usual), since that's what touches
+    // `intents`/`vm_instance_specs`.
+    auto future = QtConcurrent::run(
+        [name, is_intent, target, vm_members, llm_members]() mutable {
+            return perform_migration(name, is_intent, target, std::move(vm_members), std::move(llm_members));
+        });
+
+    auto* watcher = new QFutureWatcher<MigrationOutcome>();
+    QObject::connect(
+        watcher,
+        &QFutureWatcher<MigrationOutcome>::finished,
+        [this, watcher, server, context, name, is_intent, copy, vm_members, llm_members] {
+            auto outcome = watcher->future().result();
+            watcher->deleteLater();
+
+            for (const auto& line : outcome.log_lines)
+            {
+                MigrateReply reply;
+                reply.set_log_line(line);
+                server->Write(reply);
+            }
+
+            if (!outcome.success)
+                return context->set_value(
+                    {grpc::StatusCode::INTERNAL, outcome.message, ""});
+
+            if (!copy)
+            {
+                auto instances_dirty = false;
+                for (const auto& member : vm_members)
+                {
+                    auto vm_it = operative_instances.find(member.instance_name);
+                    if (vm_it == operative_instances.end())
+                        continue;
+                    DeleteReply throwaway;
+                    instances_dirty |= delete_vm(vm_it, /*purge=*/true, throwaway);
+                }
+                if (instances_dirty)
+                    persist_instances();
+
+                if (llm_dispatcher && !llm_members.empty())
+                {
+                    std::vector<std::string> ids;
+                    for (const auto& member : llm_members)
+                        ids.push_back(member.instance_name);
+                    llm_dispatcher->unload_instances_blocking(ids);
+                }
+
+                if (is_intent)
+                {
+                    intents.erase(name);
+                    persist_intents();
+                }
+            }
+
+            MigrateReply reply;
+            reply.set_reply_message(outcome.message);
+            server->Write(reply);
+            context->set_value(grpc::Status::OK);
+        });
+    watcher->setFuture(future);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::list_network_hosts(
+    const ListNetworkHostsRequest*,
+    grpc::ServerReaderWriterInterface<ListNetworkHostsReply, ListNetworkHostsRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    ListNetworkHostsReply response;
+
+    for (const auto& [label, info] : discovered_hosts)
+    {
+        auto* host = response.add_hosts();
+        host->set_label(label);
+        host->set_host_name(info.host_name);
+        host->set_host_os(info.host_os);
+        host->set_host_arch(info.host_arch);
+        host->set_backend(info.backend);
+        host->set_address(info.address);
+        host->set_discovered(true);
+
+        // If this discovered peer's label matches a known host, surface the saved "user@host"
+        // for it too, so the GUI can pre-fill a target instead of asking for a username again.
+        if (auto it = known_hosts.find(label); it != known_hosts.end())
+            host->set_target(it->second);
+    }
+
+    for (const auto& [label, target] : known_hosts)
+    {
+        if (discovered_hosts.count(label))
+            continue; // already listed above, with the richer discovered info
+
+        auto* host = response.add_hosts();
+        host->set_label(label);
+        host->set_target(target);
+        host->set_discovered(false);
+    }
+
+    server->Write(response);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::add_known_host(
+    const AddKnownHostRequest* request,
+    grpc::ServerReaderWriterInterface<AddKnownHostReply, AddKnownHostRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    const auto& label = request->label();
+    const auto& target = request->target();
+
+    if (label.empty())
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Please provide a label for this host", ""});
+    if (target.find('@') == std::string::npos)
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Target must be in \"user@host\" form", ""});
+
+    known_hosts[label] = target;
+    persist_known_hosts();
+
+    AddKnownHostReply reply;
+    reply.set_reply_message(fmt::format("Added \"{}\" ({})", label, target));
+    server->Write(reply);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::remove_known_host(
+    const RemoveKnownHostRequest* request,
+    grpc::ServerReaderWriterInterface<RemoveKnownHostReply, RemoveKnownHostRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    auto it = known_hosts.find(request->label());
+    if (it == known_hosts.end())
+        return context->set_value(
+            {grpc::StatusCode::NOT_FOUND,
+             fmt::format("\"{}\" is not a known host", request->label()),
+             ""});
+
+    known_hosts.erase(it);
+    persist_known_hosts();
+
+    RemoveKnownHostReply reply;
+    reply.set_reply_message(fmt::format("Removed \"{}\"", request->label()));
+    server->Write(reply);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
 void mp::Daemon::daemon_info(
     const DaemonInfoRequest*,
     grpc::ServerReaderWriterInterface<DaemonInfoReply, DaemonInfoRequest>* server,
@@ -3814,6 +4490,7 @@ try
     response.set_host_os(QSysInfo::prettyProductName().toStdString());
     response.set_host_arch(QSysInfo::currentCpuArchitecture().toStdString());
     response.set_host_uptime_seconds(host_uptime_seconds());
+    response.set_backend(config->factory->get_backend_directory_name().toStdString());
 
     for (const auto& claim : resource_pool->claims())
     {
@@ -4073,6 +4750,18 @@ void mp::Daemon::persist_intents()
                                      pretty_print(intent_records_json));
 }
 
+void mp::Daemon::persist_known_hosts()
+{
+    boost::json::object records;
+    for (const auto& [label, target] : known_hosts)
+        records[label] = target;
+
+    QDir data_dir{mp::utils::backend_directory_path(config->data_directory,
+                                                    config->factory->get_backend_directory_name())};
+    MP_FILEOPS.write_transactionally(data_dir.filePath(known_hosts_db_name),
+                                     pretty_print(boost::json::value(records)));
+}
+
 void mp::Daemon::release_resources(const std::string& instance)
 {
     release_vm_claim(instance);
@@ -4159,7 +4848,10 @@ void mp::Daemon::create_vm(const CreateRequest* request,
                       prepare_future_watcher,
                       service_id = std::string{request->service_id()},
                       intent = std::string{request->intent()},
-                      intent_role = std::string{request->intent_role()}] {
+                      intent_role = std::string{request->intent_role()},
+                      image = std::string{request->image()},
+                      cloud_init_user_data = std::string{request->cloud_init_user_data()},
+                      remote_name = std::string{request->remote_name()}] {
                          // Per-RPC ClientLogger lifecycle is managed by DaemonRpcContextImpl.
 
                          try
@@ -4189,6 +4881,9 @@ void mp::Daemon::create_vm(const CreateRequest* request,
                                  0,
                                  vm_desc.zone,
                                  service_id,
+                                 image,
+                                 cloud_init_user_data,
+                                 remote_name,
                              };
                              operative_instances[name] =
                                  config->factory->create_virtual_machine(vm_desc,
