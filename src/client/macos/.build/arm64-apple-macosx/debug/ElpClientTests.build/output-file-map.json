@@ -1,0 +1,26 @@
+{
+  "": {
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/master.swiftdeps"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Tests/ElpClientTests/DaemonAddressTests.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/DaemonAddressTests.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/DaemonAddressTests.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/DaemonAddressTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/DaemonAddressTests.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/DaemonAddressTests.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Tests/ElpClientTests/PortalAuthParserTests.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/PortalAuthParserTests.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/PortalAuthParserTests.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/PortalAuthParserTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/PortalAuthParserTests.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/PortalAuthParserTests.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Tests/ElpClientTests/TableParserTests.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/TableParserTests.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/TableParserTests.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/TableParserTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/TableParserTests.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClientTests.build/TableParserTests.dia"
+  }
+}

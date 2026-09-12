@@ -1,0 +1,61 @@
+{
+  "": {
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/master.swiftdeps"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/AppearanceStore.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/AppearanceStore.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/AppearanceStore.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/AppearanceStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/AppearanceStore.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/AppearanceStore.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/CloudInitStore.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/CloudInitStore.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/CloudInitStore.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/CloudInitStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/CloudInitStore.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/CloudInitStore.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/ElpClient.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/ElpClient.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/ElpClient.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/ElpClient~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/ElpClient.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/ElpClient.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/JSONSupport.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/JSONSupport.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/JSONSupport.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/JSONSupport~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/JSONSupport.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/JSONSupport.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/LoadPrefs.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/LoadPrefs.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/LoadPrefs.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/LoadPrefs~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/LoadPrefs.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/LoadPrefs.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/MarketplaceStore.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/MarketplaceStore.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/MarketplaceStore.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/MarketplaceStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/MarketplaceStore.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/MarketplaceStore.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/PortalAuth.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/PortalAuth.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/PortalAuth.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/PortalAuth~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/PortalAuth.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/PortalAuth.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpClient/TableParser.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/TableParser.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/TableParser.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/TableParser~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/TableParser.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/TableParser.dia"
+  }
+}

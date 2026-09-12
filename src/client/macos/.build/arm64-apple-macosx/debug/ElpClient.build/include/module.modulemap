@@ -1,0 +1,3 @@
+module ElpClient {
+    header "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpClient.build/include/ElpClient-Swift.h"
+}

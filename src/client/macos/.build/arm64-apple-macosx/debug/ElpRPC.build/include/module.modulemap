@@ -1,0 +1,3 @@
+module ElpRPC {
+    header "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/include/ElpRPC-Swift.h"
+}

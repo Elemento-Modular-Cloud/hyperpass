@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key>
+	<string>ElectrosLaunchPad</string>
+	<key>CFBundleIdentifier</key>
+	<string>cloud.elemento.elp.native</string>
+	<key>CFBundleName</key>
+	<string>Electros LaunchPad</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSEnvironment</key>
+	<dict>
+		<key>ELP_CLI</key>
+		<string>/Users/gabrielegaetanofronze/gitstuff/hyperpass/build/bin/elp</string>
+		<key>ELP_MARKETPLACE_DIR</key>
+		<string>/Users/gabrielegaetanofronze/gitstuff/hyperpass/.cache/elemento-marketplace</string>
+		<key>ELP_SERVER_ADDRESS</key>
+		<string>unix:/tmp/elp.socket</string>
+		<key>PATH</key>
+		<string>/Users/gabrielegaetanofronze/gitstuff/hyperpass/build/bin:/Users/gabrielegaetanofronze/gitstuff/hyperpass/build/bin:/Users/gabrielegaetanofronze/gitstuff/hyperpass/build/bin:/Users/gabrielegaetanofronze/.antigravity-ide/antigravity-ide/bin:/Users/gabrielegaetanofronze/.nvm/versions/node/v24.9.0/bin:/usr/local/bin:/usr/local/opt/python/libexec/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/usr/local/sbin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/X11/bin:/Library/Apple/usr/bin:/Applications/VMware Fusion.app/Contents/Public:/Users/gabrielegaetanofronze/.antigravity-ide/antigravity-ide/bin:/Users/gabrielegaetanofronze/.nvm/versions/node/v24.9.0/bin:/usr/local/opt/python/libexec/bin:/Users/gabrielegaetanofronze/.docker/bin:/Users/gabrielegaetanofronze/.lmstudio/bin:/Users/gabrielegaetanofronze/.cursor/extensions/ms-python.debugpy-2026.6.0-darwin-arm64/bundled/scripts/noConfigScripts:/Users/gabrielegaetanofronze/.docker/bin:/Users/gabrielegaetanofronze/.lmstudio/bin</string>
+	</dict>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>

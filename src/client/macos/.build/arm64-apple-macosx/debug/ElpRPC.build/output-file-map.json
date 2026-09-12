@@ -1,0 +1,33 @@
+{
+  "": {
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/master.swiftdeps"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpRPC/CertificateStore.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/CertificateStore.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/CertificateStore.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/CertificateStore~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/CertificateStore.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/CertificateStore.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpRPC/DaemonAddress.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonAddress.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonAddress.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonAddress~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonAddress.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonAddress.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpRPC/DaemonChannel.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonChannel.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonChannel.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonChannel~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonChannel.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/DaemonChannel.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpRPC/Models.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/Models.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/Models.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/Models~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/Models.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElpRPC.build/Models.dia"
+  }
+}

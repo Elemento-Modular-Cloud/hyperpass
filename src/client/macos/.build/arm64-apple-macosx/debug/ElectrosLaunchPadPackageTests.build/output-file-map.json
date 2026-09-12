@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPadPackageTests.build/master.swiftdeps"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPadPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPadPackageTests.build/runner.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPadPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPadPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPadPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPadPackageTests.build/runner.dia"
+  }
+}

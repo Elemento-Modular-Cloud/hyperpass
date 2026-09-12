@@ -1,0 +1,82 @@
+{
+  "": {
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/master.swiftdeps"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/AppModel.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/AppModel.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/AppModel.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/AppModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/AppModel.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/AppModel.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/Brand.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Brand.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Brand.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Brand~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Brand.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Brand.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/Chrome.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Chrome.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Chrome.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Chrome~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Chrome.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/Chrome.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/ElectrosLaunchPadApp.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ElectrosLaunchPadApp.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ElectrosLaunchPadApp.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ElectrosLaunchPadApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ElectrosLaunchPadApp.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ElectrosLaunchPadApp.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/GlassViews.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/GlassViews.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/GlassViews.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/GlassViews~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/GlassViews.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/GlassViews.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/Screens/LlmViews.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LlmViews.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LlmViews.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LlmViews~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LlmViews.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LlmViews.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/Screens/LoginView.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LoginView.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LoginView.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LoginView~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LoginView.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/LoginView.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/Screens/OverviewAndCompute.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/OverviewAndCompute.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/OverviewAndCompute.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/OverviewAndCompute~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/OverviewAndCompute.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/OverviewAndCompute.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/Screens/ServicesSettings.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ServicesSettings.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ServicesSettings.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ServicesSettings~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ServicesSettings.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/ServicesSettings.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/SidebarView.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/SidebarView.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/SidebarView.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/SidebarView~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/SidebarView.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/SidebarView.dia"
+  },
+  "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/Sources/ElpUI/TerminalView.swift": {
+    "dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/TerminalView.d",
+    "object": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/TerminalView.swift.o",
+    "swiftmodule": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/TerminalView~partial.swiftmodule",
+    "swift-dependencies": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/TerminalView.swiftdeps",
+    "diagnostics": "/Users/gabrielegaetanofronze/gitstuff/hyperpass/src/client/macos/.build/arm64-apple-macosx/debug/ElectrosLaunchPad.build/TerminalView.dia"
+  }
+}
