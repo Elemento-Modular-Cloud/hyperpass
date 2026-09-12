@@ -79,12 +79,12 @@ makedepends=(
 )
 options=('!lto' '!debug') # LTO not worth the build time here; !debug skips shipping vcpkg's
                           # entire buildtree (Qt6/gRPC/QEMU/...) as debug symbols (~5GB)
-# elpd.service must be a declared local source (not just a sibling file
-# scripts/build-arch.sh copies next to this PKGBUILD): a sandboxed
-# extra-x86_64-build chroot only stages the PKGBUILD plus its own
+# elpd.service/elp-api.service must be declared local sources (not just
+# sibling files scripts/build-arch.sh copies next to this PKGBUILD): a
+# sandboxed extra-x86_64-build chroot only stages the PKGBUILD plus its own
 # source=() entries, nothing else that happens to sit alongside it.
-source=("elp::git+@REPO_SOURCE@" "elpd.service")
-sha256sums=('SKIP' 'SKIP')
+source=("elp::git+@REPO_SOURCE@" "elpd.service" "elp-api.service")
+sha256sums=('SKIP' 'SKIP' 'SKIP')
 
 pkgver() {
   cd "${srcdir}/elp"
@@ -148,6 +148,8 @@ package() {
 
   install -Dm644 "${srcdir}/elpd.service" \
     "${pkgdir}/usr/lib/systemd/system/elpd.service"
+  install -Dm644 "${srcdir}/elp-api.service" \
+    "${pkgdir}/usr/lib/systemd/system/elp-api.service"
   install -Dm644 "${srcdir}/elp/data/elp.gui.desktop" \
     "${pkgdir}/usr/share/applications/elp.gui.desktop"
   install -Dm644 "${srcdir}/elp/data/elp.gui.png" \

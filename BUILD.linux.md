@@ -26,8 +26,18 @@ freshly recreated chroot, reuse those binaries instead of recompiling them.
 Delete that directory to force a full rebuild from scratch.
 
 Install the resulting package with `pacman -U <package>.pkg.tar.zst`; this
-installs `elpd`/`elp`/the GUI, a systemd unit (`systemctl enable --now
-elpd`), and desktop/icon/completion files.
+installs `elpd`/`elp`/the GUI, desktop/icon/completion files, and two
+systemd units you need to enable yourself (packages don't auto-enable
+services on Arch):
+
+```
+sudo systemctl enable --now elpd elp-api
+```
+
+`elp-api` is the REST/gateway sidecar (`https://127.0.0.1:7777`) the GUI
+uses for things like the catalogue's per-service gateway CA fetch — without
+it running, deploying anything from the Catalogue fails with a connection-
+refused error trying to reach `127.0.0.1:7777/ca.crt`.
 
 ## Ubuntu / apt-based distributions
 

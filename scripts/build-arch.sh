@@ -9,6 +9,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PKG_TEMPLATE="${ROOT}/packaging/archlinux/PKGBUILD.in"
 SERVICE_FILE="${ROOT}/packaging/archlinux/elpd.service"
+API_SERVICE_FILE="${ROOT}/packaging/archlinux/elp-api.service"
 SCRATCH_DIR="${ARCH_PKG_SCRATCH_DIR:-${ROOT}/build/archlinux-pkg}"
 VCPKG_CACHE_DIR="${ARCH_PKG_VCPKG_CACHE:-${ROOT}/build/vcpkg-binary-cache}"
 SANDBOXED=1
@@ -62,6 +63,7 @@ rendered="${rendered//@REPO_SOURCE@/${repo_source}}"
 rendered="${rendered//@VCPKG_CACHE_DIR@/${VCPKG_CACHE_DIR}}"
 printf '%s\n' "${rendered}" > "${SCRATCH_DIR}/PKGBUILD"
 cp "${SERVICE_FILE}" "${SCRATCH_DIR}/elpd.service"
+cp "${API_SERVICE_FILE}" "${SCRATCH_DIR}/elp-api.service"
 
 echo "==> Rendered PKGBUILD in ${SCRATCH_DIR} (source: ${repo_source})"
 echo "==> vcpkg binary cache: ${VCPKG_CACHE_DIR}"
