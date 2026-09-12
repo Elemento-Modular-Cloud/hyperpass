@@ -218,11 +218,6 @@ When contributing, you must adhere to the [Code of Conduct](https://ubuntu.com/c
 The code in this repository is licensed under GNU General Public License v3.0.
 See [LICENSE](https://github.com/canonical/multipass/blob/main/LICENSE) for more information.
 
-## License agreement
-
-All contributors must sign the [Canonical contributor license agreement (CLA)](https://ubuntu.com/legal/contributors),
-which gives Canonical permission to use the contributions. Without the CLA, contributions cannot be accepted.
-
 ## Pull requests
 
 Changes to this project should be proposed as pull requests. Proposed changes will then go through review and once
