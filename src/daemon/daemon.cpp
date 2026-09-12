@@ -3184,6 +3184,55 @@ private:
     grpc::ServerReaderWriterInterface<OuterReply, OuterRequest>* outer;
 };
 
+// Same bridging idea as IntentMemberLaunchSink, but for a member that's an LLM
+// session (load_model) rather than a VM. Also captures the instance_id off any
+// reply that carries one into `captured_instance_id`, since (unlike a VM's
+// instance name, which the caller picks up front) an LLM session's instance_id
+// is only known once load_model_impl generates it.
+template <typename OuterReply, typename OuterRequest>
+class IntentMemberLlmLoadSink
+    : public grpc::ServerReaderWriterInterface<mp::LoadModelReply, mp::LoadModelRequest>
+{
+public:
+    IntentMemberLlmLoadSink(grpc::ServerReaderWriterInterface<OuterReply, OuterRequest>* outer,
+                            std::shared_ptr<std::string> captured_instance_id)
+        : outer{outer}, captured_instance_id{std::move(captured_instance_id)}
+    {
+    }
+
+    void SendInitialMetadata() override
+    {
+    }
+
+    bool NextMessageSize(uint32_t* sz) override
+    {
+        *sz = 0;
+        return false;
+    }
+
+    bool Read(mp::LoadModelRequest*) override
+    {
+        return false;
+    }
+
+    bool Write(const mp::LoadModelReply& reply, grpc::WriteOptions) override
+    {
+        if (!reply.instance_id().empty())
+            *captured_instance_id = reply.instance_id();
+        if (!reply.log_line().empty())
+        {
+            OuterReply forwarded;
+            forwarded.set_log_line(reply.log_line());
+            outer->Write(forwarded);
+        }
+        return true;
+    }
+
+private:
+    grpc::ServerReaderWriterInterface<OuterReply, OuterRequest>* outer;
+    std::shared_ptr<std::string> captured_instance_id;
+};
+
 // A one-shot DaemonRpcContext for a single intent member's internal launch:
 // forwards the eventual status to `on_done` instead of fulfilling a promise
 // someone blocks on. Nothing in intent_create waits synchronously for this,
@@ -3229,6 +3278,9 @@ std::optional<std::vector<mp::LaunchRequest>> build_intent_member_launch_request
     std::vector<mp::LaunchRequest> launch_requests;
     for (const auto& member : members)
     {
+        if (!member.model_id().empty())
+            continue; // handled as an LLM member by build_intent_member_load_requests instead
+
         const auto& role = member.role();
         if (role.empty())
         {
@@ -3270,6 +3322,44 @@ std::optional<std::vector<mp::LaunchRequest>> build_intent_member_launch_request
     }
     return launch_requests;
 }
+
+// Same purpose as build_intent_member_launch_requests, but for members that
+// name an LLM model (IntentMemberRequest::model_id) instead of a VM image.
+std::optional<std::vector<mp::LoadModelRequest>> build_intent_member_load_requests(
+    const std::string& intent_name,
+    const google::protobuf::RepeatedPtrField<mp::IntentMemberRequest>& members,
+    grpc::Status& error)
+{
+    std::vector<mp::LoadModelRequest> load_requests;
+    for (const auto& member : members)
+    {
+        if (member.model_id().empty())
+            continue; // handled as a VM member by build_intent_member_launch_requests instead
+
+        const auto& role = member.role();
+        if (role.empty())
+        {
+            error = {grpc::StatusCode::INVALID_ARGUMENT, "Each intent member needs a role", ""};
+            return std::nullopt;
+        }
+
+        mp::LoadModelRequest lr;
+        lr.set_model_id(member.model_id());
+        lr.set_intent(intent_name);
+        lr.set_intent_role(role);
+        if (!member.quant().empty())
+            lr.set_quant(member.quant());
+        if (member.ctx_size() > 0)
+            lr.set_ctx_size(member.ctx_size());
+        if (!member.runtime().empty())
+            lr.set_runtime(member.runtime());
+        if (member.max_tokens() > 0)
+            lr.set_max_tokens(member.max_tokens());
+
+        load_requests.push_back(std::move(lr));
+    }
+    return load_requests;
+}
 } // namespace
 
 void mp::Daemon::launch_intent_members(
@@ -3302,7 +3392,8 @@ void mp::Daemon::launch_intent_members(
                     // Members already launched are left running (not rolled back in v1).
                     return on_failure(status);
 
-                launched->push_back({role, (*launch_requests)[*member_index].instance_name()});
+                launched->push_back(
+                    {role, (*launch_requests)[*member_index].instance_name(), "vm"});
                 ++(*member_index);
                 (*launch_next)();
             });
@@ -3319,6 +3410,76 @@ void mp::Daemon::launch_intent_members(
     };
 
     (*launch_next)();
+}
+
+// Same chaining shape as launch_intent_members, but for members that are LLM
+// sessions (load_model) rather than VMs. load_model runs on llm_dispatcher's
+// own thread and its context->set_value can fire from an arbitrary worker-pool
+// thread (see LlmDispatcher::run_async), so — unlike launch_intent_members,
+// whose create_vm completion is already marshaled back by its QFutureWatcher —
+// each member's completion is explicitly re-marshaled onto Daemon's own thread
+// before touching any Daemon state.
+void mp::Daemon::launch_intent_llm_members(
+    std::shared_ptr<std::vector<LoadModelRequest>> load_requests,
+    std::shared_ptr<grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>> member_sink,
+    std::shared_ptr<std::string> captured_instance_id,
+    std::function<void(std::vector<IntentSpec::Member>)> on_all_loaded,
+    std::function<void(grpc::Status)> on_failure)
+{
+    auto loaded = std::make_shared<std::vector<IntentSpec::Member>>();
+    auto member_index = std::make_shared<size_t>(0);
+    auto load_next = std::make_shared<std::function<void()>>();
+    *load_next = [this,
+                  load_requests,
+                  member_sink,
+                  captured_instance_id,
+                  loaded,
+                  member_index,
+                  load_next,
+                  on_all_loaded,
+                  on_failure] {
+        if (*member_index >= load_requests->size())
+            return on_all_loaded(*loaded);
+
+        const auto index = *member_index;
+        auto role = (*load_requests)[index].intent_role();
+        captured_instance_id->clear();
+
+        auto* member_context = new IntentMemberContext(
+            [this, captured_instance_id, loaded, member_index, load_next, on_failure, role](
+                grpc::Status status) {
+                QMetaObject::invokeMethod(
+                    this,
+                    [status, role, captured_instance_id, loaded, member_index, load_next,
+                     on_failure] {
+                        if (!status.ok())
+                            // Members already loaded are left running (not rolled back in v1).
+                            return on_failure(status);
+
+                        loaded->push_back({role, *captured_instance_id, "llm"});
+                        ++(*member_index);
+                        (*load_next)();
+                    },
+                    Qt::QueuedConnection);
+            });
+
+        if (!llm_dispatcher)
+        {
+            delete member_context;
+            return on_failure({grpc::StatusCode::FAILED_PRECONDITION,
+                               "LLM support is not available on this daemon",
+                               ""});
+        }
+
+        QMetaObject::invokeMethod(
+            llm_dispatcher.get(),
+            [this, load_requests, index, sink = member_sink.get(), member_context] {
+                llm_dispatcher->load_model(&(*load_requests)[index], sink, member_context);
+            },
+            Qt::QueuedConnection);
+    };
+
+    (*load_next)();
 }
 
 void mp::Daemon::intent_create(
@@ -3342,29 +3503,50 @@ try
     auto built = build_intent_member_launch_requests(name, request->members(), build_error);
     if (!built)
         return context->set_value(build_error);
+    auto built_llm = build_intent_member_load_requests(name, request->members(), build_error);
+    if (!built_llm)
+        return context->set_value(build_error);
 
     auto launch_requests = std::make_shared<std::vector<LaunchRequest>>(std::move(*built));
     std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> sink =
         std::make_shared<IntentMemberLaunchSink<IntentCreateReply, IntentCreateRequest>>(server);
 
+    auto load_requests = std::make_shared<std::vector<LoadModelRequest>>(std::move(*built_llm));
+    auto captured_instance_id = std::make_shared<std::string>();
+    std::shared_ptr<grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>> llm_sink =
+        std::make_shared<IntentMemberLlmLoadSink<IntentCreateReply, IntentCreateRequest>>(
+            server, captured_instance_id);
+
     launch_intent_members(
         launch_requests,
         sink,
-        [this, server, context, name](std::vector<IntentSpec::Member> members) {
-            IntentSpec spec;
-            spec.name = name;
-            spec.members = std::move(members);
-            spec.creation_timestamp =
-                QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toStdString();
-            intents[name] = spec;
-            persist_intents();
+        [this, server, context, name, load_requests, llm_sink, captured_instance_id](
+            std::vector<IntentSpec::Member> vm_members) {
+            launch_intent_llm_members(
+                load_requests,
+                llm_sink,
+                captured_instance_id,
+                [this, server, context, name, vm_members = std::move(vm_members)](
+                    std::vector<IntentSpec::Member> llm_members) mutable {
+                    IntentSpec spec;
+                    spec.name = name;
+                    spec.members = std::move(vm_members);
+                    spec.members.insert(spec.members.end(),
+                                        std::make_move_iterator(llm_members.begin()),
+                                        std::make_move_iterator(llm_members.end()));
+                    spec.creation_timestamp =
+                        QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toStdString();
+                    intents[name] = spec;
+                    persist_intents();
 
-            IntentCreateReply reply;
-            reply.set_reply_message(fmt::format("Intent \"{}\" created with {} member(s).",
-                                                name,
-                                                spec.members.size()));
-            server->Write(reply);
-            context->set_value(grpc::Status::OK);
+                    IntentCreateReply reply;
+                    reply.set_reply_message(fmt::format("Intent \"{}\" created with {} member(s).",
+                                                        name,
+                                                        spec.members.size()));
+                    server->Write(reply);
+                    context->set_value(grpc::Status::OK);
+                },
+                [context](grpc::Status status) { context->set_value(status); });
         },
         [context](grpc::Status status) { context->set_value(status); });
 }
@@ -3391,44 +3573,80 @@ try
     auto built = build_intent_member_launch_requests(name, request->members(), build_error);
     if (!built)
         return context->set_value(build_error);
+    auto built_llm = build_intent_member_load_requests(name, request->members(), build_error);
+    if (!built_llm)
+        return context->set_value(build_error);
 
     auto launch_requests = std::make_shared<std::vector<LaunchRequest>>(std::move(*built));
     std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> sink =
         std::make_shared<IntentMemberLaunchSink<IntentAddMemberReply, IntentAddMemberRequest>>(
             server);
 
+    auto load_requests = std::make_shared<std::vector<LoadModelRequest>>(std::move(*built_llm));
+    auto captured_instance_id = std::make_shared<std::string>();
+    std::shared_ptr<grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>> llm_sink =
+        std::make_shared<IntentMemberLlmLoadSink<IntentAddMemberReply, IntentAddMemberRequest>>(
+            server, captured_instance_id);
+
     launch_intent_members(
         launch_requests,
         sink,
-        [this, server, context, name](std::vector<IntentSpec::Member> members) {
-            // launch_intent_members runs asynchronously; guard against the intent having
-            // been deleted (by a concurrent intent_delete) while these members were still
-            // being launched, rather than silently reviving it with intents[name].
-            auto it = intents.find(name);
-            if (it == intents.end())
-                return context->set_value(
-                    {grpc::StatusCode::ABORTED,
-                     fmt::format("Intent \"{}\" was deleted while members were being added; "
-                                "the new instance(s) are still running but untracked",
-                                name),
-                     ""});
+        [this, server, context, name, load_requests, llm_sink, captured_instance_id](
+            std::vector<IntentSpec::Member> vm_members) {
+            launch_intent_llm_members(
+                load_requests,
+                llm_sink,
+                captured_instance_id,
+                [this, server, context, name, vm_members = std::move(vm_members)](
+                    std::vector<IntentSpec::Member> llm_members) mutable {
+                    // launch_intent_members/launch_intent_llm_members run asynchronously;
+                    // guard against the intent having been deleted (by a concurrent
+                    // intent_delete) while these members were still being added, rather
+                    // than silently reviving it with intents[name].
+                    auto it = intents.find(name);
+                    if (it == intents.end())
+                        return context->set_value(
+                            {grpc::StatusCode::ABORTED,
+                             fmt::format(
+                                 "Intent \"{}\" was deleted while members were being added; "
+                                 "the new instance(s) are still running but untracked",
+                                 name),
+                             ""});
 
-            const auto added = members.size();
-            for (auto& member : members)
-                it->second.members.push_back(std::move(member));
-            persist_intents();
+                    auto members = std::move(vm_members);
+                    members.insert(members.end(),
+                                   std::make_move_iterator(llm_members.begin()),
+                                   std::make_move_iterator(llm_members.end()));
+                    const auto added = members.size();
+                    for (auto& member : members)
+                        it->second.members.push_back(std::move(member));
+                    persist_intents();
 
-            IntentAddMemberReply reply;
-            reply.set_reply_message(
-                fmt::format("Added {} member(s) to intent \"{}\".", added, name));
-            server->Write(reply);
-            context->set_value(grpc::Status::OK);
+                    IntentAddMemberReply reply;
+                    reply.set_reply_message(
+                        fmt::format("Added {} member(s) to intent \"{}\".", added, name));
+                    server->Write(reply);
+                    context->set_value(grpc::Status::OK);
+                },
+                [context](grpc::Status status) { context->set_value(status); });
         },
         [context](grpc::Status status) { context->set_value(status); });
 }
 catch (const std::exception& e)
 {
     context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+mp::InstanceStatus::Status mp::Daemon::intent_member_status(const IntentSpec::Member& member) const
+{
+    if (member.kind == "llm")
+        return llm_dispatcher && llm_dispatcher->has_instance(member.instance_name)
+                   ? mp::InstanceStatus::RUNNING
+                   : mp::InstanceStatus::DELETED;
+
+    auto vm_it = operative_instances.find(member.instance_name);
+    return vm_it == operative_instances.end() ? mp::InstanceStatus::DELETED
+                                              : grpc_instance_status_for(vm_it->second->current_state());
 }
 
 void mp::Daemon::intent_list(
@@ -3450,12 +3668,8 @@ try
             auto* proto_member = info->add_members();
             proto_member->set_role(member.role);
             proto_member->set_instance_name(member.instance_name);
-
-            auto vm_it = operative_instances.find(member.instance_name);
-            proto_member->mutable_instance_status()->set_status(
-                vm_it == operative_instances.end()
-                    ? mp::InstanceStatus::DELETED
-                    : grpc_instance_status_for(vm_it->second->current_state()));
+            proto_member->set_kind(member.kind);
+            proto_member->mutable_instance_status()->set_status(intent_member_status(member));
         }
     }
 
@@ -3491,11 +3705,8 @@ try
         auto* proto_member = info->add_members();
         proto_member->set_role(member.role);
         proto_member->set_instance_name(member.instance_name);
-
-        auto vm_it = operative_instances.find(member.instance_name);
-        proto_member->mutable_instance_status()->set_status(
-            vm_it == operative_instances.end() ? mp::InstanceStatus::DELETED
-                                               : grpc_instance_status_for(vm_it->second->current_state()));
+        proto_member->set_kind(member.kind);
+        proto_member->mutable_instance_status()->set_status(intent_member_status(member));
     }
 
     server->Write(response);
@@ -3521,8 +3732,15 @@ try
 
     const auto purge = request->purge();
     auto instances_dirty = false;
+    std::vector<std::string> llm_instance_ids;
     for (const auto& member : it->second.members)
     {
+        if (member.kind == "llm")
+        {
+            llm_instance_ids.push_back(member.instance_name);
+            continue;
+        }
+
         auto vm_it = operative_instances.find(member.instance_name);
         if (vm_it == operative_instances.end())
             continue;
@@ -3533,6 +3751,8 @@ try
 
     if (instances_dirty)
         persist_instances();
+    if (llm_dispatcher)
+        llm_dispatcher->unload_instances_blocking(llm_instance_ids);
 
     intents.erase(it);
     persist_intents();

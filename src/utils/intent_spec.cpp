@@ -29,6 +29,7 @@ void mp::tag_invoke(const boost::json::value_from_tag&,
         members.push_back({
             {"role", member.role},
             {"instance_name", member.instance_name},
+            {"kind", member.kind},
         });
 
     json = {
@@ -47,7 +48,8 @@ mp::IntentSpec mp::tag_invoke(const boost::json::value_to_tag<mp::IntentSpec>&,
 
     for (const auto& member : json.at("members").as_array())
         spec.members.push_back({value_to<std::string>(member.at("role")),
-                                value_to<std::string>(member.at("instance_name"))});
+                                value_to<std::string>(member.at("instance_name")),
+                                lookup_or<std::string>(member, "kind", "vm")});
 
     return spec;
 }

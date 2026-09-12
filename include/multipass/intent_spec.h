@@ -35,7 +35,8 @@ struct IntentSpec
     struct Member
     {
         std::string role;          // e.g. "redis", or a user-chosen label for inline members
-        std::string instance_name; // the actual launched instance's name
+        std::string instance_name; // the launched VM instance's name, or an LLM session's instance_id
+        std::string kind{"vm"};    // "vm" or "llm"; defaults to "vm" for older persisted records
 
         friend inline bool operator==(const Member&, const Member&) = default;
     };

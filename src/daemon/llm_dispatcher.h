@@ -48,6 +48,9 @@ public:
     ~LlmDispatcher() override;
 
     void unload_instances_blocking(const std::vector<std::string>& instance_ids);
+    // Fast, mutex-protected lookup safe to call from any thread (unlike the slots
+    // above, which must run on this object's own thread).
+    bool has_instance(const std::string& instance_id) const;
 
 public slots:
     void shutdown();

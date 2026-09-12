@@ -83,6 +83,11 @@ void mp::LlmDispatcher::unload_instances_blocking(const std::vector<std::string>
         Qt::BlockingQueuedConnection);
 }
 
+bool mp::LlmDispatcher::has_instance(const std::string& instance_id) const
+{
+    return llm_service && llm_service->has_instance(instance_id);
+}
+
 template <typename Work>
 void mp::LlmDispatcher::run_sync(DaemonRpcContext* context, Work&& work)
 {

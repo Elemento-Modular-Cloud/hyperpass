@@ -45,6 +45,8 @@ private:
     QString key_label;
     QString key_id;
     QString key_instance;
+    QString intent;
+    QString intent_role;
     int limit{10};
     int ctx_size{4096};
     int max_tokens{0};

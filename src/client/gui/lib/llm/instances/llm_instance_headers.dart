@@ -63,6 +63,17 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     cellBuilder: (m) => _LlmCapabilityCell(model: m),
   ),
   TableHeader(
+    name: 'INTENT',
+    childBuilder: (_) => TableHeader.defaultHeaderBuilder('Intent'),
+    width: 140,
+    minWidth: 100,
+    sortKey: (m) => m.intent,
+    cellBuilder: (m) => Text(
+      m.intent.isEmpty ? '—' : '${m.intent} · ${m.intentRole}',
+      overflow: TextOverflow.ellipsis,
+    ),
+  ),
+  TableHeader(
     name: 'BACKEND',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnBackend),
     width: 100,
@@ -148,7 +159,8 @@ class SelectAllLlmCheckbox extends ConsumerWidget {
               final q = search.toLowerCase();
               return m.modelId.toLowerCase().contains(q) ||
                   m.openaiId.toLowerCase().contains(q) ||
-                  m.backend.toLowerCase().contains(q);
+                  m.backend.toLowerCase().contains(q) ||
+                  m.intent.toLowerCase().contains(q);
             })
             .map((m) => m.instanceId)
             .toList() ??

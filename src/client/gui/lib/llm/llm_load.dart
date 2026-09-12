@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 
 import '../brand.dart';
+import '../dropdown.dart';
 import '../l10n/app_localizations.dart';
 import '../layout/compact_layout.dart';
 import '../notifications.dart';
@@ -24,6 +25,24 @@ const _inferenceBackendIds = {
   'llamacpp',
   if (enableMlxBackend) 'mlx',
 };
+
+/// Sentinel dropdown value for "create a new intent" (mirrors the private
+/// constant of the same name in launch_form.dart/service_deploy.dart — a
+/// leading NUL can never be typed into a text field, so this can't collide
+/// with a real intent name).
+const _createNewIntentValue = '\u0000__create_new_intent__';
+
+/// Result of the (separate, optional) "assign to an intent" prompt shown
+/// after the load-settings dialog — kept independent of [LlmLoadForm] since
+/// intent membership is a one-off choice for this load, not a per-model
+/// default worth persisting via llm_load_prefs.dart the way ctx/GPU/etc are.
+class _IntentChoice {
+  const _IntentChoice({this.intentName, this.isNewIntent = false, this.intentRole = ''});
+
+  final String? intentName; // null = standalone, no intent
+  final bool isNewIntent;
+  final String intentRole;
+}
 
 Future<void> loadLlmModel(
   BuildContext context,
@@ -61,6 +80,10 @@ Future<void> loadLlmModel(
   );
   if (form == null) return;
 
+  if (!context.mounted) return;
+  final intentChoice = await _promptIntentAssignment(context, l10n);
+  if (intentChoice == null) return; // cancelled
+
   final pending = PendingLlmLoad(
     id: '$pendingLlmLoadIdPrefix${DateTime.now().microsecondsSinceEpoch}',
     modelId: modelId,
@@ -78,6 +101,9 @@ Future<void> loadLlmModel(
       quant: quant,
       hfRepo: hfRepo,
       form: form,
+      intentName: intentChoice.intentName,
+      isNewIntent: intentChoice.isNewIntent,
+      intentRole: intentChoice.intentRole,
     ),
   );
 }
@@ -88,6 +114,9 @@ Future<void> _completeLlmLoad({
   required String quant,
   required String hfRepo,
   required LlmLoadForm form,
+  String? intentName,
+  bool isNewIntent = false,
+  String intentRole = '',
 }) async {
   try {
     final client = providerContainer.read(grpcClientProvider);
@@ -99,26 +128,59 @@ Future<void> _completeLlmLoad({
       )) {}
       providerContainer.invalidate(loadedModelsProvider);
     }
-    await client
-        .loadModel(
-          modelId,
-          quant: quant,
-          runtime: form.runtime,
-          ctxSize: form.ctxSize,
-          maxTokens: form.maxTokens,
-          params: form.toProto(),
-        )
-        .last;
+
     await writeLlmLoadPrefs(
       providerContainer.read(sharedPreferencesProvider),
       modelId,
       form.toJson(),
     );
+
+    if (intentName == null) {
+      await client
+          .loadModel(
+            modelId,
+            quant: quant,
+            runtime: form.runtime,
+            ctxSize: form.ctxSize,
+            maxTokens: form.maxTokens,
+            params: form.toProto(),
+          )
+          .last;
+      providerContainer.read(recentActivityProvider.notifier).record(
+            title: 'Loaded $modelId',
+            detail: form.runtime,
+          );
+    } else {
+      final member = IntentMemberRequest(
+        role: intentRole,
+        modelId: modelId,
+        quant: quant,
+        runtime: form.runtime,
+        ctxSize: form.ctxSize,
+        maxTokens: form.maxTokens,
+      );
+      final Future<dynamic> op = isNewIntent
+          ? client.intentCreate(
+              IntentCreateRequest(name: intentName, members: [member]),
+            )
+          : client.intentAddMember(
+              IntentAddMemberRequest(name: intentName, members: [member]),
+            );
+      providerContainer.read(notificationsProvider.notifier).addOperation(
+            op,
+            loading: 'Adding $modelId to intent $intentName…',
+            onSuccess: (reply) {
+              final message = reply?.replyMessage as String?;
+              return message?.isNotEmpty == true
+                  ? message!
+                  : 'Added $modelId to intent $intentName';
+            },
+            onError: (error) => '$error',
+          );
+      await op;
+      providerContainer.invalidate(intentsStreamProvider);
+    }
     providerContainer.invalidate(loadedModelsProvider);
-    providerContainer.read(recentActivityProvider.notifier).record(
-          title: 'Loaded $modelId',
-          detail: form.runtime,
-        );
   } catch (e) {
     final message = e is GrpcError ? (e.message ?? '$e') : '$e';
     providerContainer.read(notificationsProvider.notifier).addError(message);
@@ -549,6 +611,125 @@ class _LoadSettingsDialogState extends State<_LoadSettingsDialog> {
       ),
     );
   }
+}
+
+/// Separate, optional follow-up to the load-settings dialog: assign the
+/// about-to-load session to an intent (existing, or a brand new one), the
+/// same picker pattern used in launch_form.dart/service_deploy.dart. Kept as
+/// its own step rather than folded into [_LoadSettingsDialog] so this file's
+/// merge with upstream's load-settings rework doesn't need to touch that
+/// dialog/its tests at all. Returns null if the user cancels outright.
+Future<_IntentChoice?> _promptIntentAssignment(
+  BuildContext context,
+  AppLocalizations l10n,
+) async {
+  String? selectedIntent;
+  final newIntentNameController = TextEditingController();
+  final intentRoleController = TextEditingController();
+  String? error;
+
+  final result = await showDialog<_IntentChoice>(
+    context: context,
+    barrierColor: Brand.barrier,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => Consumer(
+        builder: (ctx, ref, _) {
+          final intentNames = ref.watch(intentNamesProvider);
+          return AlertDialog(
+            title: const Text('Assign to an intent (optional)'),
+            content: SizedBox(
+              width: CompactLayout.dialogWidth(ctx, 440),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Dropdown<String?>(
+                      label: 'Intent',
+                      width: 360,
+                      value: selectedIntent,
+                      onChanged: (value) => setState(() {
+                        selectedIntent = value;
+                        error = null;
+                      }),
+                      items: {
+                        null: 'None (standalone instance)',
+                        _createNewIntentValue: '+ Create new intent...',
+                        for (final name in intentNames) name: name,
+                      },
+                    ),
+                    if (selectedIntent == _createNewIntentValue) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: newIntentNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'New intent name',
+                          hintText: 'e.g. test-app-1',
+                        ),
+                      ),
+                    ],
+                    if (selectedIntent != null) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: intentRoleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Role in intent',
+                          hintText: 'e.g. chat',
+                          helperText:
+                              'What this model is within the intent (e.g. "chat").',
+                        ),
+                      ),
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        error!,
+                        style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              LaunchPadButton.secondary(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(l10n.commonCancel),
+              ),
+              LaunchPadButton.primary(
+                onPressed: () {
+                  final isNewIntent = selectedIntent == _createNewIntentValue;
+                  if (selectedIntent != null && intentRoleController.text.trim().isEmpty) {
+                    setState(() => error = 'Please provide a role for this member.');
+                    return;
+                  }
+                  if (isNewIntent && newIntentNameController.text.trim().isEmpty) {
+                    setState(() => error = 'Please provide a name for the new intent.');
+                    return;
+                  }
+                  Navigator.pop(
+                    ctx,
+                    _IntentChoice(
+                      intentName: selectedIntent == null
+                          ? null
+                          : (isNewIntent ? newIntentNameController.text.trim() : selectedIntent),
+                      isNewIntent: isNewIntent,
+                      intentRole: intentRoleController.text.trim(),
+                    ),
+                  );
+                },
+                child: Text(l10n.modelsLoad),
+              ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
+
+  newIntentNameController.dispose();
+  intentRoleController.dispose();
+  return result;
 }
 
 String _runtimeLabel(AppLocalizations l10n, String id, String name) {

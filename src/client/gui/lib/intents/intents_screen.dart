@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../confirmation_dialog.dart';
+import '../l10n/app_localizations.dart';
 import '../layout/compact_layout.dart';
+import '../llm/llm_id.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -22,6 +24,7 @@ class IntentsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final intentsAsync = ref.watch(intentsStreamProvider);
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: PageSurface(
@@ -36,6 +39,12 @@ class IntentsScreen extends ConsumerWidget {
                     style: TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
                   ),
                 ),
+                IconButton(
+                  tooltip: l10n.catalogueRefresh,
+                  onPressed: () => ref.invalidate(intentsStreamProvider),
+                  icon: const Icon(Icons.refresh),
+                ),
+                const SizedBox(width: 8),
                 LaunchPadButton.primary(
                   onPressed: () => showCreateIntentDialog(context, ref),
                   child: const Text('New intent'),
@@ -127,13 +136,19 @@ class _IntentCard extends ConsumerWidget {
                 ),
               )
             else
-              ...intent.members.map(
-                (member) => Padding(
+              ...intent.members.map((member) {
+                final isLlm = member.kind == 'llm';
+                return Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: InkWell(
-                    onTap: () => ref
-                        .read(sidebarKeyProvider.notifier)
-                        .set(elpVm(member.instanceName).sidebarKey),
+                    onTap: () => ref.read(sidebarKeyProvider.notifier).set(
+                          isLlm
+                              ? LlmInstanceId(
+                                  instanceId: member.instanceName,
+                                  modelId: '',
+                                ).sidebarKey
+                              : elpVm(member.instanceName).sidebarKey,
+                        ),
                     child: Row(
                       children: [
                         VmStatusIcon(
@@ -145,14 +160,14 @@ class _IntentCard extends ConsumerWidget {
                             style: const TextStyle(fontWeight: FontWeight.w500)),
                         const SizedBox(width: 8),
                         Text(
-                          '(${member.instanceName})',
+                          isLlm ? '(LLM: ${member.instanceName})' : '(${member.instanceName})',
                           style: TextStyle(color: onSurface.withValues(alpha: 0.6)),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ),
+                );
+              }),
           ],
         ),
       ),
@@ -163,19 +178,27 @@ class _IntentCard extends ConsumerWidget {
 class _MemberFields {
   _MemberFields()
       : roleController = TextEditingController(),
-        imageController = TextEditingController();
+        imageController = TextEditingController(),
+        modelIdController = TextEditingController();
 
   final TextEditingController roleController;
   final TextEditingController imageController;
+  // When set, this member is an LLM session (loaded the same as `elp llm
+  // load`) instead of a VM instance; imageController is then ignored.
+  final TextEditingController modelIdController;
 
   void dispose() {
     roleController.dispose();
     imageController.dispose();
+    modelIdController.dispose();
   }
 
   IntentMemberRequest? toRequest() {
     final role = roleController.text.trim();
     if (role.isEmpty) return null;
+    final modelId = modelIdController.text.trim();
+    if (modelId.isNotEmpty)
+      return IntentMemberRequest(role: role, modelId: modelId);
     return IntentMemberRequest(
       role: role,
       image: imageController.text.trim(),
@@ -189,33 +212,48 @@ Widget _memberFieldsRow(
 }) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Row(
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: fields.roleController,
+                decoration: const InputDecoration(
+                  labelText: 'Role',
+                  hintText: 'e.g. redis',
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: fields.imageController,
+                decoration: const InputDecoration(
+                  labelText: 'Image (optional)',
+                  hintText: 'blank = use "redis"/"postgres" template',
+                ),
+              ),
+            ),
+            if (onRemove != null)
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: onRemove,
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
           child: TextFormField(
-            controller: fields.roleController,
+            controller: fields.modelIdController,
             decoration: const InputDecoration(
-              labelText: 'Role',
-              hintText: 'e.g. redis',
+              labelText: 'Model ID (optional, for an LLM member)',
+              hintText: 'e.g. llama-3.1-8b-instruct; ignores Image above when set',
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: TextFormField(
-            controller: fields.imageController,
-            decoration: const InputDecoration(
-              labelText: 'Image (optional)',
-              hintText: 'blank = use "redis"/"postgres" template',
-            ),
-          ),
-        ),
-        if (onRemove != null)
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: onRemove,
-          ),
       ],
     ),
   );

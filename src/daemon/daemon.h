@@ -239,6 +239,22 @@ private:
         std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> member_sink,
         std::function<void(std::vector<IntentSpec::Member>)> on_all_launched,
         std::function<void(grpc::Status)> on_failure);
+
+    // Same idea, for members that are LLM sessions (load_model) instead of VMs.
+    // captured_instance_id is a scratch slot the member_sink writes each member's
+    // generated instance_id into (an LLM session's id isn't known up front, unlike
+    // a VM's instance name).
+    void launch_intent_llm_members(
+        std::shared_ptr<std::vector<LoadModelRequest>> load_requests,
+        std::shared_ptr<grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>>
+            member_sink,
+        std::shared_ptr<std::string> captured_instance_id,
+        std::function<void(std::vector<IntentSpec::Member>)> on_all_loaded,
+        std::function<void(grpc::Status)> on_failure);
+
+    // Current status of one intent member for intent_list/intent_info, dispatching
+    // on member.kind ("vm" -> operative_instances, "llm" -> llm_dispatcher).
+    InstanceStatus::Status intent_member_status(const IntentSpec::Member& member) const;
     bool delete_vm(InstanceTable::iterator vm_it, bool purge, DeleteReply& response);
     grpc::Status reboot_vm(VirtualMachine& vm);
     grpc::Status shutdown_vm(VirtualMachine& vm, const std::chrono::milliseconds delay);

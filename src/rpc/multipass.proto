@@ -594,6 +594,16 @@ message IntentMemberRequest {
     // LaunchRequest's own service_id so a service deployed into an intent
     // is still recognized as a service instance in the GUI.
     string service_id = 7;
+    // When set, this member is an LLM session rather than a VM: the daemon
+    // calls load_model(model_id) instead of launching a VM, and role/image/
+    // cloud_init_user_data/num_cores/mem_size/disk_space/service_id are
+    // ignored for this member. quant/ctx_size/runtime/max_tokens below mirror
+    // the matching LoadModelRequest fields and are only used alongside model_id.
+    string model_id = 8;
+    string quant = 9;
+    int32 ctx_size = 10;
+    string runtime = 11;
+    int32 max_tokens = 12;
 }
 
 message IntentCreateRequest {
@@ -622,6 +632,9 @@ message IntentMember {
     string role = 1;
     string instance_name = 2;
     InstanceStatus instance_status = 3;
+    // "vm" (default) or "llm": which kind of thing instance_name identifies
+    // (a launched VM instance name, or an LLM session's instance_id).
+    string kind = 4;
 }
 
 message IntentInfo {
@@ -848,6 +861,10 @@ message LoadModelRequest {
     // Default/cap for OpenAI max_tokens on this instance. 0 = unlimited.
     int32 max_tokens = 6;
     LlmLoadParams params = 7;
+    // Optional intent (named group) membership, mirroring LaunchRequest's
+    // own intent/intent_role fields.
+    string intent = 8;
+    string intent_role = 9;
 }
 
 message LoadModelReply {
@@ -887,6 +904,8 @@ message LoadedModelInfo {
     // KV / context window passed to the backend (--ctx-size).
     int32 ctx_size = 10;
     LlmLoadParams params = 11;
+    string intent = 12;
+    string intent_role = 13;
 }
 
 message ListModelsRequest {

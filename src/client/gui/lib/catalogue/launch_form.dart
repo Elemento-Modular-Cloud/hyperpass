@@ -8,6 +8,7 @@ import 'package:fpdart/fpdart.dart' hide State;
 import '../confirmation_dialog.dart';
 import '../downloads/download_manager.dart';
 import '../ffi.dart';
+import '../intents/intents_screen.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
 import '../overview/recent_activity.dart';
@@ -682,6 +683,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
 
     final selectedIntent = _selectedIntent;
     final bool started;
+    final String successSidebarKey;
     if (selectedIntent == null) {
       started = await initiateLaunchFlow(
         context,
@@ -690,10 +692,15 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
         os: imageInfo.os,
       );
-    } else if (selectedIntent == _createNewIntentValue) {
-      started = await _launchIntoIntent(newIntentName: _newIntentName.trim());
+      successSidebarKey = elpVm(launchRequest.instanceName).sidebarKey;
     } else {
-      started = await _launchIntoIntent(existingIntentName: selectedIntent);
+      // The daemon names an intent member "<intent>-<role>" itself, ignoring
+      // whatever name this form's own instanceName field carries, so there's
+      // no single instance page to jump to here — go to the intent instead.
+      started = selectedIntent == _createNewIntentValue
+          ? await _launchIntoIntent(newIntentName: _newIntentName.trim())
+          : await _launchIntoIntent(existingIntentName: selectedIntent);
+      successSidebarKey = IntentsScreen.sidebarKey;
     }
 
     if (!started || !mounted) return;
@@ -702,9 +709,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
 
     if (!configureNext) {
       Scaffold.of(context).closeEndDrawer();
-      ref
-          .read(sidebarKeyProvider.notifier)
-          .set(elpVm(launchRequest.instanceName).sidebarKey);
+      ref.read(sidebarKeyProvider.notifier).set(successSidebarKey);
     }
   }
 
@@ -749,27 +754,38 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       }
 
       final grpcClient = ref.read(grpcClientProvider);
+      final role = _intentRole.trim();
       final String intentName;
-      String replyMessage;
+      final Future<dynamic> op;
       if (newIntentName != null) {
         intentName = newIntentName;
-        final reply = await grpcClient.intentCreate(
+        op = grpcClient.intentCreate(
           IntentCreateRequest(name: intentName, members: [member]),
         );
-        replyMessage = reply?.replyMessage ?? '';
       } else {
         intentName = existingIntentName!;
-        final reply = await grpcClient.intentAddMember(
+        op = grpcClient.intentAddMember(
           IntentAddMemberRequest(name: intentName, members: [member]),
         );
-        replyMessage = reply?.replyMessage ?? '';
       }
 
-      ref.invalidate(intentsStreamProvider);
-      ref.read(recentActivityProvider.notifier).record(
-            title: 'Added ${_intentRole.trim()} to intent $intentName',
-            detail: replyMessage,
+      // addOperation shows a "starting/succeeded/failed" notification (the
+      // form itself only shows _intentError inline, which is easy to miss),
+      // and records the outcome to recent activity.
+      ref.read(notificationsProvider.notifier).addOperation(
+            op,
+            loading: 'Adding $role to intent $intentName…',
+            onSuccess: (reply) {
+              final message = reply?.replyMessage as String?;
+              return message?.isNotEmpty == true
+                  ? message!
+                  : 'Added $role to intent $intentName';
+            },
+            onError: (error) => '$error',
           );
+      await op;
+
+      ref.invalidate(intentsStreamProvider);
       return true;
     } catch (error) {
       if (!mounted) return false;

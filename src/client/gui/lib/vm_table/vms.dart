@@ -93,6 +93,12 @@ class SelectedVmsNotifier extends Notifier<BuiltSet<VmId>> {
       isSelected ? set.add(id) : set.remove(id);
     });
   }
+
+  void toggleAll(Iterable<VmId> ids, bool isSelected) {
+    state = state.rebuild((set) {
+      isSelected ? set.addAll(ids) : set.removeAll(ids);
+    });
+  }
 }
 
 class Vms extends ConsumerWidget {
@@ -280,7 +286,25 @@ class _GroupedByIntentTables extends StatelessWidget {
           SizedBox(
             height: _headerRowHeight + groups[key]!.length * 50,
             child: Table<TaggedVmInfo>(
-              headers: headers,
+              // "Select all" in the checkbox column must only select this
+              // group's own rows, not every instance across every intent —
+              // substitute a group-scoped checkbox for the shared header
+              // (whose default childBuilder selects across all instances).
+              headers: [
+                for (final h in headers)
+                  if (h.name == 'checkbox')
+                    TableHeader<TaggedVmInfo>(
+                      name: h.name,
+                      childBuilder: (_) => _GroupSelectAllCheckbox(
+                        ids: groups[key]!.map((info) => info.id).toList(),
+                      ),
+                      width: h.width,
+                      minWidth: h.minWidth,
+                      cellBuilder: h.cellBuilder,
+                    )
+                  else
+                    h,
+              ],
               data: groups[key]!,
               finalRow: const [],
               isSelected: isSelected,
@@ -289,6 +313,31 @@ class _GroupedByIntentTables extends StatelessWidget {
           const SizedBox(height: 16),
         ],
       ],
+    );
+  }
+}
+
+/// Like [SelectAllCheckbox], but scoped to one intent group's own instances
+/// instead of every instance in the (unfiltered) list.
+class _GroupSelectAllCheckbox extends ConsumerWidget {
+  const _GroupSelectAllCheckbox({required this.ids});
+
+  final List<VmId> ids;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedVms = ref.watch(selectedVmsProvider);
+    final selectedCount = ids.where(selectedVms.contains).length;
+    final allSelected = ids.isNotEmpty && selectedCount == ids.length;
+
+    return Center(
+      child: Checkbox(
+        tristate: true,
+        value: selectedCount == 0 ? false : (allSelected ? true : null),
+        onChanged: (checked) => ref
+            .read(selectedVmsProvider.notifier)
+            .toggleAll(ids, checked ?? false),
+      ),
     );
   }
 }

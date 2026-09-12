@@ -40,6 +40,12 @@ const QCommandLineOption instance_option{
     "Add a custom member as role:image:cloud-init-file:cores:mem:disk (trailing fields "
     "optional, e.g. \"cache:22.04::1:1G:5G\"). Can be repeated.",
     "spec"};
+const QCommandLineOption model_option{
+    "model",
+    "Add an LLM session member as role:model_id (e.g. \"chat:llama-3.1-8b-instruct\"); "
+    "loaded with default quant/context/runtime settings (use `elp llm load --intent` for "
+    "finer control). Can be repeated.",
+    "spec"};
 const QCommandLineOption purge_option{"purge", "Also purge deleted member instances immediately."};
 
 std::string instance_status_name(mp::InstanceStatus::Status status)
@@ -68,6 +74,7 @@ mp::ReturnCodeVariant cmd::Intent::run(ArgParser* parser)
     parser->addPositionalArgument("name", "The intent's name (not needed for `list`)", "[<name>]");
     parser->addOption(service_option);
     parser->addOption(instance_option);
+    parser->addOption(model_option);
     parser->addOption(purge_option);
 
     const auto status = parser->commandParse(this);
@@ -113,8 +120,9 @@ QString cmd::Intent::description() const
     return QStringLiteral(
         "Create a named group of instances launched together (e.g. a \"redis\" and a "
         "\"postgres\" instance for an app), and add to, list, inspect, or delete such "
-        "groups.\n\n"
+        "groups (VM instances and/or LLM sessions).\n\n"
         "  elp intent create <name> --service redis --service postgres\n"
+        "  elp intent create <name> --model chat:llama-3.1-8b-instruct\n"
         "  elp intent add <name> --service redis\n"
         "  elp intent list\n"
         "  elp intent info <name>\n"
@@ -164,6 +172,21 @@ bool cmd::Intent::parse_members(ArgParser* parser,
             member->set_disk_space(fields[5].toStdString());
     }
 
+    for (const auto& spec : parser->values(model_option))
+    {
+        const auto sep = spec.indexOf(':');
+        if (sep <= 0 || sep == spec.size() - 1)
+        {
+            cerr << fmt::format(
+                "Invalid --model spec \"{}\"; expected role:model_id.\n", spec.toStdString());
+            return false;
+        }
+
+        auto* member = members->Add();
+        member->set_role(spec.left(sep).toStdString());
+        member->set_model_id(spec.mid(sep + 1).toStdString());
+    }
+
     return true;
 }
 
@@ -207,9 +230,10 @@ mp::ReturnCodeVariant cmd::Intent::run_add(ArgParser* parser)
         cerr << "Please provide the name of the intent to add to.\n";
         return parser->returnCodeFrom(ParseCode::CommandLineError);
     }
-    if (!parser->isSet(service_option) && !parser->isSet(instance_option))
+    if (!parser->isSet(service_option) && !parser->isSet(instance_option) &&
+        !parser->isSet(model_option))
     {
-        cerr << "Please specify at least one member with --service or --instance.\n";
+        cerr << "Please specify at least one member with --service, --instance, or --model.\n";
         return parser->returnCodeFrom(ParseCode::CommandLineError);
     }
 
@@ -251,9 +275,10 @@ mp::ReturnCodeVariant cmd::Intent::run_list(ArgParser* parser)
         {
             cout << intent.name() << "\n";
             for (const auto& member : intent.members())
-                cout << fmt::format("  {} ({}): {}\n",
+                cout << fmt::format("  {} ({}) [{}]: {}\n",
                                     member.role(),
                                     member.instance_name(),
+                                    member.kind().empty() ? "vm" : member.kind(),
                                     instance_status_name(member.instance_status().status()));
         }
         return ReturnCode::Ok;
@@ -283,9 +308,10 @@ mp::ReturnCodeVariant cmd::Intent::run_info(ArgParser* parser)
         cout << fmt::format("Name:    {}\n", intent.name());
         cout << "Members:\n";
         for (const auto& member : intent.members())
-            cout << fmt::format("  {} ({}): {}\n",
+            cout << fmt::format("  {} ({}) [{}]: {}\n",
                                 member.role(),
                                 member.instance_name(),
+                                member.kind().empty() ? "vm" : member.kind(),
                                 instance_status_name(member.instance_status().status()));
         return ReturnCode::Ok;
     };
