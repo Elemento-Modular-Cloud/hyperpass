@@ -18,12 +18,20 @@ function(add_target TARGET_NAME)
   # enabled here (unlike src/daemon or src/llm, this directory never turned it on before).
   set(CMAKE_AUTOMOC ON)
 
+  # mdns_service.h is a Q_OBJECT class declared outside this directory
+  # (include/multipass/mdns_service.h). AUTOMOC reliably mocs a header like this only when
+  # it's an explicit source of the target — not merely #included by a tracked .cpp — mirroring
+  # how src/process/CMakeLists.txt lists include/multipass/process/process.h as a source of
+  # the `process` target for the exact same reason.
+  set(MDNS_SERVICE_HEADER ${CMAKE_SOURCE_DIR}/include/multipass/mdns_service.h)
+
   if(LINUX)
     add_library(${TARGET_NAME} STATIC
       platform_linux.cpp
       platform_unix.cpp
       mdns_service.cpp
-      mdns_service_linux.cpp)
+      mdns_service_linux.cpp
+      ${MDNS_SERVICE_HEADER})
 
     find_package(PkgConfig REQUIRED)
     # Arch's avahi package ships no separate avahi-common.pc — avahi-client.pc's own Libs:
@@ -38,7 +46,8 @@ function(add_target TARGET_NAME)
       platform_proprietary.cpp
       platform_win.cpp
       mdns_service.cpp
-      mdns_service_noop.cpp)
+      mdns_service_noop.cpp
+      ${MDNS_SERVICE_HEADER})
     qt6_disable_unicode_defines(${TARGET_NAME})
     target_link_libraries(${TARGET_NAME}
       jsoncpp_static
@@ -53,12 +62,17 @@ function(add_target TARGET_NAME)
       platform_proprietary.cpp
       platform_unix.cpp
       mdns_service.cpp
-      mdns_service_macos.cpp)
+      mdns_service_macos.cpp
+      ${MDNS_SERVICE_HEADER})
     # dns_sd.h's classic API (DNSServiceRegister/Browse/Resolve) ships as part of libSystem;
     # no extra framework to link against.
     target_link_libraries(${TARGET_NAME}
       shared_macos)
   endif()
+
+  # Belt-and-suspenders alongside the CMAKE_AUTOMOC variable set above: this sets the AUTOMOC
+  # property directly on the target itself, leaving no ambiguity about variable scoping.
+  set_target_properties(${TARGET_NAME} PROPERTIES AUTOMOC ON)
 
   foreach(BACKEND IN LISTS MULTIPASS_BACKENDS)
     string(TOUPPER ${BACKEND}_ENABLED DEF)
