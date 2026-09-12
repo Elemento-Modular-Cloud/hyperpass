@@ -55,10 +55,12 @@ branch="$(git -C "${ROOT}" rev-parse --abbrev-ref HEAD)"
 repo_source="file://${ROOT}#branch=${branch}"
 
 mkdir -p "${SCRATCH_DIR}" "${VCPKG_CACHE_DIR}"
-sed \
-  -e "s#@REPO_SOURCE@#${repo_source}#" \
-  -e "s#@VCPKG_CACHE_DIR@#${VCPKG_CACHE_DIR}#" \
-  "${PKG_TEMPLATE}" > "${SCRATCH_DIR}/PKGBUILD"
+# Plain bash substitution (not sed): repo_source contains '#' (the git
+# ref fragment), which breaks a '#'-delimited sed s### expression.
+rendered="$(cat "${PKG_TEMPLATE}")"
+rendered="${rendered//@REPO_SOURCE@/${repo_source}}"
+rendered="${rendered//@VCPKG_CACHE_DIR@/${VCPKG_CACHE_DIR}}"
+printf '%s\n' "${rendered}" > "${SCRATCH_DIR}/PKGBUILD"
 cp "${SERVICE_FILE}" "${SCRATCH_DIR}/elpd.service"
 
 echo "==> Rendered PKGBUILD in ${SCRATCH_DIR} (source: ${repo_source})"
