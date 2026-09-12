@@ -68,19 +68,34 @@ if(MSVC)
     "elp-api"
     "elp-api.exe"
   )
+  prepare_windows_version_resource(
+    ELP_LLM_PROXY_RC_SOURCE
+    elp-llm-proxy
+    "Electros LaunchPad LLM proxy"
+    "elp-llm-proxy"
+    "elp-llm-proxy.exe"
+  )
   add_executable(elp-api
     main.cpp
     ${ELP_API_RC_SOURCE})
+  add_executable(elp-llm-proxy
+    llm_proxy_main.cpp
+    ${ELP_LLM_PROXY_RC_SOURCE})
   qt6_disable_unicode_defines(elp-api)
+  qt6_disable_unicode_defines(elp-llm-proxy)
 else()
   add_executable(elp-api
     main.cpp)
+  add_executable(elp-llm-proxy
+    llm_proxy_main.cpp)
 endif()
 
 target_link_libraries(elp-api
   elp_api)
+target_link_libraries(elp-llm-proxy
+  elp_api)
 
-install(TARGETS elp-api
+install(TARGETS elp-api elp-llm-proxy
   DESTINATION bin
   COMPONENT elp_api)
 
@@ -90,11 +105,12 @@ install(DIRECTORY openapi/
   FILES_MATCHING PATTERN "*.yaml" PATTERN "*.md")
 
 if(APPLE)
-  set_target_properties(elp-api PROPERTIES INSTALL_RPATH "@executable_path/../lib")
+  set_target_properties(elp-api elp-llm-proxy PROPERTIES INSTALL_RPATH "@executable_path/../lib")
 
   install(CODE "
     include(${CMAKE_SOURCE_DIR}/packaging/FrameworkUtilities.cmake)
     install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/elp-api\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
+    install_frameworks(\"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/elp-llm-proxy\" \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib\")
     " COMPONENT elp_api)
 endif()
 
@@ -102,5 +118,6 @@ if(MSVC)
   install(CODE "
     include(BundleUtilities)
     fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/elp-api.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
+    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/bin/elp-llm-proxy.exe\"  \"\"  \"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}\")
     " COMPONENT elp_api)
 endif()

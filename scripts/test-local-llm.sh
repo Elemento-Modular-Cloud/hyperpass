@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://127.0.0.1:7777/v1}"
+OPENAI_BASE_URL="${OPENAI_BASE_URL:-http://127.0.0.1:11434/v1}"
 OPENAI_API_KEY="${OPENAI_API_KEY:-sk-elp-f0962e6f24b0733486c371445ec29efca98979b7cb404a20}"
 # Catalog slug or prefix of openai_id from GET /v1/models (before the instance suffix).
 LLM_MODEL="${LLM_MODEL:-nvidia-nvidia-nemotron-3-nano-4b-fp8-6c4f8f95}"
 
-MODELS_JSON=$(curl -sk "$OPENAI_BASE_URL/models" \
+MODELS_JSON=$(curl -sS "$OPENAI_BASE_URL/models" \
   -H "Authorization: Bearer $OPENAI_API_KEY")
 echo "$MODELS_JSON" | jq
 
@@ -27,7 +27,7 @@ CHAT_BODY=$(jq -n --arg model "$RESOLVED_MODEL" '{
   model: $model,
   messages: [{role: "user", content: "Explain what MLX is in one line."}]
 }')
-CHAT_JSON=$(curl -sk "$OPENAI_BASE_URL/chat/completions" \
+CHAT_JSON=$(curl -sS "$OPENAI_BASE_URL/chat/completions" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H 'Content-Type: application/json' \
   -d "$CHAT_BODY")
@@ -41,7 +41,7 @@ STREAM_BODY=$(jq -n --arg model "$RESOLVED_MODEL" '{
   messages: [{role: "user", content: "Count to 5."}],
   stream: true
 }')
-curl -sk -N "$OPENAI_BASE_URL/chat/completions" \
+curl -sS -N "$OPENAI_BASE_URL/chat/completions" \
   -H "Authorization: Bearer $OPENAI_API_KEY" \
   -H 'Content-Type: application/json' \
   -d "$STREAM_BODY"

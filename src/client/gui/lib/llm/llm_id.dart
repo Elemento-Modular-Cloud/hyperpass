@@ -27,11 +27,11 @@ LlmInstanceId? parseSidebarLlmKey(String key) {
   );
 }
 
-/// OpenAI-compatible gateway as seen from the host.
-const openaiBaseUrl = 'https://127.0.0.1:7777/v1';
+/// OpenAI-compatible gateway as seen from the host (`elp-llm-proxy`).
+const openaiBaseUrl = 'http://127.0.0.1:11434/v1';
 
 /// Same gateway as seen from an Electros LaunchPad VM on the 192.168.67.0/24 network.
-/// The API binds 127.0.0.1 and 192.168.67.1; VMs use this URL.
-const openaiVmBaseUrl = 'https://192.168.67.1:7777/v1';
+/// The proxy binds 127.0.0.1 and 192.168.67.1; VMs use this URL.
+const openaiVmBaseUrl = 'http://192.168.67.1:11434/v1';
 
 const llmHfTokenSettingKey = 'local.llm.hf-token';

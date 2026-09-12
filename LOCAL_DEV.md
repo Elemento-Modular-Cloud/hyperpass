@@ -79,6 +79,15 @@ Use **`build/bin/elp`**, not the system Multipass binary.
 
 First connection to a new daemon may require `elp authenticate`.
 
+### Terminal 3 — matcher + LLM proxy (optional)
+
+```bash
+./scripts/run-dev-api.sh --insecure-no-auth   # HTTPS :7777 Spot + model load
+./scripts/run-dev-llm-proxy.sh                # HTTP  :11434 OpenAI /v1
+```
+
+OpenAI clients use `http://127.0.0.1:11434/v1` and an `sk-elp-` key (`elp llm key create`).
+
 ### Stop
 
 ```bash

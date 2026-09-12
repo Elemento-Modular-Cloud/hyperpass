@@ -197,10 +197,14 @@ void mp::api::prepare_tls(ApiConfig& config)
 #endif
 }
 
-mp::api::ApiConfig mp::api::parse_config()
+mp::api::ApiConfig mp::api::parse_config(ServerRole role)
 {
+    const bool matcher = role == ServerRole::matcher;
+
     QCommandLineParser parser;
-    parser.setApplicationDescription("Electros LaunchPad REST API sidecar");
+    parser.setApplicationDescription(
+        matcher ? "Electros LaunchPad REST API sidecar"
+                : "Electros LaunchPad OpenAI LLM proxy");
     parser.addHelpOption();
     parser.addVersionOption();
 
@@ -208,7 +212,7 @@ mp::api::ApiConfig mp::api::parse_config()
         "listen",
         "HTTP(S) listen address (host[,host…]:port); default binds localhost and the VM gateway",
         "address",
-        mp::default_api_listen};
+        matcher ? mp::default_api_listen : mp::default_llm_proxy_listen};
     QCommandLineOption daemon_option{"daemon-address",
                                      "elpd gRPC address (unix:… or host:port)",
                                      "address"};
@@ -225,20 +229,25 @@ mp::api::ApiConfig mp::api::parse_config()
                                         "error|warning|info|debug|trace"};
     QCommandLineOption https_option{
         "https",
-        "Serve HTTPS (default; AtomOS/Electros-compatible). Auto-generates a self-signed cert "
-        "unless --cert/--key are set"};
+        matcher ? "Serve HTTPS (default; AtomOS/Electros-compatible). Auto-generates a self-signed cert "
+                  "unless --cert/--key are set"
+                : "Serve HTTPS (optional; LLM proxy defaults to HTTP on :11434)"};
     QCommandLineOption http_option{
         "http",
-        "Serve plain HTTP instead of HTTPS (local debugging only; breaks Electros fingerprinting)"};
+        matcher ? "Serve plain HTTP instead of HTTPS (local debugging only; breaks Electros fingerprinting)"
+                : "Serve plain HTTP (default for the LLM proxy)"};
     QCommandLineOption cert_option{"cert", "TLS certificate PEM file", "path"};
     QCommandLineOption key_option{"key", "TLS private key PEM file", "path"};
 
     parser.addOption(listen_option);
     parser.addOption(daemon_option);
-    parser.addOption(token_option);
-    parser.addOption(insecure_option);
-    parser.addOption(no_multipass_option);
-    parser.addOption(multipass_option);
+    if (matcher)
+    {
+        parser.addOption(token_option);
+        parser.addOption(insecure_option);
+        parser.addOption(no_multipass_option);
+        parser.addOption(multipass_option);
+    }
     parser.addOption(verbosity_option);
     parser.addOption(https_option);
     parser.addOption(http_option);
@@ -247,14 +256,16 @@ mp::api::ApiConfig mp::api::parse_config()
     parser.process(*QCoreApplication::instance());
 
     ApiConfig config;
+    config.role = role;
 
-    const auto listen_env = qgetenv(mp::api_listen_env_var);
+    const auto listen_env =
+        qgetenv(matcher ? mp::api_listen_env_var : mp::llm_proxy_listen_env_var);
     if (parser.isSet(listen_option))
         config.listen_address = parser.value(listen_option).toStdString();
     else if (!listen_env.isEmpty())
         config.listen_address = listen_env.toStdString();
     else
-        config.listen_address = mp::default_api_listen;
+        config.listen_address = matcher ? mp::default_api_listen : mp::default_llm_proxy_listen;
 
     // Validate early so misconfiguration fails fast.
     parse_listen_endpoint(config.listen_address);
@@ -269,33 +280,41 @@ mp::api::ApiConfig mp::api::parse_config()
         config.daemon_address = mp::client::get_server_address();
     }
 
-    config.insecure_no_auth = parser.isSet(insecure_option);
-
-    const auto token_env = qgetenv(mp::api_token_env_var);
-    if (parser.isSet(token_option))
-        config.api_token = parser.value(token_option).toStdString();
-    else if (!token_env.isEmpty())
-        config.api_token = token_env.toStdString();
-
-    if (!config.insecure_no_auth && config.api_token.empty())
+    if (matcher)
     {
-        throw std::runtime_error(
-            fmt::format("API token required: set --api-token / {} or pass --insecure-no-auth",
-                        mp::api_token_env_var));
+        config.insecure_no_auth = parser.isSet(insecure_option);
+
+        const auto token_env = qgetenv(mp::api_token_env_var);
+        if (parser.isSet(token_option))
+            config.api_token = parser.value(token_option).toStdString();
+        else if (!token_env.isEmpty())
+            config.api_token = token_env.toStdString();
+
+        if (!config.insecure_no_auth && config.api_token.empty())
+        {
+            throw std::runtime_error(
+                fmt::format("API token required: set --api-token / {} or pass --insecure-no-auth",
+                            mp::api_token_env_var));
+        }
+
+        config.include_multipass = !parser.isSet(no_multipass_option);
+
+        const auto multipass_env = qgetenv(mp::multipass_address_env_var);
+        if (parser.isSet(multipass_option))
+        {
+            config.multipass_address = parser.value(multipass_option).toStdString();
+            mp::utils::validate_server_address(config.multipass_address);
+        }
+        else if (!multipass_env.isEmpty())
+        {
+            config.multipass_address = multipass_env.toStdString();
+            mp::utils::validate_server_address(config.multipass_address);
+        }
     }
-
-    config.include_multipass = !parser.isSet(no_multipass_option);
-
-    const auto multipass_env = qgetenv(mp::multipass_address_env_var);
-    if (parser.isSet(multipass_option))
+    else
     {
-        config.multipass_address = parser.value(multipass_option).toStdString();
-        mp::utils::validate_server_address(config.multipass_address);
-    }
-    else if (!multipass_env.isEmpty())
-    {
-        config.multipass_address = multipass_env.toStdString();
-        mp::utils::validate_server_address(config.multipass_address);
+        config.include_multipass = false;
+        config.insecure_no_auth = true; // matcher Bearer unused; sk-elp- is checked per-route
     }
 
     if (parser.isSet(verbosity_option))
@@ -312,12 +331,20 @@ mp::api::ApiConfig mp::api::parse_config()
     else if (!key_env.isEmpty())
         config.key_file = key_env.toStdString();
 
-    // HTTPS is the AtomOS/Electros default. --http opts out; --https / certs force it on.
-    if (parser.isSet(http_option) && !parser.isSet(https_option) && config.cert_file.empty() &&
-        config.key_file.empty())
-        config.use_https = false;
+    if (matcher)
+    {
+        // HTTPS is the AtomOS/Electros default. --http opts out; --https / certs force it on.
+        if (parser.isSet(http_option) && !parser.isSet(https_option) && config.cert_file.empty() &&
+            config.key_file.empty())
+            config.use_https = false;
+        else
+            config.use_https = true;
+    }
     else
-        config.use_https = true;
+    {
+        config.use_https = parser.isSet(https_option) || !config.cert_file.empty() ||
+                           !config.key_file.empty();
+    }
 
     prepare_tls(config);
 

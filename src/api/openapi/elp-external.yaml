@@ -4,8 +4,9 @@ info:
   description: |
     Spot v2 VM and marketplace-service surface on matcher port 7777, backed by
     Electros LaunchPad. Aligns with the AtomOS Bruno `spot/` collection (Bearer
-    auth on `/`, `/version`, and `/api/v1.0/*`). All endpoints share this listen
-    address.
+    auth on `/`, `/version`, and `/api/v1.0/*`). LLM allocation
+    (`/api/v1.0/models*`) is on this listen address; OpenAI `/v1` usage is a
+    separate `elp-llm-proxy` on HTTP :11434.
   version: 0.4.0
 servers:
   - url: https://127.0.0.1:7777

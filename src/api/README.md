@@ -1,23 +1,30 @@
-# elp-api
+# elp-api and elp-llm-proxy
 
-REST sidecar implementing the **Spot v2** VM/service API on matcher port **7777**,
-translating to `elpd` over mTLS gRPC. All endpoints — including fingerprint
-discovery — share that listen port on localhost and the Electros LaunchPad VM
-gateway (`192.168.67.1`).
+Two REST sidecars over `elpd` mTLS gRPC, both enabled by `ELP_ENABLE_API=ON`:
+
+| Binary | Port | Role |
+|--------|------|------|
+| `elp-api` | HTTPS `:7777` | Spot matcher + LLM **allocation** (`/api/v1.0/models*`) |
+| `elp-llm-proxy` | HTTP `:11434` | OpenAI **usage** (`/v1/*`, `sk-elp-` keys) |
+
+Both bind localhost and the Electros LaunchPad VM gateway (`192.168.67.1`).
 
 ## Build
 
-Enabled by default (`ELP_ENABLE_API=ON`). Binary: `build/bin/elp-api`
+Enabled by default (`ELP_ENABLE_API=ON`). Binaries: `build/bin/elp-api`, `build/bin/elp-llm-proxy`
 
 ## Run (local dev)
 
 ```bash
 export ELP_SERVER_ADDRESS=unix:/tmp/elp.socket
-# Prefer a token (matches Bruno Bearer auth). --insecure-no-auth is local-only.
+# Matcher: prefer a token (Bruno Bearer). --insecure-no-auth is local-only.
 # HTTPS is on by default (Electros fingerprints the peer cert on :7777).
 ./scripts/run-dev-api.sh --token secret
 # or: ./scripts/run-dev-api.sh --insecure-no-auth
 # Plain HTTP (debug only): ./scripts/run-dev-api.sh --token secret --http
+
+# LLM proxy (HTTP :11434, sk-elp- per request):
+./scripts/run-dev-llm-proxy.sh
 ```
 
 Marketplace templates (`startup.template`, e.g. `n8n` / `n8n_v3`) need a checkout
@@ -58,20 +65,25 @@ adopted rows are unknown (`0`) until a REST `register` supplies a Spot spec.
 PCI devices, extra data disks, and non-natted NICs are accepted and echoed but
 not placed yet.
 
-OpenAI inference (`sk-elp-` keys only; matcher token is rejected):
+Control plane (matcher Bearer): `GET /api/v1.0/models`,
+`POST /api/v1.0/models/suggested|pull|load|unload`.
+
+## LLM proxy (port 11434)
+
+Separate process (`elp-llm-proxy`). HTTP by default. Matcher token is **not**
+accepted; use `elp llm key create` and `Authorization: Bearer sk-elp-…`.
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| GET | `/v1/models` | `Bearer sk-elp-…` | Loaded models |
+| GET | `/v1/models` | `Bearer sk-elp-…` | Loaded models for this key |
 | POST | `/v1/chat/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 | POST | `/v1/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 | POST | `/v1/embeddings` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 
-Control plane (matcher Bearer): `GET /api/v1.0/models`,
-`POST /api/v1.0/models/suggested|pull|load|unload`.
+From a VM: `http://192.168.67.1:11434/v1`. Host: `http://127.0.0.1:11434/v1`.
 
-Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/ca.crt`, `/api/v1/authenticate/cert`.
-Extra (matcher auth): `/v1/instances`.
+Matcher extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/ca.crt`, `/api/v1/authenticate/cert`.
+Matcher extra (Bearer): `/v1/instances`. Proxy extras: `/healthz`, `/readyz`.
 
 ## HTTPS + fingerprint
 
@@ -104,8 +116,9 @@ Options:
 
 | Flag / env | Meaning |
 |------------|---------|
-| `--listen` / `ELP_API_LISTEN` | All endpoints (default `127.0.0.1,192.168.67.1:7777`) |
-| `--http` | Opt out of TLS (debug only; breaks Electros fingerprinting) |
+| `--listen` / `ELP_API_LISTEN` | Matcher endpoints (default `127.0.0.1,192.168.67.1:7777`) |
+| `--listen` / `ELP_LLM_PROXY_LISTEN` | LLM proxy (default `127.0.0.1,192.168.67.1:11434`) |
+| `--http` | Matcher: opt out of TLS (debug only; breaks Electros fingerprinting). Proxy: default. |
 | `--cert` / `ELP_API_CERT` | Existing certificate PEM (HTTPS is default) |
 | `--key` / `ELP_API_KEY` | Matching private key PEM |
 
@@ -124,8 +137,9 @@ Matches AtomOS Bruno collection headers (`Authorization: Bearer {{auth_token}}`)
 curl -k -H "Authorization: Bearer secret" https://127.0.0.1:7777/
 ```
 
-OpenAI `/v1/*` does **not** accept this matcher token. Create a dedicated key with
-`elp llm key create` and pass `Authorization: Bearer sk-elp-…`.
+OpenAI `/v1/*` is served by `elp-llm-proxy` and does **not** accept the matcher
+token. Create a dedicated key with `elp llm key create` and pass
+`Authorization: Bearer sk-elp-…` to `http://127.0.0.1:11434/v1`.
 
 ## Logging
 

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.elemento.elp-llm-proxy</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+      <key>ELP_LLM_PROXY_LISTEN</key>
+      <string>127.0.0.1:11434</string>
+    </dict>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>@CPACK_PACKAGING_INSTALL_PREFIX@/bin/elp-llm-proxy</string>
+      <string>--verbosity</string>
+      <string>info</string>
+    </array>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Library/Logs/Electros LaunchPad/elp-llm-proxy.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Library/Logs/Electros LaunchPad/elp-llm-proxy.log</string>
+
+    <key>ExitTimeOut</key>
+    <integer>30</integer>
+</dict>
+
+</plist>

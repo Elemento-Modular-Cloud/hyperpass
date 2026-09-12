@@ -17,9 +17,7 @@
 
 #include "config.h"
 #include "grpc_backend.h"
-#include "multipass_discovery.h"
 #include "server.h"
-#include "vm_registry.h"
 
 #include <multipass/cli/client_common.h>
 #include <multipass/constants.h>
@@ -48,28 +46,12 @@ void handle_signal(int)
         server->stop();
 }
 
-std::shared_ptr<mp::api::GrpcBackend> maybe_make_multipass_backend(const mp::api::ApiConfig& config)
-{
-    if (!config.include_multipass)
-        return nullptr;
-
-    const auto discovered = mp::api::discover_multipass_connection(config.multipass_address);
-    if (!discovered)
-        return nullptr;
-
-    auto channel = mp::api::make_channel_with_pems(discovered->address,
-                                                   discovered->root_cert_pem,
-                                                   discovered->client_cert_pem,
-                                                   discovered->client_key_pem);
-    return std::make_shared<mp::api::GrpcBackend>(std::move(channel));
-}
-
 int main_impl(int argc, char* argv[])
 {
     QCoreApplication app(argc, argv);
-    QCoreApplication::setApplicationName(mp::api_name);
+    QCoreApplication::setApplicationName(mp::llm_proxy_name);
 
-    auto config = mp::api::parse_config(mp::api::ServerRole::matcher);
+    auto config = mp::api::parse_config(mp::api::ServerRole::llm_proxy);
 
     mp::client::set_logger(config.verbosity_level);
     mp::client::register_global_settings_handlers();
@@ -77,13 +59,8 @@ int main_impl(int argc, char* argv[])
     auto cert_provider = mp::client::get_cert_provider();
     auto channel = mp::client::make_channel(config.daemon_address, *cert_provider);
     auto elp_backend = std::make_shared<mp::api::GrpcBackend>(std::move(channel));
-    auto multipass_backend = maybe_make_multipass_backend(config);
-    auto registry = std::make_shared<mp::api::VmRegistry>(mp::api::VmRegistry::default_path());
 
-    mp::api::ApiServer server{std::move(config),
-                              std::move(elp_backend),
-                              std::move(registry),
-                              std::move(multipass_backend)};
+    mp::api::ApiServer server{std::move(config), std::move(elp_backend)};
     g_server.store(&server);
 
     std::signal(SIGINT, handle_signal);
@@ -96,7 +73,7 @@ int main_impl(int argc, char* argv[])
 
     if (!ok)
     {
-        mpl::log_message(mpl::Level::error, "api", "failed to bind/listen HTTP server");
+        mpl::log_message(mpl::Level::error, "llm-proxy", "failed to bind/listen HTTP server");
         return EXIT_FAILURE;
     }
 
@@ -111,5 +88,9 @@ int main(int argc, char* argv[])
     if (OPENSSL_init_crypto(OPENSSL_INIT_NO_ATEXIT, nullptr) != 1)
         return EXIT_FAILURE;
 
-    return mp::top_catch_all("api", /* fallback_return = */ EXIT_FAILURE, main_impl, argc, argv);
+    return mp::top_catch_all("llm-proxy",
+                             /* fallback_return = */ EXIT_FAILURE,
+                             main_impl,
+                             argc,
+                             argv);
 }

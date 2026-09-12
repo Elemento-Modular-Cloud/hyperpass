@@ -18,6 +18,22 @@
                 </ServiceInstall>
                 <ServiceControl Name="ElpApi" Start="install" Stop="both" Remove="uninstall" />
             </Component>
+            <Component Id="ElpLlmProxy" Subdirectory="bin">
+                <File Source="bin\elp-llm-proxy.exe" />
+                <ServiceInstall Name="ElpLlmProxy" DisplayName="Electros LaunchPad LLM proxy"
+                    Description="OpenAI HTTP proxy for Electros LaunchPad models"
+                    Arguments="--listen 127.0.0.1:11434 --verbosity info"
+                    Start="auto" Type="ownProcess"
+                    ErrorControl="normal">
+                    <ServiceConfig FailureActionsWhen="failedToStopOrReturnedError" OnInstall="yes"
+                        OnReinstall="yes" />
+                    <util:ServiceConfig FirstFailureActionType="restart"
+                        SecondFailureActionType="restart" ThirdFailureActionType="restart"
+                        ResetPeriodInDays="49710" />
+                    <ServiceDependency Id="Electros LaunchPad" />
+                </ServiceInstall>
+                <ServiceControl Name="ElpLlmProxy" Start="install" Stop="both" Remove="uninstall" />
+            </Component>
         </ComponentGroup>
     </Fragment>
 </Wix>

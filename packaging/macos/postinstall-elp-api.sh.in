@@ -1,21 +1,28 @@
 #!/bin/bash
 set -e
 
-# Launch agent location
-LAUNCH_AGENT_SRC="$3@CPACK_PACKAGING_INSTALL_PREFIX@/Resources/@ELP_API_PLIST@"
-LAUNCH_AGENT_DEST="$3/Library/LaunchDaemons/@ELP_API_PLIST@"
+install_launch_daemon() {
+    local src="$1"
+    local dest="$2"
 
-# Uninstall old launch agent
-if [ -f "$LAUNCH_AGENT_DEST" ]; then
-    launchctl unload -w "$LAUNCH_AGENT_DEST" || true
-    rm -fv "$LAUNCH_AGENT_DEST"
-fi
+    if [ -f "$dest" ]; then
+        launchctl unload -w "$dest" || true
+        rm -fv "$dest"
+    fi
+
+    cp -v "$src" "$dest"
+    launchctl load -w "$dest"
+}
 
 # Create log dir and ensure correct permissions
 mkdir -p "$3/Library/Logs/Electros LaunchPad" -m 755
 
-# Install launch agent
-cp -v "$LAUNCH_AGENT_SRC" "$LAUNCH_AGENT_DEST"
-launchctl load -w "$LAUNCH_AGENT_DEST"
+install_launch_daemon \
+    "$3@CPACK_PACKAGING_INSTALL_PREFIX@/Resources/@ELP_API_PLIST@" \
+    "$3/Library/LaunchDaemons/@ELP_API_PLIST@"
+
+install_launch_daemon \
+    "$3@CPACK_PACKAGING_INSTALL_PREFIX@/Resources/@ELP_LLM_PROXY_PLIST@" \
+    "$3/Library/LaunchDaemons/@ELP_LLM_PROXY_PLIST@"
 
 exit 0

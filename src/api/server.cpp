@@ -49,6 +49,11 @@ mp::api::ApiServer::ApiServer(ApiConfig config,
       vm_registry{std::move(registry)},
       multipass_backend{std::move(multipass_backend)}
 {
+    if (!this->elp_backend)
+        throw std::runtime_error("ApiServer requires an elpd gRPC backend");
+    if (this->config.role == ServerRole::matcher && !vm_registry)
+        throw std::runtime_error("matcher ApiServer requires a VM registry");
+
     const auto endpoint = parse_listen_endpoint(this->config.listen_address);
     servers.reserve(endpoint.hosts.size());
     for (size_t i = 0; i < endpoint.hosts.size(); ++i)
@@ -117,7 +122,10 @@ void mp::api::ApiServer::register_routes(httplib::Server& server)
                      req.body.size(),
                      req.remote_addr);
 
-            if (is_public_path(req.path) || is_openai_inference_path(req.path))
+            if (is_public_path(req.path))
+                return httplib::Server::HandlerResponse::Unhandled;
+
+            if (this->config.role == ServerRole::llm_proxy)
                 return httplib::Server::HandlerResponse::Unhandled;
 
             const auto auth = check_bearer_auth(req.get_header_value("Authorization"), config);
@@ -137,6 +145,14 @@ void mp::api::ApiServer::register_routes(httplib::Server& server)
 
             return httplib::Server::HandlerResponse::Unhandled;
         });
+
+    register_health_handlers(server, *elp_backend, multipass_backend.get());
+
+    if (config.role == ServerRole::llm_proxy)
+    {
+        register_openai_handlers(server, *elp_backend);
+        return;
+    }
 
     auto fingerprint_handler = [this](const httplib::Request&, httplib::Response& res) {
         json::object body;
@@ -210,11 +226,9 @@ void mp::api::ApiServer::register_routes(httplib::Server& server)
 
     register_service_handlers(server, *elp_backend, *vm_registry, config.ca_pem,
                               multipass_backend.get());
-    register_health_handlers(server, *elp_backend, multipass_backend.get());
     register_instance_handlers(server, *elp_backend, multipass_backend.get());
     register_operation_handlers(server, tracker);
     register_model_control_handlers(server, *elp_backend);
-    register_openai_handlers(server, *elp_backend);
 }
 
 bool mp::api::ApiServer::listen()
@@ -245,10 +259,11 @@ bool mp::api::ApiServer::listen()
             bound.push_back(i);
             mpl::log(mpl::Level::info,
                      category,
-                     "listening on {}://{}:{} (elp={}, multipass={}, verbosity={})",
+                     "listening on {}://{}:{} (role={}, elp={}, multipass={}, verbosity={})",
                      scheme,
                      host,
                      endpoint.port,
+                     config.role == ServerRole::llm_proxy ? "llm-proxy" : "matcher",
                      config.daemon_address,
                      multipass_backend ? "enabled" : "disabled",
                      mpl::as_string(config.verbosity_level));

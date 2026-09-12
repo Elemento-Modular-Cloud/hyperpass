@@ -82,10 +82,43 @@ TEST(ApiAuth, publicPathsAreUnauthenticated)
     EXPECT_FALSE(api::is_openai_inference_path("/api/v1.0/models"));
 }
 
+TEST(ApiAuth, llmProxyConfigDoesNotUseMatcherBearer)
+{
+    api::ApiConfig config;
+    config.role = api::ServerRole::llm_proxy;
+    config.insecure_no_auth = true;
+    config.api_token = "matcher-secret";
+
+    EXPECT_EQ(api::check_bearer_auth("", config), api::AuthResult::ok);
+    EXPECT_EQ(api::check_bearer_auth("Bearer matcher-secret", config), api::AuthResult::ok);
+}
+
+TEST(ApiAuth, matcherStillRequiresBearerOnInferencePaths)
+{
+    EXPECT_FALSE(api::is_public_path("/v1/models"));
+    EXPECT_FALSE(api::is_public_path("/v1/chat/completions"));
+
+    api::ApiConfig config;
+    config.role = api::ServerRole::matcher;
+    config.api_token = "secret";
+    EXPECT_EQ(api::check_bearer_auth("", config), api::AuthResult::missing);
+    EXPECT_EQ(api::check_bearer_auth("Bearer secret", config), api::AuthResult::ok);
+}
+
 TEST(ApiConfig, defaultListenAddressIsLocalhostAndVmGateway)
 {
     EXPECT_EQ(mp::default_api_vm_gateway, "192.168.67.1");
     EXPECT_EQ(mp::default_api_listen, "127.0.0.1,192.168.67.1:7777");
+}
+
+TEST(ApiConfig, defaultLlmProxyListenIsLocalhostAndVmGatewayOnOllamaPort)
+{
+    EXPECT_EQ(mp::default_llm_proxy_listen, "127.0.0.1,192.168.67.1:11434");
+    const auto endpoint = api::parse_listen_endpoint(mp::default_llm_proxy_listen);
+    ASSERT_EQ(endpoint.hosts.size(), 2);
+    EXPECT_EQ(endpoint.hosts[0], "127.0.0.1");
+    EXPECT_EQ(endpoint.hosts[1], "192.168.67.1");
+    EXPECT_EQ(endpoint.port, 11434);
 }
 
 TEST(ApiConfig, parseListenEndpointAcceptsMultipleHosts)

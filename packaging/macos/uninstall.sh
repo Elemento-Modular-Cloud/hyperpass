@@ -34,6 +34,7 @@ fi
 
 LAUNCH_AGENT_DEST="/Library/LaunchDaemons/com.elemento.elpd.plist"
 API_LAUNCH_AGENT_DEST="/Library/LaunchDaemons/com.elemento.elp-api.plist"
+LLM_PROXY_LAUNCH_AGENT_DEST="/Library/LaunchDaemons/com.elemento.elp-llm-proxy.plist"
 
 echo .
 echo "Removing the Electros LaunchPad daemon launch agent:"
@@ -41,6 +42,9 @@ launchctl unload -w "$LAUNCH_AGENT_DEST" || true
 
 echo "Removing the Electros LaunchPad API launch agent:"
 launchctl unload -w "$API_LAUNCH_AGENT_DEST" || true
+
+echo "Removing the Electros LaunchPad LLM proxy launch agent:"
+launchctl unload -w "$LLM_PROXY_LAUNCH_AGENT_DEST" || true
 
 if [ $DELETE_VMS -eq 1 ]; then
     echo "Removing daemon data:"
@@ -55,6 +59,7 @@ echo .
 echo "Removing Electros LaunchPad:"
 rm -fv "$LAUNCH_AGENT_DEST"
 rm -fv "$API_LAUNCH_AGENT_DEST"
+rm -fv "$LLM_PROXY_LAUNCH_AGENT_DEST"
 
 rm -fv /usr/local/bin/elp
 rm -rfv "/Applications/Electros LaunchPad.app"

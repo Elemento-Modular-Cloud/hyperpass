@@ -16,10 +16,10 @@
  */
 
 /**
- * Lightweight HTTP-level smoke helpers for elp-api.
+ * Lightweight HTTP-level smoke helpers for elp-api and elp-llm-proxy.
  * These do not require a live daemon: they exercise auth middleware wiring via
  * the pure helpers covered in test_api.cpp. Live daemon smoke is documented in
- * src/api/README.md (run-dev-daemon.sh + run-dev-api.sh).
+ * src/api/README.md (run-dev-daemon.sh + run-dev-api.sh + run-dev-llm-proxy.sh).
  *
  * CI coverage: multipass_cpp_tests includes Api* suites when ELP_ENABLE_API=ON.
  */

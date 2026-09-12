@@ -25,8 +25,15 @@
 namespace multipass::api
 {
 
+enum class ServerRole
+{
+    matcher,
+    llm_proxy
+};
+
 struct ApiConfig
 {
+    ServerRole role{ServerRole::matcher};
     std::string listen_address;   // host[,host…]:port
     std::string daemon_address;   // unix:… or host:port
     std::string api_token;        // empty when insecure_no_auth
@@ -35,7 +42,7 @@ struct ApiConfig
     std::string multipass_address; // optional override (else discover)
     logging::Level verbosity_level{logging::Level::info};
 
-    // HTTPS / AtomOS fingerprint verification (default on — Electros dials TLS on :7777)
+    // HTTPS / AtomOS fingerprint verification (default on for matcher — Electros dials TLS on :7777)
     bool use_https{true};
     std::string cert_file; // optional PEM path (with key_file)
     std::string key_file;
@@ -54,8 +61,10 @@ struct ListenEndpoint
 /**
  * Parse CLI args and environment into an ApiConfig.
  * Requires a live QCoreApplication (for argument/env access). Throws on invalid input.
+ * Matcher requires --api-token / ELP_API_TOKEN or --insecure-no-auth and defaults to HTTPS.
+ * LLM proxy defaults to HTTP :11434 and does not use the matcher Bearer token.
  */
-ApiConfig parse_config();
+ApiConfig parse_config(ServerRole role = ServerRole::matcher);
 
 /**
  * Load or auto-generate HTTPS PEMs and compute the AtomOS TLS fingerprint.

@@ -59,15 +59,15 @@ Pass extra CMake configure arguments after `--` (Unix) or as remaining args (Win
 See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `elpd` next to system Multipass (separate socket, storage, and distributions catalog).
 
 ```bash
-./scripts/run-dev-daemon.sh
-./scripts/run-dev-api.sh --insecure-no-auth
-```
-```bash
 # Terminal 1 — dev daemon (requires sudo on macOS/Linux)
 ./scripts/run-dev-daemon.sh
 
 # Terminal 2 — dev GUI (or use the CLI env vars from LOCAL_DEV.md)
 ./scripts/run-dev-gui.sh
+
+# Optional — matcher (HTTPS :7777) and LLM proxy (HTTP :11434)
+./scripts/run-dev-api.sh --insecure-no-auth
+./scripts/run-dev-llm-proxy.sh
 
 # Stop the dev daemon
 ./scripts/run-dev-daemon.sh --stop

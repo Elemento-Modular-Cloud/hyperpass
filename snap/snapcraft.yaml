@@ -93,6 +93,22 @@ apps:
     plugs:
       - network
       - network-bind
+  elp-llm-proxy:
+    command: bin/elp-llm-proxy --listen 127.0.0.1:11434 --verbosity info
+    environment:
+      LD_LIBRARY_PATH: *library-path
+      PATH: *path
+      QT_PLUGIN_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/qt6/plugins
+      XDG_DATA_HOME: $SNAP_COMMON/data
+      XDG_CACHE_HOME: $SNAP_COMMON/cache
+      XDG_CONFIG_HOME: *daemon-config
+      DAEMON_CONFIG_HOME: *daemon-config
+      ELP_LLM_PROXY_LISTEN: 127.0.0.1:11434
+    daemon: simple
+    restart-condition: on-failure
+    plugs:
+      - network
+      - network-bind
   gui:
     desktop: usr/share/applications/elp.gui.desktop
     autostart: elp.gui.autostart.desktop

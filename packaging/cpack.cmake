@@ -134,11 +134,16 @@ if(APPLE)
 
   if(ELP_ENABLE_API)
     set(ELP_API_PLIST "com.elemento.elp-api.plist")
+    set(ELP_LLM_PROXY_PLIST "com.elemento.elp-llm-proxy.plist")
     configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${ELP_API_PLIST}.in"
                    "${CMAKE_BINARY_DIR}/${ELP_API_PLIST}" @ONLY)
+    configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/${ELP_LLM_PROXY_PLIST}.in"
+                   "${CMAKE_BINARY_DIR}/${ELP_LLM_PROXY_PLIST}" @ONLY)
     configure_file("${CMAKE_SOURCE_DIR}/packaging/macos/postinstall-elp-api.sh.in"
                    "${CMAKE_BINARY_DIR}/postinstall-elp-api.sh" @ONLY)
-    install(FILES "${CMAKE_BINARY_DIR}/${ELP_API_PLIST}" DESTINATION Resources COMPONENT elp_api)
+    install(FILES "${CMAKE_BINARY_DIR}/${ELP_API_PLIST}"
+                  "${CMAKE_BINARY_DIR}/${ELP_LLM_PROXY_PLIST}"
+            DESTINATION Resources COMPONENT elp_api)
     set(CPACK_POSTFLIGHT_ELP_API_SCRIPT  "${CMAKE_BINARY_DIR}/postinstall-elp-api.sh")
   endif()
 

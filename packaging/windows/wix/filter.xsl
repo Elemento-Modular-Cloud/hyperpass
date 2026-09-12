@@ -15,6 +15,8 @@
         match="wix:Component[wix:File[contains(@Source, 'elp.gui.exe')]]" use="@Id" />
     <xsl:key name="FilterElpApi"
         match="wix:Component[wix:File[contains(@Source, 'elp-api.exe')]]" use="@Id" />
+    <xsl:key name="FilterElpLlmProxy"
+        match="wix:Component[wix:File[contains(@Source, 'elp-llm-proxy.exe')]]" use="@Id" />
 
     <!-- Copy all elements and their attributes. -->
     <xsl:template match="@*|node()">
@@ -32,4 +34,6 @@
         match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterElpGUI', @Id ) ]" />
     <xsl:template
         match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterElpApi', @Id ) ]" />
+    <xsl:template
+        match="*[ self::wix:Component or self::wix:ComponentRef ][ key( 'FilterElpLlmProxy', @Id ) ]" />
 </xsl:stylesheet>

@@ -40,7 +40,7 @@ class ApiServer
 public:
     ApiServer(ApiConfig config,
               std::shared_ptr<GrpcBackend> elp_backend,
-              std::shared_ptr<VmRegistry> registry,
+              std::shared_ptr<VmRegistry> registry = nullptr,
               std::shared_ptr<GrpcBackend> multipass_backend = nullptr);
     ~ApiServer();
 
