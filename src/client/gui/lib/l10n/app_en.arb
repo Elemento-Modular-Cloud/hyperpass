@@ -313,6 +313,10 @@
     "@llmTableColumnModel": {
         "description": "LLM instances table column for model identity"
     },
+    "llmTableColumnId": "ID",
+    "@llmTableColumnId": {
+        "description": "LLM instances table column for copyable API model name"
+    },
     "llmTableColumnTags": "TAGS",
     "@llmTableColumnTags": {
         "description": "LLM instances table column for capability tags"

@@ -361,12 +361,7 @@ class LlmCatalogTable extends ConsumerWidget {
   const LlmCatalogTable({required this.models, super.key});
 
   static Widget _header(String name) {
-    return Container(
-      alignment: Alignment.centerLeft,
-      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      child: Text(name,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-    );
+    return vmtable.TableHeader.defaultHeaderBuilder(name);
   }
 
   static Widget _cell(String text, {Color? color}) {

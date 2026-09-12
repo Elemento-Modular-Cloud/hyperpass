@@ -3,32 +3,32 @@
         "aliases": "almalinux, alma, almalinux-10, alma-10",
         "items": {
             "arm64": {
-                "id": "336c6861fe0ba9115af00f557ed1b09385a3525612dd0cb9cce7e0486f8e74a4",
+                "id": "b1203c2ecc74b5529ffd9ef7675c6914fa80b4a29fe6ddeeffde78817ca850bd",
                 "image_location": "https://repo.almalinux.org/almalinux/10/cloud/aarch64/images/AlmaLinux-10-GenericCloud-latest.aarch64.qcow2",
                 "min_disk": 10737418240,
-                "size": 467992576,
-                "version": "20260526"
+                "size": 442433536,
+                "version": "20260817"
             },
             "power64le": {
-                "id": "ace41440b76e95072031e47edbe4a20a0ac6e097bb9b5825a8daca99f59be2eb",
+                "id": "4539b18ef2e0e5f3024e745413e54f49b765f4d61ddca6b1e3bdb43a8b51882c",
                 "image_location": "https://repo.almalinux.org/almalinux/10/cloud/ppc64le/images/AlmaLinux-10-GenericCloud-latest.ppc64le.qcow2",
                 "min_disk": 10737418240,
-                "size": 445972480,
-                "version": "20260526"
+                "size": 430899200,
+                "version": "20260817"
             },
             "s390x": {
-                "id": "db1f7e8247e150e6da902da348f6894960bfd3590001207d0bf3732992d98ac7",
+                "id": "1d15f32d0d4f75431a0aa7b73de96d16c8e9dabb7201ce724b2865e5c0b1a9d2",
                 "image_location": "https://repo.almalinux.org/almalinux/10/cloud/s390x/images/AlmaLinux-10-GenericCloud-latest.s390x.qcow2",
                 "min_disk": 10737418240,
-                "size": 256049152,
-                "version": "20260526"
+                "size": 255590400,
+                "version": "20260817"
             },
             "x86_64": {
-                "id": "47f2218668dd4776be140dd92fa3bea700be1766e2c7d88bdfd6a4b50f477b4d",
+                "id": "bc59485c4828861a15887e30ff1bb913f0f16202fd7286208518f4814da1e10a",
                 "image_location": "https://repo.almalinux.org/almalinux/10/cloud/x86_64/images/AlmaLinux-10-GenericCloud-latest.x86_64.qcow2",
                 "min_disk": 10737418240,
-                "size": 573571072,
-                "version": "20260526"
+                "size": 496631808,
+                "version": "20260817"
             }
         },
         "os": "AlmaLinux",
@@ -40,32 +40,32 @@
         "aliases": "almalinux-8, alma-8",
         "items": {
             "arm64": {
-                "id": "134b719b69952138e6e4b431f90b45731c521a41c0b343ee30d80079a2e0dbcb",
+                "id": "e33bed60f9fd1a7c637d06c595474d2e97d30d430a3bc826a21ca86f41cd586a",
                 "image_location": "https://repo.almalinux.org/almalinux/8/cloud/aarch64/images/AlmaLinux-8-GenericCloud-latest.aarch64.qcow2",
                 "min_disk": 10737418240,
-                "size": 1497300992,
-                "version": "20260803"
+                "size": 1487208448,
+                "version": "20260831"
             },
             "power64le": {
-                "id": "a8f4e86a06af01d40cbf5a92beef23fb0120878e666df5906d22dda9d10ca5ea",
+                "id": "b7f4ab8eb23534923052175ab15b4e5adc9171f8418e4a322696d4753e271057",
                 "image_location": "https://repo.almalinux.org/almalinux/8/cloud/ppc64le/images/AlmaLinux-8-GenericCloud-latest.ppc64le.qcow2",
                 "min_disk": 10737418240,
-                "size": 591092736,
-                "version": "20260803"
+                "size": 599572480,
+                "version": "20260831"
             },
             "s390x": {
-                "id": "81ebd794ad639b97988462c48680c60d34366dab5be878f1aac42f28c664b6a2",
+                "id": "dffa4d1dd6bf9aed296f2cc6e08ffe745834299e5edcac1d8babe676133c56d6",
                 "image_location": "https://repo.almalinux.org/almalinux/8/cloud/s390x/images/AlmaLinux-8-GenericCloud-latest.s390x.qcow2",
                 "min_disk": 10737418240,
-                "size": 460991488,
-                "version": "20260803"
+                "size": 459254784,
+                "version": "20260831"
             },
             "x86_64": {
-                "id": "301873ffbea203cf4e3e77970c8a26eab7e4a3afe7784e0a253a0f3d3dccfab9",
+                "id": "66a440b458e0a0f774868f1b5d74433080c6718e40f38b59d05ff9ab269ae240",
                 "image_location": "https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/AlmaLinux-8-GenericCloud-latest.x86_64.qcow2",
                 "min_disk": 10737418240,
-                "size": 1630273536,
-                "version": "20260803"
+                "size": 1622540288,
+                "version": "20260831"
             }
         },
         "os": "AlmaLinux",
@@ -137,18 +137,18 @@
         "aliases": "amazonlinux-2, al2, amzn2, amazon-linux-2",
         "items": {
             "arm64": {
-                "id": "3689672f4f58739e73bfbfb5860e034c3259be5c81eabbb5057e0263b9d57bbf",
-                "image_location": "https://cdn.amazonlinux.com/os-images/2.0.20260817.0/kvm-arm64/amzn2-kvm-2.0.20260817.0-arm64.xfs.gpt.qcow2",
+                "id": "80e56cddd334507ba2b634dd48d69fba9a087127000cef5ac617ba8a61e6f785",
+                "image_location": "https://cdn.amazonlinux.com/os-images/2.0.20260909.0/kvm-arm64/amzn2-kvm-2.0.20260909.0-arm64.xfs.gpt.qcow2",
                 "min_disk": 26843545600,
-                "size": 1501691904,
-                "version": "20260818"
+                "size": 1474101248,
+                "version": "20260910"
             },
             "x86_64": {
-                "id": "605d57e9155c81f0abd03c571d0f6f8f210d7122caf75d2aed8eb3ac577c10c0",
-                "image_location": "https://cdn.amazonlinux.com/os-images/2.0.20260817.0/kvm/amzn2-kvm-2.0.20260817.0-x86_64.xfs.gpt.qcow2",
+                "id": "0f0c7d7274a0b3dad6ebaef41b5e13fbb4d870534ac0673435a1efa209c630d0",
+                "image_location": "https://cdn.amazonlinux.com/os-images/2.0.20260909.0/kvm/amzn2-kvm-2.0.20260909.0-x86_64.xfs.gpt.qcow2",
                 "min_disk": 26843545600,
-                "size": 1510801408,
-                "version": "20260818"
+                "size": 1498546176,
+                "version": "20260910"
             }
         },
         "os": "AmazonLinux",
@@ -160,18 +160,18 @@
         "aliases": "amazonlinux, amazon, al2023, amzn2023, amazonlinux-2023, amazon-2023, al2023-2023, amzn2023-2023",
         "items": {
             "arm64": {
-                "id": "6180d05c26820b3bdff005dd538e4c51f16922c50ee41ee547c6327704125b39",
-                "image_location": "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260817.0/kvm-arm64/al2023-kvm-2023.12.20260817.0-kernel-6.1-arm64.xfs.gpt.qcow2",
+                "id": "8d35fd632c26e1ac74ebd71a2333659e606d1c895c2703a0058f00c2a7646a6a",
+                "image_location": "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260909.0/kvm-arm64/al2023-kvm-2023.12.20260909.0-kernel-6.1-arm64.xfs.gpt.qcow2",
                 "min_disk": 26843545600,
-                "size": 1935736832,
-                "version": "20260817"
+                "size": 2032402432,
+                "version": "20260910"
             },
             "x86_64": {
-                "id": "7e6640dd9a391ba37d021733d0cc67e192fcdf7beab2f9e86d0ea8cdf5f27f6e",
-                "image_location": "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260817.0/kvm/al2023-kvm-2023.12.20260817.0-kernel-6.1-x86_64.xfs.gpt.qcow2",
+                "id": "60e0defb06db53075fe688153564317cde0e3bbe48ee831b3c2606cb79ca97a2",
+                "image_location": "https://cdn.amazonlinux.com/al2023/os-images/2023.12.20260909.0/kvm/al2023-kvm-2023.12.20260909.0-kernel-6.1-x86_64.xfs.gpt.qcow2",
                 "min_disk": 26843545600,
-                "size": 1842479104,
-                "version": "20260817"
+                "size": 1830748160,
+                "version": "20260910"
             }
         },
         "os": "AmazonLinux",
@@ -183,11 +183,11 @@
         "aliases": "arch, archlinux, archlinux-latest",
         "items": {
             "x86_64": {
-                "id": "5d8be8d28cfd290f051b0f67df0a6874596ad23de3f3f18b90c91aeb758eb878",
+                "id": "e3e688f97a71b265ce202905a504253f60f3680cf57d011a45411c43bedfa930",
                 "image_location": "https://geo.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2",
                 "min_disk": 2147483648,
-                "size": 556609024,
-                "version": "20260815"
+                "size": 559223808,
+                "version": "20260901"
             }
         },
         "os": "Arch",
@@ -199,18 +199,18 @@
         "aliases": "centos, centos-stream, cs, centos-stream-10, cs10, centos-10, cs-10",
         "items": {
             "arm64": {
-                "id": "46b29df5e664bd6bc80c066606da2e1320e3c98b714884efcf3ccd2b390276aa",
-                "image_location": "https://cloud.centos.org/centos/10-stream/aarch64/images/CentOS-Stream-GenericCloud-10-20260818.0.aarch64.qcow2",
+                "id": "ce6a350111e0487efd79f4302a67954db6a2f4be532e6a71c306c2a7bd908aef",
+                "image_location": "https://cloud.centos.org/centos/10-stream/aarch64/images/CentOS-Stream-GenericCloud-10-20260908.0.aarch64.qcow2",
                 "min_disk": 10737418240,
-                "size": 1482227712,
-                "version": "20260819"
+                "size": 883556352,
+                "version": "20260909"
             },
             "x86_64": {
-                "id": "578ef6128c978ceaa1f30c808ba0184275dbcc2fc22bda047b16ccba0a7f500b",
-                "image_location": "https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-20260818.0.x86_64.qcow2",
+                "id": "01dd4840ce196680c048b6f1083b0d2f1a277ffb143e53402b61aa4bccc8e23f",
+                "image_location": "https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-20260908.0.x86_64.qcow2",
                 "min_disk": 10737418240,
-                "size": 1749155840,
-                "version": "20260819"
+                "size": 1045299200,
+                "version": "20260909"
             }
         },
         "os": "CentOS",
@@ -222,18 +222,18 @@
         "aliases": "centos-stream-9, cs9, centos-9, cs-9",
         "items": {
             "arm64": {
-                "id": "089f66050e8369bc5532c5562928f490a33042759649fe804376ed7f7663fdb3",
-                "image_location": "https://cloud.centos.org/centos/9-stream/aarch64/images/CentOS-Stream-GenericCloud-9-20260818.0.aarch64.qcow2",
+                "id": "091ce9cd42064db21c04b97c2d3219e965e620c9f079606c185c4d760f39e2cb",
+                "image_location": "https://cloud.centos.org/centos/9-stream/aarch64/images/CentOS-Stream-GenericCloud-9-20260908.0.aarch64.qcow2",
                 "min_disk": 10737418240,
-                "size": 1295253504,
-                "version": "20260819"
+                "size": 1189478400,
+                "version": "20260909"
             },
             "x86_64": {
-                "id": "14e2781c9e3505e1fb17806e1c3ca74c59392fe909306477c52e977d07672683",
-                "image_location": "https://cloud.centos.org/centos/9-stream/x86_64/images/CentOS-Stream-GenericCloud-9-20260818.0.x86_64.qcow2",
+                "id": "d93b1ecfe4d77c8a364e5b2b8a751d1c7f1aa3a7e5bdf4de924ec9649c3b5e15",
+                "image_location": "https://cloud.centos.org/centos/9-stream/x86_64/images/CentOS-Stream-GenericCloud-9-20260908.0.x86_64.qcow2",
                 "min_disk": 10737418240,
-                "size": 1499036672,
-                "version": "20260819"
+                "size": 1275920384,
+                "version": "20260909"
             }
         },
         "os": "CentOS",
@@ -245,25 +245,25 @@
         "aliases": "bookworm, debian-12",
         "items": {
             "arm64": {
-                "id": "sha512:7a9afb7e4ccbc432c634f53dd3ec90449d94cef2d9499ce86a454ba0858a8de20b3118201418287452a7d1eec0e89a0e82838924435427c6eeb24088007ef8b0",
-                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260821-2577/debian-12-generic-arm64-20260821-2577.qcow2",
+                "id": "sha512:791a822d93afa20360af4497ea2d2c0c0867b9663b8fc4e8b864364334855585a9f053d8fc82c72fe703d66ff76387c6dfc7be8534f0c85c47f0448f6dd28dd4",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260909-2596/debian-12-generic-arm64-20260909-2596.qcow2",
                 "min_disk": 3221225472,
-                "size": 434241536,
-                "version": "20260821"
+                "size": 435683328,
+                "version": "20260909"
             },
             "power64le": {
-                "id": "sha512:b085d7c043892a3783cee951db5d0dabd6f68dd446a04f62eceaee676475244e536f8cf72f0ebcf5127df16bddbbe768bf3722875e6f7ff83fd74b7fc3b60092",
-                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260821-2577/debian-12-generic-ppc64el-20260821-2577.qcow2",
+                "id": "sha512:11e9f32e7251ab23675b7665ac35bc27934650ce86d1d06ef57c2ecae6abb44b7dcd545f54c03c5554020f26cc7854c62e5f6e78cb9d62449dcd1eef71579ff3",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260909-2596/debian-12-generic-ppc64el-20260909-2596.qcow2",
                 "min_disk": 3221225472,
-                "size": 395313152,
-                "version": "20260821"
+                "size": 397410304,
+                "version": "20260909"
             },
             "x86_64": {
-                "id": "sha512:ee13344d530f70ca055d880e5c9b61e9af89874af02c5e2a5c26724461c79409e6d76db97c67ab222e71d03c3e33a738a8958fa5c497962f592258e9835cfcb0",
-                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260821-2577/debian-12-generic-amd64-20260821-2577.qcow2",
+                "id": "sha512:84946d6e2f55b1e8dcc114efc059f13882bd2ccdf36852126a13a0aa4a4ce0efee945406b78280e5942096639edc2a3ced20b70c12d9c7c7366ce364ba47a0ff",
+                "image_location": "https://cloud.debian.org/images/cloud/bookworm/20260909-2596/debian-12-generic-amd64-20260909-2596.qcow2",
                 "min_disk": 3221225472,
-                "size": 449511424,
-                "version": "20260821"
+                "size": 449314816,
+                "version": "20260909"
             }
         },
         "os": "Debian",
@@ -275,25 +275,25 @@
         "aliases": "debian, trixie, debian-13",
         "items": {
             "arm64": {
-                "id": "sha512:23f829b360500c185ee5923667319b258d5ed2e41e614982e779b87abca6fd7a5903a42e9b62635f7774d4ac4c44e9ee3037f5a9e0f61186f6a8c2e856a6f0c4",
-                "image_location": "https://cloud.debian.org/images/cloud/trixie/20260819-2575/debian-13-generic-arm64-20260819-2575.qcow2",
+                "id": "sha512:27287048285224e662722b54c77849c9bd1a2fd60ccea5f2e75c644fbd638fad7e32a97e8e3d628c8bbfdb9cf757951c8300f3c21758647c8906359d9c892b42",
+                "image_location": "https://cloud.debian.org/images/cloud/trixie/20260831-2587/debian-13-generic-arm64-20260831-2587.qcow2",
                 "min_disk": 3221225472,
-                "size": 430309376,
-                "version": "20260819"
+                "size": 432799744,
+                "version": "20260831"
             },
             "power64le": {
-                "id": "sha512:9aba0df89e85f321e92043a84799c3d6eee84a31b40c108184ebaf55e8285dcbe3d5e33aeb8e4d8175e33a3b57978777b7c3710422db2232f2ae63036d13143f",
-                "image_location": "https://cloud.debian.org/images/cloud/trixie/20260819-2575/debian-13-generic-ppc64el-20260819-2575.qcow2",
+                "id": "sha512:596eb53d60d2006bf1e1885d8c5fd6e4bc0ee19301f07476669c58bb8980577334868db162cf3da10c310e941985289e58b7bfeace1bb82a87b56ba2c0c6d2cc",
+                "image_location": "https://cloud.debian.org/images/cloud/trixie/20260831-2587/debian-13-generic-ppc64el-20260831-2587.qcow2",
                 "min_disk": 3221225472,
-                "size": 395706368,
-                "version": "20260819"
+                "size": 398721024,
+                "version": "20260831"
             },
             "x86_64": {
-                "id": "sha512:ae204682c015fd026838b71f1ce82585368dbb8c050b779ffd8a21a90a6c94f20648133dd078ee8fca9f0aa956e6901a943899be69ee24480035da6aeecd4f68",
-                "image_location": "https://cloud.debian.org/images/cloud/trixie/20260819-2575/debian-13-generic-amd64-20260819-2575.qcow2",
+                "id": "sha512:5a069019420fb9441ad4f8004c661fadb747edd5662ca54a17c8f923dee7d717e21dbdaa4ba72d6fce7f920e0217f0a9af382298a7d46ed4bc9dc33ac19181b6",
+                "image_location": "https://cloud.debian.org/images/cloud/trixie/20260831-2587/debian-13-generic-amd64-20260831-2587.qcow2",
                 "min_disk": 3221225472,
-                "size": 436928512,
-                "version": "20260819"
+                "size": 435683328,
+                "version": "20260831"
             }
         },
         "os": "Debian",
@@ -568,18 +568,18 @@
         "aliases": "tumbleweed, opensuse-tumbleweed, tw",
         "items": {
             "arm64": {
-                "id": "2576399b3a1425b600e6a67ba42edbbb2895e755df9ac43423d369ab273c6527",
+                "id": "6620819ad4f389b33d3e02633a4fd0f150c9653b44a71818baa6542dfb8b9196",
                 "image_location": "https://download.opensuse.org/ports/aarch64/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.aarch64-Cloud.qcow2",
                 "min_disk": 2147483648,
-                "size": 289932800,
-                "version": "20260830"
+                "size": 290167296,
+                "version": "20260909"
             },
             "x86_64": {
-                "id": "84c8a472f839d9002f2c0494989749437542c17e621258a8c8a345a1e9d96237",
+                "id": "e19ec85b7a32d32467479899305f245f3ffc11c8adb3761a7388d20c78ab1b4a",
                 "image_location": "https://download.opensuse.org/tumbleweed/appliances/openSUSE-Tumbleweed-Minimal-VM.x86_64-Cloud.qcow2",
                 "min_disk": 2147483648,
-                "size": 319331840,
-                "version": "20260908"
+                "size": 318450688,
+                "version": "20260911"
             }
         },
         "os": "openSUSE",

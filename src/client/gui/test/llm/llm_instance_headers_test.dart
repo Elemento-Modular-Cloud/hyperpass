@@ -1,3 +1,5 @@
+import 'package:elp_gui/copyable_text.dart';
+import 'package:elp_gui/l10n/app_localizations.dart';
 import 'package:elp_gui/llm/catalogue/model_branding.dart';
 import 'package:elp_gui/llm/instances/llm_instance_headers.dart';
 import 'package:elp_gui/providers.dart';
@@ -27,6 +29,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(body: LlmModelLink(model)),
         ),
       ),
@@ -35,5 +39,45 @@ void main() {
 
     expect(find.byType(ModelProviderBadge), findsOneWidget);
     expect(find.text('nvidia/NVIDIA-Nemotron-3-Nano-4B-FP8'), findsOneWidget);
+  });
+
+  testWidgets('API id column is a copyable model name box', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: const Scaffold(
+            body: LlmCopyableModelName('gemma-2-2b-63898e47'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CopyableText), findsOneWidget);
+    expect(find.text('gemma-2-2b-63898e47'), findsOneWidget);
+  });
+
+  test('API model name prefers the OpenAI id', () {
+    expect(
+      llmApiModelName(
+        LoadedModelInfo()
+          ..modelId = 'Gemma-2-2B'
+          ..openaiId = 'gemma-2-2b-63898e47',
+      ),
+      'gemma-2-2b-63898e47',
+    );
+    expect(
+      llmApiModelName(LoadedModelInfo()..modelId = 'Gemma-2-2B'),
+      'Gemma-2-2B',
+    );
+  });
+
+  test('running models table includes an ID header', () {
+    expect(
+      llmInstanceHeaders.map((h) => h.name),
+      containsAll(['MODEL', 'ID']),
+    );
   });
 }

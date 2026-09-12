@@ -2,6 +2,7 @@ import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../extensions.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
 import '../sidebar.dart';
@@ -175,20 +176,20 @@ class ServiceInstanceNameLink extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () => ref
-            .read(sidebarKeyProvider.notifier)
-            .set(serviceInstanceSidebarKey(info.name)),
-        child: Text(
-          info.name,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            decoration: TextDecoration.underline,
-            decorationColor: Colors.transparent,
-          ),
-        ),
+    goToService() {
+      ref
+          .read(serviceScreenLocationProvider(info.name).notifier)
+          .set(ServiceDetailsLocation.overview);
+      ref
+          .read(sidebarKeyProvider.notifier)
+          .set(serviceInstanceSidebarKey(info.name));
+    }
+
+    return Tooltip(
+      message: info.name,
+      child: Text.rich(
+        info.name.nonBreaking.spanInherit.link(ref, goToService),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

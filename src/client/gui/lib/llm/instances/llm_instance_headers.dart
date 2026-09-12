@@ -2,6 +2,9 @@ import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../brand.dart';
+import '../../copyable_text.dart';
+import '../../extensions.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
@@ -37,8 +40,20 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnModel),
     width: 280,
     minWidth: 180,
-    sortKey: (m) => m.openaiId.isEmpty ? m.modelId : m.openaiId,
+    sortKey: (m) => m.modelId.isEmpty ? m.openaiId : m.modelId,
     cellBuilder: (m) => LlmModelLink(m),
+  ),
+  TableHeader(
+    name: 'ID',
+    childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnId),
+    width: 220,
+    minWidth: 140,
+    sortKey: (m) => llmApiModelName(m),
+    cellBuilder: (m) {
+      final name = llmApiModelName(m);
+      if (name.isEmpty) return const Text('—');
+      return LlmCopyableModelName(name);
+    },
   ),
   TableHeader(
     name: 'TAGS',
@@ -240,6 +255,11 @@ class _LlmCapabilityCell extends ConsumerWidget {
   }
 }
 
+String llmApiModelName(LoadedModelInfo model) {
+  if (model.openaiId.isNotEmpty) return model.openaiId;
+  return model.modelId;
+}
+
 class LlmModelLink extends ConsumerWidget {
   final LoadedModelInfo model;
 
@@ -249,30 +269,64 @@ class LlmModelLink extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final id =
         LlmInstanceId(instanceId: model.instanceId, modelId: model.modelId);
-    final label = model.openaiId.isEmpty
-        ? model.modelId
-        : '${model.modelId} (${model.openaiId})';
+    final displayName = model.modelId.isEmpty ? model.openaiId : model.modelId;
     final branding = brandingForLoaded(model);
     final pending = isPendingLlmLoad(model);
 
+    goToDetails() {
+      ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey);
+    }
+
     return Tooltip(
-      message: label,
-      child: InkWell(
-        onTap: pending
-            ? null
-            : () => ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey),
-        child: Row(
-          children: [
-            ModelProviderBadge(
-              branding: branding,
-              size: 22,
-              semanticsLabel: branding.displayName,
+      message: displayName,
+      child: Row(
+        children: [
+          ModelProviderBadge(
+            branding: branding,
+            size: 22,
+            semanticsLabel: branding.displayName,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: pending
+                ? Text(displayName, overflow: TextOverflow.ellipsis)
+                : Text.rich(
+                    displayName.nonBreaking.spanInherit.link(ref, goToDetails),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class LlmCopyableModelName extends StatelessWidget {
+  const LlmCopyableModelName(this.name, {super.key});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(Brand.radius),
+          border: Border.all(color: onSurface.withValues(alpha: 0.18)),
+          color: onSurface.withValues(alpha: 0.06),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          child: CopyableText(
+            name,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.2,
+              color: onSurface.withValues(alpha: 0.9),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(label, overflow: TextOverflow.ellipsis),
-            ),
-          ],
+          ),
         ),
       ),
     );
