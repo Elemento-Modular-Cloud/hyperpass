@@ -313,7 +313,7 @@ class ModelCapabilityChips extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: onSurface.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(Brand.radiusPill),
               border: Border.all(color: onSurface.withValues(alpha: 0.12)),
             ),
             child: Text(

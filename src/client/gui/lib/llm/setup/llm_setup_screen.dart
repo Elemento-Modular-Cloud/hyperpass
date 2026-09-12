@@ -203,7 +203,7 @@ class _BackendInstallCard extends ConsumerWidget {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(Brand.radiusPill),
                 ),
                 child: Text(
                   statusLabel,

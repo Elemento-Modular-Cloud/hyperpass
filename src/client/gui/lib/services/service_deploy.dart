@@ -110,7 +110,6 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final minDisk = serviceDiskBytes(service);
 
     return AlertDialog(
-      shape: const Border(),
       title: Row(
         children: [
           ServiceIconBadge(branding: branding, size: 28),

@@ -19,6 +19,7 @@
 
 #include "api_key_store.h"
 #include "llm_activity_log.h"
+#include "llm_load_params.h"
 #include "llmfit_advisor.h"
 #include "model_vault.h"
 
@@ -60,6 +61,7 @@ struct LoadedSession
     qint64 pid{0};
     int ctx_size{4096};
     int max_tokens{0}; // 0 = unlimited
+    LlmLoadParams params;
     MemorySize memory;
     std::unique_ptr<Process> process;
     std::unique_ptr<QThread> runner_thread;
@@ -137,8 +139,11 @@ private:
     BackendKind select_backend() const;
     BackendKind resolve_backend(const LoadModelRequest* request) const;
     std::string backend_name(BackendKind kind) const;
-    int gpu_layers(BackendKind kind) const;
-    MemorySize estimate_claim(const ModelArtifact& artifact, int ctx_size) const;
+    bool backend_uses_gpu(BackendKind kind) const;
+    MemorySize estimate_claim(const ModelArtifact& artifact,
+                              int ctx_size,
+                              const std::string& cache_type_k = {},
+                              const std::string& cache_type_v = {}) const;
     int pick_loopback_port() const;
     bool wait_until_ready(int port) const;
     ModelArtifact ensure_pulled(const std::string& model_id,

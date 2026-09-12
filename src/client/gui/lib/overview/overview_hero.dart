@@ -64,7 +64,7 @@ class OverviewHero extends ConsumerWidget {
     );
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(Brand.radius + 2),
+      borderRadius: BorderRadius.circular(Brand.radius),
       child: Stack(
         children: [
           Positioned.fill(child: _HeroBackdrop(settings: settings)),
@@ -319,11 +319,11 @@ class _Chip extends StatelessWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(Brand.radiusPill),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(Brand.radiusPill),
           border: Border.all(color: onSurface.withValues(alpha: 0.15)),
         ),
         child: Text(

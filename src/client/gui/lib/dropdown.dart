@@ -50,8 +50,8 @@ class Dropdown<T> extends StatelessWidget {
       child: InputDecorator(
         decoration: const InputDecoration(
           contentPadding: EdgeInsets.symmetric(
-            horizontal: 8,
-            vertical: 13,
+            horizontal: 14,
+            vertical: 12,
           ),
         ),
         child: Theme(

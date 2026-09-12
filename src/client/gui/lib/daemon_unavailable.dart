@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'brand.dart';
 import 'ffi.dart';
 import 'l10n/app_localizations.dart';
 import 'providers.dart';
@@ -104,7 +105,7 @@ class DaemonUnavailable extends ConsumerWidget {
                         backgroundColor: Colors.white,
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(Brand.radius),
                         ),
                       ),
                     ),

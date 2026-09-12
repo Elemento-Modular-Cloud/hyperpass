@@ -583,7 +583,7 @@ class _HealthyBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(Brand.radiusPill),
         border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: Row(

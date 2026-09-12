@@ -151,6 +151,7 @@ public:
                                const std::string& quant,
                                int ctx_size,
                                int max_tokens = 0,
+                               LlmLoadParams params = {},
                                std::chrono::seconds deadline = std::chrono::seconds{3600});
     GrpcResult unload_model(const std::string& model_id,
                             std::chrono::seconds deadline = std::chrono::seconds{60});

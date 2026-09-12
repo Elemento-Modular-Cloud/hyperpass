@@ -20,52 +20,39 @@
 namespace mp = multipass;
 namespace mpl = multipass::logging;
 
-mp::LlamaServerProcessSpec::LlamaServerProcessSpec(QString program,
-                                                   QString model_path,
-                                                   QString openai_id,
-                                                   int port,
-                                                   int ctx_size,
-                                                   int n_gpu_layers,
-                                                   int max_tokens,
-                                                   QString library_dir,
-                                                   QString mmproj_path)
-    : program_{std::move(program)},
-      model_path{std::move(model_path)},
-      openai_id{std::move(openai_id)},
-      port{port},
-      ctx_size{ctx_size},
-      n_gpu_layers{n_gpu_layers},
-      max_tokens{max_tokens},
-      library_dir{std::move(library_dir)},
-      mmproj_path{std::move(mmproj_path)}
+mp::LlamaServerProcessSpec::LlamaServerProcessSpec(LlamaServerOptions options)
+    : options_{std::move(options)}
 {
 }
 
 QString mp::LlamaServerProcessSpec::program() const
 {
-    return program_;
+    return options_.program;
 }
 
 QStringList mp::LlamaServerProcessSpec::arguments() const
 {
+    const auto& o = options_;
     QStringList args{"-m",
-                     model_path,
+                     o.model_path,
                      "--host",
                      "127.0.0.1",
                      "--port",
-                     QString::number(port),
+                     QString::number(o.port),
                      "--ctx-size",
-                     QString::number(ctx_size),
+                     QString::number(o.ctx_size),
                      "--alias",
-                     openai_id,
+                     o.openai_id,
                      "--n-gpu-layers",
-                     QString::number(n_gpu_layers),
+                     o.n_gpu_layers,
                      "--parallel",
-                     "1"};
-    if (!mmproj_path.isEmpty())
-        args << "--mmproj" << mmproj_path;
-    if (max_tokens > 0)
-        args << "--n-predict" << QString::number(max_tokens);
+                     QString::number(o.parallel > 0 ? o.parallel : 1)};
+    if (!o.mmproj_path.isEmpty())
+        args << "--mmproj" << o.mmproj_path;
+    if (o.max_tokens > 0)
+        args << "--n-predict" << QString::number(o.max_tokens);
+    if (o.threads_batch > 0)
+        args << "--threads-batch" << QString::number(o.threads_batch);
     return args;
 }
 
@@ -78,12 +65,36 @@ mpl::Level mp::LlamaServerProcessSpec::error_log_level() const
 QProcessEnvironment mp::LlamaServerProcessSpec::environment() const
 {
     auto env = ProcessSpec::environment();
+    const auto& o = options_;
     // Prefer env over CLI flags so older llama-server builds ignore unknown
     // options instead of refusing to start. b10819 honors these (llama.cpp#25655).
     env.insert("LLAMA_ARG_CORS_ORIGINS", "localhost");
     env.insert("LLAMA_ARG_WEBUI", "0");
     env.insert("LLAMA_ARG_UI", "0");
-    if (library_dir.isEmpty())
+    if (!o.flash_attn.isEmpty())
+        env.insert("LLAMA_ARG_FLASH_ATTN", o.flash_attn);
+    if (!o.cache_type_k.isEmpty())
+        env.insert("LLAMA_ARG_CACHE_TYPE_K", o.cache_type_k);
+    if (!o.cache_type_v.isEmpty())
+        env.insert("LLAMA_ARG_CACHE_TYPE_V", o.cache_type_v);
+    if (o.cache_reuse >= 0)
+        env.insert("LLAMA_ARG_CACHE_REUSE", QString::number(o.cache_reuse));
+    if (o.apply_fit)
+        env.insert("LLAMA_ARG_FIT", o.fit ? "on" : "off");
+    if (!o.load_mode.isEmpty())
+        env.insert("LLAMA_ARG_LOAD_MODE", o.load_mode);
+    if (o.cpu_moe)
+        env.insert("LLAMA_ARG_CPU_MOE", "1");
+    if (o.n_cpu_moe >= 0)
+        env.insert("LLAMA_ARG_N_CPU_MOE", QString::number(o.n_cpu_moe));
+    if (o.threads > 0)
+        env.insert("LLAMA_ARG_THREADS", QString::number(o.threads));
+    if (o.batch_size > 0)
+        env.insert("LLAMA_ARG_BATCH", QString::number(o.batch_size));
+    if (o.ubatch_size > 0)
+        env.insert("LLAMA_ARG_UBATCH", QString::number(o.ubatch_size));
+
+    if (o.library_dir.isEmpty())
         return env;
 
 #ifdef Q_OS_MACOS
@@ -97,7 +108,7 @@ QProcessEnvironment mp::LlamaServerProcessSpec::environment() const
     constexpr auto sep = ":";
 #endif
     const auto existing = env.value(key);
-    env.insert(key, existing.isEmpty() ? library_dir : library_dir + sep + existing);
+    env.insert(key, existing.isEmpty() ? o.library_dir : o.library_dir + sep + existing);
     return env;
 }
 
@@ -108,5 +119,5 @@ QString mp::LlamaServerProcessSpec::apparmor_profile() const
 
 QString mp::LlamaServerProcessSpec::identifier() const
 {
-    return openai_id;
+    return options_.openai_id;
 }

@@ -326,7 +326,7 @@ class _StatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(Brand.radiusPill),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -352,7 +352,7 @@ class _StatusBadge extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(Brand.radiusPill),
         child: child,
       ),
     );

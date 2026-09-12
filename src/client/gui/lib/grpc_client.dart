@@ -296,6 +296,7 @@ class GrpcClient {
     int ctxSize = 4096,
     String runtime = '',
     int maxTokens = 0,
+    LlmLoadParams? params,
   }) {
     return _client.load_model(
       Stream.value(LoadModelRequest(
@@ -304,6 +305,7 @@ class GrpcClient {
         ctxSize: ctxSize,
         runtime: runtime,
         maxTokens: maxTokens,
+        params: params,
       )),
     );
   }

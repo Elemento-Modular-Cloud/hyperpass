@@ -25,18 +25,37 @@
 namespace multipass
 {
 
+struct LlamaServerOptions
+{
+    QString program;
+    QString model_path;
+    QString openai_id;
+    int port{0};
+    int ctx_size{4096};
+    QString n_gpu_layers{"0"};
+    int max_tokens{0};
+    QString library_dir;
+    QString mmproj_path;
+    QString flash_attn;
+    QString cache_type_k;
+    QString cache_type_v;
+    int threads{0};
+    int threads_batch{0};
+    int batch_size{0};
+    int ubatch_size{0};
+    int parallel{1};
+    int cache_reuse{-1};
+    bool fit{true};
+    bool apply_fit{true};
+    QString load_mode;
+    bool cpu_moe{false};
+    int n_cpu_moe{-1};
+};
+
 class LlamaServerProcessSpec : public ProcessSpec
 {
 public:
-    LlamaServerProcessSpec(QString program,
-                           QString model_path,
-                           QString openai_id,
-                           int port,
-                           int ctx_size,
-                           int n_gpu_layers,
-                           int max_tokens = 0,
-                           QString library_dir = {},
-                           QString mmproj_path = {});
+    explicit LlamaServerProcessSpec(LlamaServerOptions options);
 
     QString program() const override;
     QStringList arguments() const override;
@@ -45,16 +64,13 @@ public:
     QString apparmor_profile() const override;
     QString identifier() const override;
 
+    const LlamaServerOptions& options() const
+    {
+        return options_;
+    }
+
 private:
-    QString program_;
-    QString model_path;
-    QString openai_id;
-    int port;
-    int ctx_size;
-    int n_gpu_layers;
-    int max_tokens;
-    QString library_dir;
-    QString mmproj_path;
+    LlamaServerOptions options_;
 };
 
 } // namespace multipass

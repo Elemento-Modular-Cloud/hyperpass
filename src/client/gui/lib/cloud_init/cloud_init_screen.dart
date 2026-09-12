@@ -239,7 +239,6 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          shape: const Border(),
           title: Text(title),
           content: SizedBox(
             width: CompactLayout.dialogWidth(dialogContext, 420),
@@ -447,7 +446,6 @@ class _CloudInitScreenState extends ConsumerState<CloudInitScreen> {
             ),
             decoration: InputDecoration(
               filled: true,
-              border: const OutlineInputBorder(),
               hintText: l10n.cloudInitEditorHint,
             ),
             onChanged: (_) => setState(() {}),

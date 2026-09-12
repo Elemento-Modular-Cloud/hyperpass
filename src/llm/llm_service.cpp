@@ -172,6 +172,8 @@ void mp::LlmService::restore_claims()
         session.ctx_size = obj.value("ctx_size").toInt(4096);
         if (session.ctx_size <= 0)
             session.ctx_size = 4096;
+        if (obj.value("params").isObject())
+            session.params = llm_load_params_from_json(obj.value("params").toObject());
         if (session.instance_id.empty())
             continue;
         if (!session_is_live(session) && live_cmds.find(session.pid) == live_cmds.end())
@@ -293,22 +295,20 @@ std::string mp::LlmService::backend_name(BackendKind kind) const
     }
 }
 
-int mp::LlmService::gpu_layers(BackendKind kind) const
+bool mp::LlmService::backend_uses_gpu(BackendKind kind) const
 {
-    switch (kind)
-    {
-    case BackendKind::llamacpp_metal:
-    case BackendKind::llamacpp_cuda:
-        return 99;
-    default:
-        return 0;
-    }
+    return kind == BackendKind::llamacpp_metal || kind == BackendKind::llamacpp_cuda;
 }
 
-mp::MemorySize mp::LlmService::estimate_claim(const ModelArtifact& artifact, int ctx_size) const
+mp::MemorySize mp::LlmService::estimate_claim(const ModelArtifact& artifact,
+                                              int ctx_size,
+                                              const std::string& cache_type_k,
+                                              const std::string& cache_type_v) const
 {
     const auto file_bytes = std::max(0LL, artifact.size_bytes);
-    const auto kv = static_cast<long long>(std::max(ctx_size, 2048)) * 2LL * 1024 * 1024 / 8;
+    const auto scale = kv_cache_byte_scale(cache_type_k, cache_type_v);
+    const auto kv = static_cast<long long>(
+        static_cast<double>(std::max(ctx_size, 2048)) * 2.0 * 1024.0 * 1024.0 / 8.0 * scale);
     const auto overhead = 512LL * 1024 * 1024;
     return MemorySize::from_bytes(file_bytes + kv + overhead);
 }
@@ -717,10 +717,14 @@ void mp::LlmService::load_model_impl(
         return true;
     };
     const auto art = ensure_pulled(model_id, request->quant(), "", monitor);
-    const auto ctx = request->ctx_size() > 0 ? request->ctx_size() : 4096;
-    const auto max_tokens = request->max_tokens() > 0 ? request->max_tokens() : 0;
-    const auto claim = estimate_claim(art, ctx);
     const auto kind = resolve_backend(request);
+    const auto resolved = resolve_llm_load(*request, backend_uses_gpu(kind));
+    const auto ctx = resolved.ctx_size;
+    const auto max_tokens = resolved.max_tokens;
+    const auto claim = estimate_claim(art,
+                                      ctx,
+                                      resolved.llama.cache_type_k.toStdString(),
+                                      resolved.llama.cache_type_v.toStdString());
 
     auto result = pool.try_claim(instance_id, WorkloadKind::llm, claim, 0);
     if (!result.accepted)
@@ -736,6 +740,7 @@ void mp::LlmService::load_model_impl(
     session.memory = claim;
     session.ctx_size = ctx;
     session.max_tokens = max_tokens;
+    session.params = resolved.echoed;
 
     try
     {
@@ -763,16 +768,16 @@ void mp::LlmService::load_model_impl(
             QString library_dir;
             if (llm::is_under_managed_tools(llama, tools_root))
                 library_dir = QFileInfo{llama}.absolutePath();
-            session.process = platform::make_process(std::make_unique<LlamaServerProcessSpec>(
-                llama,
-                QString::fromStdString(art.path),
-                QString::fromStdString(session.openai_id),
-                session.port,
-                ctx,
-                gpu_layers(kind),
-                max_tokens,
-                library_dir,
-                QString::fromStdString(art.mmproj_path)));
+            LlamaServerOptions options;
+            apply_resolved_to_options(options, resolved);
+            options.program = llama;
+            options.model_path = QString::fromStdString(art.path);
+            options.openai_id = QString::fromStdString(session.openai_id);
+            options.port = session.port;
+            options.library_dir = library_dir;
+            options.mmproj_path = QString::fromStdString(art.mmproj_path);
+            session.process =
+                platform::make_process(std::make_unique<LlamaServerProcessSpec>(std::move(options)));
         }
         session.process->start();
         if (!session.process->wait_for_started(10000))
@@ -926,6 +931,7 @@ void mp::LlmService::list_models(
         info->set_state(session_is_live(session) ? "loaded" : "stopped");
         info->set_max_tokens(session.max_tokens);
         info->set_ctx_size(session.ctx_size);
+        *info->mutable_params() = session.params;
     }
     for (const auto& art : vault.list())
     {
@@ -1395,6 +1401,9 @@ void mp::LlmService::persist_sessions() const
             obj["memory_bytes"] = static_cast<qint64>(session.memory.in_bytes());
             obj["max_tokens"] = session.max_tokens;
             obj["ctx_size"] = session.ctx_size;
+            const auto params = llm_load_params_to_json(session.params);
+            if (!params.isEmpty())
+                obj["params"] = params;
             array.append(obj);
         }
     }

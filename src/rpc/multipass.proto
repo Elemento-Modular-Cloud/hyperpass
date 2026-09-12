@@ -724,6 +724,27 @@ message PullModelReply {
     string path = 5;
 }
 
+// Runtime knobs for llama-server. Empty / unset fields mean "apply daemon defaults".
+// optional ints distinguish explicit 0 (CPU offload, unlimited tokens) from omitted.
+message LlmLoadParams {
+    optional int32 ctx_size = 1;
+    optional int32 max_tokens = 2;
+    string n_gpu_layers = 3;   // "", "auto", "all", or a number
+    string flash_attn = 4;     // "", "auto", "on", "off"
+    string cache_type_k = 5;   // "", "f16", "q8_0", "q4_0"
+    string cache_type_v = 6;
+    optional int32 threads = 7;
+    optional int32 threads_batch = 8;
+    optional int32 batch_size = 9;
+    optional int32 ubatch_size = 10;
+    optional int32 parallel = 11;
+    optional int32 cache_reuse = 12;
+    optional bool fit = 13;
+    string load_mode = 14;     // "", "auto", "mmap", "mlock", "mmap+mlock"
+    string moe_offload = 15;   // "", "auto", "cpu", "off"
+    optional int32 n_cpu_moe = 16;
+}
+
 message LoadModelRequest {
     string model_id = 1;
     string quant = 2;
@@ -732,6 +753,7 @@ message LoadModelRequest {
     string runtime = 5;
     // Default/cap for OpenAI max_tokens on this instance. 0 = unlimited.
     int32 max_tokens = 6;
+    LlmLoadParams params = 7;
 }
 
 message LoadModelReply {
@@ -770,6 +792,7 @@ message LoadedModelInfo {
     int32 max_tokens = 9;
     // KV / context window passed to the backend (--ctx-size).
     int32 ctx_size = 10;
+    LlmLoadParams params = 11;
 }
 
 message ListModelsRequest {

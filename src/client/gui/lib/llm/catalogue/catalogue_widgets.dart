@@ -347,6 +347,10 @@ class LlmRecommendedChip extends ConsumerWidget {
             modelId: model.id,
             quant: model.bestQuant,
             hfRepo: modelDownloadRepo(model),
+            suggestedCtx: suggestedCtxForModel(
+              usableContext: model.usableContext.toInt(),
+              contextLength: model.contextLength.toInt(),
+            ),
           ),
     );
   }
@@ -547,6 +551,10 @@ class LlmCatalogTable extends ConsumerWidget {
                     modelId: m.id,
                     quant: m.bestQuant,
                     hfRepo: modelDownloadRepo(m),
+                    suggestedCtx: suggestedCtxForModel(
+                      usableContext: m.usableContext.toInt(),
+                      contextLength: m.contextLength.toInt(),
+                    ),
                   ),
             ),
           ],

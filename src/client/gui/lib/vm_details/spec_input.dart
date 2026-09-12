@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../brand.dart';
+
 class SpecInput extends StatelessWidget {
   final bool autofocus;
   final bool enabled;
@@ -58,7 +60,7 @@ class SpecInput extends StatelessWidget {
               hintStyle: TextStyle(color: onSurface.withAlpha(140)),
               disabledBorder: OutlineInputBorder(
                 borderSide: BorderSide(color: onSurface.withAlpha(40)),
-                borderRadius: BorderRadius.zero,
+                borderRadius: BorderRadius.circular(Brand.radius),
               ),
             ),
             enabled: enabled,

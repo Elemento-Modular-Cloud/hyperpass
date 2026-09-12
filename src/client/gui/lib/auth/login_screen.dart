@@ -186,13 +186,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 360),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(Brand.radius),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.28),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(Brand.radius),
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.1),
                           ),

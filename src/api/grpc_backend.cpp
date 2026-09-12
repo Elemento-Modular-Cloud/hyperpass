@@ -270,6 +270,7 @@ mp::api::LoadModelResult mp::api::GrpcBackend::load_model(const std::string& mod
                                                           const std::string& quant,
                                                           int ctx_size,
                                                           int max_tokens,
+                                                          LlmLoadParams params,
                                                           std::chrono::seconds deadline)
 {
     LoadModelResult result;
@@ -278,6 +279,11 @@ mp::api::LoadModelResult mp::api::GrpcBackend::load_model(const std::string& mod
     request.set_quant(quant);
     request.set_ctx_size(ctx_size);
     request.set_max_tokens(max_tokens);
+    if (params.has_ctx_size())
+        request.set_ctx_size(params.ctx_size());
+    if (params.has_max_tokens())
+        request.set_max_tokens(params.max_tokens());
+    *request.mutable_params() = std::move(params);
     result.status = call_streaming_rpc(
         [this](grpc::ClientContext* ctx) { return rpc_stub->load_model(ctx); },
         request,

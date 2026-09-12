@@ -26,16 +26,23 @@ using namespace testing;
 
 namespace
 {
+mp::LlamaServerOptions base_options(int max_tokens = 0, QString library_dir = {})
+{
+    mp::LlamaServerOptions options;
+    options.program = "/opt/llama-server";
+    options.model_path = "/models/nemotron.gguf";
+    options.openai_id = "nemotron-abc";
+    options.port = 52792;
+    options.ctx_size = 8192;
+    options.n_gpu_layers = "99";
+    options.max_tokens = max_tokens;
+    options.library_dir = std::move(library_dir);
+    return options;
+}
+
 mp::LlamaServerProcessSpec make_spec(int max_tokens = 0, QString library_dir = {})
 {
-    return mp::LlamaServerProcessSpec{"/opt/llama-server",
-                                      "/models/nemotron.gguf",
-                                      "nemotron-abc",
-                                      52792,
-                                      8192,
-                                      99,
-                                      max_tokens,
-                                      std::move(library_dir)};
+    return mp::LlamaServerProcessSpec{base_options(max_tokens, std::move(library_dir))};
 }
 } // namespace
 
@@ -70,15 +77,11 @@ TEST(TestLlamaServerProcessSpec, argumentsBindLoopbackWithSingleSlot)
 
 TEST(TestLlamaServerProcessSpec, argumentsIncludeMmprojWhenProvided)
 {
-    const auto spec = mp::LlamaServerProcessSpec{"/opt/llama-server",
-                                                 "/models/gemma.gguf",
-                                                 "gemma-abc",
-                                                 52792,
-                                                 8192,
-                                                 99,
-                                                 0,
-                                                 {},
-                                                 "/models/gemma-mmproj.gguf"};
+    auto options = base_options();
+    options.model_path = "/models/gemma.gguf";
+    options.openai_id = "gemma-abc";
+    options.mmproj_path = "/models/gemma-mmproj.gguf";
+    const auto spec = mp::LlamaServerProcessSpec{options};
     const auto args = spec.arguments();
     EXPECT_TRUE(args.contains("--mmproj"));
     EXPECT_EQ(args.at(args.indexOf("--mmproj") + 1), "/models/gemma-mmproj.gguf");
@@ -109,4 +112,37 @@ TEST(TestLlamaServerProcessSpec, prependsLibraryDirOnMacOrUnix)
 #else
     EXPECT_TRUE(env.value("LD_LIBRARY_PATH").startsWith("/opt/llama-lib"));
 #endif
+}
+
+TEST(TestLlamaServerProcessSpec, setsOptimisationEnvFromOptions)
+{
+    auto options = base_options();
+    options.n_gpu_layers = "auto";
+    options.flash_attn = "auto";
+    options.cache_type_k = "q8_0";
+    options.cache_type_v = "q8_0";
+    options.cache_reuse = 256;
+    options.fit = true;
+    options.apply_fit = true;
+    options.load_mode = "mmap+mlock";
+    options.cpu_moe = true;
+    options.n_cpu_moe = 4;
+    options.threads = 8;
+    options.batch_size = 2048;
+    options.ubatch_size = 512;
+    const auto env = mp::LlamaServerProcessSpec{options}.environment();
+    EXPECT_EQ(env.value("LLAMA_ARG_FLASH_ATTN"), "auto");
+    EXPECT_EQ(env.value("LLAMA_ARG_CACHE_TYPE_K"), "q8_0");
+    EXPECT_EQ(env.value("LLAMA_ARG_CACHE_TYPE_V"), "q8_0");
+    EXPECT_EQ(env.value("LLAMA_ARG_CACHE_REUSE"), "256");
+    EXPECT_EQ(env.value("LLAMA_ARG_FIT"), "on");
+    EXPECT_EQ(env.value("LLAMA_ARG_LOAD_MODE"), "mmap+mlock");
+    EXPECT_EQ(env.value("LLAMA_ARG_CPU_MOE"), "1");
+    EXPECT_EQ(env.value("LLAMA_ARG_N_CPU_MOE"), "4");
+    EXPECT_EQ(env.value("LLAMA_ARG_THREADS"), "8");
+    EXPECT_EQ(env.value("LLAMA_ARG_BATCH"), "2048");
+    EXPECT_EQ(env.value("LLAMA_ARG_UBATCH"), "512");
+    EXPECT_EQ(mp::LlamaServerProcessSpec{options}.arguments().at(
+                  mp::LlamaServerProcessSpec{options}.arguments().indexOf("--n-gpu-layers") + 1),
+              "auto");
 }

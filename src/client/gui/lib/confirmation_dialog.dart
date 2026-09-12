@@ -26,7 +26,6 @@ class ConfirmationDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: const Border(),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
       titlePadding: const EdgeInsets.only(left: 16, right: 8, top: 8),
       buttonPadding: const EdgeInsets.symmetric(horizontal: 16),

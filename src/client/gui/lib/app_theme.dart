@@ -35,6 +35,15 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
   final blurSigma =
       appearance.useGlassmorphism ? Brand.glassBlurSigma : 0.0;
 
+  final fieldRadius = BorderRadius.circular(Brand.radius);
+  final fieldBorderColor = onSurface.withValues(alpha: isDark ? 0.16 : 0.12);
+  OutlineInputBorder fieldBorder(Color color, {double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: fieldRadius,
+      borderSide: BorderSide(color: color, width: width),
+    );
+  }
+
   return ThemeData(
     useMaterial3: false,
     brightness: brightness,
@@ -121,18 +130,19 @@ ThemeData buildAppTheme(AppearanceSettings appearance) {
     ),
     extensions: [glass, AppearanceTokens(blurSigma: blurSigma)],
     inputDecorationTheme: InputDecorationTheme(
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
       fillColor: inputFill,
       filled: true,
-      focusedBorder: OutlineInputBorder(
-        borderSide: const BorderSide(width: 2, color: Brand.primary),
-        borderRadius: BorderRadius.circular(Brand.radius),
-      ),
-      enabledBorder: UnderlineInputBorder(
-        borderSide: BorderSide(width: 2, color: onSurface.withAlpha(80)),
-        borderRadius: BorderRadius.zero,
-      ),
       isDense: true,
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      hintStyle: TextStyle(color: onSurface.withValues(alpha: 0.45)),
+      labelStyle: TextStyle(color: onSurface.withValues(alpha: 0.7)),
+      border: fieldBorder(fieldBorderColor),
+      enabledBorder: fieldBorder(fieldBorderColor),
+      disabledBorder: fieldBorder(fieldBorderColor.withValues(alpha: 0.08)),
+      focusedBorder: fieldBorder(Brand.primary, width: 1.5),
+      errorBorder: fieldBorder(Brand.destructive),
+      focusedErrorBorder: fieldBorder(Brand.destructive, width: 1.5),
       suffixIconColor: onSurface,
       focusColor: Brand.primary,
     ),

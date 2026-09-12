@@ -474,7 +474,7 @@ class _ScopeChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: emphasized ? Brand.primaryMuted : onSurface.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(Brand.radiusPill),
         border: Border.all(
           color: emphasized
               ? Brand.primary.withValues(alpha: 0.45)
@@ -556,7 +556,6 @@ class _KeyEditorDialogState extends State<_KeyEditorDialog> {
               controller: _label,
               decoration: InputDecoration(
                 isDense: true,
-                border: const OutlineInputBorder(),
                 hintText: l10n.modelsKeyLabelHint,
               ),
             ),
@@ -734,10 +733,7 @@ class _HfTokenFieldState extends ConsumerState<_HfTokenField> {
           child: TextField(
             controller: _controller,
             obscureText: true,
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(isDense: true),
             onChanged: (_) => setState(() => _dirty = true),
           ),
         ),

@@ -240,6 +240,7 @@ class _TableState<T> extends State<Table<T>> {
           },
         );
 
+        final radius = BorderRadius.circular(Brand.radius);
         return MouseRegion(
           cursor: isResizingColumn == 0
               ? MouseCursor.defer
@@ -247,8 +248,12 @@ class _TableState<T> extends State<Table<T>> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: Border.fromBorderSide(borderSide),
+              borderRadius: radius,
             ),
-            child: addScrollbars(table),
+            child: ClipRRect(
+              borderRadius: radius,
+              child: addScrollbars(table),
+            ),
           ),
         );
       },

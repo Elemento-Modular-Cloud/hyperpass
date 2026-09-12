@@ -17,38 +17,34 @@
 
 #pragma once
 
-#include <multipass/cli/command.h>
+#include "llama_server_process_spec.h"
+
 #include <multipass/rpc/multipass.grpc.pb.h>
 
-#include <QString>
+#include <QJsonObject>
 
-namespace multipass::cmd
+#include <string>
+
+namespace multipass
 {
-class Llm final : public Command
+
+bool looks_like_moe_model(const std::string& model_id);
+
+double kv_cache_byte_scale(const std::string& cache_type_k, const std::string& cache_type_v);
+
+struct ResolvedLlmLoad
 {
-public:
-    using Command::Command;
-    ReturnCodeVariant run(ArgParser* parser) override;
-
-    std::string name() const override;
-    QString short_help() const override;
-    QString description() const override;
-
-private:
-    ParseCode parse_args(ArgParser* parser);
-
-    QString subcommand;
-    QString model_id;
-    QString quant;
-    QString use_case;
-    QString query;
-    QString key_label;
-    QString key_id;
-    QString key_instance;
-    int limit{10};
     int ctx_size{4096};
     int max_tokens{0};
-    multipass::LlmLoadParams load_params;
-    bool recommend_only{false};
+    LlamaServerOptions llama;
+    LlmLoadParams echoed;
 };
-} // namespace multipass::cmd
+
+ResolvedLlmLoad resolve_llm_load(const LoadModelRequest& request, bool gpu_available);
+
+QJsonObject llm_load_params_to_json(const LlmLoadParams& params);
+LlmLoadParams llm_load_params_from_json(const QJsonObject& obj);
+
+void apply_resolved_to_options(LlamaServerOptions& options, const ResolvedLlmLoad& resolved);
+
+} // namespace multipass

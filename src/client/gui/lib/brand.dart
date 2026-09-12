@@ -90,8 +90,11 @@ abstract final class Brand {
   /// Dialog barrier over the app chrome.
   static const barrier = Color(0xCC0A0A10);
 
-  /// Corner radius used for buttons, cards, and inputs.
-  static const radius = 6.0;
+  /// Shared corner radius for buttons, fields, cards, tables, dialogs, and panels.
+  static const radius = 8.0;
+
+  /// Fully rounded ends for chips, avatars, and status pills.
+  static const radiusPill = 999.0;
 
   /// Backdrop blur sigma matching Electros `--backdrop-blur: blur(10px)`.
   static const glassBlurSigma = 10.0;

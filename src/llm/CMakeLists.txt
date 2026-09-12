@@ -20,6 +20,7 @@ add_library(llm STATIC
   binary_locator.cpp
   llama_server_process_spec.cpp
   llm_activity_log.cpp
+  llm_load_params.cpp
   llm_service.cpp
   llmfit_advisor.cpp
   managed_tools.cpp

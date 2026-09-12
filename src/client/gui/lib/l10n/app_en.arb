@@ -675,6 +675,110 @@
     "@modelsCtxSizeHelper": {
         "description": "Helper text under context size field"
     },
+    "modelsRuntimeLabel": "Runtime",
+    "@modelsRuntimeLabel": {
+        "description": "Dropdown label for inference runtime when loading a model"
+    },
+    "modelsGpuOffloadLabel": "GPU offload",
+    "@modelsGpuOffloadLabel": {
+        "description": "Dropdown label for how many layers to put on GPU"
+    },
+    "modelsGpuOffloadAuto": "Auto",
+    "@modelsGpuOffloadAuto": {
+        "description": "GPU offload option that lets llama.cpp decide"
+    },
+    "modelsGpuOffloadAll": "All layers",
+    "@modelsGpuOffloadAll": {
+        "description": "GPU offload option that puts every layer on GPU"
+    },
+    "modelsGpuOffloadCpu": "CPU only",
+    "@modelsGpuOffloadCpu": {
+        "description": "GPU offload option that keeps the model on CPU"
+    },
+    "modelsGpuOffloadCustom": "Custom",
+    "@modelsGpuOffloadCustom": {
+        "description": "GPU offload option for an exact layer count"
+    },
+    "modelsGpuLayersLabel": "GPU layers",
+    "@modelsGpuLayersLabel": {
+        "description": "Input label for a custom GPU layer count"
+    },
+    "modelsLoadAdvanced": "Advanced",
+    "@modelsLoadAdvanced": {
+        "description": "Expansion section title for extra llama.cpp load settings"
+    },
+    "modelsFlashAttnLabel": "Flash attention",
+    "@modelsFlashAttnLabel": {
+        "description": "Dropdown label for flash attention mode"
+    },
+    "modelsKvCacheLabel": "KV cache type",
+    "@modelsKvCacheLabel": {
+        "description": "Dropdown label for quantized KV cache"
+    },
+    "modelsFitLabel": "Fit to available memory",
+    "@modelsFitLabel": {
+        "description": "Toggle for llama.cpp --fit"
+    },
+    "modelsKeepInRamLabel": "Keep model in RAM",
+    "@modelsKeepInRamLabel": {
+        "description": "Toggle for mmap+mlock so the model is not swapped"
+    },
+    "modelsThreadsLabel": "CPU threads",
+    "@modelsThreadsLabel": {
+        "description": "Input label for generation thread count"
+    },
+    "modelsThreadsHelper": "0 uses the llama.cpp default.",
+    "@modelsThreadsHelper": {
+        "description": "Helper under the threads field"
+    },
+    "modelsThreadsBatchLabel": "Batch threads",
+    "@modelsThreadsBatchLabel": {
+        "description": "Input label for prompt-batch thread count"
+    },
+    "modelsBatchSizeLabel": "Batch size",
+    "@modelsBatchSizeLabel": {
+        "description": "Input label for logical batch size"
+    },
+    "modelsUbatchSizeLabel": "Micro-batch size",
+    "@modelsUbatchSizeLabel": {
+        "description": "Input label for physical ubatch size"
+    },
+    "modelsParallelLabel": "Parallel slots",
+    "@modelsParallelLabel": {
+        "description": "Input label for llama-server --parallel"
+    },
+    "modelsCacheReuseLabel": "Cache reuse",
+    "@modelsCacheReuseLabel": {
+        "description": "Input label for KV cache reuse chunk size"
+    },
+    "modelsMoeOffloadLabel": "MoE experts",
+    "@modelsMoeOffloadLabel": {
+        "description": "Dropdown label for Mixture of Experts CPU offload"
+    },
+    "modelsMoeOffloadCpu": "CPU",
+    "@modelsMoeOffloadCpu": {
+        "description": "MoE option that keeps expert weights on CPU"
+    },
+    "modelsNCpuMoeLabel": "MoE layers on CPU",
+    "@modelsNCpuMoeLabel": {
+        "description": "Optional count of MoE layers kept on CPU"
+    },
+    "modelsValueAuto": "Auto",
+    "@modelsValueAuto": {
+        "description": "Generic auto option for load-setting dropdowns"
+    },
+    "modelsValueOn": "On",
+    "@modelsValueOn": {
+        "description": "Generic on option for load-setting dropdowns"
+    },
+    "modelsValueOff": "Off",
+    "@modelsValueOff": {
+        "description": "Generic off option for load-setting dropdowns"
+    },
+    "modelsLoadSettingsInvalid": "Check the numbers. Context must be greater than 0.",
+    "@modelsLoadSettingsInvalid": {
+        "description": "Validation error when load settings contain invalid numbers"
+    },
     "modelsNoRuntimeAvailable": "No inference runtime is ready. Install llama-server or mlx-lm first.",
     "@modelsNoRuntimeAvailable": {
         "description": "Error when neither llama.cpp nor MLX is available to load a model"

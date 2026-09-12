@@ -29,6 +29,7 @@
 #include <optional>
 #include <algorithm>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -120,6 +121,80 @@ std::optional<mp::LoadedModelInfo> find_loaded(const mp::ListModelsReply& reply,
         }
     }
     return by_model_id;
+}
+
+int json_int(const json::object& obj, const char* key, int fallback)
+{
+    if (!obj.contains(key))
+        return fallback;
+    const auto& value = obj.at(key);
+    if (value.is_int64())
+        return static_cast<int>(value.as_int64());
+    if (value.is_uint64())
+        return static_cast<int>(value.as_uint64());
+    if (value.is_double())
+        return static_cast<int>(value.as_double());
+    if (value.is_string())
+    {
+        try
+        {
+            return std::stoi(std::string(value.as_string()));
+        }
+        catch (const std::exception&)
+        {
+            return fallback;
+        }
+    }
+    return fallback;
+}
+
+std::string json_string(const json::object& obj, const char* key)
+{
+    if (!obj.contains(key) || !obj.at(key).is_string())
+        return {};
+    return std::string(obj.at(key).as_string());
+}
+
+void apply_json_load_params(mp::LlmLoadParams& params, const json::object& obj)
+{
+    if (obj.contains("ctx_size"))
+        params.set_ctx_size(json_int(obj, "ctx_size", 0));
+    if (obj.contains("max_tokens"))
+        params.set_max_tokens(json_int(obj, "max_tokens", 0));
+    if (const auto ngl = json_string(obj, "n_gpu_layers"); !ngl.empty())
+        params.set_n_gpu_layers(ngl);
+    if (const auto flash = json_string(obj, "flash_attn"); !flash.empty())
+        params.set_flash_attn(flash);
+    if (const auto ctk = json_string(obj, "cache_type_k"); !ctk.empty())
+        params.set_cache_type_k(ctk);
+    if (const auto ctv = json_string(obj, "cache_type_v"); !ctv.empty())
+        params.set_cache_type_v(ctv);
+    if (obj.contains("threads"))
+        params.set_threads(json_int(obj, "threads", 0));
+    if (obj.contains("threads_batch"))
+        params.set_threads_batch(json_int(obj, "threads_batch", 0));
+    if (obj.contains("batch_size"))
+        params.set_batch_size(json_int(obj, "batch_size", 0));
+    if (obj.contains("ubatch_size"))
+        params.set_ubatch_size(json_int(obj, "ubatch_size", 0));
+    if (obj.contains("parallel"))
+        params.set_parallel(json_int(obj, "parallel", 1));
+    if (obj.contains("cache_reuse"))
+        params.set_cache_reuse(json_int(obj, "cache_reuse", 0));
+    if (obj.contains("fit"))
+    {
+        const auto& value = obj.at("fit");
+        if (value.is_bool())
+            params.set_fit(value.as_bool());
+        else if (value.is_string())
+            params.set_fit(std::string(value.as_string()) != "off");
+    }
+    if (const auto mode = json_string(obj, "load_mode"); !mode.empty())
+        params.set_load_mode(mode);
+    if (const auto moe = json_string(obj, "moe_offload"); !moe.empty())
+        params.set_moe_offload(moe);
+    if (obj.contains("n_cpu_moe"))
+        params.set_n_cpu_moe(json_int(obj, "n_cpu_moe", 0));
 }
 
 std::string apply_session_max_tokens(std::string body, int32_t cap)
@@ -403,13 +478,13 @@ void mp::api::register_model_control_handlers(httplib::Server& server, GrpcBacke
                         const auto quant = parsed.contains("quant")
                                                ? std::string(parsed.at("quant").as_string())
                                                : "";
-                        const auto ctx = parsed.contains("ctx_size")
-                                             ? static_cast<int>(parsed.at("ctx_size").as_int64())
-                                             : 4096;
-                        const auto max_tokens = parsed.contains("max_tokens")
-                                                   ? static_cast<int>(parsed.at("max_tokens").as_int64())
-                                                   : 0;
-                        const auto result = backend.load_model(id, quant, ctx, max_tokens);
+                        const auto ctx = json_int(parsed, "ctx_size", 4096);
+                        const auto max_tokens = json_int(parsed, "max_tokens", 0);
+                        mp::LlmLoadParams params;
+                        apply_json_load_params(params, parsed);
+                        if (parsed.contains("params") && parsed.at("params").is_object())
+                            apply_json_load_params(params, parsed.at("params").as_object());
+                        const auto result = backend.load_model(id, quant, ctx, max_tokens, params);
                         if (!result.status.ok())
                         {
                             body["error"] = result.status.error_message();

@@ -126,6 +126,11 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         request.set_quant(quant.toStdString());
         request.set_ctx_size(ctx_size);
         request.set_max_tokens(max_tokens);
+        *request.mutable_params() = load_params;
+        if (load_params.has_ctx_size())
+            request.set_ctx_size(load_params.ctx_size());
+        if (load_params.has_max_tokens())
+            request.set_max_tokens(load_params.max_tokens());
         AnimatedSpinner spinner{cout};
         spinner.start("Loading model ");
         auto on_success = [this, &spinner](LoadModelReply& reply) -> ReturnCodeVariant {
@@ -363,6 +368,23 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
                                       "Default/cap for OpenAI max_tokens (0 = unlimited)",
                                       "n",
                                       "0"};
+    QCommandLineOption ngl_opt{"n-gpu-layers", "GPU layers: auto, all, or a count", "n"};
+    QCommandLineOption flash_opt{"flash-attn", "Flash attention: auto, on, or off", "mode"};
+    QCommandLineOption ctk_opt{"cache-type-k", "KV cache type for K (f16, q8_0, q4_0)", "type"};
+    QCommandLineOption ctv_opt{"cache-type-v", "KV cache type for V (f16, q8_0, q4_0)", "type"};
+    QCommandLineOption threads_opt{"threads", "CPU threads for generation", "n"};
+    QCommandLineOption threads_batch_opt{"threads-batch", "CPU threads for prompt batching", "n"};
+    QCommandLineOption batch_opt{"batch-size", "Logical batch size", "n"};
+    QCommandLineOption ubatch_opt{"ubatch-size", "Physical micro-batch size", "n"};
+    QCommandLineOption parallel_opt{"parallel", "Server slots", "n"};
+    QCommandLineOption cache_reuse_opt{"cache-reuse", "Min chunk size for KV cache reuse", "n"};
+    QCommandLineOption fit_opt{"fit", "Fit unset args to device memory: on or off", "mode"};
+    QCommandLineOption load_mode_opt{"load-mode",
+                                     "Model load mode: auto, mmap, mlock, mmap+mlock",
+                                     "mode"};
+    QCommandLineOption moe_opt{"moe-offload", "MoE expert placement: auto, cpu, or off", "mode"};
+    QCommandLineOption cpu_moe_opt{"cpu-moe", "Keep MoE expert weights on CPU"};
+    QCommandLineOption n_cpu_moe_opt{"n-cpu-moe", "Keep the first N MoE layers on CPU", "n"};
     QCommandLineOption label_opt{"label", "API key label", "label"};
     QCommandLineOption instance_opt{"instance", "Bind key to a loaded LLM instance", "instance"};
     parser->addOption(use_case_opt);
@@ -372,6 +394,21 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     parser->addOption(quant_opt);
     parser->addOption(ctx_opt);
     parser->addOption(max_tokens_opt);
+    parser->addOption(ngl_opt);
+    parser->addOption(flash_opt);
+    parser->addOption(ctk_opt);
+    parser->addOption(ctv_opt);
+    parser->addOption(threads_opt);
+    parser->addOption(threads_batch_opt);
+    parser->addOption(batch_opt);
+    parser->addOption(ubatch_opt);
+    parser->addOption(parallel_opt);
+    parser->addOption(cache_reuse_opt);
+    parser->addOption(fit_opt);
+    parser->addOption(load_mode_opt);
+    parser->addOption(moe_opt);
+    parser->addOption(cpu_moe_opt);
+    parser->addOption(n_cpu_moe_opt);
     parser->addOption(label_opt);
     parser->addOption(instance_opt);
 
@@ -408,9 +445,45 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     if (parser->isSet(quant_opt))
         quant = parser->value(quant_opt);
     if (parser->isSet(ctx_opt))
+    {
         ctx_size = parser->value(ctx_opt).toInt();
+        load_params.set_ctx_size(ctx_size);
+    }
     if (parser->isSet(max_tokens_opt))
+    {
         max_tokens = parser->value(max_tokens_opt).toInt();
+        load_params.set_max_tokens(max_tokens);
+    }
+    if (parser->isSet(ngl_opt))
+        load_params.set_n_gpu_layers(parser->value(ngl_opt).toStdString());
+    if (parser->isSet(flash_opt))
+        load_params.set_flash_attn(parser->value(flash_opt).toStdString());
+    if (parser->isSet(ctk_opt))
+        load_params.set_cache_type_k(parser->value(ctk_opt).toStdString());
+    if (parser->isSet(ctv_opt))
+        load_params.set_cache_type_v(parser->value(ctv_opt).toStdString());
+    if (parser->isSet(threads_opt))
+        load_params.set_threads(parser->value(threads_opt).toInt());
+    if (parser->isSet(threads_batch_opt))
+        load_params.set_threads_batch(parser->value(threads_batch_opt).toInt());
+    if (parser->isSet(batch_opt))
+        load_params.set_batch_size(parser->value(batch_opt).toInt());
+    if (parser->isSet(ubatch_opt))
+        load_params.set_ubatch_size(parser->value(ubatch_opt).toInt());
+    if (parser->isSet(parallel_opt))
+        load_params.set_parallel(parser->value(parallel_opt).toInt());
+    if (parser->isSet(cache_reuse_opt))
+        load_params.set_cache_reuse(parser->value(cache_reuse_opt).toInt());
+    if (parser->isSet(fit_opt))
+        load_params.set_fit(parser->value(fit_opt).toLower() != "off");
+    if (parser->isSet(load_mode_opt))
+        load_params.set_load_mode(parser->value(load_mode_opt).toStdString());
+    if (parser->isSet(moe_opt))
+        load_params.set_moe_offload(parser->value(moe_opt).toStdString());
+    if (parser->isSet(cpu_moe_opt))
+        load_params.set_moe_offload("cpu");
+    if (parser->isSet(n_cpu_moe_opt))
+        load_params.set_n_cpu_moe(parser->value(n_cpu_moe_opt).toInt());
     if (parser->isSet(label_opt))
         key_label = parser->value(label_opt);
     if (parser->isSet(instance_opt))

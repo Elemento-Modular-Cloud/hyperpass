@@ -150,12 +150,13 @@ void main() {
 
   testWidgets('renders the Font Awesome fallback without catalog art',
       (tester) async {
+    const accent = Color(0xFF31648C);
     await tester.pumpWidget(
       const MaterialApp(
         home: ServiceIconBadge(
           branding: ServiceBranding(
             icon: FontAwesomeIcons.database,
-            accent: Color(0xFF31648C),
+            accent: accent,
           ),
         ),
       ),
@@ -163,5 +164,16 @@ void main() {
 
     expect(find.byType(SvgPicture), findsNothing);
     expect(find.byType(FaIcon), findsOneWidget);
+    expect(tester.widget<FaIcon>(find.byType(FaIcon)).color, accent);
+
+    final box = tester.widget<Container>(
+      find.descendant(
+        of: find.byType(ServiceIconBadge),
+        matching: find.byType(Container),
+      ),
+    );
+    final decoration = box.decoration! as BoxDecoration;
+    expect(decoration.color, catalogAccentFill(accent));
+    expect((decoration.border as Border).top.color, accent);
   });
 }

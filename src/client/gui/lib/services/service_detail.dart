@@ -279,7 +279,6 @@ class _ActionRow extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: const Border(),
         title: Row(
           children: [
             Expanded(

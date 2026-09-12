@@ -139,12 +139,15 @@ Color? parseCatalogColor(String? raw) {
   return Color(0xFF000000 | value);
 }
 
-/// Glyph colour on a catalog accent fill (icon badge).
+/// Glyph colour on a solid catalog accent fill.
 Color onCatalogAccent(Color accent) {
   return ThemeData.estimateBrightnessForColor(accent) == Brightness.light
       ? Brand.voidBlack
       : Brand.crystalWhite;
 }
+
+/// Translucent badge fill that keeps the catalog accent visible on both themes.
+Color catalogAccentFill(Color accent) => accent.withValues(alpha: 0.16);
 
 ServiceBranding serviceBranding(
   String serviceId, {
@@ -175,7 +178,7 @@ class ServiceIconBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final svg = branding.svg;
     final hasSvg = svg != null && svg.contains('<svg');
-    final glyph = onCatalogAccent(branding.accent);
+    final accent = branding.accent;
 
     return Semantics(
       label: semanticsLabel,
@@ -183,22 +186,23 @@ class ServiceIconBadge extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: branding.accent,
-          borderRadius: BorderRadius.circular(size * 0.28),
+          color: catalogAccentFill(accent),
+          borderRadius: BorderRadius.circular(Brand.radius),
+          border: Border.all(color: accent),
         ),
         padding: EdgeInsets.all(size * 0.18),
         child: hasSvg
             ? SvgPicture.string(
                 svg,
                 fit: BoxFit.contain,
-                colorFilter: ColorFilter.mode(glyph, BlendMode.srcIn),
+                colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
                 excludeFromSemantics: true,
               )
             : Center(
                 child: FaIcon(
                   branding.icon,
                   size: size * 0.48,
-                  color: glyph,
+                  color: accent,
                 ),
               ),
       ),

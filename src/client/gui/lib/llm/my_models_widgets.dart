@@ -389,6 +389,10 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                               modelId: model.id,
                               quant: model.bestQuant,
                               hfRepo: modelDownloadRepo(model),
+                              suggestedCtx: suggestedCtxForModel(
+                                usableContext: model.usableContext.toInt(),
+                                contextLength: model.contextLength.toInt(),
+                              ),
                             ),
                   ),
                   CardAction(

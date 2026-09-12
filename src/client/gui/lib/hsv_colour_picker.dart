@@ -343,7 +343,7 @@ class _ValueSliderPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = RRect.fromRectAndRadius(
       Rect.fromLTWH(4, 0, size.width - 8, size.height),
-      const Radius.circular(6),
+      const Radius.circular(Brand.radius),
     );
     final paint = Paint()
       ..shader = LinearGradient(
