@@ -1,0 +1,14 @@
+# Reference copy of the "postgres" service template used by `elp intent
+# create --service postgres`; the daemon embeds this content directly
+# (src/daemon/intent_service_templates.cpp) rather than reading this file.
+packages:
+- postgresql
+
+runcmd:
+- |
+  echo "listen_addresses = '*'" >> /etc/postgresql/*/main/postgresql.conf
+  echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/*/main/pg_hba.conf
+  systemctl enable postgresql --now
+  systemctl restart postgresql
+
+final_message: "postgres is up, after $UPTIME seconds"

@@ -44,6 +44,10 @@ service Rpc {
     rpc snapshot (stream SnapshotRequest) returns (stream SnapshotReply);
     rpc restore (stream RestoreRequest) returns (stream RestoreReply);
     rpc clone (stream CloneRequest) returns (stream CloneReply);
+    rpc intent_create (stream IntentCreateRequest) returns (stream IntentCreateReply);
+    rpc intent_list (stream IntentListRequest) returns (stream IntentListReply);
+    rpc intent_info (stream IntentInfoRequest) returns (stream IntentInfoReply);
+    rpc intent_delete (stream IntentDeleteRequest) returns (stream IntentDeleteReply);
     rpc daemon_info (stream DaemonInfoRequest) returns (stream DaemonInfoReply);
     rpc wait_ready (stream WaitReadyRequest) returns (stream WaitReadyReply);
     rpc zones (stream ZonesRequest) returns (stream ZonesReply);
@@ -96,6 +100,8 @@ message LaunchRequest {
     string password = 15;
     string zone = 16;
     string service_id = 17;
+    string intent = 18; // name of the intent this instance belongs to, if any
+    string intent_role = 19; // this instance's role within that intent (e.g. "redis")
 }
 
 message LaunchError {
@@ -274,6 +280,8 @@ message DetailedInfoItem {
 
     Zone zone = 9;
     string service_id = 10;
+    string intent = 11;
+    string intent_role = 12;
 }
 
 message InfoReply {
@@ -566,6 +574,75 @@ message CloneReply {
     string reply_message = 1;
     string log_line = 2;
 }
+
+// A single member to launch as part of an intent. Either set `role` to the
+// name of a known service template (e.g. "redis", "postgres") or fill in
+// `image`/`cloud_init_user_data` directly for an inline, ad-hoc member.
+// cloud_init_user_data is raw cloud-init content, not a path — same
+// convention as LaunchRequest, so this works against a remote daemon too;
+// the CLI reads and dumps any --instance cloud-init file client-side.
+message IntentMemberRequest {
+    string role = 1;
+    string image = 2;
+    string cloud_init_user_data = 3;
+    int32 num_cores = 4;
+    string mem_size = 5;
+    string disk_space = 6;
+}
+
+message IntentCreateRequest {
+    string name = 1;
+    repeated IntentMemberRequest members = 2;
+    int32 verbosity_level = 3;
+}
+
+message IntentCreateReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+message IntentMember {
+    string role = 1;
+    string instance_name = 2;
+    InstanceStatus instance_status = 3;
+}
+
+message IntentInfo {
+    string name = 1;
+    repeated IntentMember members = 2;
+    google.protobuf.Timestamp creation_timestamp = 3;
+}
+
+message IntentListRequest {
+    int32 verbosity_level = 1;
+}
+
+message IntentListReply {
+    repeated IntentInfo intents = 1;
+    string log_line = 2;
+}
+
+message IntentInfoRequest {
+    string name = 1;
+    int32 verbosity_level = 2;
+}
+
+message IntentInfoReply {
+    IntentInfo intent = 1;
+    string log_line = 2;
+}
+
+message IntentDeleteRequest {
+    string name = 1;
+    bool purge = 2;
+    int32 verbosity_level = 3;
+}
+
+message IntentDeleteReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
 message DaemonInfoRequest {
     int32 verbosity_level = 1;
 }

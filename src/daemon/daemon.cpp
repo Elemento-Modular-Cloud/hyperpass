@@ -18,6 +18,7 @@
 #include "daemon.h"
 #include "base_cloud_init_config.h"
 #include "instance_settings_handler.h"
+#include "intent_service_templates.h"
 #include "runtime_instance_info_helper.h"
 #include "snapshot_settings_handler.h"
 
@@ -39,6 +40,7 @@
 #include <multipass/exceptions/start_exception.h>
 #include <multipass/exceptions/virtual_machine_state_exceptions.h>
 #include <multipass/image_host/vm_image_host.h>
+#include <multipass/intent_spec.h>
 #include <multipass/ip_address.h>
 #include <multipass/json_utils.h>
 #include <multipass/logging/client_logger.h>
@@ -70,6 +72,7 @@
 
 #include <exception>
 
+#include <QDateTime>
 #include <QDir>
 #include <QEventLoop>
 #include <QFile>
@@ -167,6 +170,7 @@ bool is_instance_home(const QString& target, const std::string& username)
 
 constexpr auto category = "daemon";
 constexpr auto instance_db_name = "multipassd-vm-instances.json";
+constexpr auto intent_db_name = "multipassd-intents.json";
 constexpr auto sshfs_error_template =
     "Error enabling mount support in '{}'"
     "\n\nPlease install the 'multipass-sshfs' snap manually inside the instance.";
@@ -367,6 +371,38 @@ std::unordered_map<std::string, mp::VMSpecs> load_db(const mp::Path& data_path,
         {
             mpl::warn(category, "Ignoring ghost instance in database: {}", key);
             continue;
+        }
+    }
+    return reconstructed_records;
+}
+
+std::unordered_map<std::string, mp::IntentSpec> load_intents_db(const mp::Path& data_path)
+{
+    QDir data_dir{data_path};
+    QFile db_file{data_dir.filePath(intent_db_name)};
+    if (!db_file.open(QIODevice::ReadOnly))
+        return {};
+
+    boost::json::value records;
+    try
+    {
+        records = boost::json::parse(std::string_view(db_file.readAll()));
+    }
+    catch (const std::runtime_error&)
+    {
+        return {};
+    }
+
+    std::unordered_map<std::string, mp::IntentSpec> reconstructed_records;
+    for (const auto& [key, record] : records.as_object())
+    {
+        try
+        {
+            reconstructed_records.emplace(key, value_to<mp::IntentSpec>(record));
+        }
+        catch (const std::exception& e)
+        {
+            mpl::warn(category, "Ignoring malformed intent in database: {} ({})", key, e.what());
         }
     }
     return reconstructed_records;
@@ -621,6 +657,10 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_
     QObject::connect(&rpc, &mp::DaemonRpc::on_info, &daemon, &mp::Daemon::info);
     QObject::connect(&rpc, &mp::DaemonRpc::on_list, &daemon, &mp::Daemon::list);
     QObject::connect(&rpc, &mp::DaemonRpc::on_clone, &daemon, &mp::Daemon::clone);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_intent_create, &daemon, &mp::Daemon::intent_create);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_intent_list, &daemon, &mp::Daemon::intent_list);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_intent_info, &daemon, &mp::Daemon::intent_info);
+    QObject::connect(&rpc, &mp::DaemonRpc::on_intent_delete, &daemon, &mp::Daemon::intent_delete);
     QObject::connect(&rpc, &mp::DaemonRpc::on_networks, &daemon, &mp::Daemon::networks);
     QObject::connect(&rpc, &mp::DaemonRpc::on_mount, &daemon, &mp::Daemon::mount);
     QObject::connect(&rpc, &mp::DaemonRpc::on_recover, &daemon, &mp::Daemon::recover);
@@ -1425,6 +1465,10 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
     });
 
     connect_rpc(daemon_rpc, *this, llm_dispatcher.get());
+
+    intents = load_intents_db(mp::utils::backend_directory_path(
+        config->data_directory, config->factory->get_backend_directory_name()));
+
     std::vector<std::string> invalid_specs;
 
     try
@@ -3081,6 +3125,312 @@ catch (const std::exception& e)
     context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what()));
 }
 
+namespace
+{
+// Bridges a synthetic, internal `launch` invocation (intent_create reuses
+// Daemon::create_vm to launch each member) into the real IntentCreateReply
+// stream the client actually sees.
+class IntentMemberLaunchSink
+    : public grpc::ServerReaderWriterInterface<mp::LaunchReply, mp::LaunchRequest>
+{
+public:
+    explicit IntentMemberLaunchSink(
+        grpc::ServerReaderWriterInterface<mp::IntentCreateReply, mp::IntentCreateRequest>* outer)
+        : outer{outer}
+    {
+    }
+
+    void SendInitialMetadata() override
+    {
+    }
+
+    bool NextMessageSize(uint32_t* sz) override
+    {
+        *sz = 0;
+        return false;
+    }
+
+    bool Read(mp::LaunchRequest*) override
+    {
+        return false;
+    }
+
+    bool Write(const mp::LaunchReply& reply, grpc::WriteOptions) override
+    {
+        if (!reply.log_line().empty())
+        {
+            mp::IntentCreateReply forwarded;
+            forwarded.set_log_line(reply.log_line());
+            outer->Write(forwarded);
+        }
+        return true;
+    }
+
+private:
+    grpc::ServerReaderWriterInterface<mp::IntentCreateReply, mp::IntentCreateRequest>* outer;
+};
+
+// A one-shot DaemonRpcContext for a single intent member's internal launch:
+// forwards the eventual status to `on_done` instead of fulfilling a promise
+// someone blocks on. Nothing in intent_create waits synchronously for this,
+// since Daemon::create_vm completes asynchronously (via QFutureWatcher) and
+// blocking the daemon's own thread for it would deadlock; the callback is
+// what lets intent_create chain the next member without blocking.
+// Self-deletes once fired, since it must outlive the (synchronous) call to
+// create_vm() but nothing else owns it afterwards.
+class IntentMemberContext : public mp::DaemonRpcContext
+{
+public:
+    explicit IntentMemberContext(std::function<void(grpc::Status)> on_done)
+        : on_done{std::move(on_done)}
+    {
+    }
+
+    void set_value(grpc::Status status) override
+    {
+        auto callback = std::move(on_done);
+        delete this;
+        callback(std::move(status));
+    }
+
+private:
+    std::function<void(grpc::Status)> on_done;
+};
+
+void set_timestamp_from_iso8601(google::protobuf::Timestamp* timestamp, const std::string& iso8601)
+{
+    auto date_time = QDateTime::fromString(QString::fromStdString(iso8601), Qt::ISODateWithMs);
+    timestamp->set_seconds(date_time.toSecsSinceEpoch());
+    timestamp->set_nanos(date_time.time().msec() * 1'000'000);
+}
+} // namespace
+
+void mp::Daemon::intent_create(
+    const IntentCreateRequest* request,
+    grpc::ServerReaderWriterInterface<IntentCreateReply, IntentCreateRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    const auto& name = request->name();
+    if (name.empty())
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Intent name cannot be empty", ""});
+    if (intents.count(name))
+        return context->set_value({grpc::StatusCode::INVALID_ARGUMENT,
+                                   fmt::format("Intent \"{}\" already exists", name),
+                                   ""});
+    if (request->members().empty())
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "An intent needs at least one member", ""});
+
+    auto launch_requests = std::make_shared<std::vector<LaunchRequest>>();
+    for (const auto& member : request->members())
+    {
+        const auto& role = member.role();
+        if (role.empty())
+            return context->set_value(
+                {grpc::StatusCode::INVALID_ARGUMENT, "Each intent member needs a role", ""});
+
+        std::string image = member.image();
+        std::string cloud_init = member.cloud_init_user_data();
+        if (image.empty() && cloud_init.empty())
+        {
+            auto tmpl = find_intent_service_template(role);
+            if (!tmpl)
+                return context->set_value(
+                    {grpc::StatusCode::INVALID_ARGUMENT,
+                     fmt::format("Unknown service template \"{}\"; pass an image and/or "
+                                "cloud-init file for a custom member",
+                                role),
+                     ""});
+            image = tmpl->image;
+            cloud_init = tmpl->cloud_init_user_data;
+        }
+
+        LaunchRequest lr;
+        lr.set_instance_name(fmt::format("{}-{}", name, role));
+        lr.set_image(image);
+        lr.set_cloud_init_user_data(cloud_init);
+        lr.set_num_cores(member.num_cores() > 0 ? member.num_cores() : 1);
+        lr.set_mem_size(member.mem_size().empty() ? "1G" : member.mem_size());
+        lr.set_disk_space(member.disk_space().empty() ? "5G" : member.disk_space());
+        lr.set_intent(name);
+        lr.set_intent_role(role);
+
+        launch_requests->push_back(std::move(lr));
+    }
+
+    auto sink = std::make_shared<IntentMemberLaunchSink>(server);
+    auto spec = std::make_shared<IntentSpec>();
+    spec->name = name;
+    spec->creation_timestamp =
+        QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toStdString();
+
+    auto member_index = std::make_shared<size_t>(0);
+    auto launch_next = std::make_shared<std::function<void()>>();
+    *launch_next = [this, server, context, launch_requests, sink, spec, member_index, launch_next] {
+        if (*member_index >= launch_requests->size())
+        {
+            intents[spec->name] = *spec;
+            persist_intents();
+
+            IntentCreateReply reply;
+            reply.set_reply_message(fmt::format("Intent \"{}\" created with {} member(s).",
+                                                spec->name,
+                                                spec->members.size()));
+            server->Write(reply);
+            return context->set_value(grpc::Status::OK);
+        }
+
+        auto& member_request = (*launch_requests)[*member_index];
+        auto role = member_request.intent_role();
+
+        auto* member_context = new IntentMemberContext(
+            [launch_requests, spec, member_index, launch_next, context, role](
+                grpc::Status status) {
+                if (!status.ok())
+                    // Members already launched are left running (not rolled back in v1).
+                    return context->set_value(status);
+
+                spec->members.push_back({role, (*launch_requests)[*member_index].instance_name()});
+                ++(*member_index);
+                (*launch_next)();
+            });
+
+        try
+        {
+            create_vm(&member_request, sink.get(), member_context, /*start=*/true);
+        }
+        catch (const std::exception& e)
+        {
+            delete member_context; // create_vm threw before it could hand off ownership
+            context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+        }
+    };
+
+    (*launch_next)();
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::intent_list(
+    const IntentListRequest*,
+    grpc::ServerReaderWriterInterface<IntentListReply, IntentListRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    IntentListReply response;
+
+    for (const auto& [intent_name, spec] : intents)
+    {
+        auto* info = response.add_intents();
+        info->set_name(intent_name);
+        set_timestamp_from_iso8601(info->mutable_creation_timestamp(), spec.creation_timestamp);
+
+        for (const auto& member : spec.members)
+        {
+            auto* proto_member = info->add_members();
+            proto_member->set_role(member.role);
+            proto_member->set_instance_name(member.instance_name);
+
+            auto vm_it = operative_instances.find(member.instance_name);
+            proto_member->mutable_instance_status()->set_status(
+                vm_it == operative_instances.end()
+                    ? mp::InstanceStatus::DELETED
+                    : grpc_instance_status_for(vm_it->second->current_state()));
+        }
+    }
+
+    server->Write(response);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::intent_info(
+    const IntentInfoRequest* request,
+    grpc::ServerReaderWriterInterface<IntentInfoReply, IntentInfoRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    auto it = intents.find(request->name());
+    if (it == intents.end())
+        return context->set_value(
+            {grpc::StatusCode::NOT_FOUND,
+             fmt::format("Intent \"{}\" does not exist", request->name()),
+             ""});
+
+    const auto& spec = it->second;
+    IntentInfoReply response;
+    auto* info = response.mutable_intent();
+    info->set_name(spec.name);
+    set_timestamp_from_iso8601(info->mutable_creation_timestamp(), spec.creation_timestamp);
+
+    for (const auto& member : spec.members)
+    {
+        auto* proto_member = info->add_members();
+        proto_member->set_role(member.role);
+        proto_member->set_instance_name(member.instance_name);
+
+        auto vm_it = operative_instances.find(member.instance_name);
+        proto_member->mutable_instance_status()->set_status(
+            vm_it == operative_instances.end() ? mp::InstanceStatus::DELETED
+                                               : grpc_instance_status_for(vm_it->second->current_state()));
+    }
+
+    server->Write(response);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::intent_delete(
+    const IntentDeleteRequest* request,
+    grpc::ServerReaderWriterInterface<IntentDeleteReply, IntentDeleteRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    auto it = intents.find(request->name());
+    if (it == intents.end())
+        return context->set_value(
+            {grpc::StatusCode::NOT_FOUND,
+             fmt::format("Intent \"{}\" does not exist", request->name()),
+             ""});
+
+    const auto purge = request->purge();
+    auto instances_dirty = false;
+    for (const auto& member : it->second.members)
+    {
+        auto vm_it = operative_instances.find(member.instance_name);
+        if (vm_it == operative_instances.end())
+            continue;
+
+        DeleteReply throwaway_response;
+        instances_dirty |= delete_vm(vm_it, purge, throwaway_response);
+    }
+
+    if (instances_dirty)
+        persist_instances();
+
+    intents.erase(it);
+    persist_intents();
+
+    IntentDeleteReply response;
+    response.set_reply_message(fmt::format("Intent \"{}\" deleted", request->name()));
+    server->Write(response);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
 void mp::Daemon::daemon_info(
     const DaemonInfoRequest*,
     grpc::ServerReaderWriterInterface<DaemonInfoReply, DaemonInfoRequest>* server,
@@ -3376,6 +3726,15 @@ void mp::Daemon::persist_instances()
                                                     config->factory->get_backend_directory_name())};
     MP_FILEOPS.write_transactionally(data_dir.filePath(instance_db_name),
                                      pretty_print(instance_records_json));
+}
+
+void mp::Daemon::persist_intents()
+{
+    auto intent_records_json = boost::json::value_from(intents);
+    QDir data_dir{mp::utils::backend_directory_path(config->data_directory,
+                                                    config->factory->get_backend_directory_name())};
+    MP_FILEOPS.write_transactionally(data_dir.filePath(intent_db_name),
+                                     pretty_print(intent_records_json));
 }
 
 void mp::Daemon::release_resources(const std::string& instance)

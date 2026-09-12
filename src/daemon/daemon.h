@@ -23,6 +23,7 @@
 #include <multipass/async_periodic_download_task.h>
 #include <multipass/delayed_shutdown_timer.h>
 #include <multipass/format.h>
+#include <multipass/intent_spec.h>
 #include <multipass/mount_handler.h>
 #include <multipass/resource_pool.h>
 #include <multipass/virtual_machine.h>
@@ -54,6 +55,7 @@ public:
     ~Daemon();
 
     void persist_instances();
+    void persist_intents();
 
 protected:
     using InstanceTable = std::unordered_map<std::string, VirtualMachine::ShPtr>;
@@ -156,6 +158,26 @@ public slots:
     virtual void clone(const CloneRequest* request,
                        grpc::ServerReaderWriterInterface<CloneReply, CloneRequest>* server,
                        DaemonRpcContext* context);
+
+    virtual void intent_create(
+        const IntentCreateRequest* request,
+        grpc::ServerReaderWriterInterface<IntentCreateReply, IntentCreateRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void intent_list(
+        const IntentListRequest* request,
+        grpc::ServerReaderWriterInterface<IntentListReply, IntentListRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void intent_info(
+        const IntentInfoRequest* request,
+        grpc::ServerReaderWriterInterface<IntentInfoReply, IntentInfoRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void intent_delete(
+        const IntentDeleteRequest* request,
+        grpc::ServerReaderWriterInterface<IntentDeleteReply, IntentDeleteRequest>* server,
+        DaemonRpcContext* context);
 
     virtual void snapshot(const SnapshotRequest* request,
                           grpc::ServerReaderWriterInterface<SnapshotReply, SnapshotRequest>* server,
@@ -281,6 +303,7 @@ private:
 
 protected:
     std::unordered_map<std::string, VMSpecs> vm_instance_specs;
+    std::unordered_map<std::string, IntentSpec> intents;
     InstanceTable operative_instances;
 
     bool is_bridged(const std::string& instance_name) const;
