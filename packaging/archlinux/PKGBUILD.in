@@ -47,6 +47,7 @@ makedepends=(
   'zip'
   'unzip'
   'python'
+  'python-distlib' # qemu's mkvenv needs distlib; pip-installing it hits Arch's PEP 668 lock
   'apparmor' # libapparmor headers
   'systemd-libs' # libsystemd headers
   'libcap-ng' # qemu --enable-virtfs
