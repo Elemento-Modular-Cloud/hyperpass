@@ -84,8 +84,12 @@ makedepends=(
 #   ./scripts/build-arch.sh -- -I /tmp/libkeybinder3/libkeybinder3-*.pkg.tar.zst
 # For --no-sandbox builds, just `makepkg -si` it normally first.
 options=('!lto') # heavy C++ TUs (Qt/gRPC-generated code); LTO here is not worth the build time
-source=("elp::git+@REPO_SOURCE@")
-sha256sums=('SKIP')
+# elpd.service must be a declared local source (not just a sibling file
+# scripts/build-arch.sh copies next to this PKGBUILD): a sandboxed
+# extra-x86_64-build chroot only stages the PKGBUILD plus its own
+# source=() entries, nothing else that happens to sit alongside it.
+source=("elp::git+@REPO_SOURCE@" "elpd.service")
+sha256sums=('SKIP' 'SKIP')
 
 pkgver() {
   cd "${srcdir}/elp"
@@ -136,7 +140,7 @@ build() {
 package() {
   DESTDIR="${pkgdir}" cmake --install "${srcdir}/build"
 
-  install -Dm644 "${srcdir}/../elpd.service" \
+  install -Dm644 "${srcdir}/elpd.service" \
     "${pkgdir}/usr/lib/systemd/system/elpd.service"
   install -Dm644 "${srcdir}/elp/data/elp.gui.desktop" \
     "${pkgdir}/usr/share/applications/elp.gui.desktop"
