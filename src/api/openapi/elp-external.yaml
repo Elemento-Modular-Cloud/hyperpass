@@ -1,12 +1,12 @@
 openapi: 3.0.3
 info:
-  title: Electros LaunchPad AtomOS Service API
+  title: Electros LaunchPad Spot API
   description: |
-    Meson-compatible VM surface (temporarily on matcher port 7777; Service
-    canonical is 7781) backed by Electros LaunchPad. Aligns with the AtomOS Bruno
-    `service/` collection (Bearer auth on all Service paths, including `/`
-    and `/version`). All endpoints share this listen address.
-  version: 0.3.0
+    Spot v2 VM and marketplace-service surface on matcher port 7777, backed by
+    Electros LaunchPad. Aligns with the AtomOS Bruno `spot/` collection (Bearer
+    auth on `/`, `/version`, and `/api/v1.0/*`). All endpoints share this listen
+    address.
+  version: 0.4.0
 servers:
   - url: https://127.0.0.1:7777
     description: Host-local listen (HTTPS default)
@@ -18,7 +18,7 @@ paths:
   /:
     get:
       summary: Ping
-      description: AtomOS Service ping. Requires Bearer (Bruno `auth: inherit`).
+      description: Spot ping. Requires Bearer (Bruno `auth: inherit`).
       responses:
         "200":
           description: Alive
@@ -48,115 +48,99 @@ paths:
           $ref: "#/components/responses/Unauthorized"
   /api/v1.0/register:
     post:
-      summary: Register (launch) VM
-      description: AtomOS path; same handler as create_machine.
+      summary: Register (create + boot) Spot VM
+      description: |
+        Flat v2 spec (`cpu`, `mem`, `os`, `storage`, `networks`, `auth`, `tags`).
+        `startup.template` renders a marketplace recipe and ignores `cloud_init_b64`.
       responses:
         "200":
           description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vm_uid:
+                    type: string
+                  vm_name:
+                    type: string
+                  status:
+                    type: string
+                    example: running
         "400":
           description: Bad request
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "507":
+          description: Insufficient resources
         "503":
           description: Backend unreachable
-  /api/v1.0/create_machine:
+  /api/v1.0/canallocate:
+    get:
+      summary: Can allocate Spot VM
+      description: Dry-run. Same v2 objects as register without identity. POST is also accepted.
+      responses:
+        "200":
+          description: Placement result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  canallocate:
+                    type: boolean
+        "400":
+          description: Bad request
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
-      summary: Create machine (Meson alias of register)
+      summary: Can allocate Spot VM
       responses:
         "200":
-          description: Registered
+          description: Placement result
         "400":
           description: Bad request
         "401":
           $ref: "#/components/responses/Unauthorized"
-        "503":
-          description: Backend unreachable
   /api/v1.0/running:
     get:
-      summary: List VMs for client
-      description: AtomOS path; same handler as get_machine. Requires JSON body with client_uid.
+      summary: List running Spot VMs
+      description: |
+        No body. JSON array of public v2 objects (secrets omitted). Includes
+        Electros LaunchPad and stock Multipass instances; first list assigns a
+        stable `vm_uid` in the sidecar registry.
+
       responses:
         "200":
-          description: VM list
-        "400":
-          description: Bad request
+          description: Instance list
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/v1.0/get_machine:
+  /api/v1.0/credentials/{vm_uid}:
     get:
-      summary: Get machines (Meson alias of running)
-      description: Requires JSON body with client_uid.
+      summary: Get Spot VM credentials
+      parameters:
+        - name: vm_uid
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         "200":
-          description: VM list
-        "400":
-          description: Bad request
+          description: SSH and/or template URL
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: VM unknown
   /api/v1.0/unregister:
     delete:
-      summary: Unregister (delete) VM
-      description: AtomOS path; same handler as delete_machine.
+      summary: Unregister (delete) Spot VM
       responses:
         "200":
-          description: Unregistered
+          description: Deleted
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: Not found
-  /api/v1.0/delete_machine:
-    delete:
-      summary: Delete machine (Meson alias of unregister)
-      responses:
-        "200":
-          description: Unregistered
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          description: Not found
-  /api/v1.0/start:
-    post:
-      summary: Start VM
-      responses:
-        "200":
-          description: Started
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "409":
-          description: Already running
-  /api/v1.0/stop:
-    post:
-      summary: Stop VM
-      responses:
-        "200":
-          description: Stopped
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /api/v1.0/reboot:
-    post:
-      summary: Reboot VM
-      responses:
-        "200":
-          description: Rebooted
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /api/v1.0/images/find:
-    get:
-      summary: Find images
-      parameters:
-        - name: query
-          in: query
-          schema:
-            type: string
-        - name: remote
-          in: query
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Image catalog
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /api/v1/authenticate/cert:
     get:
       summary: Fetch remote TLS certificate fingerprint (Electros)

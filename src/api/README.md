@@ -1,9 +1,9 @@
 # elp-api
 
-REST sidecar implementing the AtomOS VM API (temporarily on matcher port **7777**;
-Service/Meson canonical is 7781), translating to `elpd` over mTLS gRPC.
-All endpoints — including fingerprint discovery — share that listen port on
-localhost and the Electros LaunchPad VM gateway (`192.168.67.1`).
+REST sidecar implementing the **Spot v2** VM/service API on matcher port **7777**,
+translating to `elpd` over mTLS gRPC. All endpoints — including fingerprint
+discovery — share that listen port on localhost and the Electros LaunchPad VM
+gateway (`192.168.67.1`).
 
 ## Build
 
@@ -20,28 +20,43 @@ export ELP_SERVER_ADDRESS=unix:/tmp/elp.socket
 # Plain HTTP (debug only): ./scripts/run-dev-api.sh --token secret --http
 ```
 
-## AtomOS VM endpoints (port 7777, temporary)
+Marketplace templates (`startup.template`, e.g. `n8n` / `n8n_v3`) need a checkout
+or JSON bundle:
 
-Aligned with Bruno `AtomOS/service/` (including Meson aliases). All Service paths
-require `Authorization: Bearer <token>` unless `--insecure-no-auth`.
+```bash
+export ELP_MARKETPLACE_DIR=/path/to/elemento-marketplace
+# or: export ELP_MARKETPLACE_URL=https://example/marketplace_services.json
+```
+
+## Spot VM endpoints (port 7777)
+
+Aligned with Bruno `AtomOS/spot`. All Spot paths require
+`Authorization: Bearer <token>` unless `--insecure-no-auth`. Optional routing
+headers: `X-Target-ID`, `X-Region` (region is stored and echoed; default `local`).
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
 | GET | `/` | yes | Ping (503 if elpd down) |
 | GET | `/version` | yes | Service + backend version |
-| GET | `/api/v1.0/canallocate` | yes | Remaining ResourcePool RAM (MiB); body can request `req.mem.capacity` |
-| POST | `/api/v1.0/register` | yes | Launch VM (returns `uniqueID` + `vm_uid`) |
-| POST | `/api/v1.0/create_machine` | yes | Meson alias of `register` |
-| GET | `/api/v1.0/running` | yes | List VMs: `{"vms":[{uniqueID,req_json,xml,…}]}` |
-| GET | `/api/v1.0/get_machine` | yes | Meson alias of `running` |
-| DELETE | `/api/v1.0/unregister` | yes | Delete (+ optional `purge`) |
-| DELETE | `/api/v1.0/delete_machine` | yes | Meson alias of `unregister` |
-| POST | `/api/v1.0/start` | yes | Start |
-| POST | `/api/v1.0/stop` | yes | Stop |
-| POST | `/api/v1.0/reboot` | yes | Restart |
-| GET | `/api/v1.0/images/find` | yes | Image catalog helper |
-| GET | `/api/v1.0/models` | yes | Loaded models (control plane; matcher Bearer) |
-| POST | `/api/v1.0/models/suggested\|pull\|load\|unload` | yes | llmfit suggestions and vault load |
+| GET | `/api/v1.0/canallocate` | yes | Dry-run placement from Spot spec (POST accepted too) |
+| POST | `/api/v1.0/register` | yes | Create + boot; `{vm_uid, vm_name, status}` |
+| GET | `/api/v1.0/running` | yes | JSON array of v2 instances (elp + Multipass; lazy-upsert) |
+| GET | `/api/v1.0/credentials/{vm_uid}` | yes | SSH and/or template URL |
+| DELETE | `/api/v1.0/unregister` | yes | Destroy; body `{vm_uid}` |
+
+Register bootstrap: `startup.template` (marketplace recipe) wins over
+`cloud_init_b64` / `startup.b64_code`. `auth` is always merged into cloud-init.
+Tags such as `service:n8n` (or the template handle) set gRPC `service_id` so the
+GUI Services tab lists REST-launched guests.
+
+`GET /running` lists every instance currently on `elpd` and (when discovered) stock
+Multipass. Guests launched from the GUI/CLI are lazy-upserted into
+`vm_registry.json` with a stable `vm_uid`. `credentials` and `unregister` follow
+that `source` so Multipass VMs are not sent to `elpd`. CPU/RAM/disk for those
+adopted rows are unknown (`0`) until a REST `register` supplies a Spot spec.
+
+PCI devices, extra data disks, and non-natted NICs are accepted and echoed but
+not placed yet.
 
 OpenAI inference (`sk-elp-` keys only; matcher token is rejected):
 
@@ -52,7 +67,10 @@ OpenAI inference (`sk-elp-` keys only; matcher token is rejected):
 | POST | `/v1/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 | POST | `/v1/embeddings` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
 
-Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/ca.crt`, `/api/v1/authenticate/cert`.  
+Control plane (matcher Bearer): `GET /api/v1.0/models`,
+`POST /api/v1.0/models/suggested|pull|load|unload`.
+
+Extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/ca.crt`, `/api/v1/authenticate/cert`.
 Extra (matcher auth): `/v1/instances`.
 
 ## HTTPS + fingerprint
@@ -119,5 +137,5 @@ Default (`info`): one line per HTTP request (`GET /path -> 200`).
 
 With `debug`/`trace`: pre-routing request details plus service-flow logs (register, canallocate, …). Auth failures log at `warning`.
 
-OpenAPI: [`openapi/elp-external.yaml`](openapi/elp-external.yaml)  
-Bruno reference: AtomOS `service/` collection (temporarily on port 7777).
+OpenAPI: [`openapi/elp-external.yaml`](openapi/elp-external.yaml)
+Bruno reference: AtomOS `spot/` collection.

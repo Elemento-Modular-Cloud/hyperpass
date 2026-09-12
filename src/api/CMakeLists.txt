@@ -28,7 +28,9 @@ add_library(elp_api STATIC
   vm_registry.cpp
   handlers/handlers.cpp
   handlers/openai.cpp
-  handlers/service.cpp)
+  handlers/service.cpp
+  marketplace_cloud_init.cpp
+  spot_spec.cpp)
 
 target_include_directories(elp_api
   PUBLIC
@@ -55,7 +57,8 @@ target_link_libraries(elp_api
     cert
   PRIVATE
     logger
-    utils)
+    utils
+    yaml-cpp::yaml-cpp)
 
 if(MSVC)
   prepare_windows_version_resource(

@@ -21,8 +21,10 @@
 #include "config.h"
 #include "handlers/handlers.h"
 #include "https_certs.h"
+#include "marketplace_cloud_init.h"
 #include "multipass_discovery.h"
 #include "operation_tracker.h"
+#include "spot_spec.h"
 #include "tls_fingerprint.h"
 #include "vm_registry.h"
 
@@ -38,11 +40,16 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -64,9 +71,9 @@ TEST(ApiAuth, publicPathsAreUnauthenticated)
     EXPECT_TRUE(api::is_public_path("/ca.crt"));
     EXPECT_TRUE(api::is_public_path("/api/v1/authenticate/cert"));
     EXPECT_FALSE(api::is_public_path("/api/v1.0/running"));
-    EXPECT_FALSE(api::is_public_path("/api/v1.0/get_machine"));
-    EXPECT_FALSE(api::is_public_path("/api/v1.0/create_machine"));
-    EXPECT_FALSE(api::is_public_path("/api/v1.0/delete_machine"));
+    EXPECT_FALSE(api::is_public_path("/api/v1.0/register"));
+    EXPECT_FALSE(api::is_public_path("/api/v1.0/unregister"));
+    EXPECT_FALSE(api::is_public_path("/api/v1.0/credentials/abc"));
     EXPECT_FALSE(api::is_public_path("/v1/instances"));
     EXPECT_FALSE(api::is_public_path("/v1/chat/completions"));
     EXPECT_TRUE(api::is_openai_inference_path("/v1/chat/completions"));
@@ -273,7 +280,7 @@ TEST(ApiDiscovery, defaultMultipassAddressIsPlatformSpecific)
 #endif
 }
 
-TEST(ApiVmRegistry, upsertFindAndListByClient)
+TEST(ApiVmRegistry, upsertFindAndList)
 {
     const auto path =
         (std::filesystem::temp_directory_path() / "elp-api-registry-test.json").string();
@@ -283,44 +290,221 @@ TEST(ApiVmRegistry, upsertFindAndListByClient)
     api::RegisteredVm vm;
     vm.vm_uid = "uid-1";
     vm.vm_name = "web-1";
-    vm.client_uid = "client-a";
-    vm.os_family = "linux";
-    vm.os_flavour = "ubuntu";
+    vm.username = "elemento";
+    vm.region = "local";
+    vm.template_id = "n8n";
+    vm.service_id = "n8n";
+    vm.spec_json = R"({"vm_name":"web-1","tags":["service:n8n"]})";
     registry.upsert(vm);
 
     auto found = registry.find_by_uid("uid-1");
     ASSERT_TRUE(found.has_value());
     EXPECT_EQ(found->vm_name, "web-1");
+    EXPECT_EQ(found->service_id, "n8n");
+    EXPECT_EQ(found->source, "elp");
+    EXPECT_EQ(api::normalize_vm_source(""), "elp");
+    EXPECT_EQ(api::normalize_vm_source("multipass"), "multipass");
 
-    const auto for_client = registry.list_for_client("client-a");
-    ASSERT_EQ(for_client.size(), 1u);
-    EXPECT_EQ(for_client[0].vm_uid, "uid-1");
-    EXPECT_TRUE(registry.list_for_client("other").empty());
+    const auto all = registry.all();
+    ASSERT_EQ(all.size(), 1u);
+    EXPECT_EQ(all[0].vm_uid, "uid-1");
+
+    api::RegisteredVm mp_vm;
+    mp_vm.vm_uid = "uid-mp";
+    mp_vm.vm_name = "web-1";
+    mp_vm.source = "multipass";
+    registry.upsert(mp_vm);
+    auto elp_named = registry.find_by_name("web-1", mp::instance_source_elp);
+    auto mp_named = registry.find_by_name("web-1", mp::instance_source_multipass);
+    ASSERT_TRUE(elp_named.has_value());
+    ASSERT_TRUE(mp_named.has_value());
+    EXPECT_EQ(elp_named->vm_uid, "uid-1");
+    EXPECT_EQ(mp_named->vm_uid, "uid-mp");
 
     EXPECT_TRUE(registry.remove("uid-1"));
+    EXPECT_TRUE(registry.remove("uid-mp"));
     EXPECT_FALSE(registry.find_by_uid("uid-1").has_value());
 
-    // Reload from disk after remove
     api::VmRegistry reloaded{path};
     EXPECT_FALSE(reloaded.find_by_uid("uid-1").has_value());
     std::filesystem::remove(path);
 }
 
-TEST(ApiCanallocate, emptyBodyMeansAnyRemainingRam)
+namespace
 {
-    EXPECT_EQ(api::requested_mib_from_canallocate_body(""), 0);
-    EXPECT_TRUE(api::can_allocate_from_available(1024, 0));
-    EXPECT_FALSE(api::can_allocate_from_available(0, 0));
+constexpr auto spot_basic = R"({
+  "vm_name": "web-1",
+  "cpu": {"slots": 2, "shared_cores": true, "arch": ["X86_64"]},
+  "mem": {"capacity_mb": 4096},
+  "os": {"family": "linux", "flavour": "ubuntu", "version": "24.04"},
+  "storage": {"boot": {"name": "root", "size_gb": 32}, "data": []},
+  "pci": {"devices": []},
+  "networks": [{"kind": "natted"}],
+  "auth": {"username": "elemento", "password": "secret", "ssh_key": "ssh-rsa AAAA"},
+  "tags": [],
+  "cloud_init_b64": "I2Nsb3VkLWNvbmZpZwpwYWNrYWdlczoKICAtIG5naW54Cg=="
+})";
 }
 
-TEST(ApiCanallocate, matcherMemCapacityAndAliases)
+TEST(ApiSpotSpec, parsesRegisterAndMapsLaunch)
 {
-    EXPECT_EQ(api::requested_mib_from_canallocate_body(R"({"req":{"mem":{"capacity":4096}}})"),
-              4096);
-    EXPECT_EQ(api::requested_mib_from_canallocate_body(R"({"memory_mib":2048})"), 2048);
-    EXPECT_EQ(api::requested_mib_from_canallocate_body(R"({"ram":512})"), 512);
-    EXPECT_TRUE(api::can_allocate_from_available(4096, 4096));
-    EXPECT_FALSE(api::can_allocate_from_available(1024, 2048));
+    const auto spec = api::parse_spot_spec(spot_basic, api::SpotParseMode::register_vm);
+    EXPECT_EQ(spec.vm_name, "web-1");
+    EXPECT_EQ(spec.cpu.slot_count, 2);
+    EXPECT_EQ(spec.mem.capacity_mb, 4096);
+    EXPECT_EQ(spec.os.version, "24.04");
+    EXPECT_EQ(spec.storage.boot.size_gb, 32);
+    EXPECT_TRUE(spec.has_cloud_init_b64);
+    EXPECT_EQ(spec.auth.username, "elemento");
+    EXPECT_TRUE(spec.networks.size() == 1);
+    EXPECT_EQ(spec.networks[0].kind, "natted");
+
+    const auto decoded = api::decode_cloud_init_b64(spec.cloud_init_b64);
+    EXPECT_THAT(decoded, HasSubstr("#cloud-config"));
+
+    const auto launch = api::launch_spec_from_spot(spec, decoded);
+    EXPECT_EQ(launch.instance_name, "web-1");
+    EXPECT_EQ(launch.image, "24.04");
+    EXPECT_EQ(launch.num_cores, 2);
+    EXPECT_EQ(launch.mem_size, "4096M");
+    EXPECT_EQ(launch.disk_space, "32G");
+    EXPECT_TRUE(launch.service_id.empty());
+}
+
+TEST(ApiSpotSpec, templateWinsOverB64AndSetsServiceId)
+{
+    const auto body = R"({
+      "vm_name": "n8n",
+      "cpu": {"slots": 4, "shared_cores": true, "arch": ["X86_64"]},
+      "mem": {"capacity_mb": 4096},
+      "os": {"family": "linux", "flavour": "ubuntu", "version": "24.04"},
+      "storage": {"boot": {"name": "root", "size_gb": 32}, "data": []},
+      "networks": [{"kind": "public", "open_ports": [{"protocol": "tcp", "port": 5678}]}],
+      "auth": {"username": "elemento"},
+      "tags": ["service:n8n"],
+      "startup": {"kind": "cloud-init", "template": "n8n"},
+      "cloud_init_b64": "I2Nsb3VkLWNvbmZpZwpwYWNrYWdlczoKICAtIG5naW54Cg=="
+    })";
+    const auto spec = api::parse_spot_spec(body, api::SpotParseMode::register_vm);
+    EXPECT_EQ(spec.startup_template, "n8n");
+    EXPECT_EQ(api::service_id_from_spec(spec), "n8n");
+    EXPECT_EQ(api::first_open_port(spec), 5678);
+
+    const auto public_json = api::spec_to_public_json(spec);
+    EXPECT_FALSE(public_json.contains("auth"));
+    EXPECT_FALSE(public_json.contains("cloud_init_b64"));
+    EXPECT_EQ(public_json.at("startup").as_object().at("template").as_string(), "n8n");
+}
+
+TEST(ApiSpotSpec, canallocateDropsIdentityAndTemplate)
+{
+    const auto spec = api::parse_spot_spec(spot_basic, api::SpotParseMode::canallocate);
+    EXPECT_TRUE(spec.auth.username.empty());
+    EXPECT_TRUE(spec.startup_template.empty());
+    EXPECT_FALSE(spec.has_cloud_init_b64);
+    EXPECT_EQ(spec.mem.capacity_mb, 4096);
+    EXPECT_TRUE(api::can_place_spot(spec, 8192, 8));
+    EXPECT_FALSE(api::can_place_spot(spec, 1024, 8));
+    EXPECT_FALSE(api::can_place_spot(spec, 8192, 1));
+}
+
+TEST(ApiSpotSpec, canallocateEmptyBodyMeansAnyRemainingRam)
+{
+    const auto spec = api::parse_spot_spec("", api::SpotParseMode::canallocate);
+    EXPECT_EQ(spec.mem.capacity_mb, 0);
+    EXPECT_TRUE(api::can_allocate_from_available(1024, spec.mem.capacity_mb));
+    EXPECT_FALSE(api::can_allocate_from_available(0, spec.mem.capacity_mb));
+}
+
+TEST(ApiSpotSpec, tagWithoutTemplateSetsServiceId)
+{
+    const auto body = R"({
+      "vm_name": "svc",
+      "cpu": {"slots": 2, "shared_cores": true, "arch": ["X86_64"]},
+      "mem": {"capacity_mb": 2048},
+      "os": {"family": "linux", "flavour": "ubuntu"},
+      "storage": {"boot": {"name": "root", "size_gb": 16}},
+      "tags": ["service:openclaw"]
+    })";
+    const auto spec = api::parse_spot_spec(body, api::SpotParseMode::register_vm);
+    EXPECT_EQ(api::service_id_from_spec(spec), "openclaw");
+}
+
+TEST(ApiSpotSpec, defaultsNattedNicWhenNetworksOmitted)
+{
+    const auto body = R"({
+      "vm_name": "plain",
+      "cpu": {"slots": 1, "shared_cores": true, "arch": ["X86_64"]},
+      "mem": {"capacity_mb": 1024},
+      "os": {"family": "linux", "flavour": "debian"},
+      "storage": {"boot": {"name": "root", "size_gb": 8}}
+    })";
+    const auto spec = api::parse_spot_spec(body, api::SpotParseMode::register_vm);
+    ASSERT_EQ(spec.networks.size(), 1u);
+    EXPECT_EQ(spec.networks[0].kind, "natted");
+    const auto launch = api::launch_spec_from_spot(spec, {});
+    EXPECT_EQ(launch.image, "debian");
+}
+
+TEST(ApiSpotSpec, synthesizesFromDaemonListFields)
+{
+    const auto spec = api::spec_from_daemon_fields("gui-n8n", "Ubuntu 24.04.3 LTS", "Ubuntu", "n8n");
+    EXPECT_EQ(spec.vm_name, "gui-n8n");
+    EXPECT_EQ(spec.os.family, "ubuntu");
+    EXPECT_EQ(spec.os.version, "24.04");
+    EXPECT_EQ(spec.startup_template, "n8n");
+    ASSERT_EQ(spec.tags.size(), 1u);
+    EXPECT_EQ(spec.tags[0], "service:n8n");
+    ASSERT_EQ(spec.networks.size(), 1u);
+    EXPECT_EQ(spec.networks[0].kind, "natted");
+
+    const auto public_json = api::spec_to_public_json(spec);
+    EXPECT_EQ(public_json.at("startup").as_object().at("template").as_string(), "n8n");
+}
+
+TEST(ApiMarketplace, lookupPinnedAndFamilyThenRender)
+{
+    mpt::TempDir temp_dir;
+    const QString services = temp_dir.path() + "/services";
+    std::filesystem::create_directories((services + "/n8n_v2").toStdString());
+    std::filesystem::create_directories((services + "/n8n_v3").toStdString());
+
+    auto write = [](const QString& path, std::string_view body) {
+        std::ofstream out{path.toStdString()};
+        out << body;
+    };
+    write(services + "/n8n_v2/service.yaml",
+          "metadata:\n  version: \"2\"\ncloud_init:\n  entrypoint: cloud-init.yaml\n"
+          "files: []\nprerequisites:\n  firewall:\n    - port: 5678\n      direction: ingress\n");
+    write(services + "/n8n_v2/cloud-init.yaml", "#cloud-config\npackages:\n  - old\n");
+    write(services + "/n8n_v3/service.yaml",
+          "metadata:\n  version: \"3\"\ncloud_init:\n  entrypoint: cloud-init.yaml\n"
+          "files:\n  - source: note.txt\n    destination: /opt/note.txt\n    owner: root:root\n"
+          "    permissions: \"0644\"\n"
+          "prerequisites:\n  firewall:\n    - port: 5678\n      direction: ingress\n");
+    write(services + "/n8n_v3/cloud-init.yaml", "#cloud-config\npackages:\n  - n8n\n");
+    write(services + "/n8n_v3/note.txt", "hello\n");
+
+    ::setenv("ELP_MARKETPLACE_DIR", temp_dir.path().toUtf8().constData(), 1);
+    ::unsetenv("ELP_MARKETPLACE_URL");
+
+    const auto library = api::load_marketplace_library();
+    const auto* pinned = library.lookup("n8n_v2");
+    ASSERT_NE(pinned, nullptr);
+    EXPECT_EQ(pinned->id, "n8n_v2");
+    const auto* latest = library.lookup("n8n");
+    ASSERT_NE(latest, nullptr);
+    EXPECT_EQ(latest->id, "n8n_v3");
+
+    const auto rendered = api::render_marketplace_cloud_init(
+        *latest, "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n");
+    EXPECT_THAT(rendered, HasSubstr("#cloud-config"));
+    EXPECT_THAT(rendered, HasSubstr("/opt/note.txt"));
+    EXPECT_THAT(rendered, HasSubstr("elp-llm-gateway.crt"));
+    EXPECT_THAT(rendered, HasSubstr("update-ca-certificates"));
+    EXPECT_EQ(api::first_marketplace_ingress_port(*latest), 5678);
+
+    ::unsetenv("ELP_MARKETPLACE_DIR");
 }
 
 namespace

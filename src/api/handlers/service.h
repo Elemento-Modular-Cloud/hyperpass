@@ -22,12 +22,16 @@
 
 #include <httplib.h>
 
+#include <string_view>
+
 namespace multipass::api
 {
 
-/** AtomOS Service / Meson-compatible VM API (temporarily on matcher port 7777). */
+/** Spot v2 VM + marketplace service API (matcher port 7777). */
 void register_service_handlers(httplib::Server& server,
                                GrpcBackend& elp_backend,
-                               VmRegistry& registry);
+                               VmRegistry& registry,
+                               std::string_view gateway_ca_pem = {},
+                               GrpcBackend* multipass_backend = nullptr);
 
 } // namespace multipass::api

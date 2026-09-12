@@ -16,21 +16,22 @@
  */
 
 #include "service.h"
-#include "handlers.h"
+
+#include "marketplace_cloud_init.h"
+#include "spot_spec.h"
 
 #include <boost/json.hpp>
 
-#include <multipass/constants.h>
 #include <multipass/format.h>
 #include <multipass/logging/log.h>
 #include <multipass/utils.h>
 #include <multipass/version.h>
+#include <multipass/constants.h>
 
 #include <algorithm>
-#include <cctype>
 #include <optional>
+#include <stdexcept>
 #include <string>
-#include <unordered_map>
 
 namespace mpl = multipass::logging;
 
@@ -40,105 +41,12 @@ namespace json = boost::json;
 namespace
 {
 constexpr auto service_category = "api-service";
-constexpr auto backend_name = "elp";
 
 std::string json_string_field(const json::object& obj, std::string_view key, std::string_view fallback = {})
 {
     if (!obj.contains(key) || !obj.at(key).is_string())
         return std::string{fallback};
     return std::string(obj.at(key).as_string());
-}
-
-std::int64_t json_int_field(const json::object& obj, std::string_view key, std::int64_t fallback = 0)
-{
-    if (!obj.contains(key))
-        return fallback;
-    const auto& v = obj.at(key);
-    if (v.is_int64())
-        return v.as_int64();
-    if (v.is_uint64())
-        return static_cast<std::int64_t>(v.as_uint64());
-    if (v.is_double())
-        return static_cast<std::int64_t>(v.as_double());
-    return fallback;
-}
-
-std::int64_t parse_requested_mib(std::string_view body)
-{
-    if (body.empty())
-        return 0;
-    try
-    {
-        const auto parsed = json::parse(body);
-        if (!parsed.is_object())
-            return 0;
-        const auto& obj = parsed.as_object();
-        std::int64_t requested_mib = 0;
-        if (obj.contains("req") && obj.at("req").is_object())
-        {
-            const auto& req_obj = obj.at("req").as_object();
-            if (req_obj.contains("mem") && req_obj.at("mem").is_object())
-                requested_mib = json_int_field(req_obj.at("mem").as_object(), "capacity", 0);
-        }
-        if (requested_mib == 0)
-            requested_mib = json_int_field(obj, "memory_mib", 0);
-        if (requested_mib == 0)
-            requested_mib = json_int_field(obj, "ram", 0);
-        return requested_mib;
-    }
-    catch (const std::exception&)
-    {
-        return 0;
-    }
-}
-
-bool json_truthy(const json::value& v)
-{
-    if (v.is_bool())
-        return v.as_bool();
-    if (v.is_int64())
-        return v.as_int64() != 0;
-    if (v.is_string())
-    {
-        auto s = std::string(v.as_string());
-        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return std::tolower(c); });
-        return s == "true" || s == "1" || s == "yes";
-    }
-    return false;
-}
-
-std::optional<json::object> parse_object_body(const httplib::Request& req, httplib::Response& res)
-{
-    if (req.body.empty())
-    {
-        json::object body;
-        body["error"] = "request was badly formatted. missing body";
-        res.status = 400;
-        res.set_content(json::serialize(body), "application/json");
-        return std::nullopt;
-    }
-
-    try
-    {
-        const auto parsed = json::parse(req.body);
-        if (!parsed.is_object())
-        {
-            json::object body;
-            body["error"] = "request was badly formatted. body must be a JSON object";
-            res.status = 400;
-            res.set_content(json::serialize(body), "application/json");
-            return std::nullopt;
-        }
-        return parsed.as_object();
-    }
-    catch (const std::exception& e)
-    {
-        json::object body;
-        body["error"] = fmt::format("request was badly formatted. {}", e.what());
-        res.status = 400;
-        res.set_content(json::serialize(body), "application/json");
-        return std::nullopt;
-    }
 }
 
 void set_json(httplib::Response& res, int status, const json::value& body)
@@ -163,6 +71,14 @@ void set_daemon_error(httplib::Response& res, const grpc::Status& status)
         body["error"] = "not_found";
         body["message"] = status.error_message();
         set_json(res, 404, body);
+        return;
+    }
+    if (status.error_code() == grpc::StatusCode::RESOURCE_EXHAUSTED)
+    {
+        json::object body;
+        body["error"] = "insufficient_resources";
+        body["message"] = status.error_message();
+        set_json(res, 507, body);
         return;
     }
     if (status.error_code() == grpc::StatusCode::INVALID_ARGUMENT ||
@@ -209,293 +125,198 @@ std::string instance_status_name(const mp::InstanceStatus& status)
     }
 }
 
-std::string image_for_flavour(std::string_view flavour)
+std::optional<json::object> parse_object_body(const httplib::Request& req, httplib::Response& res)
 {
-    std::string lower{flavour};
-    std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
+    if (req.body.empty())
+    {
+        json::object body;
+        body["error"] = "request was badly formatted. missing body";
+        set_json(res, 400, body);
+        return std::nullopt;
+    }
 
-    if (lower == "ubuntu" || lower.empty())
-        return "ubuntu";
-    if (lower == "debian")
-        return "debian";
-    if (lower == "fedora")
-        return "fedora";
-    if (lower == "centos")
-        return "centos";
-    return lower;
+    try
+    {
+        const auto parsed = json::parse(req.body);
+        if (!parsed.is_object())
+        {
+            json::object body;
+            body["error"] = "request was badly formatted. body must be a JSON object";
+            set_json(res, 400, body);
+            return std::nullopt;
+        }
+        return parsed.as_object();
+    }
+    catch (const std::exception& e)
+    {
+        json::object body;
+        body["error"] = fmt::format("request was badly formatted. {}", e.what());
+        set_json(res, 400, body);
+        return std::nullopt;
+    }
 }
 
-std::string build_cloud_init(const json::object& body)
+std::string header_or(const httplib::Request& req, const char* name, std::string_view fallback)
+{
+    const auto value = req.get_header_value(name);
+    return value.empty() ? std::string{fallback} : value;
+}
+
+std::string resolve_user_data(const mp::api::SpotSpec& spec, std::string_view gateway_ca_pem)
 {
     std::string user_data;
-    if (body.contains("startup") && body.at("startup").is_object())
+    if (!spec.startup_template.empty())
     {
-        const auto& startup = body.at("startup").as_object();
-        const auto tech = json_string_field(startup, "technology");
-        if (!tech.empty() && tech != "cloud-init")
-            throw std::runtime_error(fmt::format("unknown startup.technology '{}'", tech));
-        user_data = json_string_field(startup, "user_data");
+        const auto library = mp::api::load_marketplace_library();
+        const auto* service = library.lookup(spec.startup_template);
+        if (!service)
+            throw std::runtime_error(
+                fmt::format("unknown marketplace template '{}'", spec.startup_template));
+        user_data = mp::api::render_marketplace_cloud_init(*service, gateway_ca_pem);
     }
+    else if (spec.has_cloud_init_b64)
+        user_data = mp::api::decode_cloud_init_b64(spec.cloud_init_b64);
 
-    std::string username;
-    std::string password;
-    std::string ssh_key;
-    if (body.contains("authentication") && body.at("authentication").is_object())
-    {
-        const auto& auth = body.at("authentication").as_object();
-        username = json_string_field(auth, "username");
-        password = json_string_field(auth, "password");
-        ssh_key = json_string_field(auth, "ssh-key");
-        if (ssh_key.empty())
-            ssh_key = json_string_field(auth, "ssh_key");
-    }
-
-    if (username.empty() && password.empty() && ssh_key.empty())
-        return user_data;
-
-    // Merge a minimal users block ahead of optional caller user-data.
-    std::string generated = "#cloud-config\nusers:\n";
-    generated += fmt::format("  - name: {}\n", username.empty() ? "ubuntu" : username);
-    generated += "    sudo: ALL=(ALL) NOPASSWD:ALL\n";
-    generated += "    shell: /bin/bash\n";
-    if (!password.empty())
-        generated += fmt::format("    plain_text_passwd: \"{}\"\n    lock_passwd: false\n", password);
-    if (!ssh_key.empty())
-    {
-        generated += "    ssh_authorized_keys:\n";
-        generated += fmt::format("      - {}\n", ssh_key);
-    }
-
-    if (!user_data.empty())
-    {
-        // Strip leading #cloud-config from caller data to avoid duplicate headers.
-        auto rest = user_data;
-        constexpr std::string_view header = "#cloud-config";
-        if (rest.rfind(header, 0) == 0)
-            rest = rest.substr(header.size());
-        while (!rest.empty() && (rest.front() == '\n' || rest.front() == '\r'))
-            rest.erase(rest.begin());
-        if (!rest.empty())
-            generated += rest;
-        if (generated.back() != '\n')
-            generated.push_back('\n');
-    }
-
-    return generated;
+    return mp::api::merge_auth_into_cloud_init(std::move(user_data), spec.auth);
 }
 
-std::string flavour_from_os(std::string_view os, std::string_view release)
+bool daemon_can_place(mp::api::GrpcBackend& backend, const mp::api::SpotSpec& spec, httplib::Response& res)
 {
-    std::string lower_os{os};
-    std::transform(lower_os.begin(), lower_os.end(), lower_os.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
-    if (lower_os.find("ubuntu") != std::string::npos)
-        return "ubuntu";
-    if (lower_os.find("debian") != std::string::npos)
-        return "debian";
-    if (lower_os.find("fedora") != std::string::npos)
-        return "fedora";
-    if (!release.empty())
-        return std::string{release};
-    return lower_os.empty() ? "linux" : lower_os;
+    if (!backend.ping())
+    {
+        set_json(res, 503, json::object{{"error", "elp backend unreachable"}, {"canallocate", false}});
+        return false;
+    }
+    const auto info = backend.daemon_info();
+    if (!info.status.ok())
+    {
+        set_json(res, 503, json::object{{"error", info.status.error_message()}, {"canallocate", false}});
+        return false;
+    }
+    const auto available_mib =
+        static_cast<std::int64_t>(info.reply.memory_available() / (1024 * 1024));
+    const auto available_slots = std::max<std::int64_t>(
+        0,
+        static_cast<std::int64_t>(info.reply.cpus()) - info.reply.cpus_claimed());
+    return mp::api::can_place_spot(spec, available_mib, available_slots);
 }
 
-/** Ensure req_json fields Electros VmModel.fromJSON requires are present/typed. */
-json::object electros_safe_req_json(json::object req)
+std::int64_t credential_port(const mp::api::RegisteredVm& recorded, const mp::api::SpotSpec& spec)
 {
-    auto ensure_array = [&req](std::string_view key) {
-        if (!req.contains(key) || !req.at(key).is_array())
-            req[key] = json::array{};
-    };
-    ensure_array("networks");
-    ensure_array("pcidevs");
-    ensure_array("netdevs");
-    ensure_array("flags");
-
-    json::array safe_vols;
-    if (req.contains("volumes") && req.at("volumes").is_array())
+    const auto from_spec = mp::api::first_open_port(spec);
+    if (from_spec > 0)
+        return from_spec;
+    if (recorded.template_id.empty() && recorded.service_id.empty())
+        return 0;
+    try
     {
-        for (const auto& v : req.at("volumes").as_array())
-        {
-            if (!v.is_object())
-                continue;
-            auto vol = v.as_object();
-            if (!vol.contains("lastUpdated") || !vol.at("lastUpdated").is_string())
-                vol["lastUpdated"] = "";
-            if (!vol.contains("cache") || !vol.at("cache").is_object())
-            {
-                json::object cache;
-                cache["partitions"] = json::array{};
-                vol["cache"] = std::move(cache);
-            }
-            else
-            {
-                auto& cache = vol.at("cache").as_object();
-                if (!cache.contains("partitions") || !cache.at("partitions").is_array())
-                    cache["partitions"] = json::array{};
-            }
-            safe_vols.push_back(std::move(vol));
-        }
+        const auto library = mp::api::load_marketplace_library();
+        const auto handle = recorded.template_id.empty() ? recorded.service_id : recorded.template_id;
+        if (const auto* service = library.lookup(handle))
+            return mp::api::first_marketplace_ingress_port(*service);
     }
-    req["volumes"] = std::move(safe_vols);
-
-    if (!req.contains("viewer"))
-        req["viewer"] = nullptr;
-    if (!req.contains("domviewer"))
-        req["domviewer"] = nullptr;
-    if (!req.contains("network_config"))
-        req["network_config"] = nullptr;
-    if (!req.contains("states"))
-        req["states"] = "running";
-
-    return req;
+    catch (const std::exception&)
+    {
+    }
+    return 0;
 }
 
-bool is_electros_req_json(const json::object& req)
+json::object running_item_from(const mp::api::RegisteredVm& recorded, const mp::ListVMInstance& inst)
 {
-    return req.contains("vm_name") && req.contains("os_family");
-}
-
-/** Build Electros VmModel req_json from matcher systemrequirements or an existing req_json. */
-json::object build_electros_req_json(json::object req_or_sys,
-                                     std::string_view vm_name,
-                                     std::string_view os_family,
-                                     std::string_view os_flavour,
-                                     const json::array& volumes,
-                                     const json::array& networks,
-                                     bool autostart,
-                                     std::string_view state,
-                                     std::string_view guest_ipv4 = {})
-{
-    if (is_electros_req_json(req_or_sys))
-    {
-        if (!req_or_sys.contains("states"))
-            req_or_sys["states"] = state;
-        if (!volumes.empty() &&
-            (!req_or_sys.contains("volumes") || !req_or_sys.at("volumes").is_array() ||
-             req_or_sys.at("volumes").as_array().empty()))
-            req_or_sys["volumes"] = volumes;
-        if (!networks.empty() &&
-            (!req_or_sys.contains("networks") || !req_or_sys.at("networks").is_array() ||
-             req_or_sys.at("networks").as_array().empty()))
-            req_or_sys["networks"] = networks;
-        return electros_safe_req_json(std::move(req_or_sys));
-    }
-
-    json::object misc;
-    json::object cpu;
-    json::object mem;
-    if (req_or_sys.contains("misc") && req_or_sys.at("misc").is_object())
-        misc = req_or_sys.at("misc").as_object();
-    if (req_or_sys.contains("cpu") && req_or_sys.at("cpu").is_object())
-        cpu = req_or_sys.at("cpu").as_object();
-    if (req_or_sys.contains("mem") && req_or_sys.at("mem").is_object())
-        mem = req_or_sys.at("mem").as_object();
-
-    const auto family =
-        os_family.empty() ? json_string_field(misc, "os_family", "linux") : std::string{os_family};
-    const auto flavour = os_flavour.empty() ? json_string_field(misc, "os_flavour", family)
-                                            : std::string{os_flavour};
-
-    const auto cpu_slots = json_int_field(cpu, "slots", 1);
-    const auto capacity_mb = json_int_field(mem, "capacity", 1024);
-    const auto ramsize_gb = std::max<std::int64_t>((capacity_mb + 1023) / 1024, 1);
-
-    json::object req;
-    req["vm_name"] = vm_name;
-    req["states"] = state;
-    req["slots"] = cpu_slots;
-    req["ramsize"] = ramsize_gb;
-    req["os_family"] = family;
-    req["os_flavour"] = flavour;
-    req["creation_date"] = "";
-    req["autostart"] = autostart;
-    req["firmware"] = json_string_field(misc, "firmware", "bios");
-    req["qemu_agent"] = misc.contains("qemu_agent") ? json_truthy(misc.at("qemu_agent")) : false;
-    req["allowSMT"] = false;
-    req["arch"] = "";
-    req["flags"] =
-        cpu.contains("flags") && cpu.at("flags").is_array() ? cpu.at("flags") : json::array{};
-    req["netdevs"] = json::array{};
-    req["overprovision"] = json_int_field(cpu, "maxOverprovision", 0);
-    req["reqECC"] = mem.contains("requireECC") ? json_truthy(mem.at("requireECC")) : false;
-    req["viewer"] = nullptr;
-    req["domviewer"] = nullptr;
-    req["pcidevs"] = json::array{};
-    req["volumes"] = volumes;
-    req["networks"] = networks;
-
-    if (!guest_ipv4.empty())
-    {
-        json::object nc;
-        nc["interface"] = "";
-        nc["mac"] = "";
-        nc["ipv4"] = guest_ipv4;
-        nc["is_reachable_from_host"] = false;
-        nc["model"] = "";
-        nc["name"] = "";
-        nc["source"] = "";
-        nc["type"] = "";
-        json::object dom;
-        dom["port"] = 5900;
-        dom["protocol"] = "vnc";
-        nc["dom_display"] = std::move(dom);
-        req["network_config"] = std::move(nc);
-    }
-    else
-    {
-        req["network_config"] = nullptr;
-    }
-
-    return electros_safe_req_json(std::move(req));
-}
-
-json::object synthesize_req_json(const mp::api::RegisteredVm& recorded,
-                                 std::string_view state = "running",
-                                 std::string_view guest_ipv4 = {})
-{
-    json::object req_or_sys;
-    if (!recorded.req_json.empty())
+    json::object item;
+    if (!recorded.spec_json.empty())
     {
         try
         {
-            const auto parsed = json::parse(recorded.req_json);
+            const auto parsed = json::parse(recorded.spec_json);
             if (parsed.is_object())
-                req_or_sys = parsed.as_object();
+                item = parsed.as_object();
         }
         catch (const std::exception&)
         {
         }
     }
+    item["vm_uid"] = recorded.vm_uid;
+    item["vm_name"] = recorded.vm_name;
+    item["status"] = instance_status_name(inst.instance_status());
+    item["region"] = recorded.region.empty() ? "local" : recorded.region;
+    if (!item.contains("tags") || !item.at("tags").is_array())
+        item["tags"] = json::array{};
 
-    return build_electros_req_json(std::move(req_or_sys),
-                                   recorded.vm_name,
-                                   recorded.os_family,
-                                   recorded.os_flavour,
-                                   json::array{},
-                                   json::array{},
-                                   false,
-                                   state,
-                                   guest_ipv4);
+    json::array networks;
+    if (item.contains("networks") && item.at("networks").is_array())
+        networks = item.at("networks").as_array();
+    if (networks.empty())
+        networks.push_back(json::object{{"kind", "natted"}});
+    if (!networks.empty() && networks.front().is_object())
+    {
+        auto net = networks.front().as_object();
+        if (inst.ipv4_size() > 0)
+            net["ipv4"] = inst.ipv4(0);
+        else
+            net["ipv4"] = nullptr;
+        networks[0] = std::move(net);
+    }
+    item["networks"] = std::move(networks);
+    return item;
 }
 
-std::string domain_xml_for(const mp::api::RegisteredVm& recorded)
+grpc::Status append_running_from(mp::api::GrpcBackend& backend,
+                                 std::string_view source,
+                                 mp::api::VmRegistry& registry,
+                                 json::array& out)
 {
-    if (!recorded.xml.empty())
-        return recorded.xml;
-    return fmt::format("<domain type='elp'><name>{}</name><uuid>{}</uuid></domain>",
-                       recorded.vm_name,
-                       recorded.vm_uid);
+    const auto listed = backend.list_instances(true);
+    if (!listed.status.ok())
+        return listed.status;
+    if (!listed.reply.has_instance_list())
+        return grpc::Status::OK;
+
+    const auto src = std::string{source};
+    for (const auto& inst : listed.reply.instance_list().instances())
+    {
+        auto existing = registry.find_by_name(inst.name(), src);
+        mp::api::RegisteredVm record;
+        if (existing)
+            record = std::move(*existing);
+        else
+        {
+            record.vm_uid = mp::utils::make_uuid();
+            record.vm_name = inst.name();
+            record.source = src;
+            record.region = "local";
+            record.service_id = inst.service_id();
+            record.template_id = inst.service_id();
+            const auto spec = mp::api::spec_from_daemon_fields(inst.name(),
+                                                               inst.current_release(),
+                                                               inst.os(),
+                                                               inst.service_id());
+            record.spec_json = json::serialize(mp::api::spec_to_public_json(spec));
+            registry.upsert(record);
+        }
+        out.push_back(running_item_from(record, inst));
+    }
+    return grpc::Status::OK;
+}
+
+mp::api::GrpcBackend* backend_for_record(const mp::api::RegisteredVm& record,
+                                         mp::api::GrpcBackend& elp_backend,
+                                         mp::api::GrpcBackend* multipass_backend)
+{
+    if (mp::api::normalize_vm_source(record.source) == mp::instance_source_multipass)
+        return multipass_backend;
+    return &elp_backend;
 }
 } // namespace
 
 void mp::api::register_service_handlers(httplib::Server& server,
                                         GrpcBackend& elp_backend,
-                                        VmRegistry& registry)
+                                        VmRegistry& registry,
+                                        std::string_view gateway_ca_pem,
+                                        GrpcBackend* multipass_backend)
 {
+    const std::string ca_pem{gateway_ca_pem};
+
     server.Get("/", [&elp_backend](const httplib::Request&, httplib::Response& res) {
         if (!elp_backend.ping())
         {
@@ -509,7 +330,7 @@ void mp::api::register_service_handlers(httplib::Server& server,
     server.Get("/version", [&elp_backend](const httplib::Request&, httplib::Response& res) {
         json::object body;
         body["version"] = multipass::version_string;
-        body["backend"] = backend_name;
+        body["backend"] = "elp";
 
         const auto ver = elp_backend.version();
         if (ver.status.ok())
@@ -520,7 +341,6 @@ void mp::api::register_service_handlers(httplib::Server& server,
         set_json(res, 200, body);
     });
 
-    // Matcher canallocate — Electros discovery; remaining ResourcePool RAM in MiB.
     const httplib::Server::Handler canallocate_handler =
         [&elp_backend](const httplib::Request& req, httplib::Response& res) {
             mpl::log(mpl::Level::debug,
@@ -528,511 +348,236 @@ void mp::api::register_service_handlers(httplib::Server& server,
                      "canallocate from {} ({} bytes)",
                      req.remote_addr,
                      req.body.size());
-
-            if (!elp_backend.ping())
+            try
             {
-                set_json(res, 503, json::object{{"error", "elp backend unreachable"},
-                                                {"canallocate", false}});
-                return;
+                const auto spec = parse_spot_spec(req.body, SpotParseMode::canallocate);
+                const bool can = daemon_can_place(elp_backend, spec, res);
+                if (res.status == 503)
+                    return;
+                set_json(res, 200, json::object{{"canallocate", can}});
             }
-
-            const auto info = elp_backend.daemon_info();
-            if (!info.status.ok())
+            catch (const std::exception& e)
             {
-                set_json(res, 503, json::object{{"error", info.status.error_message()},
-                                                {"canallocate", false}});
-                return;
+                set_json(res, 400, json::object{{"error", e.what()}});
             }
-
-            const auto available_mib =
-                static_cast<std::int64_t>(info.reply.memory_available() / (1024 * 1024));
-            const auto requested_mib = mp::api::requested_mib_from_canallocate_body(req.body);
-            const bool can = mp::api::can_allocate_from_available(available_mib, requested_mib);
-            json::object out;
-            out["canallocate"] = can;
-            out["available_slots"] = std::max<std::int64_t>(
-                0,
-                static_cast<std::int64_t>(info.reply.cpus()) - info.reply.cpus_claimed());
-            out["available_ram"] = available_mib;
-            // Electros substitutes discovery URLs itself; include a hint for gateways.
-            out["server_url"] = fmt::format("https://{}:{}",
-                                            req.local_addr.empty() ? "127.0.0.1" : req.local_addr,
-                                            req.local_port > 0 ? req.local_port : 7777);
-            out["nservers"] = 1;
-            set_json(res, 200, out);
         };
     server.Get("/api/v1.0/canallocate", canallocate_handler);
     server.Post("/api/v1.0/canallocate", canallocate_handler);
 
-    server.Post("/api/v1.0/canallocate/multiple",
-                [&elp_backend](const httplib::Request& req, httplib::Response& res) {
-                    mpl::log(mpl::Level::debug,
-                             service_category,
-                             "canallocate/multiple from {} ({} bytes)",
-                             req.remote_addr,
-                             req.body.size());
-                    if (!elp_backend.ping())
-                    {
-                        set_json(res,
-                                 503,
-                                 json::object{{"error", "elp backend unreachable"},
-                                              {"canallocate", false}});
-                        return;
-                    }
-                    const auto info = elp_backend.daemon_info();
-                    json::object out;
-                    out["canallocate"] = info.status.ok() && info.reply.memory_available() > 0;
-                    out["available_ram"] =
-                        static_cast<std::int64_t>(info.reply.memory_available() / (1024 * 1024));
-                    out["nservers"] = 1;
-                    set_json(res, 200, out);
-                });
-
-    // AtomOS names (register/running/unregister) and Meson aliases
-    // (create_machine/get_machine/delete_machine) share the same handlers.
-    const httplib::Server::Handler register_or_create =
-        [&elp_backend, &registry](const httplib::Request& req, httplib::Response& res) {
-            const auto body_opt = parse_object_body(req, res);
-            if (!body_opt)
-                return;
-            const auto& body = *body_opt;
-
-            try
-            {
-                const auto client_uid = json_string_field(body, "client_uid");
-                auto vm_name = json_string_field(body, "vm_name");
-                if (client_uid.empty())
-                    throw std::runtime_error("request was badly formatted. 'client_uid'");
-                // Electros matcher-client often omits vm_name unless info.vm_name is set.
-                if (vm_name.empty())
-                    vm_name = fmt::format("elp-{}", mp::utils::make_uuid().substr(0, 8));
-                if (!body.contains("req") || !body.at("req").is_object())
-                    throw std::runtime_error("request was badly formatted. 'req'");
-                // Matcher may send empty volumes when storage is unused; allow with a default disk.
-                json::array volumes;
-                if (body.contains("volumes") && body.at("volumes").is_array())
-                    volumes = body.at("volumes").as_array();
-                json::array networks;
-                if (body.contains("networks") && body.at("networks").is_array())
-                    networks = body.at("networks").as_array();
-                const auto autostart =
-                    body.contains("autostart") && json_truthy(body.at("autostart"));
-
-                const auto& req_obj = body.at("req").as_object();
-                if (!req_obj.contains("cpu") || !req_obj.at("cpu").is_object())
-                    throw std::runtime_error("request was badly formatted. 'req.cpu'");
-                if (!req_obj.contains("mem") || !req_obj.at("mem").is_object())
-                    throw std::runtime_error("request was badly formatted. 'req.mem'");
-                // misc is optional for some Electros encodings; default linux/ubuntu.
-                json::object misc;
-                if (req_obj.contains("misc") && req_obj.at("misc").is_object())
-                    misc = req_obj.at("misc").as_object();
-
-                const auto& cpu = req_obj.at("cpu").as_object();
-                const auto& mem = req_obj.at("mem").as_object();
-
-                const auto cpu_slots = json_int_field(cpu, "slots", 1);
-                const auto mem_mib = json_int_field(mem, "capacity", 1024);
-                const auto os_family = json_string_field(misc, "os_family", "linux");
-                const auto os_flavour = json_string_field(misc, "os_flavour", "ubuntu");
-                if (os_family.empty() || os_flavour.empty())
-                    throw std::runtime_error(
-                        "request was badly formatted. 'req.misc.os_family/os_flavour'");
-
-                std::int64_t disk_gb = 5;
-                if (!volumes.empty() && volumes.front().is_object())
-                    disk_gb = json_int_field(volumes.front().as_object(), "size", 5);
-
-                LaunchSpec spec;
-                spec.instance_name = vm_name;
-                spec.image = image_for_flavour(os_flavour);
-                spec.num_cores = static_cast<int>(std::max<std::int64_t>(cpu_slots, 1));
-                spec.mem_size = fmt::format("{}M", std::max<std::int64_t>(mem_mib, 512));
-                spec.disk_space = fmt::format("{}G", std::max<std::int64_t>(disk_gb, 1));
-                spec.cloud_init_user_data = build_cloud_init(body);
-
-                mpl::log(mpl::Level::debug,
-                         service_category,
-                         "launching '{}' image='{}' cores={} mem={} disk={} client_uid={}",
-                         spec.instance_name,
-                         spec.image,
-                         spec.num_cores,
-                         spec.mem_size,
-                         spec.disk_space,
-                         client_uid);
-
-                const auto result = elp_backend.launch(spec);
-                if (!result.status.ok())
-                {
-                    mpl::log(mpl::Level::warning,
-                             service_category,
-                             "launch failed for '{}': {}",
-                             vm_name,
-                             result.status.error_message());
-                    set_daemon_error(res, result.status);
-                    return;
-                }
-
-                RegisteredVm record;
-                record.vm_uid = mp::utils::make_uuid();
-                record.vm_name = vm_name;
-                record.client_uid = client_uid;
-                record.os_family = os_family;
-                record.os_flavour = os_flavour;
-                record.backend = backend_name;
-
-                std::string guest_ip;
-                json::array ipv4;
-                const auto listed = elp_backend.list_instances(true);
-                if (listed.status.ok() && listed.reply.has_instance_list())
-                {
-                    for (const auto& inst : listed.reply.instance_list().instances())
-                    {
-                        if (inst.name() == vm_name)
-                        {
-                            for (const auto& ip : inst.ipv4())
-                            {
-                                ipv4.emplace_back(ip);
-                                if (guest_ip.empty())
-                                    guest_ip = ip;
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                const auto safe_req = build_electros_req_json(req_obj,
-                                                              vm_name,
-                                                              os_family,
-                                                              os_flavour,
-                                                              volumes,
-                                                              networks,
-                                                              autostart,
-                                                              "running",
-                                                              guest_ip);
-                record.req_json = json::serialize(safe_req);
-                record.xml = fmt::format(
-                    "<domain type='elp'><name>{}</name><uuid>{}</uuid></domain>",
-                    record.vm_name,
-                    record.vm_uid);
-                registry.upsert(record);
-
-                mpl::log(mpl::Level::info,
-                         service_category,
-                         "registered '{}' as vm_uid={} for client_uid={}",
-                         vm_name,
-                         record.vm_uid,
-                         client_uid);
-
-                json::array ipv4_after;
-                if (ipv4.empty())
-                {
-                    const auto listed_after = elp_backend.list_instances(true);
-                    if (listed_after.status.ok() && listed_after.reply.has_instance_list())
-                    {
-                        for (const auto& inst : listed_after.reply.instance_list().instances())
-                        {
-                            if (inst.name() == vm_name)
-                            {
-                                for (const auto& ip : inst.ipv4())
-                                    ipv4_after.emplace_back(ip);
-                                break;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    ipv4_after = std::move(ipv4);
-                }
-
-                json::object out;
-                out["registered"] = true;
-                // Matcher / Electros fields (required by matcher-client.registerSpec / running).
-                out["uniqueID"] = record.vm_uid;
-                out["req_json"] = safe_req;
-                out["xml"] = record.xml;
-                out["is_gateway"] = false;
-                // Service / Meson fields (Bruno service collection).
-                out["vm_uid"] = record.vm_uid;
-                out["vm_name"] = record.vm_name;
-                out["state"] = "running";
-                out["ipv4"] = std::move(ipv4_after);
-                out["backend"] = backend_name;
-                set_json(res, 200, out);
-            }
-            catch (const std::exception& e)
-            {
-                json::object err;
-                err["error"] = e.what();
-                set_json(res, 400, err);
-            }
-        };
-    server.Post("/api/v1.0/register", register_or_create);
-    server.Post("/api/v1.0/create_machine", register_or_create);
-
-    const httplib::Server::Handler running_or_get =
-        [&elp_backend, &registry](const httplib::Request& req, httplib::Response& res) {
-            const auto body_opt = parse_object_body(req, res);
-            if (!body_opt)
-                return;
-            const auto client_uid = json_string_field(*body_opt, "client_uid");
-            if (client_uid.empty())
-            {
-                set_json(res,
-                         400,
-                         json::object{{"error", "request was badly formatted. 'client_uid'"}});
-                return;
-            }
-
-            const auto listed = elp_backend.list_instances(true);
-            if (!listed.status.ok())
-            {
-                set_daemon_error(res, listed.status);
-                return;
-            }
-
-            std::unordered_map<std::string, const mp::ListVMInstance*> by_name;
-            if (listed.reply.has_instance_list())
-            {
-                for (const auto& inst : listed.reply.instance_list().instances())
-                    by_name.emplace(inst.name(), &inst);
-            }
-
-            json::array vms;
-            for (const auto& recorded : registry.list_for_client(client_uid))
-            {
-                const auto it = by_name.find(recorded.vm_name);
-                if (it == by_name.end())
-                    continue;
-
-                std::string guest_ip;
-                for (const auto& ip : it->second->ipv4())
-                {
-                    if (guest_ip.empty())
-                        guest_ip = ip;
-                }
-
-                json::object item;
-                // Matcher / Electros shape (retrieveRunningSpecs reads response.json()['vms']).
-                item["uniqueID"] = recorded.vm_uid;
-                item["req_json"] =
-                    synthesize_req_json(recorded, instance_status_name(it->second->instance_status()), guest_ip);
-                item["xml"] = domain_xml_for(recorded);
-                item["is_gateway"] = false;
-                item["external"] = false;
-                // Service / Bruno extras (harmless for matcher).
-                item["vm_uid"] = recorded.vm_uid;
-                item["vm_name"] = recorded.vm_name;
-                item["state"] = instance_status_name(it->second->instance_status());
-                json::array ipv4;
-                for (const auto& ip : it->second->ipv4())
-                    ipv4.emplace_back(ip);
-                item["ipv4"] = std::move(ipv4);
-                item["os_family"] = recorded.os_family;
-                item["os_flavour"] = recorded.os_flavour;
-                item["client_uid"] = recorded.client_uid;
-                item["backend"] = recorded.backend;
-                vms.push_back(std::move(item));
-            }
-
-            json::object out;
-            out["vms"] = std::move(vms);
-            set_json(res, 200, out);
-        };
-    server.Get("/api/v1.0/running", running_or_get);
-    server.Get("/api/v1.0/get_machine", running_or_get);
-
-    auto resolve_vm_uid = [](const json::object& body) {
-        // Electros matcher uses uniqueID; Service/Bruno use vm_uid.
-        auto id = json_string_field(body, "vm_uid");
-        if (id.empty())
-            id = json_string_field(body, "uniqueID");
-        return id;
-    };
-
-    const httplib::Server::Handler unregister_or_delete =
-        [&elp_backend, &registry, resolve_vm_uid](const httplib::Request& req,
-                                                        httplib::Response& res) {
-            const auto body_opt = parse_object_body(req, res);
-            if (!body_opt)
-                return;
-            const auto& body = *body_opt;
-            const auto vm_uid = resolve_vm_uid(body);
-            const auto client_uid = json_string_field(body, "client_uid");
-            if (vm_uid.empty() || client_uid.empty())
-            {
-                set_json(res,
-                         400,
-                         json::object{
-                             {"error",
-                              "request was badly formatted. 'vm_uid'|'uniqueID'/'client_uid'"}});
-                return;
-            }
-
-            const auto record = registry.find_by_uid(vm_uid);
-            if (!record || record->client_uid != client_uid)
-            {
-                set_json(res, 404, json::object{{"error", "not_found"}});
-                return;
-            }
-
-            bool purge = false;
-            if (body.contains("purge"))
-                purge = json_truthy(body.at("purge"));
-
-            const auto result = elp_backend.delete_instance(record->vm_name, purge);
-            if (!result.status.ok())
-            {
-                set_daemon_error(res, result.status);
-                return;
-            }
-
-            registry.remove(vm_uid);
-            json::object out;
-            out["unregistered"] = true;
-            out["vm_uid"] = vm_uid;
-            out["uniqueID"] = vm_uid;
-            out["purged"] = purge;
-            set_json(res, 200, out);
-        };
-    server.Delete("/api/v1.0/unregister", unregister_or_delete);
-    server.Delete("/api/v1.0/delete_machine", unregister_or_delete);
-    // Electros historically POSTed unregister in some code paths.
-    server.Post("/api/v1.0/unregister", unregister_or_delete);
-
-    auto require_registered =
-        [&registry, resolve_vm_uid](const json::object& body,
-                                    httplib::Response& res) -> std::optional<RegisteredVm> {
-        const auto vm_uid = resolve_vm_uid(body);
-        const auto client_uid = json_string_field(body, "client_uid");
-        if (vm_uid.empty() || client_uid.empty())
-        {
-            set_json(res,
-                     400,
-                     json::object{
-                         {"error",
-                          "request was badly formatted. 'vm_uid'|'uniqueID'/'client_uid'"}});
-            return std::nullopt;
-        }
-        const auto record = registry.find_by_uid(vm_uid);
-        if (!record || record->client_uid != client_uid)
-        {
-            set_json(res, 404, json::object{{"error", "not_found"}});
-            return std::nullopt;
-        }
-        return record;
-    };
-
-    server.Post("/api/v1.0/start",
-                [&elp_backend, require_registered](const httplib::Request& req,
-                                                         httplib::Response& res) {
+    server.Post("/api/v1.0/register",
+                [&elp_backend, &registry, ca_pem](const httplib::Request& req, httplib::Response& res) {
                     const auto body_opt = parse_object_body(req, res);
                     if (!body_opt)
                         return;
-                    const auto record = require_registered(*body_opt, res);
-                    if (!record)
-                        return;
-
-                    const auto listed = elp_backend.list_instances(false);
-                    if (listed.status.ok() && listed.reply.has_instance_list())
+                    try
                     {
-                        for (const auto& inst : listed.reply.instance_list().instances())
+                        auto spec = parse_spot_spec(*body_opt, SpotParseMode::register_vm);
+                        spec.region = header_or(req, "X-Region", "local");
+
+                        if (!daemon_can_place(elp_backend, spec, res))
                         {
-                            if (inst.name() == record->vm_name &&
-                                instance_status_name(inst.instance_status()) == "running")
-                            {
-                                set_json(res, 409, json::object{{"error", "VM is already running"}});
+                            if (res.status == 503)
                                 return;
-                            }
+                            json::object body;
+                            body["error"] = "insufficient_resources";
+                            body["canallocate"] = false;
+                            set_json(res, 507, body);
+                            return;
                         }
-                    }
 
-                    const auto result = elp_backend.start(record->vm_name);
-                    if (!result.status.ok())
-                    {
-                        set_daemon_error(res, result.status);
-                        return;
+                        auto user_data = resolve_user_data(spec, ca_pem);
+                        auto launch = launch_spec_from_spot(spec, std::move(user_data));
+
+                        mpl::log(mpl::Level::debug,
+                                 service_category,
+                                 "launching '{}' image='{}' cores={} mem={} disk={} template='{}'",
+                                 launch.instance_name,
+                                 launch.image,
+                                 launch.num_cores,
+                                 launch.mem_size,
+                                 launch.disk_space,
+                                 spec.startup_template);
+
+                        const auto result = elp_backend.launch(launch);
+                        if (!result.status.ok())
+                        {
+                            mpl::log(mpl::Level::warning,
+                                     service_category,
+                                     "launch failed for '{}': {}",
+                                     spec.vm_name,
+                                     result.status.error_message());
+                            set_daemon_error(res, result.status);
+                            return;
+                        }
+
+                        RegisteredVm record;
+                        record.vm_uid = mp::utils::make_uuid();
+                        record.vm_name = spec.vm_name;
+                        record.username = spec.auth.username;
+                        record.region = spec.region;
+                        record.template_id = spec.startup_template;
+                        record.service_id = service_id_from_spec(spec);
+                        record.spec_json = json::serialize(spec_to_public_json(spec));
+                        record.source = mp::instance_source_elp;
+                        registry.upsert(record);
+
+                        json::object out;
+                        out["vm_uid"] = record.vm_uid;
+                        out["vm_name"] = record.vm_name;
+                        out["status"] = "running";
+                        set_json(res, 200, out);
                     }
-                    res.status = 200;
-                    res.set_content("OK", "text/plain");
+                    catch (const std::exception& e)
+                    {
+                        set_json(res, 400, json::object{{"error", e.what()}});
+                    }
                 });
 
-    server.Post("/api/v1.0/stop",
-                [&elp_backend, require_registered](const httplib::Request& req,
-                                                         httplib::Response& res) {
-                    const auto body_opt = parse_object_body(req, res);
-                    if (!body_opt)
-                        return;
-                    const auto record = require_registered(*body_opt, res);
-                    if (!record)
-                        return;
-
-                    const auto result = elp_backend.stop(record->vm_name);
-                    if (!result.status.ok())
-                    {
-                        set_daemon_error(res, result.status);
-                        return;
-                    }
-                    res.status = 200;
-                    res.set_content("OK", "text/plain");
-                });
-
-    server.Post("/api/v1.0/reboot",
-                [&elp_backend, require_registered](const httplib::Request& req,
-                                                         httplib::Response& res) {
-                    const auto body_opt = parse_object_body(req, res);
-                    if (!body_opt)
-                        return;
-                    const auto record = require_registered(*body_opt, res);
-                    if (!record)
-                        return;
-
-                    const auto result = elp_backend.restart(record->vm_name);
-                    if (!result.status.ok())
-                    {
-                        set_daemon_error(res, result.status);
-                        return;
-                    }
-                    res.status = 200;
-                    res.set_content("OK", "text/plain");
-                });
-
-    server.Get("/api/v1.0/images/find",
-               [&elp_backend](const httplib::Request& req, httplib::Response& res) {
-                   const auto query = req.get_param_value("query");
-                   const auto remote = req.get_param_value("remote");
-                   const auto result = elp_backend.find(query, remote);
-                   if (!result.status.ok())
+    server.Get("/api/v1.0/running",
+               [&elp_backend, multipass_backend, &registry](const httplib::Request&,
+                                                            httplib::Response& res) {
+                   json::array out;
+                   const auto elp_status =
+                       append_running_from(elp_backend, mp::instance_source_elp, registry, out);
+                   grpc::Status mp_status = grpc::Status::OK;
+                   if (multipass_backend)
                    {
-                       set_daemon_error(res, result.status);
+                       mp_status = append_running_from(*multipass_backend,
+                                                       mp::instance_source_multipass,
+                                                       registry,
+                                                       out);
+                   }
+
+                   if (!elp_status.ok() && (!multipass_backend || !mp_status.ok()))
+                   {
+                       set_daemon_error(res, elp_status);
                        return;
                    }
 
-                   json::array images;
-                   for (const auto& info : result.reply.images_info())
+                   res.status = 200;
+                   res.set_content(json::serialize(out), "application/json");
+               });
+
+    server.Get(R"(/api/v1.0/credentials/([^/]+))",
+               [&elp_backend, multipass_backend, &registry](const httplib::Request& req,
+                                                            httplib::Response& res) {
+                   const auto vm_uid = req.matches[1].str();
+                   const auto record = registry.find_by_uid(vm_uid);
+                   if (!record)
                    {
-                       json::object item;
-                       item["os"] = info.os();
-                       item["release"] = info.release();
-                       item["version"] = info.version();
-                       json::array aliases;
-                       for (const auto& alias : info.aliases())
-                           aliases.emplace_back(alias);
-                       item["aliases"] = std::move(aliases);
-                       item["codename"] = info.codename();
-                       item["remote"] = info.remote_name();
-                       item["os_family"] = "linux";
-                       item["os_flavour"] = flavour_from_os(info.os(), info.codename());
-                       item["min_disk"] = info.min_disk();
-                       images.push_back(std::move(item));
+                       set_json(res, 500, json::object{{"error", fmt::format("VM {} not found", vm_uid)}});
+                       return;
                    }
 
-                   set_json(res, 200, json::object{{"images", std::move(images)}});
-               });
-}
+                   auto* backend = backend_for_record(*record, elp_backend, multipass_backend);
+                   if (!backend)
+                   {
+                       set_json(res,
+                                503,
+                                json::object{{"error", "multipass backend unavailable"},
+                                             {"vm_uid", record->vm_uid}});
+                       return;
+                   }
 
-std::int64_t mp::api::requested_mib_from_canallocate_body(std::string_view body)
-{
-    return parse_requested_mib(body);
+                   json::object out;
+                   out["vm_uid"] = record->vm_uid;
+                   out["state"] = "Succeeded";
+
+                   const auto ssh = backend->ssh_info(record->vm_name);
+                   if (ssh.status.ok())
+                   {
+                       const auto& map = ssh.reply.ssh_info();
+                       const auto it = map.find(record->vm_name);
+                       if (it != map.end())
+                       {
+                           out["username"] = it->second.username();
+                           out["ssh_host"] = it->second.host();
+                           out["ssh_port"] = it->second.port();
+                           out["state"] = "Succeeded";
+                       }
+                   }
+                   if (!out.contains("username"))
+                   {
+                       if (!record->username.empty())
+                           out["username"] = record->username;
+                       const auto listed = backend->list_instances(true);
+                       if (listed.status.ok() && listed.reply.has_instance_list())
+                       {
+                           for (const auto& inst : listed.reply.instance_list().instances())
+                           {
+                               if (inst.name() == record->vm_name && inst.ipv4_size() > 0)
+                               {
+                                   out["ssh_host"] = inst.ipv4(0);
+                                   out["ssh_port"] = 22;
+                                   break;
+                               }
+                           }
+                       }
+                   }
+
+                   SpotSpec spec;
+                   try
+                   {
+                       if (!record->spec_json.empty())
+                           spec = parse_spot_spec(record->spec_json, SpotParseMode::canallocate);
+                   }
+                   catch (const std::exception&)
+                   {
+                   }
+                   spec.startup_template = record->template_id;
+                   spec.vm_name = record->vm_name;
+
+                   const auto template_id =
+                       record->template_id.empty() ? record->service_id : record->template_id;
+                   if (!template_id.empty())
+                   {
+                       out["template"] = template_id;
+                       const auto host = json_string_field(out, "ssh_host");
+                       const auto port = credential_port(*record, spec);
+                       if (!host.empty() && port > 0)
+                           out["url"] = fmt::format("http://{}:{}", host, port);
+                   }
+
+                   set_json(res, 200, out);
+               });
+
+    server.Delete("/api/v1.0/unregister",
+                  [&elp_backend, multipass_backend, &registry](const httplib::Request& req,
+                                                               httplib::Response& res) {
+                      const auto body_opt = parse_object_body(req, res);
+                      if (!body_opt)
+                          return;
+                      const auto vm_uid = json_string_field(*body_opt, "vm_uid");
+                      if (vm_uid.empty())
+                      {
+                          set_json(res, 400, json::object{{"error", "request was badly formatted. 'vm_uid'"}});
+                          return;
+                      }
+                      const auto record = registry.find_by_uid(vm_uid);
+                      if (!record)
+                      {
+                          set_json(res, 404, json::object{{"error", "VM not found"}});
+                          return;
+                      }
+                      auto* backend = backend_for_record(*record, elp_backend, multipass_backend);
+                      if (!backend)
+                      {
+                          set_json(res,
+                                   503,
+                                   json::object{{"error", "multipass backend unavailable"},
+                                                {"vm_uid", vm_uid}});
+                          return;
+                      }
+                      const auto result = backend->delete_instance(record->vm_name, true);
+                      if (!result.status.ok() && result.status.error_code() != grpc::StatusCode::NOT_FOUND)
+                      {
+                          set_daemon_error(res, result.status);
+                          return;
+                      }
+                      registry.remove(vm_uid);
+                      json::object out;
+                      out["vm_uid"] = vm_uid;
+                      out["status"] = "deleted";
+                      set_json(res, 200, out);
+                  });
 }

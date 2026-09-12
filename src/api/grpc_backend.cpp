@@ -108,11 +108,28 @@ mp::api::LaunchResult mp::api::GrpcBackend::launch(const LaunchSpec& spec,
     request.set_mem_size(spec.mem_size);
     request.set_disk_space(spec.disk_space);
     request.set_cloud_init_user_data(spec.cloud_init_user_data);
+    if (!spec.service_id.empty())
+        request.set_service_id(spec.service_id);
     request.set_verbosity_level(0);
     request.set_timeout(static_cast<int32_t>(deadline.count()));
 
     result.status = call_streaming_rpc(
         [this](grpc::ClientContext* ctx) { return rpc_stub->launch(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
+mp::api::SshInfoResult mp::api::GrpcBackend::ssh_info(const std::string& instance_name,
+                                                      std::chrono::seconds deadline)
+{
+    SshInfoResult result;
+    SSHInfoRequest request;
+    request.add_instance_name(instance_name);
+    request.set_verbosity_level(0);
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->ssh_info(ctx); },
         request,
         result.reply,
         deadline);

@@ -208,7 +208,8 @@ void mp::api::ApiServer::register_routes(httplib::Server& server)
         res.set_content(config.ca_pem, "application/x-pem-file");
     });
 
-    register_service_handlers(server, *elp_backend, *vm_registry);
+    register_service_handlers(server, *elp_backend, *vm_registry, config.ca_pem,
+                              multipass_backend.get());
     register_health_handlers(server, *elp_backend, multipass_backend.get());
     register_instance_handlers(server, *elp_backend, multipass_backend.get());
     register_operation_handlers(server, tracker);

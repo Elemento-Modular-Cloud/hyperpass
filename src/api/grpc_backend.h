@@ -108,6 +108,12 @@ struct LaunchSpec
     std::string mem_size;  // e.g. "2048M"
     std::string disk_space; // e.g. "20G"
     std::string cloud_init_user_data;
+    std::string service_id;
+};
+
+struct SshInfoResult : GrpcResult
+{
+    SSHInfoReply reply;
 };
 
 /**
@@ -125,6 +131,8 @@ public:
                               std::chrono::seconds deadline = std::chrono::seconds{30});
     LaunchResult launch(const LaunchSpec& spec,
                         std::chrono::seconds deadline = default_timeout);
+    SshInfoResult ssh_info(const std::string& instance_name,
+                           std::chrono::seconds deadline = quick_rpc_deadline);
     GrpcResult start(const std::string& instance_name,
                      std::chrono::seconds deadline = default_timeout);
     GrpcResult stop(const std::string& instance_name,

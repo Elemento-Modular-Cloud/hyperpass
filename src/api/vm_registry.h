@@ -20,6 +20,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -30,17 +31,20 @@ struct RegisteredVm
 {
     std::string vm_uid;
     std::string vm_name;
-    std::string client_uid;
-    std::string os_family;
-    std::string os_flavour;
-    std::string backend{"elp"};
-    std::string req_json; // serialized Electros/matcher req_json object
-    std::string xml;      // libvirt-ish domain xml (matcher seed)
+    std::string username;
+    std::string region{"local"};
+    std::string template_id;
+    std::string service_id;
+    std::string spec_json; // public Spot spec (no auth secrets / cloud_init_b64)
+    std::string source{"elp"}; // "elp" | "multipass"
 };
 
+/** Empty or unknown → "elp". */
+std::string normalize_vm_source(std::string_view source);
+
 /**
- * Persistent sidecar registry mapping AtomOS vm_uid ↔ Electros LaunchPad instance name.
- * Stored as JSON under the user data directory.
+ * Persistent sidecar registry mapping Spot vm_uid ↔ Electros LaunchPad instance name.
+ * Stored as JSON under the user data directory. v1 matcher records are ignored.
  */
 class VmRegistry
 {
@@ -52,8 +56,8 @@ public:
     RegisteredVm upsert(RegisteredVm record);
     bool remove(const std::string& vm_uid);
     std::optional<RegisteredVm> find_by_uid(const std::string& vm_uid) const;
-    std::optional<RegisteredVm> find_by_name(const std::string& vm_name) const;
-    std::vector<RegisteredVm> list_for_client(const std::string& client_uid) const;
+    std::optional<RegisteredVm> find_by_name(const std::string& vm_name,
+                                             std::string_view source) const;
     std::vector<RegisteredVm> all() const;
 
 private:
