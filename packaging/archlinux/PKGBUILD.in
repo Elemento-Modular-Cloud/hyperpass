@@ -12,7 +12,7 @@ pkgrel=1
 pkgdesc="Electros LaunchPad: create, control and connect to Linux VM instances (daemon, CLI and GUI)"
 arch=('x86_64')
 url="https://elemento.cloud"
-license=('GPL3')
+license=('GPL-3.0-only')
 depends=(
   'qt6-base'
   'gcc-libs'
@@ -30,7 +30,9 @@ depends=(
   'libnotify'
   'libayatana-appindicator'
   'gtkmm3'
-  'libkeybinder3' # AUR — GUI's hotkey_manager plugin links keybinder-3.0 at runtime too
+  'libkeybinder3' # GUI's hotkey_manager plugin links keybinder-3.0 at runtime
+  'libsecret' # flutter_secure_storage_linux plugin
+  'apparmor' # libapparmor.so.1, linked by elpd/libdart_ffi.so at runtime too
 )
 makedepends=(
   'git'
@@ -50,8 +52,8 @@ makedepends=(
   'unzip'
   'python'
   'python-distlib' # qemu's mkvenv needs distlib; pip-installing it hits Arch's PEP 668 lock
-  'apparmor' # libapparmor headers
   'systemd-libs' # libsystemd headers
+  'patchelf' # rewrite build-tree RPATHs the Flutter plugin build bakes in raw
   'libcap-ng' # qemu --enable-virtfs
   'attr' # qemu --enable-virtfs (xattr support)
   # vcpkg builds Qt6/gRPC/Boost/qemu from source (see ../../vcpkg.json); these
@@ -75,15 +77,8 @@ makedepends=(
   'glib2'
   'pixman'
 )
-# libkeybinder3 (declared in depends above, for the GUI's hotkey_manager
-# Flutter plugin) is AUR-only, not in the official repos. A sandboxed
-# extra-x86_64-build chroot can't reach the AUR itself, so build it and
-# inject it into the chroot first:
-#   git clone https://aur.archlinux.org/libkeybinder3.git /tmp/libkeybinder3
-#   (cd /tmp/libkeybinder3 && makepkg -s)
-#   ./scripts/build-arch.sh -- -I /tmp/libkeybinder3/libkeybinder3-*.pkg.tar.zst
-# For --no-sandbox builds, just `makepkg -si` it normally first.
-options=('!lto') # heavy C++ TUs (Qt/gRPC-generated code); LTO here is not worth the build time
+options=('!lto' '!debug') # LTO not worth the build time here; !debug skips shipping vcpkg's
+                          # entire buildtree (Qt6/gRPC/QEMU/...) as debug symbols (~5GB)
 # elpd.service must be a declared local source (not just a sibling file
 # scripts/build-arch.sh copies next to this PKGBUILD): a sandboxed
 # extra-x86_64-build chroot only stages the PKGBUILD plus its own
@@ -139,6 +134,17 @@ build() {
 
 package() {
   DESTDIR="${pkgdir}" cmake --install "${srcdir}/build"
+
+  # The Flutter Linux plugin build (flutter build linux, a custom command,
+  # not a normal CMake install(TARGETS)) bakes in absolute build-tree
+  # RPATHs that CMake's own install-time RPATH rewrite never gets a chance
+  # to strip, since these files are just directory-copied into the bundle.
+  # All of a bundle's libs live side by side, so $ORIGIN alone is enough.
+  local f
+  for f in "${pkgdir}/usr/bin/bundle/lib/"*plugin.so \
+           "${pkgdir}/usr/bin/bundle/lib/libdart_ffi.so"; do
+    [[ -e "${f}" ]] && patchelf --set-rpath '$ORIGIN' "${f}"
+  done
 
   install -Dm644 "${srcdir}/elpd.service" \
     "${pkgdir}/usr/lib/systemd/system/elpd.service"
