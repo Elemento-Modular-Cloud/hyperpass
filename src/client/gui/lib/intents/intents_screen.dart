@@ -223,7 +223,9 @@ Widget _memberFieldsRow(
 
 Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
   final nameController = TextEditingController();
-  final members = [_MemberFields()];
+  // Starts empty: an intent can be created with no members at all and
+  // populated later via "Add member".
+  final members = <_MemberFields>[];
   String? error;
 
   await showDialog<void>(
@@ -249,20 +251,22 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Members', style: TextStyle(fontWeight: FontWeight.w500)),
+                const Text('Members (optional)', style: TextStyle(fontWeight: FontWeight.w500)),
+                const Text(
+                  'Add now, or leave empty and add members later.',
+                  style: TextStyle(fontSize: 12),
+                ),
                 const SizedBox(height: 8),
                 for (final member in members)
                   _memberFieldsRow(
                     member,
-                    onRemove: members.length > 1
-                        ? () => setDialogState(() => members.remove(member))
-                        : null,
+                    onRemove: () => setDialogState(() => members.remove(member)),
                   ),
                 TextButton.icon(
                   onPressed: () =>
                       setDialogState(() => members.add(_MemberFields())),
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add another member'),
+                  label: const Text('Add a member'),
                 ),
                 if (error != null)
                   Padding(

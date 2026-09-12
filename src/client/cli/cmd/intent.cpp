@@ -175,12 +175,8 @@ mp::ReturnCodeVariant cmd::Intent::run_create(ArgParser* parser)
         cerr << "Please provide a name for the intent.\n";
         return parser->returnCodeFrom(ParseCode::CommandLineError);
     }
-    if (!parser->isSet(service_option) && !parser->isSet(instance_option))
-    {
-        cerr << "Please specify at least one member with --service or --instance.\n";
-        return parser->returnCodeFrom(ParseCode::CommandLineError);
-    }
-
+    // --service/--instance are optional here: an intent can be created empty
+    // and populated later with `elp intent add`.
     IntentCreateRequest request;
     request.set_name(args[1].toStdString());
     request.set_verbosity_level(parser->verbosityLevel());

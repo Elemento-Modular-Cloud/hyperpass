@@ -81,6 +81,11 @@ String imageName(ImageInfo imageInfo) {
       : '$result ${imageInfo.codename}';
 }
 
+/// Sentinel dropdown value for "create a new intent" (distinct from an
+/// existing intent name and from null/"None"): a leading NUL can never be
+/// typed into a text field, so this can't collide with a real intent name.
+const _createNewIntentValue = '\u0000__create_new_intent__';
+
 final defaultCpus = 1;
 final defaultRam = 1.gibi;
 final defaultDisk = 5.gibi;
@@ -131,6 +136,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
   final scrollController = ScrollController();
   final cloudInitSectionKey = GlobalKey();
   String? _selectedIntent;
+  String _newIntentName = '';
   String _intentRole = '';
   bool _addingToIntent = false;
   String? _intentError;
@@ -264,8 +270,17 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       }),
       items: {
         null: 'None (standalone instance)',
+        _createNewIntentValue: '+ Create new intent...',
         for (final existingIntent in intentNames) existingIntent: existingIntent,
       },
+    );
+
+    final newIntentNameInput = SpecInput(
+      label: 'New intent name',
+      hint: 'e.g. test-app-1',
+      initialValue: _newIntentName,
+      onSaved: (value) => _newIntentName = value ?? '',
+      width: 360,
     );
 
     final intentRoleInput = SpecInput(
@@ -282,8 +297,8 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         : Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Launching into an existing intent doesn\'t support mounts or '
-              'bridged networking yet; those sections are hidden below.',
+              'Launching into an intent doesn\'t support mounts or bridged '
+              'networking yet; those sections are hidden below.',
               style: TextStyle(
                 fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
@@ -298,6 +313,10 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             intentDropdown,
+            if (_selectedIntent == _createNewIntentValue) ...[
+              const SizedBox(width: 24),
+              newIntentNameInput,
+            ],
             if (_selectedIntent != null) ...[
               const SizedBox(width: 24),
               intentRoleInput,
@@ -662,15 +681,20 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     }
 
     final selectedIntent = _selectedIntent;
-    final started = selectedIntent == null
-        ? await initiateLaunchFlow(
-            context,
-            ref,
-            launchRequest.deepCopy(),
-            mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
-            os: imageInfo.os,
-          )
-        : await _addToIntent(selectedIntent);
+    final bool started;
+    if (selectedIntent == null) {
+      started = await initiateLaunchFlow(
+        context,
+        ref,
+        launchRequest.deepCopy(),
+        mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
+        os: imageInfo.os,
+      );
+    } else if (selectedIntent == _createNewIntentValue) {
+      started = await _launchIntoIntent(newIntentName: _newIntentName.trim());
+    } else {
+      started = await _launchIntoIntent(existingIntentName: selectedIntent);
+    }
 
     if (!started || !mounted) return;
 
@@ -684,13 +708,24 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     }
   }
 
-  /// Launches this form's instance as a new member of an existing intent via
-  /// intent_add_member instead of a plain launch, so it's tracked in the
+  /// Launches this form's instance as a member of an intent — either a brand
+  /// new one (via intent_create) or an already-existing one (via
+  /// intent_add_member) — instead of a plain launch, so it's tracked in the
   /// daemon's intent registry (`elp intent info` etc.) rather than just
   /// carrying the intent/intentRole tag on an untracked instance. Mounts and
-  /// bridged networking aren't supported by intent_add_member yet (their
-  /// sections are hidden in the form while an intent is selected).
-  Future<bool> _addToIntent(String intentName) async {
+  /// bridged networking aren't supported by either RPC yet (their sections
+  /// are hidden in the form while an intent is selected). Pass exactly one
+  /// of [newIntentName] or [existingIntentName].
+  Future<bool> _launchIntoIntent({
+    String? newIntentName,
+    String? existingIntentName,
+  }) async {
+    assert((newIntentName == null) != (existingIntentName == null));
+
+    if (newIntentName != null && newIntentName.isEmpty) {
+      setState(() => _intentError = 'Please provide a name for the new intent.');
+      return false;
+    }
     if (_intentRole.trim().isEmpty) {
       setState(() => _intentError = 'Please provide a role for this member.');
       return false;
@@ -713,13 +748,27 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         member.cloudInitUserData = launchRequest.cloudInitUserData;
       }
 
-      final reply = await ref.read(grpcClientProvider).intentAddMember(
-            IntentAddMemberRequest(name: intentName, members: [member]),
-          );
+      final grpcClient = ref.read(grpcClientProvider);
+      final String intentName;
+      String replyMessage;
+      if (newIntentName != null) {
+        intentName = newIntentName;
+        final reply = await grpcClient.intentCreate(
+          IntentCreateRequest(name: intentName, members: [member]),
+        );
+        replyMessage = reply?.replyMessage ?? '';
+      } else {
+        intentName = existingIntentName!;
+        final reply = await grpcClient.intentAddMember(
+          IntentAddMemberRequest(name: intentName, members: [member]),
+        );
+        replyMessage = reply?.replyMessage ?? '';
+      }
 
+      ref.invalidate(intentsStreamProvider);
       ref.read(recentActivityProvider.notifier).record(
             title: 'Added ${_intentRole.trim()} to intent $intentName',
-            detail: reply?.replyMessage ?? '',
+            detail: replyMessage,
           );
       return true;
     } catch (error) {

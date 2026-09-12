@@ -3263,6 +3263,8 @@ std::optional<std::vector<mp::LaunchRequest>> build_intent_member_launch_request
         lr.set_disk_space(member.disk_space().empty() ? "5G" : member.disk_space());
         lr.set_intent(intent_name);
         lr.set_intent_role(role);
+        if (!member.service_id().empty())
+            lr.set_service_id(member.service_id());
 
         launch_requests.push_back(std::move(lr));
     }
@@ -3333,9 +3335,8 @@ try
         return context->set_value({grpc::StatusCode::INVALID_ARGUMENT,
                                    fmt::format("Intent \"{}\" already exists", name),
                                    ""});
-    if (request->members().empty())
-        return context->set_value(
-            {grpc::StatusCode::INVALID_ARGUMENT, "An intent needs at least one member", ""});
+    // Zero members is fine: an intent can be created as an empty named group and
+    // populated later via intent_add_member.
 
     grpc::Status build_error;
     auto built = build_intent_member_launch_requests(name, request->members(), build_error);

@@ -589,6 +589,11 @@ message IntentMemberRequest {
     int32 num_cores = 4;
     string mem_size = 5;
     string disk_space = 6;
+    // Marketplace service template id, when this member is a deployed
+    // service rather than a plain custom/templated instance. Mirrors
+    // LaunchRequest's own service_id so a service deployed into an intent
+    // is still recognized as a service instance in the GUI.
+    string service_id = 7;
 }
 
 message IntentCreateRequest {
