@@ -44,6 +44,13 @@ target_compile_definitions(elp_api
     CPPHTTPLIB_OPENSSL_SUPPORT
     CPPHTTPLIB_DISABLE_MACOSX_AUTOMATIC_ROOT_CERTIFICATES)
 
+# Newer GCC (e.g. GCC 16) mis-analyzes object layout while inlining
+# httplib::SSLClient's destructor across the vendored cpp-httplib header,
+# producing a false-positive -Warray-bounds. Scoped to this target only,
+# since -Warray-bounds is still worth keeping as an error elsewhere.
+target_compile_options(elp_api PRIVATE
+  "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=array-bounds>")
+
 target_link_libraries(elp_api
   PUBLIC
     client_common
