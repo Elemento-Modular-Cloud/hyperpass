@@ -78,12 +78,24 @@ sha256sums=('SKIP')
 
 pkgver() {
   cd "${srcdir}/elp"
-  git describe --tags --long 2>/dev/null | sed 's/^v//; s/-/./g' || echo 0.0.0
+  local v
+  v="$(git describe --tags --long 2>/dev/null)" || v=""
+  if [[ -n "${v}" ]]; then
+    echo "${v}" | sed 's/^v//; s/-/./g'
+  else
+    printf '0.0.0.r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=8 HEAD)"
+  fi
 }
 
 prepare() {
   cd "${srcdir}/elp"
   git submodule update --init --recursive
+  # This checkout has no tags of its own; both pkgver() above and the
+  # project's own CMake versioning (src/cmake/versioning.cmake) need a
+  # usable `git describe`. Tag the disposable build clone locally (this
+  # never touches the repository it was cloned from) so both work
+  # unmodified; the pkgver() fallback above still covers this failing.
+  git describe --tags >/dev/null 2>&1 || git tag v0.0.0-dev
 }
 
 build() {
