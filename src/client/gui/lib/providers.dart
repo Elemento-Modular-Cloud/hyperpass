@@ -299,6 +299,33 @@ final daemonInfoProvider = StreamProvider<DaemonInfoReply>((ref) async* {
   }
 });
 
+/// Named intent groups (e.g. "test-app-1" = redis + postgres), polled from the
+/// daemon's own registry (see `elp intent list`). Used for the launch form's
+/// intent picker and the instance list's intent filter.
+final intentsStreamProvider = StreamProvider<List<IntentInfo>>((ref) async* {
+  if (!ref.watch(daemonAvailableProvider)) {
+    yield const [];
+    return;
+  }
+  final grpcClient = ref.watch(grpcClientProvider);
+  while (true) {
+    final timer = Future.delayed(1900.milliseconds);
+    try {
+      yield await grpcClient.intentList();
+    } catch (error, stackTrace) {
+      logger.w('Error on polling intent_list', error: error, stackTrace: stackTrace);
+      yield const [];
+    }
+    await timer;
+    await Future.delayed(100.milliseconds);
+  }
+});
+
+final intentNamesProvider = Provider<BuiltSet<String>>((ref) {
+  final intents = ref.watch(intentsStreamProvider).asData?.value ?? const [];
+  return {for (final intent in intents) intent.name}.toBuiltSet();
+});
+
 class AllVmInfosNotifier extends Notifier<List<TaggedVmInfo>> {
   @override
   List<TaggedVmInfo> build() {

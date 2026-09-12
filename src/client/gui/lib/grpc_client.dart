@@ -400,6 +400,26 @@ class GrpcClient {
     ).then((r) => r!);
   }
 
+  Future<IntentCreateReply?> intentCreate(IntentCreateRequest request) {
+    return doRpc(_client.intent_create, request);
+  }
+
+  Future<IntentAddMemberReply?> intentAddMember(IntentAddMemberRequest request) {
+    return doRpc(_client.intent_add_member, request);
+  }
+
+  Future<List<IntentInfo>> intentList() {
+    return doRpc(_client.intent_list, IntentListRequest(), log: false)
+        .then((r) => r?.intents.toList() ?? const []);
+  }
+
+  Future<IntentDeleteReply?> intentDelete(String name, {bool purge = false}) {
+    return doRpc(
+      _client.intent_delete,
+      IntentDeleteRequest(name: name, purge: purge),
+    );
+  }
+
   Future<void> authenticate(String passphrase) {
     return doRpc(
       _client.authenticate,

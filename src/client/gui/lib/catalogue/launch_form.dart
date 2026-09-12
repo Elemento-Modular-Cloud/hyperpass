@@ -130,6 +130,10 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
   var addingMount = false;
   final scrollController = ScrollController();
   final cloudInitSectionKey = GlobalKey();
+  String? _selectedIntent;
+  String _intentRole = '';
+  bool _addingToIntent = false;
+  String? _intentError;
   String? _cloudInitError;
 
   @override
@@ -178,6 +182,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           loading: () => null,
           error: (_, __) => null,
         );
+    final intentNames = ref.watch(intentNamesProvider);
 
     final closeButton = IconButton(
       icon: const Icon(Icons.close),
@@ -247,6 +252,68 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           onChanged: field.didChange,
         );
       },
+    );
+
+    final intentDropdown = Dropdown<String?>(
+      label: 'Intent',
+      width: 360,
+      value: _selectedIntent,
+      onChanged: (value) => setState(() {
+        _selectedIntent = value;
+        _intentError = null;
+      }),
+      items: {
+        null: 'None (standalone instance)',
+        for (final existingIntent in intentNames) existingIntent: existingIntent,
+      },
+    );
+
+    final intentRoleInput = SpecInput(
+      label: 'Role in intent',
+      helper: 'What this instance is within the intent (e.g. "redis").',
+      hint: 'e.g. redis',
+      initialValue: _intentRole,
+      onSaved: (value) => _intentRole = value ?? '',
+      width: 360,
+    );
+
+    final intentNote = _selectedIntent == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Launching into an existing intent doesn\'t support mounts or '
+              'bridged networking yet; those sections are hidden below.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          );
+
+    final intentSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            intentDropdown,
+            if (_selectedIntent != null) ...[
+              const SizedBox(width: 24),
+              intentRoleInput,
+            ],
+          ],
+        ),
+        intentNote,
+        if (_intentError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _intentError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+      ],
     );
 
     final mountPointsView = MountPointsView(
@@ -360,12 +427,21 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           ],
         ),
         const Divider(height: 60),
-        SizedBox(
+        const SizedBox(
           height: 50,
-          child: Text(l10n.bridgeTitle, style: const TextStyle(fontSize: 24)),
+          child: Text('Intent', style: TextStyle(fontSize: 24)),
         ),
-        bridgedSwitch,
+        intentSection,
         const Divider(height: 60),
+        if (_selectedIntent == null) ...[
+          SizedBox(
+            height: 50,
+            child:
+                Text(l10n.bridgeTitle, style: const TextStyle(fontSize: 24)),
+          ),
+          bridgedSwitch,
+          const Divider(height: 60),
+        ],
         KeyedSubtree(
           key: cloudInitSectionKey,
           child: Column(
@@ -436,14 +512,17 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
             ],
           ),
         ),
-        const Divider(height: 60),
-        SizedBox(
-          height: 50,
-          child: Text(l10n.mountsTitle, style: const TextStyle(fontSize: 24)),
-        ),
-        mountPointsView,
-        if (mountRequests.isNotEmpty) const SizedBox(height: 20),
-        addingMount ? mountForm : addMountButton,
+        if (_selectedIntent == null) ...[
+          const Divider(height: 60),
+          SizedBox(
+            height: 50,
+            child:
+                Text(l10n.mountsTitle, style: const TextStyle(fontSize: 24)),
+          ),
+          mountPointsView,
+          if (mountRequests.isNotEmpty) const SizedBox(height: 20),
+          addingMount ? mountForm : addMountButton,
+        ],
       ],
     );
 
@@ -582,13 +661,16 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       mountRequest.targetPaths.first.instanceName = launchRequest.instanceName;
     }
 
-    final started = await initiateLaunchFlow(
-      context,
-      ref,
-      launchRequest.deepCopy(),
-      mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
-      os: imageInfo.os,
-    );
+    final selectedIntent = _selectedIntent;
+    final started = selectedIntent == null
+        ? await initiateLaunchFlow(
+            context,
+            ref,
+            launchRequest.deepCopy(),
+            mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
+            os: imageInfo.os,
+          )
+        : await _addToIntent(selectedIntent);
 
     if (!started || !mounted) return;
 
@@ -599,6 +681,53 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       ref
           .read(sidebarKeyProvider.notifier)
           .set(elpVm(launchRequest.instanceName).sidebarKey);
+    }
+  }
+
+  /// Launches this form's instance as a new member of an existing intent via
+  /// intent_add_member instead of a plain launch, so it's tracked in the
+  /// daemon's intent registry (`elp intent info` etc.) rather than just
+  /// carrying the intent/intentRole tag on an untracked instance. Mounts and
+  /// bridged networking aren't supported by intent_add_member yet (their
+  /// sections are hidden in the form while an intent is selected).
+  Future<bool> _addToIntent(String intentName) async {
+    if (_intentRole.trim().isEmpty) {
+      setState(() => _intentError = 'Please provide a role for this member.');
+      return false;
+    }
+
+    setState(() {
+      _addingToIntent = true;
+      _intentError = null;
+    });
+
+    try {
+      final member = IntentMemberRequest(
+        role: _intentRole.trim(),
+        image: launchRequest.image,
+        numCores: launchRequest.numCores,
+        memSize: launchRequest.memSize,
+        diskSpace: launchRequest.diskSpace,
+      );
+      if (launchRequest.hasCloudInitUserData()) {
+        member.cloudInitUserData = launchRequest.cloudInitUserData;
+      }
+
+      final reply = await ref.read(grpcClientProvider).intentAddMember(
+            IntentAddMemberRequest(name: intentName, members: [member]),
+          );
+
+      ref.read(recentActivityProvider.notifier).record(
+            title: 'Added ${_intentRole.trim()} to intent $intentName',
+            detail: reply?.replyMessage ?? '',
+          );
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      setState(() => _intentError = '$error');
+      return false;
+    } finally {
+      if (mounted) setState(() => _addingToIntent = false);
     }
   }
 }
