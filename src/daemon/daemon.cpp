@@ -479,6 +479,13 @@ std::string service_id_from_specs(const mp::VMSpecs& specs)
     return {};
 }
 
+std::string metadata_string(const mp::VMSpecs& specs, const char* key)
+{
+    if (auto it = specs.metadata.find(key); it != specs.metadata.end() && it->value().is_string())
+        return std::string(it->value().as_string());
+    return {};
+}
+
 
 std::vector<mp::NetworkInterface> validate_extra_interfaces(
     const mp::LaunchRequest* request,
@@ -3814,7 +3821,16 @@ void mp::Daemon::create_vm(const CreateRequest* request,
 
     QObject::connect(prepare_future_watcher,
                      &QFutureWatcher<mp::VirtualMachineDescription>::finished,
-                     [this, server, context, name, timeout, start, prepare_future_watcher, service_id = std::string{request->service_id()}] {
+                     [this,
+                      server,
+                      context,
+                      name,
+                      timeout,
+                      start,
+                      prepare_future_watcher,
+                      service_id = std::string{request->service_id()},
+                      intent = std::string{request->intent()},
+                      intent_role = std::string{request->intent_role()}] {
                          // Per-RPC ClientLogger lifecycle is managed by DaemonRpcContextImpl.
 
                          try
@@ -3824,6 +3840,11 @@ void mp::Daemon::create_vm(const CreateRequest* request,
                              boost::json::object meta;
                              if (!service_id.empty())
                                  meta["elemento_service_id"] = service_id;
+                             if (!intent.empty())
+                             {
+                                 meta["intent"] = intent;
+                                 meta["intent_role"] = intent_role;
+                             }
 
                              vm_instance_specs[name] = {
                                  vm_desc.num_cores,
@@ -4547,6 +4568,12 @@ void mp::Daemon::populate_instance_info(VirtualMachine& vm,
 
     if (const auto sid = service_id_from_specs(vm_specs); !sid.empty())
         info->set_service_id(sid);
+
+    if (const auto intent = metadata_string(vm_specs, "intent"); !intent.empty())
+    {
+        info->set_intent(intent);
+        info->set_intent_role(metadata_string(vm_specs, "intent_role"));
+    }
 
     auto mount_info = info->mutable_mount_info();
     populate_mount_info(vm_specs.mounts, mount_info, have_mounts);
