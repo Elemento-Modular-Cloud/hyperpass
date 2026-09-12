@@ -28,9 +28,11 @@ add_library(commands STATIC
   get.cpp
   help.cpp
   info.cpp
+  intent.cpp
   launch.cpp
   list.cpp
   llm.cpp
+  migrate.cpp
   mount.cpp
   networks.cpp
   prefer.cpp

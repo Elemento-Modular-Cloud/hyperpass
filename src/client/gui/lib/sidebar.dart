@@ -20,6 +20,8 @@ import 'cloud_init/cloud_init_screen.dart';
 import 'downloads/download_manager.dart';
 import 'glass_panel.dart';
 import 'help.dart';
+import 'intents/intents_screen.dart';
+import 'migrate/migrate_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/compact_layout.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
@@ -300,6 +302,24 @@ class SideBar extends ConsumerWidget {
       },
     );
 
+    final intents = SidebarEntry(
+      icon: FontAwesomeIcons.objectGroup,
+      selected: isSelected(IntentsScreen.sidebarKey),
+      label: 'Intents',
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(IntentsScreen.sidebarKey);
+      },
+    );
+
+    final hosts = SidebarEntry(
+      icon: FontAwesomeIcons.networkWired,
+      selected: isSelected(HostsScreen.sidebarKey),
+      label: 'Migration Hosts',
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(HostsScreen.sidebarKey);
+      },
+    );
+
     final instances = SidebarEntry(
       icon: FontAwesomeIcons.server,
       selected: isSelected(VmTableScreen.sidebarKey) ||
@@ -559,6 +579,7 @@ class SideBar extends ConsumerWidget {
         SidebarSectionHeader(l10n.sidebarSectionCompute),
         catalogue,
         instances,
+        intents,
         cloudInit,
         SidebarSectionHeader(
           l10n.sidebarSectionAi,
@@ -577,6 +598,7 @@ class SideBar extends ConsumerWidget {
         SidebarSectionHeader(l10n.sidebarSectionManage),
         llmSetup,
         cache,
+        hosts,
         help,
         const Spacer(),
         Divider(color: fg.withAlpha(40), height: 1),

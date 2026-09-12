@@ -18,13 +18,10 @@
 #pragma once
 
 #include <multipass/cli/command.h>
-#include <multipass/rpc/multipass.grpc.pb.h>
-
-#include <QString>
 
 namespace multipass::cmd
 {
-class Llm final : public Command
+class Migrate final : public Command
 {
 public:
     using Command::Command;
@@ -37,20 +34,9 @@ public:
 private:
     ParseCode parse_args(ArgParser* parser);
 
-    QString subcommand;
-    QString model_id;
-    QString quant;
-    QString use_case;
-    QString query;
-    QString key_label;
-    QString key_id;
-    QString key_instance;
-    QString intent;
-    QString intent_role;
-    int limit{10};
-    int ctx_size{4096};
-    int max_tokens{0};
-    multipass::LlmLoadParams load_params;
-    bool recommend_only{false};
+    std::string instance_name;
+    QString target;
+    QString identity_file;
+    bool copy{false};
 };
 } // namespace multipass::cmd

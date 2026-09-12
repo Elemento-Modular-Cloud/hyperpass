@@ -400,6 +400,58 @@ class GrpcClient {
     ).then((r) => r!);
   }
 
+  Future<IntentCreateReply?> intentCreate(IntentCreateRequest request) {
+    return doRpc(_client.intent_create, request);
+  }
+
+  Future<IntentAddMemberReply?> intentAddMember(IntentAddMemberRequest request) {
+    return doRpc(_client.intent_add_member, request);
+  }
+
+  Future<List<IntentInfo>> intentList() {
+    return doRpc(_client.intent_list, IntentListRequest(), log: false)
+        .then((r) => r?.intents.toList() ?? const []);
+  }
+
+  Future<IntentDeleteReply?> intentDelete(String name, {bool purge = false}) {
+    return doRpc(
+      _client.intent_delete,
+      IntentDeleteRequest(name: name, purge: purge),
+    );
+  }
+
+  Future<MigrateReply?> migrate(
+    String name,
+    String target, {
+    bool copy = false,
+    String identityFile = '',
+  }) {
+    return doRpc(
+      _client.migrate,
+      MigrateRequest(name: name, target: target, copy: copy, identityFile: identityFile),
+    );
+  }
+
+  Future<List<NetworkHost>> listNetworkHosts() {
+    return doRpc(_client.list_network_hosts, ListNetworkHostsRequest(), log: false)
+        .then((r) => r?.hosts.toList() ?? const []);
+  }
+
+  Future<AddKnownHostReply?> addKnownHost(
+    String label,
+    String target, {
+    String identityFile = '',
+  }) {
+    return doRpc(
+      _client.add_known_host,
+      AddKnownHostRequest(label: label, target: target, identityFile: identityFile),
+    );
+  }
+
+  Future<RemoveKnownHostReply?> removeKnownHost(String label) {
+    return doRpc(_client.remove_known_host, RemoveKnownHostRequest(label: label));
+  }
+
   Future<void> authenticate(String passphrase) {
     return doRpc(
       _client.authenticate,

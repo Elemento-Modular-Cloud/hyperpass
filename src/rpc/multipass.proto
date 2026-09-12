@@ -44,12 +44,21 @@ service Rpc {
     rpc snapshot (stream SnapshotRequest) returns (stream SnapshotReply);
     rpc restore (stream RestoreRequest) returns (stream RestoreReply);
     rpc clone (stream CloneRequest) returns (stream CloneReply);
+    rpc intent_create (stream IntentCreateRequest) returns (stream IntentCreateReply);
+    rpc intent_add_member (stream IntentAddMemberRequest) returns (stream IntentAddMemberReply);
+    rpc intent_list (stream IntentListRequest) returns (stream IntentListReply);
+    rpc intent_info (stream IntentInfoRequest) returns (stream IntentInfoReply);
+    rpc intent_delete (stream IntentDeleteRequest) returns (stream IntentDeleteReply);
     rpc daemon_info (stream DaemonInfoRequest) returns (stream DaemonInfoReply);
     rpc wait_ready (stream WaitReadyRequest) returns (stream WaitReadyReply);
     rpc zones (stream ZonesRequest) returns (stream ZonesReply);
     rpc zones_state (stream ZonesStateRequest) returns (stream ZonesStateReply);
     rpc cache_info (stream CacheInfoRequest) returns (stream CacheInfoReply);
     rpc cache_delete (stream CacheDeleteRequest) returns (stream CacheDeleteReply);
+    rpc migrate (stream MigrateRequest) returns (stream MigrateReply);
+    rpc list_network_hosts (stream ListNetworkHostsRequest) returns (stream ListNetworkHostsReply);
+    rpc add_known_host (stream AddKnownHostRequest) returns (stream AddKnownHostReply);
+    rpc remove_known_host (stream RemoveKnownHostRequest) returns (stream RemoveKnownHostReply);
 
     rpc find_models (stream FindModelsRequest) returns (stream FindModelsReply);
     rpc pull_model (stream PullModelRequest) returns (stream PullModelReply);
@@ -96,6 +105,8 @@ message LaunchRequest {
     string password = 15;
     string zone = 16;
     string service_id = 17;
+    string intent = 18; // name of the intent this instance belongs to, if any
+    string intent_role = 19; // this instance's role within that intent (e.g. "redis")
 }
 
 message LaunchError {
@@ -274,6 +285,8 @@ message DetailedInfoItem {
 
     Zone zone = 9;
     string service_id = 10;
+    string intent = 11;
+    string intent_role = 12;
 }
 
 message InfoReply {
@@ -566,6 +579,104 @@ message CloneReply {
     string reply_message = 1;
     string log_line = 2;
 }
+
+// A single member to launch as part of an intent. Either set `role` to the
+// name of a known service template (e.g. "redis", "postgres") or fill in
+// `image`/`cloud_init_user_data` directly for an inline, ad-hoc member.
+// cloud_init_user_data is raw cloud-init content, not a path — same
+// convention as LaunchRequest, so this works against a remote daemon too;
+// the CLI reads and dumps any --instance cloud-init file client-side.
+message IntentMemberRequest {
+    string role = 1;
+    string image = 2;
+    string cloud_init_user_data = 3;
+    int32 num_cores = 4;
+    string mem_size = 5;
+    string disk_space = 6;
+    // Marketplace service template id, when this member is a deployed
+    // service rather than a plain custom/templated instance. Mirrors
+    // LaunchRequest's own service_id so a service deployed into an intent
+    // is still recognized as a service instance in the GUI.
+    string service_id = 7;
+    // When set, this member is an LLM session rather than a VM: the daemon
+    // calls load_model(model_id) instead of launching a VM, and role/image/
+    // cloud_init_user_data/num_cores/mem_size/disk_space/service_id are
+    // ignored for this member. quant/ctx_size/runtime/max_tokens below mirror
+    // the matching LoadModelRequest fields and are only used alongside model_id.
+    string model_id = 8;
+    string quant = 9;
+    int32 ctx_size = 10;
+    string runtime = 11;
+    int32 max_tokens = 12;
+}
+
+message IntentCreateRequest {
+    string name = 1;
+    repeated IntentMemberRequest members = 2;
+    int32 verbosity_level = 3;
+}
+
+message IntentCreateReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+message IntentAddMemberRequest {
+    string name = 1;
+    repeated IntentMemberRequest members = 2;
+    int32 verbosity_level = 3;
+}
+
+message IntentAddMemberReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+message IntentMember {
+    string role = 1;
+    string instance_name = 2;
+    InstanceStatus instance_status = 3;
+    // "vm" (default) or "llm": which kind of thing instance_name identifies
+    // (a launched VM instance name, or an LLM session's instance_id).
+    string kind = 4;
+}
+
+message IntentInfo {
+    string name = 1;
+    repeated IntentMember members = 2;
+    google.protobuf.Timestamp creation_timestamp = 3;
+}
+
+message IntentListRequest {
+    int32 verbosity_level = 1;
+}
+
+message IntentListReply {
+    repeated IntentInfo intents = 1;
+    string log_line = 2;
+}
+
+message IntentInfoRequest {
+    string name = 1;
+    int32 verbosity_level = 2;
+}
+
+message IntentInfoReply {
+    IntentInfo intent = 1;
+    string log_line = 2;
+}
+
+message IntentDeleteRequest {
+    string name = 1;
+    bool purge = 2;
+    int32 verbosity_level = 3;
+}
+
+message IntentDeleteReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
 message DaemonInfoRequest {
     int32 verbosity_level = 1;
 }
@@ -593,6 +704,9 @@ message DaemonInfoReply {
     // Cumulative host interface counters (loopback excluded). Clients derive rates.
     uint64 network_rx_bytes = 18;
     uint64 network_tx_bytes = 19;
+    // Driver name (config->factory->get_backend_directory_name(), e.g. "qemu"), advertised
+    // over mDNS alongside host_os/host_arch so peers can be told apart at a glance.
+    string backend = 20;
 }
 
 message ResourceClaimInfo {
@@ -600,6 +714,74 @@ message ResourceClaimInfo {
     string kind = 2;
     uint64 memory_bytes = 3;
     uint32 cpus = 4;
+}
+
+message MigrateRequest {
+    string name = 1; // a VM instance name or an intent name
+    string target = 2; // "user@host", reachable over SSH with elp already installed there
+    bool copy = 3; // keep the source instance(s)/session(s) instead of deleting them
+    int32 verbosity_level = 4;
+    // Private key file ssh/rsync should authenticate with (passed as `ssh -i`). elpd runs as
+    // root, so plain `ssh user@host` otherwise uses root's own ~/.ssh, not whichever user is
+    // actually running `elp migrate` — pointing this at that user's own key (e.g.
+    // ~/.ssh/id_ed25519) avoids needing a separate key set up for root. Optional: if empty,
+    // ssh falls back to its own normal key discovery (i.e. root's).
+    string identity_file = 5;
+}
+
+message MigrateReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+// One host on the network (or manually added), as shown in the GUI's migration target
+// picker. Discovered hosts come from mDNS browsing; known hosts are the persisted
+// manually-added fallback (the plan's own cross-subnet/no-multicast escape hatch).
+message NetworkHost {
+    string label = 1; // friendly name: the mDNS service name, or the label given to add_known_host
+    string target = 2; // "user@host"; only set once a user has been supplied (see GUI flow)
+    string host_name = 3;
+    string host_os = 4;
+    string host_arch = 5;
+    string backend = 6;
+    string address = 7; // resolved IP/hostname (discovered hosts only)
+    bool discovered = 8; // true: found via mDNS; false: manually added via add_known_host
+    // Default ssh/rsync identity file for this host (see MigrateRequest.identity_file);
+    // empty means "use ssh's own default". Set on a known host via add_known_host; a
+    // discovered host inherits it too once its label matches a known one (see
+    // list_network_hosts, same as it already does for `target`).
+    string identity_file = 9;
+}
+
+message ListNetworkHostsRequest {
+    int32 verbosity_level = 1;
+}
+
+message ListNetworkHostsReply {
+    repeated NetworkHost hosts = 1;
+    string log_line = 2;
+}
+
+message AddKnownHostRequest {
+    string label = 1;
+    string target = 2; // "user@host"
+    int32 verbosity_level = 3;
+    string identity_file = 4; // optional default ssh/rsync identity for this host
+}
+
+message AddKnownHostReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+message RemoveKnownHostRequest {
+    string label = 1;
+    int32 verbosity_level = 2;
+}
+
+message RemoveKnownHostReply {
+    string log_line = 1;
+    string reply_message = 2;
 }
 
 message WaitReadyRequest {
@@ -754,6 +936,10 @@ message LoadModelRequest {
     // Default/cap for OpenAI max_tokens on this instance. 0 = unlimited.
     int32 max_tokens = 6;
     LlmLoadParams params = 7;
+    // Optional intent (named group) membership, mirroring LaunchRequest's
+    // own intent/intent_role fields.
+    string intent = 8;
+    string intent_role = 9;
 }
 
 message LoadModelReply {
@@ -793,6 +979,8 @@ message LoadedModelInfo {
     // KV / context window passed to the backend (--ctx-size).
     int32 ctx_size = 10;
     LlmLoadParams params = 11;
+    string intent = 12;
+    string intent_role = 13;
 }
 
 message ListModelsRequest {

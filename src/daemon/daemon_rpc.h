@@ -83,6 +83,22 @@ signals:
     void on_clone(const CloneRequest* request,
                   grpc::ServerReaderWriter<CloneReply, CloneRequest>* server,
                   DaemonRpcContext* context);
+    void on_intent_create(const IntentCreateRequest* request,
+                          grpc::ServerReaderWriter<IntentCreateReply, IntentCreateRequest>* server,
+                          DaemonRpcContext* context);
+    void on_intent_add_member(
+        const IntentAddMemberRequest* request,
+        grpc::ServerReaderWriter<IntentAddMemberReply, IntentAddMemberRequest>* server,
+        DaemonRpcContext* context);
+    void on_intent_list(const IntentListRequest* request,
+                        grpc::ServerReaderWriter<IntentListReply, IntentListRequest>* server,
+                        DaemonRpcContext* context);
+    void on_intent_info(const IntentInfoRequest* request,
+                        grpc::ServerReaderWriter<IntentInfoReply, IntentInfoRequest>* server,
+                        DaemonRpcContext* context);
+    void on_intent_delete(const IntentDeleteRequest* request,
+                          grpc::ServerReaderWriter<IntentDeleteReply, IntentDeleteRequest>* server,
+                          DaemonRpcContext* context);
     void on_networks(const NetworksRequest* request,
                      grpc::ServerReaderWriter<NetworksReply, NetworksRequest>* server,
                      DaemonRpcContext* context);
@@ -146,6 +162,21 @@ signals:
     void on_wait_ready(const WaitReadyRequest* request,
                        grpc::ServerReaderWriter<WaitReadyReply, WaitReadyRequest>* server,
                        DaemonRpcContext* context);
+    void on_migrate(const MigrateRequest* request,
+                    grpc::ServerReaderWriter<MigrateReply, MigrateRequest>* server,
+                    DaemonRpcContext* context);
+    void on_list_network_hosts(
+        const ListNetworkHostsRequest* request,
+        grpc::ServerReaderWriter<ListNetworkHostsReply, ListNetworkHostsRequest>* server,
+        DaemonRpcContext* context);
+    void on_add_known_host(
+        const AddKnownHostRequest* request,
+        grpc::ServerReaderWriter<AddKnownHostReply, AddKnownHostRequest>* server,
+        DaemonRpcContext* context);
+    void on_remove_known_host(
+        const RemoveKnownHostRequest* request,
+        grpc::ServerReaderWriter<RemoveKnownHostReply, RemoveKnownHostRequest>* server,
+        DaemonRpcContext* context);
     void on_zones(const ZonesRequest* request,
                   grpc::ServerReaderWriter<ZonesReply, ZonesRequest>* server,
                   DaemonRpcContext* context);
@@ -229,6 +260,21 @@ protected:
                       grpc::ServerReaderWriter<ListReply, ListRequest>* server) override;
     grpc::Status clone(grpc::ServerContext* context,
                        grpc::ServerReaderWriter<CloneReply, CloneRequest>* server) override;
+    grpc::Status intent_create(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<IntentCreateReply, IntentCreateRequest>* server) override;
+    grpc::Status intent_add_member(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<IntentAddMemberReply, IntentAddMemberRequest>* server) override;
+    grpc::Status intent_list(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<IntentListReply, IntentListRequest>* server) override;
+    grpc::Status intent_info(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<IntentInfoReply, IntentInfoRequest>* server) override;
+    grpc::Status intent_delete(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<IntentDeleteReply, IntentDeleteRequest>* server) override;
     grpc::Status networks(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<NetworksReply, NetworksRequest>* server) override;
@@ -281,6 +327,17 @@ protected:
     grpc::Status wait_ready(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<WaitReadyReply, WaitReadyRequest>* server) override;
+    grpc::Status migrate(grpc::ServerContext* context,
+                        grpc::ServerReaderWriter<MigrateReply, MigrateRequest>* server) override;
+    grpc::Status list_network_hosts(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ListNetworkHostsReply, ListNetworkHostsRequest>* server) override;
+    grpc::Status add_known_host(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<AddKnownHostReply, AddKnownHostRequest>* server) override;
+    grpc::Status remove_known_host(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<RemoveKnownHostReply, RemoveKnownHostRequest>* server) override;
     grpc::Status zones(grpc::ServerContext* context,
                        grpc::ServerReaderWriter<ZonesReply, ZonesRequest>* server) override;
     grpc::Status zones_state(

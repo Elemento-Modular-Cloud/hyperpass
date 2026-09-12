@@ -18,13 +18,10 @@
 #pragma once
 
 #include <multipass/cli/command.h>
-#include <multipass/rpc/multipass.grpc.pb.h>
-
-#include <QString>
 
 namespace multipass::cmd
 {
-class Llm final : public Command
+class Intent final : public Command
 {
 public:
     using Command::Command;
@@ -35,22 +32,15 @@ public:
     QString description() const override;
 
 private:
-    ParseCode parse_args(ArgParser* parser);
+    ReturnCodeVariant run_create(ArgParser* parser);
+    ReturnCodeVariant run_add(ArgParser* parser);
+    ReturnCodeVariant run_list(ArgParser* parser);
+    ReturnCodeVariant run_info(ArgParser* parser);
+    ReturnCodeVariant run_delete(ArgParser* parser);
 
-    QString subcommand;
-    QString model_id;
-    QString quant;
-    QString use_case;
-    QString query;
-    QString key_label;
-    QString key_id;
-    QString key_instance;
-    QString intent;
-    QString intent_role;
-    int limit{10};
-    int ctx_size{4096};
-    int max_tokens{0};
-    multipass::LlmLoadParams load_params;
-    bool recommend_only{false};
+    // Parses --service/--instance into `members`; returns false (and prints an error) on a
+    // malformed --instance spec. Shared by run_create and run_add.
+    bool parse_members(ArgParser* parser,
+                       google::protobuf::RepeatedPtrField<IntentMemberRequest>* members);
 };
 } // namespace multipass::cmd

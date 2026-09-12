@@ -131,6 +131,11 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
             request.set_ctx_size(load_params.ctx_size());
         if (load_params.has_max_tokens())
             request.set_max_tokens(load_params.max_tokens());
+        if (!intent.isEmpty())
+        {
+            request.set_intent(intent.toStdString());
+            request.set_intent_role(intent_role.toStdString());
+        }
         AnimatedSpinner spinner{cout};
         spinner.start("Loading model ");
         auto on_success = [this, &spinner](LoadModelReply& reply) -> ReturnCodeVariant {
@@ -387,6 +392,10 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     QCommandLineOption n_cpu_moe_opt{"n-cpu-moe", "Keep the first N MoE layers on CPU", "n"};
     QCommandLineOption label_opt{"label", "API key label", "label"};
     QCommandLineOption instance_opt{"instance", "Bind key to a loaded LLM instance", "instance"};
+    QCommandLineOption intent_opt{
+        "intent", "Join (or create) this named intent when loading", "intent"};
+    QCommandLineOption intent_role_opt{
+        "intent-role", "This instance's role within --intent (required if --intent is set)", "role"};
     parser->addOption(use_case_opt);
     parser->addOption(limit_opt);
     parser->addOption(query_opt);
@@ -411,6 +420,8 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     parser->addOption(n_cpu_moe_opt);
     parser->addOption(label_opt);
     parser->addOption(instance_opt);
+    parser->addOption(intent_opt);
+    parser->addOption(intent_role_opt);
 
     auto status = parser->commandParse(this);
     if (status != ParseCode::Ok)
@@ -488,11 +499,20 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         key_label = parser->value(label_opt);
     if (parser->isSet(instance_opt))
         key_instance = parser->value(instance_opt);
+    if (parser->isSet(intent_opt))
+        intent = parser->value(intent_opt);
+    if (parser->isSet(intent_role_opt))
+        intent_role = parser->value(intent_role_opt);
 
     const QStringList needs_id{"pull", "load", "unload", "delete", "rm"};
     if (needs_id.contains(subcommand) && model_id.isEmpty())
     {
         cerr << "Missing model id\n";
+        return ParseCode::CommandLineError;
+    }
+    if (subcommand == "load" && !intent.isEmpty() && intent_role.isEmpty())
+    {
+        cerr << "--intent requires --intent-role\n";
         return ParseCode::CommandLineError;
     }
     return ParseCode::Ok;

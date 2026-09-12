@@ -115,7 +115,8 @@ class _LlmInstancesBody extends StatelessWidget {
       final q = search.toLowerCase();
       return m.modelId.toLowerCase().contains(q) ||
           m.openaiId.toLowerCase().contains(q) ||
-          m.backend.toLowerCase().contains(q);
+          m.backend.toLowerCase().contains(q) ||
+          m.intent.toLowerCase().contains(q);
     }).toList(growable: false);
 
     return Column(

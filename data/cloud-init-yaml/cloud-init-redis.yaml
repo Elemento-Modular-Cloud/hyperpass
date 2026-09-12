@@ -1,0 +1,12 @@
+# Reference copy of the "redis" service template used by `elp intent create
+# --service redis`; the daemon embeds this content directly
+# (src/daemon/intent_service_templates.cpp) rather than reading this file.
+packages:
+- redis-server
+
+runcmd:
+- |
+  sed -i 's/^bind 127.0.0.1.*/bind 0.0.0.0/' /etc/redis/redis.conf
+  systemctl enable redis-server --now
+
+final_message: "redis is up, after $UPTIME seconds"

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalogue/catalogue.dart';
 import '../daemon_source.dart';
+import '../dropdown.dart';
 import '../l10n/app_localizations.dart';
 import '../layout/compact_layout.dart';
 import '../llm/host_resource_gauges.dart';
@@ -36,6 +37,34 @@ final runningOnlyProvider = NotifierProvider<RunningOnlyNotifier, bool>(
   RunningOnlyNotifier.new,
 );
 
+class GroupByIntentNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) {
+    state = value;
+  }
+}
+
+final groupByIntentProvider = NotifierProvider<GroupByIntentNotifier, bool>(
+  GroupByIntentNotifier.new,
+);
+
+class SelectedIntentNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? value) {
+    state = value;
+  }
+}
+
+/// null means "all intents" (no filtering); the empty string filters down
+/// to instances that aren't tagged with any intent at all.
+final selectedIntentProvider = NotifierProvider<SelectedIntentNotifier, String?>(
+  SelectedIntentNotifier.new,
+);
+
 final selectedVmsProvider =
     NotifierProvider<SelectedVmsNotifier, BuiltSet<VmId>>(
   SelectedVmsNotifier.new,
@@ -46,6 +75,7 @@ class SelectedVmsNotifier extends Notifier<BuiltSet<VmId>> {
   BuiltSet<VmId> build() {
     ref.watch(runningOnlyProvider);
     ref.watch(searchNameProvider);
+    ref.watch(selectedIntentProvider);
     ref.watch(sidebarKeyProvider);
     ref.listen(vmIdsProvider, (_, availableIds) {
       state = availableIds.intersection(state);
@@ -61,6 +91,12 @@ class SelectedVmsNotifier extends Notifier<BuiltSet<VmId>> {
   void toggle(VmId id, bool isSelected) {
     state = state.rebuild((set) {
       isSelected ? set.add(id) : set.remove(id);
+    });
+  }
+
+  void toggleAll(Iterable<VmId> ids, bool isSelected) {
+    state = state.rebuild((set) {
+      isSelected ? set.addAll(ids) : set.removeAll(ids);
     });
   }
 }
@@ -86,6 +122,25 @@ class Vms extends ConsumerWidget {
 
     final searchName = ref.watch(searchNameProvider);
     final runningOnly = ref.watch(runningOnlyProvider);
+    final selectedIntent = ref.watch(selectedIntentProvider);
+    final intentNames = ref.watch(intentNamesProvider);
+    final intentFilter = intentNames.isEmpty
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Dropdown<String?>(
+              label: 'Intent',
+              width: 200,
+              value: selectedIntent,
+              onChanged: (v) => ref.read(selectedIntentProvider.notifier).set(v),
+              items: {
+                null: 'All intents',
+                '': 'No intent',
+                for (final intentName in intentNames) intentName: intentName,
+              },
+            ),
+          );
+    final groupByIntent = ref.watch(groupByIntentProvider);
     final vmFilters = Row(
       children: [
         Switch(
@@ -93,7 +148,14 @@ class Vms extends ConsumerWidget {
           value: runningOnly,
           onChanged: (v) => ref.read(runningOnlyProvider.notifier).set(v),
         ),
+        const SizedBox(width: 16),
+        Switch(
+          label: 'Group by intent',
+          value: groupByIntent,
+          onChanged: (v) => ref.read(groupByIntentProvider.notifier).set(v),
+        ),
         const Spacer(),
+        intentFilter,
         const SearchBox(),
         const SizedBox(width: 8),
         const HeaderSelection(),
@@ -109,6 +171,7 @@ class Vms extends ConsumerWidget {
         .watch(vmInfosProvider)
         .where((i) => !runningOnly || i.instanceStatus.status == Status.RUNNING)
         .where((i) => i.name.contains(searchName))
+        .where((i) => selectedIntent == null || i.info.intent == selectedIntent)
         .toList();
 
     int total(Iterable<String> it) => it.map((e) => int.tryParse(e) ?? 0).sum;
@@ -159,15 +222,122 @@ class Vms extends ConsumerWidget {
         Flexible(
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child: Table<TaggedVmInfo>(
-              headers: enabledHeaders,
-              data: infos.toList(),
-              finalRow: totalUsageRow,
-              isSelected: (info) => selectedVms.contains(info.id),
-            ),
+            child: groupByIntent
+                ? _GroupedByIntentTables(
+                    infos: infos,
+                    headers: enabledHeaders,
+                    isSelected: (info) => selectedVms.contains(info.id),
+                  )
+                : Table<TaggedVmInfo>(
+                    headers: enabledHeaders,
+                    data: infos.toList(),
+                    finalRow: totalUsageRow,
+                    isSelected: (info) => selectedVms.contains(info.id),
+                  ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// One [Table] per intent (plus one for untagged instances), stacked in a
+/// scrollable column. Each table is given an explicit height sized to its
+/// row count, since [Table] (a 2D scrollable) needs a bounded height and
+/// can't just be dropped into an unbounded-height [ListView] like a normal
+/// widget.
+class _GroupedByIntentTables extends StatelessWidget {
+  const _GroupedByIntentTables({
+    required this.infos,
+    required this.headers,
+    required this.isSelected,
+  });
+
+  final List<TaggedVmInfo> infos;
+  final List<TableHeader<TaggedVmInfo>> headers;
+  final bool Function(TaggedVmInfo) isSelected;
+
+  static const _headerRowHeight = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = <String, List<TaggedVmInfo>>{};
+    for (final info in infos) {
+      groups.putIfAbsent(info.info.intent, () => []).add(info);
+    }
+    final sortedKeys = groups.keys.toList()
+      ..sort((a, b) {
+        if (a.isEmpty || b.isEmpty) return a.isEmpty ? 1 : -1;
+        return a.compareTo(b);
+      });
+
+    if (sortedKeys.isEmpty) return const SizedBox.shrink();
+
+    return ListView(
+      children: [
+        for (final key in sortedKeys) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              key.isEmpty ? 'No intent' : key,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+          SizedBox(
+            height: _headerRowHeight + groups[key]!.length * 50,
+            child: Table<TaggedVmInfo>(
+              // "Select all" in the checkbox column must only select this
+              // group's own rows, not every instance across every intent —
+              // substitute a group-scoped checkbox for the shared header
+              // (whose default childBuilder selects across all instances).
+              headers: [
+                for (final h in headers)
+                  if (h.name == 'checkbox')
+                    TableHeader<TaggedVmInfo>(
+                      name: h.name,
+                      childBuilder: (_) => _GroupSelectAllCheckbox(
+                        ids: groups[key]!.map((info) => info.id).toList(),
+                      ),
+                      width: h.width,
+                      minWidth: h.minWidth,
+                      cellBuilder: h.cellBuilder,
+                    )
+                  else
+                    h,
+              ],
+              data: groups[key]!,
+              finalRow: const [],
+              isSelected: isSelected,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ],
+    );
+  }
+}
+
+/// Like [SelectAllCheckbox], but scoped to one intent group's own instances
+/// instead of every instance in the (unfiltered) list.
+class _GroupSelectAllCheckbox extends ConsumerWidget {
+  const _GroupSelectAllCheckbox({required this.ids});
+
+  final List<VmId> ids;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedVms = ref.watch(selectedVmsProvider);
+    final selectedCount = ids.where(selectedVms.contains).length;
+    final allSelected = ids.isNotEmpty && selectedCount == ids.length;
+
+    return Center(
+      child: Checkbox(
+        tristate: true,
+        value: selectedCount == 0 ? false : (allSelected ? true : null),
+        onChanged: (checked) => ref
+            .read(selectedVmsProvider.notifier)
+            .toggleAll(ids, checked ?? false),
+      ),
     );
   }
 }

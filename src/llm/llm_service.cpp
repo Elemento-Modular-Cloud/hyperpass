@@ -174,6 +174,8 @@ void mp::LlmService::restore_claims()
             session.ctx_size = 4096;
         if (obj.value("params").isObject())
             session.params = llm_load_params_from_json(obj.value("params").toObject());
+        session.intent = obj.value("intent").toString().toStdString();
+        session.intent_role = obj.value("intent_role").toString().toStdString();
         if (session.instance_id.empty())
             continue;
         if (!session_is_live(session) && live_cmds.find(session.pid) == live_cmds.end())
@@ -676,6 +678,7 @@ void mp::LlmService::load_model_impl(
     // OOM on a laptop. Reuse the live instance instead.
     {
         std::optional<LoadModelReply> reused;
+        auto persist_reuse = false;
         {
             std::lock_guard lock{mutex};
             for (auto& [_, existing] : sessions)
@@ -683,6 +686,12 @@ void mp::LlmService::load_model_impl(
                 if (existing.model_id != model_id || !session_is_live(existing))
                     continue;
                 existing.last_used = std::chrono::steady_clock::now();
+                if (!request->intent().empty() && existing.intent.empty())
+                {
+                    existing.intent = request->intent();
+                    existing.intent_role = request->intent_role();
+                    persist_reuse = true;
+                }
                 LoadModelReply reply;
                 reply.set_instance_id(existing.instance_id);
                 reply.set_model_id(existing.model_id);
@@ -696,6 +705,8 @@ void mp::LlmService::load_model_impl(
         }
         if (reused)
         {
+            if (persist_reuse)
+                persist_sessions();
             log_lifecycle(reused->instance_id(),
                           "info",
                           fmt::format("load reused existing instance for {}", model_id));
@@ -741,6 +752,8 @@ void mp::LlmService::load_model_impl(
     session.ctx_size = ctx;
     session.max_tokens = max_tokens;
     session.params = resolved.echoed;
+    session.intent = request->intent();
+    session.intent_role = request->intent_role();
 
     try
     {
@@ -932,6 +945,8 @@ void mp::LlmService::list_models(
         info->set_max_tokens(session.max_tokens);
         info->set_ctx_size(session.ctx_size);
         *info->mutable_params() = session.params;
+        info->set_intent(session.intent);
+        info->set_intent_role(session.intent_role);
     }
     for (const auto& art : vault.list())
     {
@@ -1335,6 +1350,35 @@ bool mp::LlmService::is_loaded(const std::string& model_id) const
     return false;
 }
 
+bool mp::LlmService::has_instance(const std::string& instance_id) const
+{
+    std::lock_guard lock{mutex};
+    return sessions.find(instance_id) != sessions.end();
+}
+
+std::optional<mp::LoadedModelInfo> mp::LlmService::instance_info(const std::string& instance_id) const
+{
+    std::lock_guard lock{mutex};
+    auto it = sessions.find(instance_id);
+    if (it == sessions.end())
+        return std::nullopt;
+
+    const auto& session = it->second;
+    LoadedModelInfo info;
+    info.set_instance_id(session.instance_id);
+    info.set_model_id(session.model_id);
+    info.set_openai_id(session.openai_id);
+    info.set_backend(session.backend);
+    info.set_path(session.path);
+    info.set_port(static_cast<uint32_t>(session.port));
+    info.set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
+    info.set_max_tokens(session.max_tokens);
+    info.set_ctx_size(session.ctx_size);
+    info.set_intent(session.intent);
+    info.set_intent_role(session.intent_role);
+    return info;
+}
+
 std::optional<mp::LoadedSession*> mp::LlmService::session_by_openai_id(const std::string& openai_id)
 {
     std::lock_guard lock{mutex};
@@ -1404,6 +1448,8 @@ void mp::LlmService::persist_sessions() const
             const auto params = llm_load_params_to_json(session.params);
             if (!params.isEmpty())
                 obj["params"] = params;
+            obj["intent"] = QString::fromStdString(session.intent);
+            obj["intent_role"] = QString::fromStdString(session.intent_role);
             array.append(obj);
         }
     }

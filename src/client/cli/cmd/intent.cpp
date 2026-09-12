@@ -1,0 +1,348 @@
+/*
+ * Copyright (C) Elemento.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#include "intent.h"
+
+#include "animated_spinner.h"
+#include "common_cli.h"
+
+#include <multipass/cli/argparser.h>
+#include <multipass/format.h>
+
+#include <QFile>
+#include <QTextStream>
+
+namespace mp = multipass;
+namespace cmd = multipass::cmd;
+
+namespace
+{
+const QCommandLineOption service_option{
+    "service",
+    "Add a member using a known service template (e.g. redis, postgres). Can be repeated.",
+    "role"};
+const QCommandLineOption instance_option{
+    "instance",
+    "Add a custom member as role:image:cloud-init-file:cores:mem:disk (trailing fields "
+    "optional, e.g. \"cache:22.04::1:1G:5G\"). Can be repeated.",
+    "spec"};
+const QCommandLineOption model_option{
+    "model",
+    "Add an LLM session member as role:model_id (e.g. \"chat:llama-3.1-8b-instruct\"); "
+    "loaded with default quant/context/runtime settings (use `elp llm load --intent` for "
+    "finer control). Can be repeated.",
+    "spec"};
+const QCommandLineOption purge_option{"purge", "Also purge deleted member instances immediately."};
+
+std::string instance_status_name(mp::InstanceStatus::Status status)
+{
+    switch (status)
+    {
+    case mp::InstanceStatus::RUNNING:
+        return "Running";
+    case mp::InstanceStatus::STOPPED:
+        return "Stopped";
+    case mp::InstanceStatus::DELETED:
+        return "Deleted";
+    case mp::InstanceStatus::SUSPENDED:
+        return "Suspended";
+    case mp::InstanceStatus::SUSPENDING:
+        return "Suspending";
+    default:
+        return "Unknown";
+    }
+}
+} // namespace
+
+mp::ReturnCodeVariant cmd::Intent::run(ArgParser* parser)
+{
+    parser->addPositionalArgument("action", "create | add | list | info | delete", "<action>");
+    parser->addPositionalArgument("name", "The intent's name (not needed for `list`)", "[<name>]");
+    parser->addOption(service_option);
+    parser->addOption(instance_option);
+    parser->addOption(model_option);
+    parser->addOption(purge_option);
+
+    const auto status = parser->commandParse(this);
+    if (status != ParseCode::Ok)
+        return parser->returnCodeFrom(status);
+
+    const auto args = parser->positionalArguments();
+    if (args.empty())
+    {
+        cerr << "Please specify an action: create, add, list, info, or delete.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+
+    const auto action = args[0].toStdString();
+    if (action == "create")
+        return run_create(parser);
+    if (action == "add")
+        return run_add(parser);
+    if (action == "list")
+        return run_list(parser);
+    if (action == "info")
+        return run_info(parser);
+    if (action == "delete")
+        return run_delete(parser);
+
+    cerr << fmt::format(
+        "Unknown action \"{}\"; expected create, add, list, info, or delete.\n", action);
+    return parser->returnCodeFrom(ParseCode::CommandLineError);
+}
+
+std::string cmd::Intent::name() const
+{
+    return "intent";
+}
+
+QString cmd::Intent::short_help() const
+{
+    return QStringLiteral("Create and manage intents (named groups of instances)");
+}
+
+QString cmd::Intent::description() const
+{
+    return QStringLiteral(
+        "Create a named group of instances launched together (e.g. a \"redis\" and a "
+        "\"postgres\" instance for an app), and add to, list, inspect, or delete such "
+        "groups (VM instances and/or LLM sessions).\n\n"
+        "  elp intent create <name> --service redis --service postgres\n"
+        "  elp intent create <name> --model chat:llama-3.1-8b-instruct\n"
+        "  elp intent add <name> --service redis\n"
+        "  elp intent list\n"
+        "  elp intent info <name>\n"
+        "  elp intent delete <name> [--purge]");
+}
+
+bool cmd::Intent::parse_members(ArgParser* parser,
+                                google::protobuf::RepeatedPtrField<IntentMemberRequest>* members)
+{
+    for (const auto& role : parser->values(service_option))
+    {
+        auto* member = members->Add();
+        member->set_role(role.toStdString());
+    }
+
+    for (const auto& spec : parser->values(instance_option))
+    {
+        const auto fields = spec.split(':');
+        if (fields[0].isEmpty())
+        {
+            cerr << fmt::format("Invalid --instance spec \"{}\"; expected "
+                                "role:image:cloud-init-file:cores:mem:disk.\n",
+                                spec.toStdString());
+            return false;
+        }
+
+        auto* member = members->Add();
+        member->set_role(fields[0].toStdString());
+        if (fields.size() > 1 && !fields[1].isEmpty())
+            member->set_image(fields[1].toStdString());
+        if (fields.size() > 2 && !fields[2].isEmpty())
+        {
+            QFile file{fields[2]};
+            if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                cerr << fmt::format("Could not read cloud-init file \"{}\".\n",
+                                    fields[2].toStdString());
+                return false;
+            }
+            member->set_cloud_init_user_data(QTextStream{&file}.readAll().toStdString());
+        }
+        if (fields.size() > 3 && !fields[3].isEmpty())
+            member->set_num_cores(fields[3].toInt());
+        if (fields.size() > 4 && !fields[4].isEmpty())
+            member->set_mem_size(fields[4].toStdString());
+        if (fields.size() > 5 && !fields[5].isEmpty())
+            member->set_disk_space(fields[5].toStdString());
+    }
+
+    for (const auto& spec : parser->values(model_option))
+    {
+        const auto sep = spec.indexOf(':');
+        if (sep <= 0 || sep == spec.size() - 1)
+        {
+            cerr << fmt::format(
+                "Invalid --model spec \"{}\"; expected role:model_id.\n", spec.toStdString());
+            return false;
+        }
+
+        auto* member = members->Add();
+        member->set_role(spec.left(sep).toStdString());
+        member->set_model_id(spec.mid(sep + 1).toStdString());
+    }
+
+    return true;
+}
+
+mp::ReturnCodeVariant cmd::Intent::run_create(ArgParser* parser)
+{
+    const auto args = parser->positionalArguments();
+    if (args.size() < 2)
+    {
+        cerr << "Please provide a name for the intent.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+    // --service/--instance are optional here: an intent can be created empty
+    // and populated later with `elp intent add`.
+    IntentCreateRequest request;
+    request.set_name(args[1].toStdString());
+    request.set_verbosity_level(parser->verbosityLevel());
+    if (!parse_members(parser, request.mutable_members()))
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+
+    AnimatedSpinner spinner{cout};
+    auto on_success = [this, &spinner](IntentCreateReply& reply) -> ReturnCodeVariant {
+        spinner.stop();
+        cout << reply.reply_message() << "\n";
+        return ReturnCode::Ok;
+    };
+    auto on_failure = [this, &spinner](grpc::Status& status,
+                                       IntentCreateReply& reply) -> ReturnCodeVariant {
+        spinner.stop();
+        return standard_failure_handler_for(name(), cerr, status, reply.reply_message());
+    };
+
+    spinner.start("Creating intent " + request.name());
+    return dispatch(&RpcMethod::intent_create, request, on_success, on_failure);
+}
+
+mp::ReturnCodeVariant cmd::Intent::run_add(ArgParser* parser)
+{
+    const auto args = parser->positionalArguments();
+    if (args.size() < 2)
+    {
+        cerr << "Please provide the name of the intent to add to.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+    if (!parser->isSet(service_option) && !parser->isSet(instance_option) &&
+        !parser->isSet(model_option))
+    {
+        cerr << "Please specify at least one member with --service, --instance, or --model.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+
+    IntentAddMemberRequest request;
+    request.set_name(args[1].toStdString());
+    request.set_verbosity_level(parser->verbosityLevel());
+    if (!parse_members(parser, request.mutable_members()))
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+
+    AnimatedSpinner spinner{cout};
+    auto on_success = [this, &spinner](IntentAddMemberReply& reply) -> ReturnCodeVariant {
+        spinner.stop();
+        cout << reply.reply_message() << "\n";
+        return ReturnCode::Ok;
+    };
+    auto on_failure = [this, &spinner](grpc::Status& status,
+                                       IntentAddMemberReply& reply) -> ReturnCodeVariant {
+        spinner.stop();
+        return standard_failure_handler_for(name(), cerr, status, reply.reply_message());
+    };
+
+    spinner.start("Adding to intent " + request.name());
+    return dispatch(&RpcMethod::intent_add_member, request, on_success, on_failure);
+}
+
+mp::ReturnCodeVariant cmd::Intent::run_list(ArgParser* parser)
+{
+    IntentListRequest request;
+    request.set_verbosity_level(parser->verbosityLevel());
+
+    auto on_success = [this](IntentListReply& reply) -> ReturnCodeVariant {
+        if (reply.intents().empty())
+        {
+            cout << "No intents found.\n";
+            return ReturnCode::Ok;
+        }
+
+        for (const auto& intent : reply.intents())
+        {
+            cout << intent.name() << "\n";
+            for (const auto& member : intent.members())
+                cout << fmt::format("  {} ({}) [{}]: {}\n",
+                                    member.role(),
+                                    member.instance_name(),
+                                    member.kind().empty() ? "vm" : member.kind(),
+                                    instance_status_name(member.instance_status().status()));
+        }
+        return ReturnCode::Ok;
+    };
+    auto on_failure = [this](grpc::Status& status, IntentListReply&) -> ReturnCodeVariant {
+        return standard_failure_handler_for(name(), cerr, status);
+    };
+
+    return dispatch(&RpcMethod::intent_list, request, on_success, on_failure);
+}
+
+mp::ReturnCodeVariant cmd::Intent::run_info(ArgParser* parser)
+{
+    const auto args = parser->positionalArguments();
+    if (args.size() < 2)
+    {
+        cerr << "Please provide the name of the intent.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+
+    IntentInfoRequest request;
+    request.set_name(args[1].toStdString());
+    request.set_verbosity_level(parser->verbosityLevel());
+
+    auto on_success = [this](IntentInfoReply& reply) -> ReturnCodeVariant {
+        const auto& intent = reply.intent();
+        cout << fmt::format("Name:    {}\n", intent.name());
+        cout << "Members:\n";
+        for (const auto& member : intent.members())
+            cout << fmt::format("  {} ({}) [{}]: {}\n",
+                                member.role(),
+                                member.instance_name(),
+                                member.kind().empty() ? "vm" : member.kind(),
+                                instance_status_name(member.instance_status().status()));
+        return ReturnCode::Ok;
+    };
+    auto on_failure = [this](grpc::Status& status, IntentInfoReply&) -> ReturnCodeVariant {
+        return standard_failure_handler_for(name(), cerr, status);
+    };
+
+    return dispatch(&RpcMethod::intent_info, request, on_success, on_failure);
+}
+
+mp::ReturnCodeVariant cmd::Intent::run_delete(ArgParser* parser)
+{
+    const auto args = parser->positionalArguments();
+    if (args.size() < 2)
+    {
+        cerr << "Please provide the name of the intent.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+
+    IntentDeleteRequest request;
+    request.set_name(args[1].toStdString());
+    request.set_purge(parser->isSet(purge_option));
+    request.set_verbosity_level(parser->verbosityLevel());
+
+    auto on_success = [this](IntentDeleteReply& reply) -> ReturnCodeVariant {
+        cout << reply.reply_message() << "\n";
+        return ReturnCode::Ok;
+    };
+    auto on_failure = [this](grpc::Status& status, IntentDeleteReply& reply) -> ReturnCodeVariant {
+        return standard_failure_handler_for(name(), cerr, status, reply.reply_message());
+    };
+
+    return dispatch(&RpcMethod::intent_delete, request, on_success, on_failure);
+}

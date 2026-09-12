@@ -21,6 +21,8 @@ import 'cloud_init/cloud_init_screen.dart';
 import 'daemon_unavailable.dart';
 import 'downloads/download_status_list.dart';
 import 'help.dart';
+import 'intents/intents_screen.dart';
+import 'migrate/migrate_screen.dart';
 import 'layout/compact_layout.dart';
 import 'logger.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
@@ -272,6 +274,8 @@ class _AppState extends ConsumerState<App> with WindowListener {
       },
       CacheScreen.sidebarKey: const CacheScreen(),
       CloudInitScreen.sidebarKey: const CloudInitScreen(),
+      IntentsScreen.sidebarKey: const IntentsScreen(),
+      HostsScreen.sidebarKey: const HostsScreen(),
       SettingsScreen.sidebarKey: const SettingsScreen(),
       HelpScreen.sidebarKey: const HelpScreen(),
       for (final id in vms) id.sidebarKey: VmDetailsScreen(id),

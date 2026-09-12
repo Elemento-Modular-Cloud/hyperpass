@@ -7,9 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../brand.dart';
 import '../catalogue/launch_form.dart';
 import '../cloud_init/cloud_init_store.dart';
+import '../dropdown.dart';
 import '../ffi.dart';
+import '../intents/intents_screen.dart';
 import '../l10n/app_localizations.dart';
 import '../layout/compact_layout.dart';
+import '../notifications.dart';
 import '../providers.dart';
 import '../sidebar.dart';
 import '../widgets/launchpad_button.dart';
@@ -44,6 +47,12 @@ int serviceDiskBytes(MarketplaceService service) =>
 String serviceCloudInitName(MarketplaceService service) =>
     service.id.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '-');
 
+/// Sentinel dropdown value for "create a new intent" (mirrors the private
+/// constant of the same name in launch_form.dart — a leading NUL can never
+/// be typed into a text field, so this can't collide with a real intent
+/// name).
+const _createNewIntentValue = '\u0000__create_new_intent__';
+
 Future<void> showServiceDeployDialog(
   BuildContext context,
   MarketplaceService service,
@@ -70,6 +79,9 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
   late final ServiceParameterEditors _parameters;
   late final String _generatedName;
   String? _error;
+  String? _selectedIntent;
+  String _newIntentName = '';
+  String _intentRole = '';
 
   @override
   void initState() {
@@ -106,8 +118,57 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final vmNames = ref.watch(elpVmNamesProvider);
     final deletedVms = ref.watch(deletedVmsProvider);
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final intentNames = ref.watch(intentNamesProvider);
 
     final minDisk = serviceDiskBytes(service);
+
+    final intentDropdown = Dropdown<String?>(
+      label: 'Intent',
+      width: 360,
+      value: _selectedIntent,
+      onChanged: (value) => setState(() {
+        _selectedIntent = value;
+        _error = null;
+      }),
+      items: {
+        null: 'None (standalone instance)',
+        _createNewIntentValue: '+ Create new intent...',
+        for (final existingIntent in intentNames) existingIntent: existingIntent,
+      },
+    );
+
+    final intentSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Wrap, not Row: dropdown + new-name + role can add up to more than the dialog's
+        // width (each is a fixed 360px), which previously pushed the last field(s) off
+        // screen instead of onto their own line.
+        Wrap(
+          spacing: 24,
+          runSpacing: 12,
+          children: [
+            intentDropdown,
+            if (_selectedIntent == _createNewIntentValue)
+              SpecInput(
+                label: 'New intent name',
+                hint: 'e.g. test-app-1',
+                initialValue: _newIntentName,
+                onSaved: (value) => _newIntentName = value ?? '',
+                width: 360,
+              ),
+            if (_selectedIntent != null)
+              SpecInput(
+                label: 'Role in intent',
+                helper: 'What this service is within the intent (e.g. "redis").',
+                hint: 'e.g. redis',
+                initialValue: _intentRole,
+                onSaved: (value) => _intentRole = value ?? '',
+                width: 360,
+              ),
+          ],
+        ),
+      ],
+    );
 
     return AlertDialog(
       title: Row(
@@ -174,6 +235,8 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
                   min: minDisk,
                   onSaved: (value) => _request.diskSpace = '${value!}B',
                 ),
+                const SizedBox(height: 12),
+                intentSection,
                 if (!_parameters.isEmpty) ...[
                   const Divider(height: 40),
                   ServiceParametersForm(editors: _parameters),
@@ -241,19 +304,108 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
         .bind(_request.instanceName, service.id);
     final navigator = Navigator.of(context);
     final destination = serviceInstanceSidebarKey(_request.instanceName);
-    final started = await initiateLaunchFlow(
-      context,
-      ref,
-      _request.deepCopy(),
-      os: _serviceOs,
-      // The dialog already shows the disk size on a slider.
-      confirmLargeDisk: false,
-      successSidebarKey: destination,
-    );
-    if (!started) return;
+
+    final selectedIntent = _selectedIntent;
+    final bool started;
+    final String successSidebarKey;
+    if (selectedIntent == null) {
+      started = await initiateLaunchFlow(
+        context,
+        ref,
+        _request.deepCopy(),
+        os: _serviceOs,
+        // The dialog already shows the disk size on a slider.
+        confirmLargeDisk: false,
+        successSidebarKey: destination,
+      );
+      successSidebarKey = destination;
+    } else {
+      // The daemon names an intent member "<intent>-<role>" itself, ignoring
+      // _request.instanceName, so there's no single service page to jump to
+      // here — go to the intent instead.
+      started = selectedIntent == _createNewIntentValue
+          ? await _deployIntoIntent(newIntentName: _newIntentName.trim())
+          : await _deployIntoIntent(existingIntentName: selectedIntent);
+      successSidebarKey = IntentsScreen.sidebarKey;
+    }
+    if (!started || !mounted) return;
 
     navigator.pop();
-    ref.read(sidebarKeyProvider.notifier).set(destination);
+    ref.read(sidebarKeyProvider.notifier).set(successSidebarKey);
+  }
+
+  /// Deploys this service as a member of an intent — either a brand new one
+  /// (via intent_create) or an already-existing one (via intent_add_member)
+  /// — instead of a plain launch, mirroring LaunchForm's own
+  /// `_launchIntoIntent`. `service_id` is carried on the `IntentMemberRequest`
+  /// so the instance is still recognized as a deployed service (its bindings
+  /// are set unconditionally in [_deploy]) even though it's grouped into an
+  /// intent rather than launched standalone. Pass exactly one of
+  /// [newIntentName] or [existingIntentName].
+  Future<bool> _deployIntoIntent({
+    String? newIntentName,
+    String? existingIntentName,
+  }) async {
+    assert((newIntentName == null) != (existingIntentName == null));
+
+    if (newIntentName != null && newIntentName.isEmpty) {
+      setState(() => _error = 'Please provide a name for the new intent.');
+      return false;
+    }
+    if (_intentRole.trim().isEmpty) {
+      setState(() => _error = 'Please provide a role for this member.');
+      return false;
+    }
+
+    try {
+      final member = IntentMemberRequest(
+        role: _intentRole.trim(),
+        image: _request.image,
+        numCores: _request.numCores,
+        memSize: _request.memSize,
+        diskSpace: _request.diskSpace,
+        serviceId: widget.service.id,
+      );
+      if (_request.hasCloudInitUserData()) {
+        member.cloudInitUserData = _request.cloudInitUserData;
+      }
+
+      final grpcClient = ref.read(grpcClientProvider);
+      final role = _intentRole.trim();
+      final String intentName;
+      final Future<dynamic> op;
+      if (newIntentName != null) {
+        intentName = newIntentName;
+        op = grpcClient.intentCreate(
+          IntentCreateRequest(name: intentName, members: [member]),
+        );
+      } else {
+        intentName = existingIntentName!;
+        op = grpcClient.intentAddMember(
+          IntentAddMemberRequest(name: intentName, members: [member]),
+        );
+      }
+
+      ref.read(notificationsProvider.notifier).addOperation(
+            op,
+            loading: 'Adding $role to intent $intentName…',
+            onSuccess: (reply) {
+              final message = reply?.replyMessage as String?;
+              return message?.isNotEmpty == true
+                  ? message!
+                  : 'Added $role to intent $intentName';
+            },
+            onError: (error) => '$error',
+          );
+      await op;
+
+      ref.invalidate(intentsStreamProvider);
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      setState(() => _error = '$error');
+      return false;
+    }
   }
 }
 

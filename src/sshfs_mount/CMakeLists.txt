@@ -60,8 +60,16 @@ target_link_libraries(sshfs_server
   logger
   sshfs_mount)
 
-set_target_properties(sshfs_server
-  PROPERTIES INSTALL_RPATH "@executable_path/../lib")
+if(APPLE)
+  set_target_properties(sshfs_server
+    PROPERTIES INSTALL_RPATH "@executable_path/../lib")
+else()
+  # @executable_path is a macOS/dyld-only token; the ELF loader on Linux
+  # (and anywhere else using ld.so) doesn't understand it, so this was a
+  # silent no-op there. Use the ELF equivalent instead.
+  set_target_properties(sshfs_server
+    PROPERTIES INSTALL_RPATH "$ORIGIN/../lib")
+endif()
 
 target_include_directories(sshfs_server
   BEFORE

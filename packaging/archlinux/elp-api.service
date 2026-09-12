@@ -1,0 +1,18 @@
+[Unit]
+Description=Electros LaunchPad REST API (gateway CA, OpenAI-compatible endpoints, etc.)
+After=network.target elpd.service
+Wants=elpd.service
+
+[Service]
+Type=simple
+# HTTPS (self-signed cert auto-generated/cached) on the default listen
+# address (127.0.0.1 + the VM gateway IP, port 7777 — see
+# include/multipass/constants.h's default_api_listen); --insecure-no-auth
+# matches this project's macOS LaunchDaemon default, since the GUI and any
+# service deployed from the catalogue expect to reach this over plain
+# loopback/VM-gateway HTTPS without a bearer token.
+ExecStart=/usr/bin/elp-api --insecure-no-auth
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

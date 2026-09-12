@@ -23,6 +23,8 @@
 #include <multipass/async_periodic_download_task.h>
 #include <multipass/delayed_shutdown_timer.h>
 #include <multipass/format.h>
+#include <multipass/intent_spec.h>
+#include <multipass/mdns_service.h>
 #include <multipass/mount_handler.h>
 #include <multipass/resource_pool.h>
 #include <multipass/virtual_machine.h>
@@ -46,6 +48,14 @@ struct DaemonConfig;
 struct DaemonRpcContext;
 class SettingsHandler;
 
+// A manually-added migration target (see MigrateRequest/NetworkHost) — the always-available
+// fallback to mDNS discovery, for hosts on a different subnet/VLAN or when avahi isn't running.
+struct KnownHost
+{
+    std::string target; // "user@host"
+    std::string identity_file; // optional default ssh/rsync identity for this host
+};
+
 class Daemon : public QObject, public multipass::VMStatusMonitor
 {
     Q_OBJECT
@@ -54,6 +64,8 @@ public:
     ~Daemon();
 
     void persist_instances();
+    void persist_intents();
+    void persist_known_hosts();
 
 protected:
     using InstanceTable = std::unordered_map<std::string, VirtualMachine::ShPtr>;
@@ -157,6 +169,31 @@ public slots:
                        grpc::ServerReaderWriterInterface<CloneReply, CloneRequest>* server,
                        DaemonRpcContext* context);
 
+    virtual void intent_create(
+        const IntentCreateRequest* request,
+        grpc::ServerReaderWriterInterface<IntentCreateReply, IntentCreateRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void intent_add_member(
+        const IntentAddMemberRequest* request,
+        grpc::ServerReaderWriterInterface<IntentAddMemberReply, IntentAddMemberRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void intent_list(
+        const IntentListRequest* request,
+        grpc::ServerReaderWriterInterface<IntentListReply, IntentListRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void intent_info(
+        const IntentInfoRequest* request,
+        grpc::ServerReaderWriterInterface<IntentInfoReply, IntentInfoRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void intent_delete(
+        const IntentDeleteRequest* request,
+        grpc::ServerReaderWriterInterface<IntentDeleteReply, IntentDeleteRequest>* server,
+        DaemonRpcContext* context);
+
     virtual void snapshot(const SnapshotRequest* request,
                           grpc::ServerReaderWriterInterface<SnapshotReply, SnapshotRequest>* server,
                           DaemonRpcContext* context);
@@ -194,12 +231,59 @@ public slots:
         grpc::ServerReaderWriterInterface<WaitReadyReply, WaitReadyRequest>* server,
         DaemonRpcContext* context);
 
+    virtual void migrate(const MigrateRequest* request,
+                        grpc::ServerReaderWriterInterface<MigrateReply, MigrateRequest>* server,
+                        DaemonRpcContext* context);
+
+    virtual void list_network_hosts(
+        const ListNetworkHostsRequest* request,
+        grpc::ServerReaderWriterInterface<ListNetworkHostsReply, ListNetworkHostsRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void add_known_host(
+        const AddKnownHostRequest* request,
+        grpc::ServerReaderWriterInterface<AddKnownHostReply, AddKnownHostRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void remove_known_host(
+        const RemoveKnownHostRequest* request,
+        grpc::ServerReaderWriterInterface<RemoveKnownHostReply, RemoveKnownHostRequest>* server,
+        DaemonRpcContext* context);
+
 private:
     void release_resources(const std::string& instance);
     void create_vm(const CreateRequest* request,
                    grpc::ServerReaderWriterInterface<CreateReply, CreateRequest>* server,
                    DaemonRpcContext* context,
                    bool start);
+
+    // Launches each of launch_requests via create_vm, one at a time (create_vm is itself
+    // asynchronous, so this chains rather than blocking); once all have succeeded,
+    // on_all_launched is called with the resulting {role, instance_name} pairs (same order),
+    // or on_failure is called on the first member that fails (earlier members stay launched).
+    // Shared by intent_create and intent_add_member so the async chaining logic isn't
+    // duplicated between them.
+    void launch_intent_members(
+        std::shared_ptr<std::vector<LaunchRequest>> launch_requests,
+        std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> member_sink,
+        std::function<void(std::vector<IntentSpec::Member>)> on_all_launched,
+        std::function<void(grpc::Status)> on_failure);
+
+    // Same idea, for members that are LLM sessions (load_model) instead of VMs.
+    // captured_instance_id is a scratch slot the member_sink writes each member's
+    // generated instance_id into (an LLM session's id isn't known up front, unlike
+    // a VM's instance name).
+    void launch_intent_llm_members(
+        std::shared_ptr<std::vector<LoadModelRequest>> load_requests,
+        std::shared_ptr<grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>>
+            member_sink,
+        std::shared_ptr<std::string> captured_instance_id,
+        std::function<void(std::vector<IntentSpec::Member>)> on_all_loaded,
+        std::function<void(grpc::Status)> on_failure);
+
+    // Current status of one intent member for intent_list/intent_info, dispatching
+    // on member.kind ("vm" -> operative_instances, "llm" -> llm_dispatcher).
+    InstanceStatus::Status intent_member_status(const IntentSpec::Member& member) const;
     bool delete_vm(InstanceTable::iterator vm_it, bool purge, DeleteReply& response);
     grpc::Status reboot_vm(VirtualMachine& vm);
     grpc::Status shutdown_vm(VirtualMachine& vm, const std::chrono::milliseconds delay);
@@ -278,10 +362,14 @@ private:
     std::unique_ptr<ResourcePool> resource_pool;
     std::unique_ptr<class LlmDispatcher> llm_dispatcher;
     QThread llm_thread;
+    std::unique_ptr<MdnsService> mdns_service;
 
 protected:
     std::unordered_map<std::string, VMSpecs> vm_instance_specs;
+    std::unordered_map<std::string, IntentSpec> intents;
     InstanceTable operative_instances;
+    std::unordered_map<std::string, KnownHost> known_hosts; // label -> host
+    std::unordered_map<std::string, MdnsHostInfo> discovered_hosts; // label -> info
 
     bool is_bridged(const std::string& instance_name) const;
     void add_bridged_interface(const std::string& instance_name);

@@ -46,6 +46,9 @@ void mp::tag_invoke(const boost::json::value_from_tag&,
         {"clone_count", specs.clone_count},
         {"zone", specs.zone},
         {"service_id", specs.service_id},
+        {"image", specs.image},
+        {"cloud_init_user_data", specs.cloud_init_user_data},
+        {"remote_name", specs.remote_name},
     };
 }
 
@@ -93,5 +96,8 @@ mp::VMSpecs mp::tag_invoke(const boost::json::value_to_tag<mp::VMSpecs>&,
         lookup_or<int>(json, "clone_count", 0),
         lookup_or<std::string>(json, "zone", az_manager.get_default_zone_name()),
         service_id,
+        lookup_or<std::string>(json, "image", {}),
+        lookup_or<std::string>(json, "cloud_init_user_data", {}),
+        lookup_or<std::string>(json, "remote_name", {}),
     };
 }

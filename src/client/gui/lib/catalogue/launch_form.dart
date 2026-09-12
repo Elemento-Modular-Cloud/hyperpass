@@ -8,6 +8,7 @@ import 'package:fpdart/fpdart.dart' hide State;
 import '../confirmation_dialog.dart';
 import '../downloads/download_manager.dart';
 import '../ffi.dart';
+import '../intents/intents_screen.dart';
 import '../l10n/app_localizations.dart';
 import '../notifications.dart';
 import '../overview/recent_activity.dart';
@@ -81,6 +82,11 @@ String imageName(ImageInfo imageInfo) {
       : '$result ${imageInfo.codename}';
 }
 
+/// Sentinel dropdown value for "create a new intent" (distinct from an
+/// existing intent name and from null/"None"): a leading NUL can never be
+/// typed into a text field, so this can't collide with a real intent name.
+const _createNewIntentValue = '\u0000__create_new_intent__';
+
 final defaultCpus = 1;
 final defaultRam = 1.gibi;
 final defaultDisk = 5.gibi;
@@ -130,6 +136,11 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
   var addingMount = false;
   final scrollController = ScrollController();
   final cloudInitSectionKey = GlobalKey();
+  String? _selectedIntent;
+  String _newIntentName = '';
+  String _intentRole = '';
+  bool _addingToIntent = false;
+  String? _intentError;
   String? _cloudInitError;
 
   @override
@@ -178,6 +189,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           loading: () => null,
           error: (_, __) => null,
         );
+    final intentNames = ref.watch(intentNamesProvider);
 
     final closeButton = IconButton(
       icon: const Icon(Icons.close),
@@ -247,6 +259,79 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           onChanged: field.didChange,
         );
       },
+    );
+
+    final intentDropdown = Dropdown<String?>(
+      label: 'Intent',
+      width: 360,
+      value: _selectedIntent,
+      onChanged: (value) => setState(() {
+        _selectedIntent = value;
+        _intentError = null;
+      }),
+      items: {
+        null: 'None (standalone instance)',
+        _createNewIntentValue: '+ Create new intent...',
+        for (final existingIntent in intentNames) existingIntent: existingIntent,
+      },
+    );
+
+    final newIntentNameInput = SpecInput(
+      label: 'New intent name',
+      hint: 'e.g. test-app-1',
+      initialValue: _newIntentName,
+      onSaved: (value) => _newIntentName = value ?? '',
+      width: 360,
+    );
+
+    final intentRoleInput = SpecInput(
+      label: 'Role in intent',
+      helper: 'What this instance is within the intent (e.g. "redis").',
+      hint: 'e.g. redis',
+      initialValue: _intentRole,
+      onSaved: (value) => _intentRole = value ?? '',
+      width: 360,
+    );
+
+    final intentNote = _selectedIntent == null
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Launching into an intent doesn\'t support mounts or bridged '
+              'networking yet; those sections are hidden below.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          );
+
+    final intentSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Wrap, not Row: dropdown + new-name + role can add up to more than the drawer's
+        // width (each is a fixed 360px), which previously pushed the last field(s) off
+        // screen instead of onto their own line.
+        Wrap(
+          spacing: 24,
+          runSpacing: 12,
+          children: [
+            intentDropdown,
+            if (_selectedIntent == _createNewIntentValue) newIntentNameInput,
+            if (_selectedIntent != null) intentRoleInput,
+          ],
+        ),
+        intentNote,
+        if (_intentError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _intentError!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+      ],
     );
 
     final mountPointsView = MountPointsView(
@@ -360,12 +445,21 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
           ],
         ),
         const Divider(height: 60),
-        SizedBox(
+        const SizedBox(
           height: 50,
-          child: Text(l10n.bridgeTitle, style: const TextStyle(fontSize: 24)),
+          child: Text('Intent', style: TextStyle(fontSize: 24)),
         ),
-        bridgedSwitch,
+        intentSection,
         const Divider(height: 60),
+        if (_selectedIntent == null) ...[
+          SizedBox(
+            height: 50,
+            child:
+                Text(l10n.bridgeTitle, style: const TextStyle(fontSize: 24)),
+          ),
+          bridgedSwitch,
+          const Divider(height: 60),
+        ],
         KeyedSubtree(
           key: cloudInitSectionKey,
           child: Column(
@@ -436,14 +530,17 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
             ],
           ),
         ),
-        const Divider(height: 60),
-        SizedBox(
-          height: 50,
-          child: Text(l10n.mountsTitle, style: const TextStyle(fontSize: 24)),
-        ),
-        mountPointsView,
-        if (mountRequests.isNotEmpty) const SizedBox(height: 20),
-        addingMount ? mountForm : addMountButton,
+        if (_selectedIntent == null) ...[
+          const Divider(height: 60),
+          SizedBox(
+            height: 50,
+            child:
+                Text(l10n.mountsTitle, style: const TextStyle(fontSize: 24)),
+          ),
+          mountPointsView,
+          if (mountRequests.isNotEmpty) const SizedBox(height: 20),
+          addingMount ? mountForm : addMountButton,
+        ],
       ],
     );
 
@@ -582,13 +679,27 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       mountRequest.targetPaths.first.instanceName = launchRequest.instanceName;
     }
 
-    final started = await initiateLaunchFlow(
-      context,
-      ref,
-      launchRequest.deepCopy(),
-      mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
-      os: imageInfo.os,
-    );
+    final selectedIntent = _selectedIntent;
+    final bool started;
+    final String successSidebarKey;
+    if (selectedIntent == null) {
+      started = await initiateLaunchFlow(
+        context,
+        ref,
+        launchRequest.deepCopy(),
+        mountRequests: mountRequests.map((r) => r.deepCopy()).toList(),
+        os: imageInfo.os,
+      );
+      successSidebarKey = elpVm(launchRequest.instanceName).sidebarKey;
+    } else {
+      // The daemon names an intent member "<intent>-<role>" itself, ignoring
+      // whatever name this form's own instanceName field carries, so there's
+      // no single instance page to jump to here — go to the intent instead.
+      started = selectedIntent == _createNewIntentValue
+          ? await _launchIntoIntent(newIntentName: _newIntentName.trim())
+          : await _launchIntoIntent(existingIntentName: selectedIntent);
+      successSidebarKey = IntentsScreen.sidebarKey;
+    }
 
     if (!started || !mounted) return;
 
@@ -596,9 +707,90 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
 
     if (!configureNext) {
       Scaffold.of(context).closeEndDrawer();
-      ref
-          .read(sidebarKeyProvider.notifier)
-          .set(elpVm(launchRequest.instanceName).sidebarKey);
+      ref.read(sidebarKeyProvider.notifier).set(successSidebarKey);
+    }
+  }
+
+  /// Launches this form's instance as a member of an intent — either a brand
+  /// new one (via intent_create) or an already-existing one (via
+  /// intent_add_member) — instead of a plain launch, so it's tracked in the
+  /// daemon's intent registry (`elp intent info` etc.) rather than just
+  /// carrying the intent/intentRole tag on an untracked instance. Mounts and
+  /// bridged networking aren't supported by either RPC yet (their sections
+  /// are hidden in the form while an intent is selected). Pass exactly one
+  /// of [newIntentName] or [existingIntentName].
+  Future<bool> _launchIntoIntent({
+    String? newIntentName,
+    String? existingIntentName,
+  }) async {
+    assert((newIntentName == null) != (existingIntentName == null));
+
+    if (newIntentName != null && newIntentName.isEmpty) {
+      setState(() => _intentError = 'Please provide a name for the new intent.');
+      return false;
+    }
+    if (_intentRole.trim().isEmpty) {
+      setState(() => _intentError = 'Please provide a role for this member.');
+      return false;
+    }
+
+    setState(() {
+      _addingToIntent = true;
+      _intentError = null;
+    });
+
+    try {
+      final member = IntentMemberRequest(
+        role: _intentRole.trim(),
+        image: launchRequest.image,
+        numCores: launchRequest.numCores,
+        memSize: launchRequest.memSize,
+        diskSpace: launchRequest.diskSpace,
+      );
+      if (launchRequest.hasCloudInitUserData()) {
+        member.cloudInitUserData = launchRequest.cloudInitUserData;
+      }
+
+      final grpcClient = ref.read(grpcClientProvider);
+      final role = _intentRole.trim();
+      final String intentName;
+      final Future<dynamic> op;
+      if (newIntentName != null) {
+        intentName = newIntentName;
+        op = grpcClient.intentCreate(
+          IntentCreateRequest(name: intentName, members: [member]),
+        );
+      } else {
+        intentName = existingIntentName!;
+        op = grpcClient.intentAddMember(
+          IntentAddMemberRequest(name: intentName, members: [member]),
+        );
+      }
+
+      // addOperation shows a "starting/succeeded/failed" notification (the
+      // form itself only shows _intentError inline, which is easy to miss),
+      // and records the outcome to recent activity.
+      ref.read(notificationsProvider.notifier).addOperation(
+            op,
+            loading: 'Adding $role to intent $intentName…',
+            onSuccess: (reply) {
+              final message = reply?.replyMessage as String?;
+              return message?.isNotEmpty == true
+                  ? message!
+                  : 'Added $role to intent $intentName';
+            },
+            onError: (error) => '$error',
+          );
+      await op;
+
+      ref.invalidate(intentsStreamProvider);
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      setState(() => _intentError = '$error');
+      return false;
+    } finally {
+      if (mounted) setState(() => _addingToIntent = false);
     }
   }
 }
