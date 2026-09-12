@@ -216,7 +216,16 @@ When contributing, you must adhere to the [Code of Conduct](https://ubuntu.com/c
 ## Copyright
 
 The code in this repository is licensed under GNU General Public License v3.0.
-See [LICENSE](https://github.com/canonical/multipass/blob/main/LICENSE) for more information.
+See [LICENSE](LICENSE) for more information. Pre-existing Multipass material remains
+GPLv3; this fork does not relicense it.
+
+## License agreement
+
+Contributors must sign the [Elemento contributor licence agreement (CLA)](docs/legal/CLA.md).
+You keep copyright in your contribution. The public project stays GPLv3. Elemento also
+receives a licence to use, sublicense, and relicense **new** contributions, including
+under commercial or proprietary terms. Sign by adding your GitHub username to
+[`cla/SIGNERS`](cla/SIGNERS). Without a CLA signature, contributions cannot be accepted.
 
 ## Pull requests
 

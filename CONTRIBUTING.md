@@ -22,6 +22,14 @@ Accordingly, this document aims at establishing a set of guidelines that:
 - afford a few grains of salt;
 - are meant to evolve.
 
+## Contributor licence agreement
+
+Contributions to this repository require an [Elemento CLA](docs/legal/CLA.md). You
+keep copyright; Electros LaunchPad remains GPLv3; Elemento receives a licence to use
+and relicense **new** contributions, including commercially. Sign by adding your
+GitHub username to [`cla/SIGNERS`](cla/SIGNERS). If you contribute for an employer,
+they must also sign the [Entity CLA](docs/legal/CLA-entity.md).
+
 ## Guidelines
 
 In the lists that follow, prefixes are meant to provide an easy means of referring to individual

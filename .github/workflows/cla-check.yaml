@@ -1,0 +1,46 @@
+name: cla-check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  cla-check:
+    name: Check Elemento CLA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CLA check script from the base branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/check-cla.py
+          sparse-checkout-cone-mode: false
+
+      - name: Verify contributors have signed the CLA
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/check-cla.py ]; then
+            echo "CLA checker is not on the base branch yet; using the pull request copy."
+            mkdir -p scripts
+            curl -fsSL \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github.raw" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${PR_HEAD_REPO}/contents/scripts/check-cla.py?ref=${PR_HEAD_SHA}" \
+              -o scripts/check-cla.py
+          fi
+          python3 scripts/check-cla.py
