@@ -423,6 +423,81 @@ public:
         PrepareAsynccloneRaw,
         (grpc::ClientContext * context, grpc::CompletionQueue* cq),
         (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::IntentCreateRequest,
+                                                   multipass::IntentCreateReply>*),
+                intent_createRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentCreateRequest,
+                                                        multipass::IntentCreateReply>*),
+                Asyncintent_createRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentCreateRequest,
+                                                        multipass::IntentCreateReply>*),
+                PrepareAsyncintent_createRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::IntentAddMemberRequest,
+                                                   multipass::IntentAddMemberReply>*),
+                intent_add_memberRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentAddMemberRequest,
+                                                        multipass::IntentAddMemberReply>*),
+                Asyncintent_add_memberRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentAddMemberRequest,
+                                                        multipass::IntentAddMemberReply>*),
+                PrepareAsyncintent_add_memberRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::IntentListRequest,
+                                                   multipass::IntentListReply>*),
+                intent_listRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentListRequest,
+                                                        multipass::IntentListReply>*),
+                Asyncintent_listRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentListRequest,
+                                                        multipass::IntentListReply>*),
+                PrepareAsyncintent_listRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::IntentInfoRequest,
+                                                   multipass::IntentInfoReply>*),
+                intent_infoRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentInfoRequest,
+                                                        multipass::IntentInfoReply>*),
+                Asyncintent_infoRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentInfoRequest,
+                                                        multipass::IntentInfoReply>*),
+                PrepareAsyncintent_infoRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::IntentDeleteRequest,
+                                                   multipass::IntentDeleteReply>*),
+                intent_deleteRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentDeleteRequest,
+                                                        multipass::IntentDeleteReply>*),
+                Asyncintent_deleteRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::IntentDeleteRequest,
+                                                        multipass::IntentDeleteReply>*),
+                PrepareAsyncintent_deleteRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::DaemonInfoRequest,
                                                    multipass::DaemonInfoReply>*),
                 daemon_infoRaw,
@@ -466,6 +541,66 @@ public:
     MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CacheDeleteRequest,
                                                         multipass::CacheDeleteReply>*),
                 PrepareAsynccache_deleteRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD(
+        (grpc::ClientReaderWriterInterface<multipass::MigrateRequest, multipass::MigrateReply>*),
+        migrateRaw,
+        (grpc::ClientContext * context),
+        (override));
+    MOCK_METHOD(
+        (grpc::ClientAsyncReaderWriterInterface<multipass::MigrateRequest, multipass::MigrateReply>*),
+        AsyncmigrateRaw,
+        (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+        (override));
+    MOCK_METHOD(
+        (grpc::ClientAsyncReaderWriterInterface<multipass::MigrateRequest, multipass::MigrateReply>*),
+        PrepareAsyncmigrateRaw,
+        (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+        (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListNetworkHostsRequest,
+                                                   multipass::ListNetworkHostsReply>*),
+                list_network_hostsRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListNetworkHostsRequest,
+                                                        multipass::ListNetworkHostsReply>*),
+                Asynclist_network_hostsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListNetworkHostsRequest,
+                                                        multipass::ListNetworkHostsReply>*),
+                PrepareAsynclist_network_hostsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::AddKnownHostRequest,
+                                                   multipass::AddKnownHostReply>*),
+                add_known_hostRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::AddKnownHostRequest,
+                                                        multipass::AddKnownHostReply>*),
+                Asyncadd_known_hostRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::AddKnownHostRequest,
+                                                        multipass::AddKnownHostReply>*),
+                PrepareAsyncadd_known_hostRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::RemoveKnownHostRequest,
+                                                   multipass::RemoveKnownHostReply>*),
+                remove_known_hostRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RemoveKnownHostRequest,
+                                                        multipass::RemoveKnownHostReply>*),
+                Asyncremove_known_hostRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RemoveKnownHostRequest,
+                                                        multipass::RemoveKnownHostReply>*),
+                PrepareAsyncremove_known_hostRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::WaitReadyRequest,
