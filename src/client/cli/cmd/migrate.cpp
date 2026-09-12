@@ -34,6 +34,12 @@ const QCommandLineOption to_option{"to",
                                    "user@host"};
 const QCommandLineOption copy_option{
     "copy", "Keep the source instance(s)/session(s) instead of deleting them once migrated."};
+const QCommandLineOption identity_option{
+    "identity",
+    "Private key file for ssh/rsync to authenticate with (\"ssh -i\"). elpd runs as root, so "
+    "without this, ssh falls back to root's own key, which is likely not authorized on the "
+    "target — pass your own (e.g. ~/.ssh/id_ed25519) to avoid needing a separate key for root.",
+    "path"};
 } // namespace
 
 mp::ReturnCodeVariant cmd::Migrate::run(ArgParser* parser)
@@ -46,6 +52,7 @@ mp::ReturnCodeVariant cmd::Migrate::run(ArgParser* parser)
     request.set_name(instance_name);
     request.set_target(target.toStdString());
     request.set_copy(copy);
+    request.set_identity_file(identity_file.toStdString());
     request.set_verbosity_level(parser->verbosityLevel());
 
     AnimatedSpinner spinner{cout};
@@ -90,7 +97,8 @@ QString cmd::Migrate::description() const
         "the same image/cloud-init (or, for an LLM intent member, reloaded there), and "
         "any mounts are synced across; the source is then deleted unless --copy is given.\n\n"
         "  elp migrate my-instance --to user@host\n"
-        "  elp migrate my-intent --to user@host --copy");
+        "  elp migrate my-intent --to user@host --copy\n"
+        "  elp migrate my-instance --to user@host --identity ~/.ssh/id_ed25519");
 }
 
 mp::ParseCode cmd::Migrate::parse_args(ArgParser* parser)
@@ -98,6 +106,7 @@ mp::ParseCode cmd::Migrate::parse_args(ArgParser* parser)
     parser->addPositionalArgument("name", "Name of the instance or intent to migrate", "<name>");
     parser->addOption(to_option);
     parser->addOption(copy_option);
+    parser->addOption(identity_option);
 
     const auto status = parser->commandParse(this);
     if (status != ParseCode::Ok)
@@ -118,6 +127,8 @@ mp::ParseCode cmd::Migrate::parse_args(ArgParser* parser)
     }
     target = parser->value(to_option);
     copy = parser->isSet(copy_option);
+    if (parser->isSet(identity_option))
+        identity_file = parser->value(identity_option);
 
     return ParseCode::Ok;
 }

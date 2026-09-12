@@ -420,10 +420,15 @@ class GrpcClient {
     );
   }
 
-  Future<MigrateReply?> migrate(String name, String target, {bool copy = false}) {
+  Future<MigrateReply?> migrate(
+    String name,
+    String target, {
+    bool copy = false,
+    String identityFile = '',
+  }) {
     return doRpc(
       _client.migrate,
-      MigrateRequest(name: name, target: target, copy: copy),
+      MigrateRequest(name: name, target: target, copy: copy, identityFile: identityFile),
     );
   }
 

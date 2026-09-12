@@ -3874,15 +3874,13 @@ struct RemoteResult
 RemoteResult run_ssh_raw(const std::string& target,
                         const std::string& remote_command,
                         const std::string& stdin_data,
-                        int timeout_ms)
+                        int timeout_ms,
+                        const std::string& identity_file = {})
 {
-    const QStringList args{"-o",
-                          "BatchMode=yes",
-                          "-o",
-                          "StrictHostKeyChecking=accept-new",
-                          "-T",
-                          QString::fromStdString(target),
-                          QString::fromStdString(remote_command)};
+    QStringList args{"-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"};
+    if (!identity_file.empty())
+        args << "-i" << QString::fromStdString(identity_file);
+    args << "-T" << QString::fromStdString(target) << QString::fromStdString(remote_command);
     auto process = mp::platform::make_process(mp::simple_process_spec("ssh", args));
     process->start();
     if (!process->wait_for_started(timeout_ms))
@@ -3904,9 +3902,10 @@ RemoteResult run_ssh_raw(const std::string& target,
 RemoteResult run_ssh(const std::string& target,
                      const std::vector<std::string>& remote_args,
                      const std::string& stdin_data = {},
-                     int timeout_ms = 120000)
+                     int timeout_ms = 120000,
+                     const std::string& identity_file = {})
 {
-    return run_ssh_raw(target, join_shell_command(remote_args), stdin_data, timeout_ms);
+    return run_ssh_raw(target, join_shell_command(remote_args), stdin_data, timeout_ms, identity_file);
 }
 
 // rsync's own remote-path argument (user@host:/path) is parsed by rsync itself, not passed
@@ -3914,12 +3913,17 @@ RemoteResult run_ssh(const std::string& target,
 RemoteResult run_rsync(const std::string& source_path,
                       const std::string& target,
                       const std::string& dest_path,
-                      int timeout_ms)
+                      int timeout_ms,
+                      const std::string& identity_file = {})
 {
+    auto ssh_command = std::string{"ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"};
+    if (!identity_file.empty())
+        ssh_command += " -i " + identity_file; // no spaces expected in a key path; not quoted
+
     const QStringList args{
         "-az",
         "-e",
-        "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new",
+        QString::fromStdString(ssh_command),
         "--mkpath",
         QString::fromStdString(source_path) + "/",
         QString::fromStdString(target) + ":" + QString::fromStdString(dest_path)};
@@ -3973,6 +3977,7 @@ std::string image_arg_for(const MigrateVmMember& member)
 // rsynced their host-side source directories there — see perform_migration).
 bool migrate_standalone_vm(const MigrateVmMember& member,
                            const std::string& target,
+                           const std::string& identity_file,
                            MigrationOutcome& outcome)
 {
     std::vector<std::string> args{"elp",
@@ -3994,7 +3999,7 @@ bool migrate_standalone_vm(const MigrateVmMember& member,
 
     outcome.log_lines.push_back(
         fmt::format("Relaunching \"{}\" on {}...", member.instance_name, target));
-    auto result = run_ssh(target, args, member.cloud_init_user_data, 600000);
+    auto result = run_ssh(target, args, member.cloud_init_user_data, 600000, identity_file);
     if (!result.ok)
     {
         outcome.message = fmt::format("Failed to launch \"{}\" on {}: {}",
@@ -4008,7 +4013,8 @@ bool migrate_standalone_vm(const MigrateVmMember& member,
     {
         outcome.log_lines.push_back(
             fmt::format("Syncing mount {} -> {}...", mount.get_source_path(), target));
-        auto rsync_result = run_rsync(mount.get_source_path(), target, mount.get_source_path(), 1800000);
+        auto rsync_result = run_rsync(
+            mount.get_source_path(), target, mount.get_source_path(), 1800000, identity_file);
         if (!rsync_result.ok)
         {
             outcome.message = fmt::format("Failed to sync mount \"{}\": {}",
@@ -4021,7 +4027,8 @@ bool migrate_standalone_vm(const MigrateVmMember& member,
             target,
             {"elp", "mount", mount.get_source_path(), fmt::format("{}:{}", member.instance_name, target_path)},
             {},
-            60000);
+            60000,
+            identity_file);
         if (!mount_result.ok)
         {
             outcome.message = fmt::format(
@@ -4045,6 +4052,7 @@ bool migrate_intent(const std::string& intent_name,
                     const std::vector<MigrateVmMember>& vm_members,
                     const std::vector<MigrateLlmMember>& llm_members,
                     const std::string& target,
+                    const std::string& identity_file,
                     MigrationOutcome& outcome)
 {
     std::vector<std::string> remote_tmp_files;
@@ -4064,7 +4072,8 @@ bool migrate_intent(const std::string& intent_name,
             auto put = run_ssh_raw(target,
                                    fmt::format("cat > {}", shell_quote(cloud_init_path)),
                                    member.cloud_init_user_data,
-                                   60000);
+                                   60000,
+                                   identity_file);
             if (!put.ok)
             {
                 outcome.message = fmt::format("Failed to stage cloud-init for \"{}\" on {}: {}",
@@ -4093,13 +4102,13 @@ bool migrate_intent(const std::string& intent_name,
     }
 
     outcome.log_lines.push_back(fmt::format("Creating intent \"{}\" on {}...", intent_name, target));
-    auto result = run_ssh(target, args, {}, 900000);
+    auto result = run_ssh(target, args, {}, 900000, identity_file);
 
     if (!remote_tmp_files.empty())
     {
         std::vector<std::string> rm_args{"rm", "-f"};
         rm_args.insert(rm_args.end(), remote_tmp_files.begin(), remote_tmp_files.end());
-        run_ssh(target, rm_args, {}, 30000); // best-effort cleanup, failure not fatal
+        run_ssh(target, rm_args, {}, 30000, identity_file); // best-effort cleanup, failure not fatal
     }
 
     if (!result.ok)
@@ -4116,8 +4125,8 @@ bool migrate_intent(const std::string& intent_name,
             const auto remote_instance = fmt::format("{}-{}", intent_name, member.role);
             outcome.log_lines.push_back(
                 fmt::format("Syncing mount {} -> {}...", mount.get_source_path(), target));
-            auto rsync_result =
-                run_rsync(mount.get_source_path(), target, mount.get_source_path(), 1800000);
+            auto rsync_result = run_rsync(
+                mount.get_source_path(), target, mount.get_source_path(), 1800000, identity_file);
             if (!rsync_result.ok)
             {
                 outcome.message = fmt::format("Failed to sync mount \"{}\": {}",
@@ -4130,7 +4139,8 @@ bool migrate_intent(const std::string& intent_name,
                 target,
                 {"elp", "mount", mount.get_source_path(), fmt::format("{}:{}", remote_instance, target_path)},
                 {},
-                60000);
+                60000,
+                identity_file);
             if (!mount_result.ok)
             {
                 outcome.message = fmt::format("Intent created on {}, but mounting \"{}\" for \"{}\" failed: {}",
@@ -4149,6 +4159,7 @@ bool migrate_intent(const std::string& intent_name,
 MigrationOutcome perform_migration(const std::string& name,
                                    bool is_intent,
                                    const std::string& target,
+                                   const std::string& identity_file,
                                    std::vector<MigrateVmMember> vm_members,
                                    std::vector<MigrateLlmMember> llm_members)
 {
@@ -4161,13 +4172,13 @@ MigrationOutcome perform_migration(const std::string& name,
         // kinds of member together — this is what actually (re-)registers each member (VM or
         // LLM) into the target's own intents map; `elp llm load --intent` alone only tags the
         // session, it doesn't touch the registry (see Daemon::migrate's own doc comment).
-        if (!migrate_intent(name, vm_members, llm_members, target, outcome))
+        if (!migrate_intent(name, vm_members, llm_members, target, identity_file, outcome))
             return outcome;
     }
     else
     {
         assert(vm_members.size() == 1 && llm_members.empty());
-        if (!migrate_standalone_vm(vm_members.front(), target, outcome))
+        if (!migrate_standalone_vm(vm_members.front(), target, identity_file, outcome))
             return outcome;
     }
 
@@ -4184,6 +4195,7 @@ try
 {
     const auto& name = request->name();
     const auto& target = request->target();
+    const auto& identity_file = request->identity_file();
     const auto copy = request->copy();
 
     if (name.empty())
@@ -4280,8 +4292,9 @@ try
     // the daemon's own thread via QFutureWatcher::finished (as usual), since that's what touches
     // `intents`/`vm_instance_specs`.
     auto future = QtConcurrent::run(
-        [name, is_intent, target, vm_members, llm_members]() mutable {
-            return perform_migration(name, is_intent, target, std::move(vm_members), std::move(llm_members));
+        [name, is_intent, target, identity_file, vm_members, llm_members]() mutable {
+            return perform_migration(
+                name, is_intent, target, identity_file, std::move(vm_members), std::move(llm_members));
         });
 
     auto* watcher = new QFutureWatcher<MigrationOutcome>();

@@ -721,6 +721,12 @@ message MigrateRequest {
     string target = 2; // "user@host", reachable over SSH with elp already installed there
     bool copy = 3; // keep the source instance(s)/session(s) instead of deleting them
     int32 verbosity_level = 4;
+    // Private key file ssh/rsync should authenticate with (passed as `ssh -i`). elpd runs as
+    // root, so plain `ssh user@host` otherwise uses root's own ~/.ssh, not whichever user is
+    // actually running `elp migrate` — pointing this at that user's own key (e.g.
+    // ~/.ssh/id_ed25519) avoids needing a separate key set up for root. Optional: if empty,
+    // ssh falls back to its own normal key discovery (i.e. root's).
+    string identity_file = 5;
 }
 
 message MigrateReply {

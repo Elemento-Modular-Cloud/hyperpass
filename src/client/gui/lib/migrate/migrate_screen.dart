@@ -260,6 +260,7 @@ Future<void> showMigrateDialog(
   String? selectedLabel;
   final customTargetController = TextEditingController();
   final usernameController = TextEditingController();
+  final identityController = TextEditingController();
   var copy = false;
   String? error;
 
@@ -316,6 +317,18 @@ Future<void> showMigrateDialog(
                     ),
                   ],
                   const SizedBox(height: 12),
+                  TextFormField(
+                    controller: identityController,
+                    decoration: const InputDecoration(
+                      labelText: 'SSH identity file (optional)',
+                      hintText: '~/.ssh/id_ed25519',
+                      helperText:
+                          'elpd runs as root, so ssh otherwise uses root\'s own key, which is '
+                          'likely not authorized on the target — point this at your own key '
+                          'instead.',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   CheckboxListTile(
                     controlAffinity: ListTileControlAffinity.leading,
                     contentPadding: EdgeInsets.zero,
@@ -358,7 +371,12 @@ Future<void> showMigrateDialog(
                   }
 
                   Navigator.pop(dialogContext);
-                  final op = ref.read(grpcClientProvider).migrate(name, target, copy: copy);
+                  final op = ref.read(grpcClientProvider).migrate(
+                        name,
+                        target,
+                        copy: copy,
+                        identityFile: identityController.text.trim(),
+                      );
                   ref.read(notificationsProvider.notifier).addOperation(
                         op,
                         loading: 'Migrating "$name" to $target...',
@@ -385,4 +403,5 @@ Future<void> showMigrateDialog(
 
   customTargetController.dispose();
   usernameController.dispose();
+  identityController.dispose();
 }

@@ -36,6 +36,7 @@ private:
 
     std::string instance_name;
     QString target;
+    QString identity_file;
     bool copy{false};
 };
 } // namespace multipass::cmd
