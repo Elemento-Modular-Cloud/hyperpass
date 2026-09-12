@@ -40,6 +40,8 @@ makedepends=(
   'llvm'
   'lld'
   'bison'
+  'flex' # dtc subproject (vendored by the qemu port's patch 0005)
+  'meson' # QEMU >=8's ./configure shells out to meson to generate the build
   'autoconf-archive'
   'curl'
   'zip'
@@ -47,6 +49,8 @@ makedepends=(
   'python'
   'apparmor' # libapparmor headers
   'systemd-libs' # libsystemd headers
+  'libcap-ng' # qemu --enable-virtfs
+  'attr' # qemu --enable-virtfs (xattr support)
   # vcpkg builds Qt6/gRPC/Boost/qemu from source (see ../../vcpkg.json); these
   # are the system headers those ports need to build on Linux:
   'libxkbcommon'
