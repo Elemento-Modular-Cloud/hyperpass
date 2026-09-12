@@ -13,6 +13,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 function(add_target TARGET_NAME)
+  # mdns_service.h (include/multipass/mdns_service.h) is a Q_OBJECT class; its signal/vtable/
+  # metaobject implementations only get generated for targets that moc it, which needs AUTOMOC
+  # enabled here (unlike src/daemon or src/llm, this directory never turned it on before).
+  set(CMAKE_AUTOMOC ON)
+
   if(LINUX)
     add_library(${TARGET_NAME} STATIC
       platform_linux.cpp
