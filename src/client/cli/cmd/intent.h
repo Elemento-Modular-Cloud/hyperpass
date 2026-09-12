@@ -33,8 +33,14 @@ public:
 
 private:
     ReturnCodeVariant run_create(ArgParser* parser);
+    ReturnCodeVariant run_add(ArgParser* parser);
     ReturnCodeVariant run_list(ArgParser* parser);
     ReturnCodeVariant run_info(ArgParser* parser);
     ReturnCodeVariant run_delete(ArgParser* parser);
+
+    // Parses --service/--instance into `members`; returns false (and prints an error) on a
+    // malformed --instance spec. Shared by run_create and run_add.
+    bool parse_members(ArgParser* parser,
+                       google::protobuf::RepeatedPtrField<IntentMemberRequest>* members);
 };
 } // namespace multipass::cmd

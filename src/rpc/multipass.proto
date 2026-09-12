@@ -45,6 +45,7 @@ service Rpc {
     rpc restore (stream RestoreRequest) returns (stream RestoreReply);
     rpc clone (stream CloneRequest) returns (stream CloneReply);
     rpc intent_create (stream IntentCreateRequest) returns (stream IntentCreateReply);
+    rpc intent_add_member (stream IntentAddMemberRequest) returns (stream IntentAddMemberReply);
     rpc intent_list (stream IntentListRequest) returns (stream IntentListReply);
     rpc intent_info (stream IntentInfoRequest) returns (stream IntentInfoReply);
     rpc intent_delete (stream IntentDeleteRequest) returns (stream IntentDeleteReply);
@@ -597,6 +598,17 @@ message IntentCreateRequest {
 }
 
 message IntentCreateReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+message IntentAddMemberRequest {
+    string name = 1;
+    repeated IntentMemberRequest members = 2;
+    int32 verbosity_level = 3;
+}
+
+message IntentAddMemberReply {
     string log_line = 1;
     string reply_message = 2;
 }

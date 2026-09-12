@@ -164,6 +164,11 @@ public slots:
         grpc::ServerReaderWriterInterface<IntentCreateReply, IntentCreateRequest>* server,
         DaemonRpcContext* context);
 
+    virtual void intent_add_member(
+        const IntentAddMemberRequest* request,
+        grpc::ServerReaderWriterInterface<IntentAddMemberReply, IntentAddMemberRequest>* server,
+        DaemonRpcContext* context);
+
     virtual void intent_list(
         const IntentListRequest* request,
         grpc::ServerReaderWriterInterface<IntentListReply, IntentListRequest>* server,
@@ -222,6 +227,18 @@ private:
                    grpc::ServerReaderWriterInterface<CreateReply, CreateRequest>* server,
                    DaemonRpcContext* context,
                    bool start);
+
+    // Launches each of launch_requests via create_vm, one at a time (create_vm is itself
+    // asynchronous, so this chains rather than blocking); once all have succeeded,
+    // on_all_launched is called with the resulting {role, instance_name} pairs (same order),
+    // or on_failure is called on the first member that fails (earlier members stay launched).
+    // Shared by intent_create and intent_add_member so the async chaining logic isn't
+    // duplicated between them.
+    void launch_intent_members(
+        std::shared_ptr<std::vector<LaunchRequest>> launch_requests,
+        std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> member_sink,
+        std::function<void(std::vector<IntentSpec::Member>)> on_all_launched,
+        std::function<void(grpc::Status)> on_failure);
     bool delete_vm(InstanceTable::iterator vm_it, bool purge, DeleteReply& response);
     grpc::Status reboot_vm(VirtualMachine& vm);
     grpc::Status shutdown_vm(VirtualMachine& vm, const std::chrono::milliseconds delay);

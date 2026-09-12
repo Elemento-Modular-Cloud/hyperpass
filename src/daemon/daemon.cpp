@@ -665,6 +665,10 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_
     QObject::connect(&rpc, &mp::DaemonRpc::on_list, &daemon, &mp::Daemon::list);
     QObject::connect(&rpc, &mp::DaemonRpc::on_clone, &daemon, &mp::Daemon::clone);
     QObject::connect(&rpc, &mp::DaemonRpc::on_intent_create, &daemon, &mp::Daemon::intent_create);
+    QObject::connect(&rpc,
+                     &mp::DaemonRpc::on_intent_add_member,
+                     &daemon,
+                     &mp::Daemon::intent_add_member);
     QObject::connect(&rpc, &mp::DaemonRpc::on_intent_list, &daemon, &mp::Daemon::intent_list);
     QObject::connect(&rpc, &mp::DaemonRpc::on_intent_info, &daemon, &mp::Daemon::intent_info);
     QObject::connect(&rpc, &mp::DaemonRpc::on_intent_delete, &daemon, &mp::Daemon::intent_delete);
@@ -3210,7 +3214,107 @@ void set_timestamp_from_iso8601(google::protobuf::Timestamp* timestamp, const st
     timestamp->set_seconds(date_time.toSecsSinceEpoch());
     timestamp->set_nanos(date_time.time().msec() * 1'000'000);
 }
+
+// Validates and builds one internal LaunchRequest per requested intent member (resolving
+// named service templates, or using the caller's inline image/cloud-init). Shared by
+// intent_create and intent_add_member. On error, returns std::nullopt and sets `error`.
+std::optional<std::vector<mp::LaunchRequest>> build_intent_member_launch_requests(
+    const std::string& intent_name,
+    const google::protobuf::RepeatedPtrField<mp::IntentMemberRequest>& members,
+    grpc::Status& error)
+{
+    std::vector<mp::LaunchRequest> launch_requests;
+    for (const auto& member : members)
+    {
+        const auto& role = member.role();
+        if (role.empty())
+        {
+            error = {grpc::StatusCode::INVALID_ARGUMENT, "Each intent member needs a role", ""};
+            return std::nullopt;
+        }
+
+        std::string image = member.image();
+        std::string cloud_init = member.cloud_init_user_data();
+        if (image.empty() && cloud_init.empty())
+        {
+            auto tmpl = mp::find_intent_service_template(role);
+            if (!tmpl)
+            {
+                error = {grpc::StatusCode::INVALID_ARGUMENT,
+                        fmt::format("Unknown service template \"{}\"; pass an image and/or "
+                                    "cloud-init file for a custom member",
+                                    role),
+                        ""};
+                return std::nullopt;
+            }
+            image = tmpl->image;
+            cloud_init = tmpl->cloud_init_user_data;
+        }
+
+        mp::LaunchRequest lr;
+        lr.set_instance_name(fmt::format("{}-{}", intent_name, role));
+        lr.set_image(image);
+        lr.set_cloud_init_user_data(cloud_init);
+        lr.set_num_cores(member.num_cores() > 0 ? member.num_cores() : 1);
+        lr.set_mem_size(member.mem_size().empty() ? "1G" : member.mem_size());
+        lr.set_disk_space(member.disk_space().empty() ? "5G" : member.disk_space());
+        lr.set_intent(intent_name);
+        lr.set_intent_role(role);
+
+        launch_requests.push_back(std::move(lr));
+    }
+    return launch_requests;
+}
 } // namespace
+
+void mp::Daemon::launch_intent_members(
+    std::shared_ptr<std::vector<LaunchRequest>> launch_requests,
+    std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> member_sink,
+    std::function<void(std::vector<IntentSpec::Member>)> on_all_launched,
+    std::function<void(grpc::Status)> on_failure)
+{
+    auto launched = std::make_shared<std::vector<IntentSpec::Member>>();
+    auto member_index = std::make_shared<size_t>(0);
+    auto launch_next = std::make_shared<std::function<void()>>();
+    *launch_next = [this,
+                    launch_requests,
+                    member_sink,
+                    launched,
+                    member_index,
+                    launch_next,
+                    on_all_launched,
+                    on_failure] {
+        if (*member_index >= launch_requests->size())
+            return on_all_launched(*launched);
+
+        auto& member_request = (*launch_requests)[*member_index];
+        auto role = member_request.intent_role();
+
+        auto* member_context = new IntentMemberContext(
+            [launch_requests, launched, member_index, launch_next, on_failure, role](
+                grpc::Status status) {
+                if (!status.ok())
+                    // Members already launched are left running (not rolled back in v1).
+                    return on_failure(status);
+
+                launched->push_back({role, (*launch_requests)[*member_index].instance_name()});
+                ++(*member_index);
+                (*launch_next)();
+            });
+
+        try
+        {
+            create_vm(&member_request, member_sink.get(), member_context, /*start=*/true);
+        }
+        catch (const std::exception& e)
+        {
+            delete member_context; // create_vm threw before it could hand off ownership
+            on_failure(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+        }
+    };
+
+    (*launch_next)();
+}
 
 void mp::Daemon::intent_create(
     const IntentCreateRequest* request,
@@ -3230,92 +3334,92 @@ try
         return context->set_value(
             {grpc::StatusCode::INVALID_ARGUMENT, "An intent needs at least one member", ""});
 
-    auto launch_requests = std::make_shared<std::vector<LaunchRequest>>();
-    for (const auto& member : request->members())
-    {
-        const auto& role = member.role();
-        if (role.empty())
-            return context->set_value(
-                {grpc::StatusCode::INVALID_ARGUMENT, "Each intent member needs a role", ""});
+    grpc::Status build_error;
+    auto built = build_intent_member_launch_requests(name, request->members(), build_error);
+    if (!built)
+        return context->set_value(build_error);
 
-        std::string image = member.image();
-        std::string cloud_init = member.cloud_init_user_data();
-        if (image.empty() && cloud_init.empty())
-        {
-            auto tmpl = find_intent_service_template(role);
-            if (!tmpl)
-                return context->set_value(
-                    {grpc::StatusCode::INVALID_ARGUMENT,
-                     fmt::format("Unknown service template \"{}\"; pass an image and/or "
-                                "cloud-init file for a custom member",
-                                role),
-                     ""});
-            image = tmpl->image;
-            cloud_init = tmpl->cloud_init_user_data;
-        }
+    auto launch_requests = std::make_shared<std::vector<LaunchRequest>>(std::move(*built));
+    std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> sink =
+        std::make_shared<IntentMemberLaunchSink>(server);
 
-        LaunchRequest lr;
-        lr.set_instance_name(fmt::format("{}-{}", name, role));
-        lr.set_image(image);
-        lr.set_cloud_init_user_data(cloud_init);
-        lr.set_num_cores(member.num_cores() > 0 ? member.num_cores() : 1);
-        lr.set_mem_size(member.mem_size().empty() ? "1G" : member.mem_size());
-        lr.set_disk_space(member.disk_space().empty() ? "5G" : member.disk_space());
-        lr.set_intent(name);
-        lr.set_intent_role(role);
-
-        launch_requests->push_back(std::move(lr));
-    }
-
-    auto sink = std::make_shared<IntentMemberLaunchSink>(server);
-    auto spec = std::make_shared<IntentSpec>();
-    spec->name = name;
-    spec->creation_timestamp =
-        QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toStdString();
-
-    auto member_index = std::make_shared<size_t>(0);
-    auto launch_next = std::make_shared<std::function<void()>>();
-    *launch_next = [this, server, context, launch_requests, sink, spec, member_index, launch_next] {
-        if (*member_index >= launch_requests->size())
-        {
-            intents[spec->name] = *spec;
+    launch_intent_members(
+        launch_requests,
+        sink,
+        [this, server, context, name](std::vector<IntentSpec::Member> members) {
+            IntentSpec spec;
+            spec.name = name;
+            spec.members = std::move(members);
+            spec.creation_timestamp =
+                QDateTime::currentDateTime().toString(Qt::ISODateWithMs).toStdString();
+            intents[name] = spec;
             persist_intents();
 
             IntentCreateReply reply;
             reply.set_reply_message(fmt::format("Intent \"{}\" created with {} member(s).",
-                                                spec->name,
-                                                spec->members.size()));
+                                                name,
+                                                spec.members.size()));
             server->Write(reply);
-            return context->set_value(grpc::Status::OK);
-        }
+            context->set_value(grpc::Status::OK);
+        },
+        [context](grpc::Status status) { context->set_value(status); });
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
 
-        auto& member_request = (*launch_requests)[*member_index];
-        auto role = member_request.intent_role();
+void mp::Daemon::intent_add_member(
+    const IntentAddMemberRequest* request,
+    grpc::ServerReaderWriterInterface<IntentAddMemberReply, IntentAddMemberRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    const auto& name = request->name();
+    if (!intents.count(name))
+        return context->set_value(
+            {grpc::StatusCode::NOT_FOUND, fmt::format("Intent \"{}\" does not exist", name), ""});
+    if (request->members().empty())
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Provide at least one member to add", ""});
 
-        auto* member_context = new IntentMemberContext(
-            [launch_requests, spec, member_index, launch_next, context, role](
-                grpc::Status status) {
-                if (!status.ok())
-                    // Members already launched are left running (not rolled back in v1).
-                    return context->set_value(status);
+    grpc::Status build_error;
+    auto built = build_intent_member_launch_requests(name, request->members(), build_error);
+    if (!built)
+        return context->set_value(build_error);
 
-                spec->members.push_back({role, (*launch_requests)[*member_index].instance_name()});
-                ++(*member_index);
-                (*launch_next)();
-            });
+    auto launch_requests = std::make_shared<std::vector<LaunchRequest>>(std::move(*built));
+    std::shared_ptr<grpc::ServerReaderWriterInterface<LaunchReply, LaunchRequest>> sink =
+        std::make_shared<IntentMemberLaunchSink>(server);
 
-        try
-        {
-            create_vm(&member_request, sink.get(), member_context, /*start=*/true);
-        }
-        catch (const std::exception& e)
-        {
-            delete member_context; // create_vm threw before it could hand off ownership
-            context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
-        }
-    };
+    launch_intent_members(
+        launch_requests,
+        sink,
+        [this, server, context, name](std::vector<IntentSpec::Member> members) {
+            // launch_intent_members runs asynchronously; guard against the intent having
+            // been deleted (by a concurrent intent_delete) while these members were still
+            // being launched, rather than silently reviving it with intents[name].
+            auto it = intents.find(name);
+            if (it == intents.end())
+                return context->set_value(
+                    {grpc::StatusCode::ABORTED,
+                     fmt::format("Intent \"{}\" was deleted while members were being added; "
+                                "the new instance(s) are still running but untracked",
+                                name),
+                     ""});
 
-    (*launch_next)();
+            const auto added = members.size();
+            for (auto& member : members)
+                it->second.members.push_back(std::move(member));
+            persist_intents();
+
+            IntentAddMemberReply reply;
+            reply.set_reply_message(
+                fmt::format("Added {} member(s) to intent \"{}\".", added, name));
+            server->Write(reply);
+            context->set_value(grpc::Status::OK);
+        },
+        [context](grpc::Status status) { context->set_value(status); });
 }
 catch (const std::exception& e)
 {

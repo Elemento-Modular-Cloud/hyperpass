@@ -86,6 +86,10 @@ signals:
     void on_intent_create(const IntentCreateRequest* request,
                           grpc::ServerReaderWriter<IntentCreateReply, IntentCreateRequest>* server,
                           DaemonRpcContext* context);
+    void on_intent_add_member(
+        const IntentAddMemberRequest* request,
+        grpc::ServerReaderWriter<IntentAddMemberReply, IntentAddMemberRequest>* server,
+        DaemonRpcContext* context);
     void on_intent_list(const IntentListRequest* request,
                         grpc::ServerReaderWriter<IntentListReply, IntentListRequest>* server,
                         DaemonRpcContext* context);
@@ -244,6 +248,9 @@ protected:
     grpc::Status intent_create(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<IntentCreateReply, IntentCreateRequest>* server) override;
+    grpc::Status intent_add_member(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<IntentAddMemberReply, IntentAddMemberRequest>* server) override;
     grpc::Status intent_list(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<IntentListReply, IntentListRequest>* server) override;

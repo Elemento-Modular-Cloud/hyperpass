@@ -265,6 +265,19 @@ grpc::Status mp::DaemonRpc::intent_create(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::intent_add_member(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<IntentAddMemberReply, IntentAddMemberRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_intent_add_member,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::intent_list(
     grpc::ServerContext* context,
     grpc::ServerReaderWriter<IntentListReply, IntentListRequest>* server)

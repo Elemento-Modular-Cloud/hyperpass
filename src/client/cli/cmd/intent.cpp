@@ -64,7 +64,7 @@ std::string instance_status_name(mp::InstanceStatus::Status status)
 
 mp::ReturnCodeVariant cmd::Intent::run(ArgParser* parser)
 {
-    parser->addPositionalArgument("action", "create | list | info | delete", "<action>");
+    parser->addPositionalArgument("action", "create | add | list | info | delete", "<action>");
     parser->addPositionalArgument("name", "The intent's name (not needed for `list`)", "[<name>]");
     parser->addOption(service_option);
     parser->addOption(instance_option);
@@ -77,13 +77,15 @@ mp::ReturnCodeVariant cmd::Intent::run(ArgParser* parser)
     const auto args = parser->positionalArguments();
     if (args.empty())
     {
-        cerr << "Please specify an action: create, list, info, or delete.\n";
+        cerr << "Please specify an action: create, add, list, info, or delete.\n";
         return parser->returnCodeFrom(ParseCode::CommandLineError);
     }
 
     const auto action = args[0].toStdString();
     if (action == "create")
         return run_create(parser);
+    if (action == "add")
+        return run_add(parser);
     if (action == "list")
         return run_list(parser);
     if (action == "info")
@@ -91,7 +93,8 @@ mp::ReturnCodeVariant cmd::Intent::run(ArgParser* parser)
     if (action == "delete")
         return run_delete(parser);
 
-    cerr << fmt::format("Unknown action \"{}\"; expected create, list, info, or delete.\n", action);
+    cerr << fmt::format(
+        "Unknown action \"{}\"; expected create, add, list, info, or delete.\n", action);
     return parser->returnCodeFrom(ParseCode::CommandLineError);
 }
 
@@ -109,11 +112,59 @@ QString cmd::Intent::description() const
 {
     return QStringLiteral(
         "Create a named group of instances launched together (e.g. a \"redis\" and a "
-        "\"postgres\" instance for an app), and list, inspect, or delete such groups.\n\n"
+        "\"postgres\" instance for an app), and add to, list, inspect, or delete such "
+        "groups.\n\n"
         "  elp intent create <name> --service redis --service postgres\n"
+        "  elp intent add <name> --service redis\n"
         "  elp intent list\n"
         "  elp intent info <name>\n"
         "  elp intent delete <name> [--purge]");
+}
+
+bool cmd::Intent::parse_members(ArgParser* parser,
+                                google::protobuf::RepeatedPtrField<IntentMemberRequest>* members)
+{
+    for (const auto& role : parser->values(service_option))
+    {
+        auto* member = members->Add();
+        member->set_role(role.toStdString());
+    }
+
+    for (const auto& spec : parser->values(instance_option))
+    {
+        const auto fields = spec.split(':');
+        if (fields[0].isEmpty())
+        {
+            cerr << fmt::format("Invalid --instance spec \"{}\"; expected "
+                                "role:image:cloud-init-file:cores:mem:disk.\n",
+                                spec.toStdString());
+            return false;
+        }
+
+        auto* member = members->Add();
+        member->set_role(fields[0].toStdString());
+        if (fields.size() > 1 && !fields[1].isEmpty())
+            member->set_image(fields[1].toStdString());
+        if (fields.size() > 2 && !fields[2].isEmpty())
+        {
+            QFile file{fields[2]};
+            if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            {
+                cerr << fmt::format("Could not read cloud-init file \"{}\".\n",
+                                    fields[2].toStdString());
+                return false;
+            }
+            member->set_cloud_init_user_data(QTextStream{&file}.readAll().toStdString());
+        }
+        if (fields.size() > 3 && !fields[3].isEmpty())
+            member->set_num_cores(fields[3].toInt());
+        if (fields.size() > 4 && !fields[4].isEmpty())
+            member->set_mem_size(fields[4].toStdString());
+        if (fields.size() > 5 && !fields[5].isEmpty())
+            member->set_disk_space(fields[5].toStdString());
+    }
+
+    return true;
 }
 
 mp::ReturnCodeVariant cmd::Intent::run_create(ArgParser* parser)
@@ -133,46 +184,8 @@ mp::ReturnCodeVariant cmd::Intent::run_create(ArgParser* parser)
     IntentCreateRequest request;
     request.set_name(args[1].toStdString());
     request.set_verbosity_level(parser->verbosityLevel());
-
-    for (const auto& role : parser->values(service_option))
-    {
-        auto* member = request.add_members();
-        member->set_role(role.toStdString());
-    }
-
-    for (const auto& spec : parser->values(instance_option))
-    {
-        const auto fields = spec.split(':');
-        if (fields.size() < 1 || fields[0].isEmpty())
-        {
-            cerr << fmt::format("Invalid --instance spec \"{}\"; expected "
-                                "role:image:cloud-init-file:cores:mem:disk.\n",
-                                spec.toStdString());
-            return parser->returnCodeFrom(ParseCode::CommandLineError);
-        }
-
-        auto* member = request.add_members();
-        member->set_role(fields[0].toStdString());
-        if (fields.size() > 1 && !fields[1].isEmpty())
-            member->set_image(fields[1].toStdString());
-        if (fields.size() > 2 && !fields[2].isEmpty())
-        {
-            QFile file{fields[2]};
-            if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-            {
-                cerr << fmt::format("Could not read cloud-init file \"{}\".\n",
-                                    fields[2].toStdString());
-                return parser->returnCodeFrom(ParseCode::CommandLineError);
-            }
-            member->set_cloud_init_user_data(QTextStream{&file}.readAll().toStdString());
-        }
-        if (fields.size() > 3 && !fields[3].isEmpty())
-            member->set_num_cores(fields[3].toInt());
-        if (fields.size() > 4 && !fields[4].isEmpty())
-            member->set_mem_size(fields[4].toStdString());
-        if (fields.size() > 5 && !fields[5].isEmpty())
-            member->set_disk_space(fields[5].toStdString());
-    }
+    if (!parse_members(parser, request.mutable_members()))
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
 
     AnimatedSpinner spinner{cout};
     auto on_success = [this, &spinner](IntentCreateReply& reply) -> ReturnCodeVariant {
@@ -188,6 +201,42 @@ mp::ReturnCodeVariant cmd::Intent::run_create(ArgParser* parser)
 
     spinner.start("Creating intent " + request.name());
     return dispatch(&RpcMethod::intent_create, request, on_success, on_failure);
+}
+
+mp::ReturnCodeVariant cmd::Intent::run_add(ArgParser* parser)
+{
+    const auto args = parser->positionalArguments();
+    if (args.size() < 2)
+    {
+        cerr << "Please provide the name of the intent to add to.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+    if (!parser->isSet(service_option) && !parser->isSet(instance_option))
+    {
+        cerr << "Please specify at least one member with --service or --instance.\n";
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+    }
+
+    IntentAddMemberRequest request;
+    request.set_name(args[1].toStdString());
+    request.set_verbosity_level(parser->verbosityLevel());
+    if (!parse_members(parser, request.mutable_members()))
+        return parser->returnCodeFrom(ParseCode::CommandLineError);
+
+    AnimatedSpinner spinner{cout};
+    auto on_success = [this, &spinner](IntentAddMemberReply& reply) -> ReturnCodeVariant {
+        spinner.stop();
+        cout << reply.reply_message() << "\n";
+        return ReturnCode::Ok;
+    };
+    auto on_failure = [this, &spinner](grpc::Status& status,
+                                       IntentAddMemberReply& reply) -> ReturnCodeVariant {
+        spinner.stop();
+        return standard_failure_handler_for(name(), cerr, status, reply.reply_message());
+    };
+
+    spinner.start("Adding to intent " + request.name());
+    return dispatch(&RpcMethod::intent_add_member, request, on_success, on_failure);
 }
 
 mp::ReturnCodeVariant cmd::Intent::run_list(ArgParser* parser)
