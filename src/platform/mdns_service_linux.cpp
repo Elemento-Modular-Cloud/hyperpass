@@ -27,6 +27,7 @@
 #include <avahi-common/thread-watch.h>
 
 #include <cstring>
+#include <net/if.h>
 #include <unordered_set>
 
 namespace mp = multipass;
@@ -240,7 +241,7 @@ private:
     }
 
     static void resolve_callback(AvahiServiceResolver* r,
-                                AvahiIfIndex,
+                                AvahiIfIndex interface,
                                 AvahiProtocol,
                                 AvahiResolverEvent event,
                                 const char* name,
@@ -260,9 +261,24 @@ private:
             char address_str[AVAHI_ADDRESS_STR_MAX];
             avahi_address_snprint(address_str, sizeof(address_str), address);
 
+            std::string resolved_address = address_str;
+            // An IPv6 link-local address (fe80::/10) is only routable with an interface
+            // zone id attached (e.g. "fe80::1%eth0") — without it, ssh/getaddrinfo silently
+            // hang/timeout trying to reach it. mDNS replies commonly come back link-local,
+            // so this isn't an edge case: it's the common failure mode on real LANs.
+            if (address->proto == AVAHI_PROTO_INET6 &&
+                address->data.ipv6.address[0] == 0xfe &&
+                (address->data.ipv6.address[1] & 0xc0) == 0x80 &&
+                interface != AVAHI_IF_UNSPEC)
+            {
+                char ifname[IF_NAMESIZE];
+                if (if_indextoname(static_cast<unsigned int>(interface), ifname))
+                    resolved_address += fmt::format("%{}", ifname);
+            }
+
             mp::MdnsHostInfo info;
             info.label = name ? name : "";
-            info.address = address_str;
+            info.address = resolved_address;
             info.host_name = txt_value(txt, "host_name");
             if (info.host_name.empty())
                 info.host_name = host_name ? host_name : "";

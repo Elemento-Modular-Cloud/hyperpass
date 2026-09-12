@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -141,9 +142,48 @@ class _HostCard extends ConsumerWidget {
   }
 }
 
+/// A text field for an ssh identity (private key) file, with a "Browse..." button opening the
+/// native file picker (no fixed extension — private keys are commonly extensionless, e.g.
+/// id_ed25519) as the closest fit to "autocompletion" for a filesystem path in a Flutter
+/// desktop app; the OS's own file dialog already gives path-typing/autocomplete besides.
+Widget _identityFileField(
+  TextEditingController controller,
+  void Function(void Function()) setDialogState,
+) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: TextFormField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'SSH identity file (optional)',
+            hintText: '~/.ssh/id_ed25519',
+            helperText: 'Leave blank to use ssh\'s own default identity.',
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: IconButton(
+          tooltip: 'Browse...',
+          icon: const Icon(Icons.folder_open),
+          onPressed: () async {
+            final file = await openFile();
+            if (file == null) return;
+            setDialogState(() => controller.text = file.path);
+          },
+        ),
+      ),
+    ],
+  );
+}
+
 Future<void> showAddHostDialog(BuildContext context, WidgetRef ref) async {
   final labelController = TextEditingController();
   final targetController = TextEditingController();
+  final identityController = TextEditingController();
   String? error;
 
   await showDialog<void>(
@@ -175,6 +215,8 @@ Future<void> showAddHostDialog(BuildContext context, WidgetRef ref) async {
                   hintText: 'user@host',
                 ),
               ),
+              const SizedBox(height: 12),
+              _identityFileField(identityController, setDialogState),
               if (error != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -204,7 +246,11 @@ Future<void> showAddHostDialog(BuildContext context, WidgetRef ref) async {
                 return;
               }
               try {
-                await ref.read(grpcClientProvider).addKnownHost(label, target);
+                await ref.read(grpcClientProvider).addKnownHost(
+                      label,
+                      target,
+                      identityFile: identityController.text.trim(),
+                    );
                 ref.invalidate(networkHostsStreamProvider);
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               } catch (e) {
@@ -220,6 +266,7 @@ Future<void> showAddHostDialog(BuildContext context, WidgetRef ref) async {
 
   labelController.dispose();
   targetController.dispose();
+  identityController.dispose();
 }
 
 Future<void> showRemoveHostDialog(
@@ -296,6 +343,11 @@ Future<void> showMigrateDialog(
                     onChanged: (value) => setDialogState(() {
                       selectedLabel = value;
                       error = null;
+                      // Pre-fill from the newly-selected host's own saved default (still
+                      // editable afterward, e.g. to override for just this migration).
+                      final newlySelected =
+                          value == null ? null : hosts.firstWhereOrNull((h) => h.label == value);
+                      identityController.text = newlySelected?.identityFile ?? '';
                     }),
                   ),
                   if (selected == null) ...[
@@ -317,17 +369,7 @@ Future<void> showMigrateDialog(
                     ),
                   ],
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: identityController,
-                    decoration: const InputDecoration(
-                      labelText: 'SSH identity file (optional)',
-                      hintText: '~/.ssh/id_ed25519',
-                      helperText:
-                          'elpd runs as root, so ssh otherwise uses root\'s own key, which is '
-                          'likely not authorized on the target — point this at your own key '
-                          'instead.',
-                    ),
-                  ),
+                  _identityFileField(identityController, setDialogState),
                   const SizedBox(height: 12),
                   CheckboxListTile(
                     controlAffinity: ListTileControlAffinity.leading,

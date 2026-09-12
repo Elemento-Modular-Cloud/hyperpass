@@ -140,12 +140,15 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final intentSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // Wrap, not Row: dropdown + new-name + role can add up to more than the dialog's
+        // width (each is a fixed 360px), which previously pushed the last field(s) off
+        // screen instead of onto their own line.
+        Wrap(
+          spacing: 24,
+          runSpacing: 12,
           children: [
             intentDropdown,
-            if (_selectedIntent == _createNewIntentValue) ...[
-              const SizedBox(width: 24),
+            if (_selectedIntent == _createNewIntentValue)
               SpecInput(
                 label: 'New intent name',
                 hint: 'e.g. test-app-1',
@@ -153,9 +156,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
                 onSaved: (value) => _newIntentName = value ?? '',
                 width: 360,
               ),
-            ],
-            if (_selectedIntent != null) ...[
-              const SizedBox(width: 24),
+            if (_selectedIntent != null)
               SpecInput(
                 label: 'Role in intent',
                 helper: 'What this service is within the intent (e.g. "redis").',
@@ -164,7 +165,6 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
                 onSaved: (value) => _intentRole = value ?? '',
                 width: 360,
               ),
-            ],
           ],
         ),
       ],

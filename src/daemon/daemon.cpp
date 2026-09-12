@@ -411,9 +411,11 @@ std::unordered_map<std::string, mp::IntentSpec> load_intents_db(const mp::Path& 
     return reconstructed_records;
 }
 
-// Manually-added migration targets ("label" -> "user@host"), the always-available fallback
-// to mDNS discovery for hosts on a different subnet/VLAN where multicast doesn't reach.
-std::unordered_map<std::string, std::string> load_known_hosts_db(const mp::Path& data_path)
+// Manually-added migration targets ("label" -> {target, identity_file}), the always-available
+// fallback to mDNS discovery for hosts on a different subnet/VLAN where multicast doesn't reach.
+// A plain string value (rather than an object) is accepted too, for records written by the
+// short-lived earlier version of this file that only ever stored the target.
+std::unordered_map<std::string, mp::KnownHost> load_known_hosts_db(const mp::Path& data_path)
 {
     QDir data_dir{data_path};
     QFile db_file{data_dir.filePath(known_hosts_db_name)};
@@ -430,11 +432,22 @@ std::unordered_map<std::string, std::string> load_known_hosts_db(const mp::Path&
         return {};
     }
 
-    std::unordered_map<std::string, std::string> reconstructed_records;
+    std::unordered_map<std::string, mp::KnownHost> reconstructed_records;
     for (const auto& [key, record] : records.as_object())
     {
         if (record.is_string())
-            reconstructed_records.emplace(key, std::string(record.as_string()));
+            reconstructed_records.emplace(key, mp::KnownHost{std::string(record.as_string()), {}});
+        else if (record.is_object())
+        {
+            const auto& obj = record.as_object();
+            std::string target;
+            if (auto it = obj.find("target"); it != obj.end() && it->value().is_string())
+                target = std::string(it->value().as_string());
+            std::string identity_file;
+            if (auto it = obj.find("identity_file"); it != obj.end() && it->value().is_string())
+                identity_file = std::string(it->value().as_string());
+            reconstructed_records.emplace(key, mp::KnownHost{target, identity_file});
+        }
     }
     return reconstructed_records;
 }
@@ -3865,6 +3878,14 @@ struct RemoteResult
     QString error;
 };
 
+// Generous on purpose: a cloud-init doing package installs/docker pulls (e.g. a minio image)
+// can run quiet for a long time with no output, and a from-scratch `elp launch`/`elp intent
+// create` on the target legitimately takes minutes, not seconds.
+constexpr int ssh_quick_timeout_ms = 120000; // 2 min: staging a file, attaching one mount
+constexpr int ssh_provision_timeout_ms = 1800000; // 30 min: launch / intent create with cloud-init
+constexpr int ssh_cleanup_timeout_ms = 60000; // 1 min: best-effort remote temp file cleanup
+constexpr int rsync_timeout_ms = 3600000; // 1 hour: syncing a mount's data
+
 // Runs `remote_command` on `target` ("user@host") over ssh, optionally piping `stdin_data`
 // into it (forwarded transparently through the ssh tunnel to the remote process' own stdin —
 // e.g. this is how `elp launch --cloud-init -` receives cloud-init content without needing a
@@ -3877,7 +3898,22 @@ RemoteResult run_ssh_raw(const std::string& target,
                         int timeout_ms,
                         const std::string& identity_file = {})
 {
-    QStringList args{"-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"};
+    // ServerAlive* keeps the connection alive while the remote command runs quiet for a long
+    // stretch (e.g. a cloud-init doing a slow docker pull) — without it, a NAT/firewall along
+    // the way can silently drop an apparently-idle TCP connection well before our own
+    // wait_for_finished(timeout_ms) below would time it out, surfacing as ssh's own "Connection
+    // timed out"/"Connection reset" rather than ours. ConnectTimeout only bounds the initial
+    // handshake, not the whole command, so it stays modest.
+    QStringList args{"-o",
+                     "BatchMode=yes",
+                     "-o",
+                     "StrictHostKeyChecking=accept-new",
+                     "-o",
+                     "ConnectTimeout=30",
+                     "-o",
+                     "ServerAliveInterval=15",
+                     "-o",
+                     "ServerAliveCountMax=8"};
     if (!identity_file.empty())
         args << "-i" << QString::fromStdString(identity_file);
     args << "-T" << QString::fromStdString(target) << QString::fromStdString(remote_command);
@@ -3902,7 +3938,7 @@ RemoteResult run_ssh_raw(const std::string& target,
 RemoteResult run_ssh(const std::string& target,
                      const std::vector<std::string>& remote_args,
                      const std::string& stdin_data = {},
-                     int timeout_ms = 120000,
+                     int timeout_ms = ssh_quick_timeout_ms,
                      const std::string& identity_file = {})
 {
     return run_ssh_raw(target, join_shell_command(remote_args), stdin_data, timeout_ms, identity_file);
@@ -3916,7 +3952,9 @@ RemoteResult run_rsync(const std::string& source_path,
                       int timeout_ms,
                       const std::string& identity_file = {})
 {
-    auto ssh_command = std::string{"ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"};
+    auto ssh_command = std::string{"ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o "
+                                  "ConnectTimeout=30 -o ServerAliveInterval=15 -o "
+                                  "ServerAliveCountMax=8"};
     if (!identity_file.empty())
         ssh_command += " -i " + identity_file; // no spaces expected in a key path; not quoted
 
@@ -3999,7 +4037,8 @@ bool migrate_standalone_vm(const MigrateVmMember& member,
 
     outcome.log_lines.push_back(
         fmt::format("Relaunching \"{}\" on {}...", member.instance_name, target));
-    auto result = run_ssh(target, args, member.cloud_init_user_data, 600000, identity_file);
+    auto result =
+        run_ssh(target, args, member.cloud_init_user_data, ssh_provision_timeout_ms, identity_file);
     if (!result.ok)
     {
         outcome.message = fmt::format("Failed to launch \"{}\" on {}: {}",
@@ -4014,7 +4053,7 @@ bool migrate_standalone_vm(const MigrateVmMember& member,
         outcome.log_lines.push_back(
             fmt::format("Syncing mount {} -> {}...", mount.get_source_path(), target));
         auto rsync_result = run_rsync(
-            mount.get_source_path(), target, mount.get_source_path(), 1800000, identity_file);
+            mount.get_source_path(), target, mount.get_source_path(), rsync_timeout_ms, identity_file);
         if (!rsync_result.ok)
         {
             outcome.message = fmt::format("Failed to sync mount \"{}\": {}",
@@ -4027,7 +4066,7 @@ bool migrate_standalone_vm(const MigrateVmMember& member,
             target,
             {"elp", "mount", mount.get_source_path(), fmt::format("{}:{}", member.instance_name, target_path)},
             {},
-            60000,
+            ssh_quick_timeout_ms,
             identity_file);
         if (!mount_result.ok)
         {
@@ -4072,7 +4111,7 @@ bool migrate_intent(const std::string& intent_name,
             auto put = run_ssh_raw(target,
                                    fmt::format("cat > {}", shell_quote(cloud_init_path)),
                                    member.cloud_init_user_data,
-                                   60000,
+                                   ssh_quick_timeout_ms,
                                    identity_file);
             if (!put.ok)
             {
@@ -4102,13 +4141,14 @@ bool migrate_intent(const std::string& intent_name,
     }
 
     outcome.log_lines.push_back(fmt::format("Creating intent \"{}\" on {}...", intent_name, target));
-    auto result = run_ssh(target, args, {}, 900000, identity_file);
+    auto result = run_ssh(target, args, {}, ssh_provision_timeout_ms, identity_file);
 
     if (!remote_tmp_files.empty())
     {
         std::vector<std::string> rm_args{"rm", "-f"};
         rm_args.insert(rm_args.end(), remote_tmp_files.begin(), remote_tmp_files.end());
-        run_ssh(target, rm_args, {}, 30000, identity_file); // best-effort cleanup, failure not fatal
+        // best-effort cleanup, failure not fatal
+        run_ssh(target, rm_args, {}, ssh_cleanup_timeout_ms, identity_file);
     }
 
     if (!result.ok)
@@ -4126,7 +4166,7 @@ bool migrate_intent(const std::string& intent_name,
             outcome.log_lines.push_back(
                 fmt::format("Syncing mount {} -> {}...", mount.get_source_path(), target));
             auto rsync_result = run_rsync(
-                mount.get_source_path(), target, mount.get_source_path(), 1800000, identity_file);
+                mount.get_source_path(), target, mount.get_source_path(), rsync_timeout_ms, identity_file);
             if (!rsync_result.ok)
             {
                 outcome.message = fmt::format("Failed to sync mount \"{}\": {}",
@@ -4139,7 +4179,7 @@ bool migrate_intent(const std::string& intent_name,
                 target,
                 {"elp", "mount", mount.get_source_path(), fmt::format("{}:{}", remote_instance, target_path)},
                 {},
-                60000,
+                ssh_quick_timeout_ms,
                 identity_file);
             if (!mount_result.ok)
             {
@@ -4377,19 +4417,23 @@ try
         host->set_discovered(true);
 
         // If this discovered peer's label matches a known host, surface the saved "user@host"
-        // for it too, so the GUI can pre-fill a target instead of asking for a username again.
+        // (and identity file) for it too, so the GUI can pre-fill instead of asking again.
         if (auto it = known_hosts.find(label); it != known_hosts.end())
-            host->set_target(it->second);
+        {
+            host->set_target(it->second.target);
+            host->set_identity_file(it->second.identity_file);
+        }
     }
 
-    for (const auto& [label, target] : known_hosts)
+    for (const auto& [label, host_entry] : known_hosts)
     {
         if (discovered_hosts.count(label))
             continue; // already listed above, with the richer discovered info
 
         auto* host = response.add_hosts();
         host->set_label(label);
-        host->set_target(target);
+        host->set_target(host_entry.target);
+        host->set_identity_file(host_entry.identity_file);
         host->set_discovered(false);
     }
 
@@ -4417,7 +4461,7 @@ try
         return context->set_value(
             {grpc::StatusCode::INVALID_ARGUMENT, "Target must be in \"user@host\" form", ""});
 
-    known_hosts[label] = target;
+    known_hosts[label] = {target, request->identity_file()};
     persist_known_hosts();
 
     AddKnownHostReply reply;
@@ -4766,8 +4810,8 @@ void mp::Daemon::persist_intents()
 void mp::Daemon::persist_known_hosts()
 {
     boost::json::object records;
-    for (const auto& [label, target] : known_hosts)
-        records[label] = target;
+    for (const auto& [label, host] : known_hosts)
+        records[label] = {{"target", host.target}, {"identity_file", host.identity_file}};
 
     QDir data_dir{mp::utils::backend_directory_path(config->data_directory,
                                                     config->factory->get_backend_directory_name())};

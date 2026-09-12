@@ -437,10 +437,14 @@ class GrpcClient {
         .then((r) => r?.hosts.toList() ?? const []);
   }
 
-  Future<AddKnownHostReply?> addKnownHost(String label, String target) {
+  Future<AddKnownHostReply?> addKnownHost(
+    String label,
+    String target, {
+    String identityFile = '',
+  }) {
     return doRpc(
       _client.add_known_host,
-      AddKnownHostRequest(label: label, target: target),
+      AddKnownHostRequest(label: label, target: target, identityFile: identityFile),
     );
   }
 

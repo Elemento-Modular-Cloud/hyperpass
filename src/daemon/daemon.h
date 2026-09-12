@@ -48,6 +48,14 @@ struct DaemonConfig;
 struct DaemonRpcContext;
 class SettingsHandler;
 
+// A manually-added migration target (see MigrateRequest/NetworkHost) — the always-available
+// fallback to mDNS discovery, for hosts on a different subnet/VLAN or when avahi isn't running.
+struct KnownHost
+{
+    std::string target; // "user@host"
+    std::string identity_file; // optional default ssh/rsync identity for this host
+};
+
 class Daemon : public QObject, public multipass::VMStatusMonitor
 {
     Q_OBJECT
@@ -360,7 +368,7 @@ protected:
     std::unordered_map<std::string, VMSpecs> vm_instance_specs;
     std::unordered_map<std::string, IntentSpec> intents;
     InstanceTable operative_instances;
-    std::unordered_map<std::string, std::string> known_hosts; // label -> "user@host"
+    std::unordered_map<std::string, KnownHost> known_hosts; // label -> host
     std::unordered_map<std::string, MdnsHostInfo> discovered_hosts; // label -> info
 
     bool is_bridged(const std::string& instance_name) const;

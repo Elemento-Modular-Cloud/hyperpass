@@ -310,18 +310,16 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     final intentSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // Wrap, not Row: dropdown + new-name + role can add up to more than the drawer's
+        // width (each is a fixed 360px), which previously pushed the last field(s) off
+        // screen instead of onto their own line.
+        Wrap(
+          spacing: 24,
+          runSpacing: 12,
           children: [
             intentDropdown,
-            if (_selectedIntent == _createNewIntentValue) ...[
-              const SizedBox(width: 24),
-              newIntentNameInput,
-            ],
-            if (_selectedIntent != null) ...[
-              const SizedBox(width: 24),
-              intentRoleInput,
-            ],
+            if (_selectedIntent == _createNewIntentValue) newIntentNameInput,
+            if (_selectedIntent != null) intentRoleInput,
           ],
         ),
         intentNote,

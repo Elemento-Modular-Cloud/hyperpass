@@ -746,6 +746,11 @@ message NetworkHost {
     string backend = 6;
     string address = 7; // resolved IP/hostname (discovered hosts only)
     bool discovered = 8; // true: found via mDNS; false: manually added via add_known_host
+    // Default ssh/rsync identity file for this host (see MigrateRequest.identity_file);
+    // empty means "use ssh's own default". Set on a known host via add_known_host; a
+    // discovered host inherits it too once its label matches a known one (see
+    // list_network_hosts, same as it already does for `target`).
+    string identity_file = 9;
 }
 
 message ListNetworkHostsRequest {
@@ -761,6 +766,7 @@ message AddKnownHostRequest {
     string label = 1;
     string target = 2; // "user@host"
     int32 verbosity_level = 3;
+    string identity_file = 4; // optional default ssh/rsync identity for this host
 }
 
 message AddKnownHostReply {
