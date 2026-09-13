@@ -38,6 +38,7 @@ import 'notifications.dart';
 import 'overview/overview_screen.dart';
 import 'platform/platform.dart';
 import 'providers.dart';
+import 'services/compose/compose_screen.dart';
 import 'services/service_instance_details.dart';
 import 'services/service_instance_id.dart';
 import 'services/service_instances_screen.dart';
@@ -245,6 +246,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
         (!access.canUseServices &&
             (currentKey == ServicesScreen.sidebarKey ||
                 currentKey == ServiceInstancesScreen.sidebarKey ||
+                currentKey == ComposeScreen.sidebarKey ||
                 parseServiceInstanceSidebarKey(currentKey) != null))) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (ref.read(sidebarKeyProvider) == currentKey) {
@@ -271,6 +273,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
       if (access.canUseServices) ...{
         ServicesScreen.sidebarKey: const ServicesScreen(),
         ServiceInstancesScreen.sidebarKey: const ServiceInstancesScreen(),
+        ComposeScreen.sidebarKey: const ComposeScreen(),
       },
       CacheScreen.sidebarKey: const CacheScreen(),
       CloudInitScreen.sidebarKey: const CloudInitScreen(),

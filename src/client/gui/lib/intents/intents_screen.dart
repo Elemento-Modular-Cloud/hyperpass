@@ -8,9 +8,11 @@ import '../llm/llm_id.dart';
 import '../migrate/migrate_screen.dart';
 import '../page_surface.dart';
 import '../providers.dart';
+import '../services/compose/compose_screen.dart';
 import '../sidebar.dart';
 import '../vm_details/vm_status_icon.dart';
 import '../widgets/launchpad_button.dart';
+import 'intent_add_member.dart';
 
 /// A named group of instances launched together (e.g. "test-app-1" = redis +
 /// postgres). Backed by the daemon's own intent registry (`elp intent
@@ -46,6 +48,17 @@ class IntentsScreen extends ConsumerWidget {
                   icon: const Icon(Icons.refresh),
                 ),
                 const SizedBox(width: 8),
+                LaunchPadButton.secondary(
+                  onPressed: () async {
+                    final name = await showNewComposeIntentDialog(context, ref);
+                    if (name == null) return;
+                    ref
+                        .read(sidebarKeyProvider.notifier)
+                        .set(ComposeScreen.sidebarKey);
+                  },
+                  child: Text(l10n.composeLabel),
+                ),
+                const SizedBox(width: 8),
                 LaunchPadButton.primary(
                   onPressed: () => showCreateIntentDialog(context, ref),
                   child: const Text('New intent'),
@@ -56,7 +69,8 @@ class IntentsScreen extends ConsumerWidget {
             Text(
               'Named groups of instances launched together, e.g. a "redis" and '
               'a "postgres" instance for the same app.',
-              style: TextStyle(fontSize: 14, color: onSurface.withValues(alpha: 0.7)),
+              style: TextStyle(
+                  fontSize: 14, color: onSurface.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 24),
             Expanded(
@@ -68,7 +82,8 @@ class IntentsScreen extends ConsumerWidget {
                         child: Text(
                           'No intents yet. Create one to launch instances as a '
                           'named group.',
-                          style: TextStyle(color: onSurface.withValues(alpha: 0.6)),
+                          style: TextStyle(
+                              color: onSurface.withValues(alpha: 0.6)),
                         ),
                       )
                     : ListView.separated(
@@ -117,19 +132,32 @@ class _IntentCard extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Add member',
+                  tooltip: AppLocalizations.of(context)!.composeOpenInCompose,
+                  icon: const Icon(Icons.account_tree_outlined),
+                  onPressed: () => openIntentInCompose(ref, intent.name),
+                ),
+                IconButton(
+                  tooltip:
+                      AppLocalizations.of(context)!.intentAddServiceTooltip,
                   icon: const Icon(Icons.add),
-                  onPressed: () => showAddMemberDialog(context, ref, intent.name),
+                  onPressed: () => showAddMemberDialog(
+                    context,
+                    ref,
+                    intent.name,
+                    existingRoles: intent.members.map((m) => m.role),
+                  ),
                 ),
                 IconButton(
                   tooltip: 'Migrate',
                   icon: const Icon(Icons.moving),
-                  onPressed: () => showMigrateDialog(context, ref, name: intent.name),
+                  onPressed: () =>
+                      showMigrateDialog(context, ref, name: intent.name),
                 ),
                 IconButton(
                   tooltip: 'Delete intent',
                   icon: const Icon(Icons.delete_outline),
-                  onPressed: () => showDeleteIntentDialog(context, ref, intent.name),
+                  onPressed: () =>
+                      showDeleteIntentDialog(context, ref, intent.name),
                 ),
               ],
             ),
@@ -163,11 +191,15 @@ class _IntentCard extends ConsumerWidget {
                         ),
                         const SizedBox(width: 12),
                         Text(member.role,
-                            style: const TextStyle(fontWeight: FontWeight.w500)),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w500)),
                         const SizedBox(width: 8),
                         Text(
-                          isLlm ? '(LLM: ${member.instanceName})' : '(${member.instanceName})',
-                          style: TextStyle(color: onSurface.withValues(alpha: 0.6)),
+                          isLlm
+                              ? '(LLM: ${member.instanceName})'
+                              : '(${member.instanceName})',
+                          style: TextStyle(
+                              color: onSurface.withValues(alpha: 0.6)),
                         ),
                       ],
                     ),
@@ -203,8 +235,9 @@ class _MemberFields {
     final role = roleController.text.trim();
     if (role.isEmpty) return null;
     final modelId = modelIdController.text.trim();
-    if (modelId.isNotEmpty)
+    if (modelId.isNotEmpty) {
       return IntentMemberRequest(role: role, modelId: modelId);
+    }
     return IntentMemberRequest(
       role: role,
       image: imageController.text.trim(),
@@ -256,7 +289,8 @@ Widget _memberFieldsRow(
             controller: fields.modelIdController,
             decoration: const InputDecoration(
               labelText: 'Model ID (optional, for an LLM member)',
-              hintText: 'e.g. llama-3.1-8b-instruct; ignores Image above when set',
+              hintText:
+                  'e.g. llama-3.1-8b-instruct; ignores Image above when set',
             ),
           ),
         ),
@@ -295,7 +329,8 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Members (optional)', style: TextStyle(fontWeight: FontWeight.w500)),
+                const Text('Members (optional)',
+                    style: TextStyle(fontWeight: FontWeight.w500)),
                 const Text(
                   'Add now, or leave empty and add members later.',
                   style: TextStyle(fontSize: 12),
@@ -304,7 +339,8 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
                 for (final member in members)
                   _memberFieldsRow(
                     member,
-                    onRemove: () => setDialogState(() => members.remove(member)),
+                    onRemove: () =>
+                        setDialogState(() => members.remove(member)),
                   ),
                 TextButton.icon(
                   onPressed: () =>
@@ -317,8 +353,8 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       error!,
-                      style:
-                          TextStyle(color: Theme.of(dialogContext).colorScheme.error),
+                      style: TextStyle(
+                          color: Theme.of(dialogContext).colorScheme.error),
                     ),
                   ),
               ],
@@ -367,71 +403,6 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
   for (final member in members) {
     member.dispose();
   }
-}
-
-Future<void> showAddMemberDialog(
-  BuildContext context,
-  WidgetRef ref,
-  String intentName,
-) async {
-  final member = _MemberFields();
-  String? error;
-
-  await showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setDialogState) => AlertDialog(
-        shape: const Border(),
-        title: Text('Add member to $intentName'),
-        content: SizedBox(
-          width: CompactLayout.dialogWidth(dialogContext, 480),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _memberFieldsRow(member),
-              if (error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    error!,
-                    style: TextStyle(color: Theme.of(dialogContext).colorScheme.error),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          OutlinedButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          LaunchPadButton.primary(
-            onPressed: () async {
-              final request = member.toRequest();
-              if (request == null) {
-                setDialogState(() => error = 'Please provide a role.');
-                return;
-              }
-              try {
-                await ref.read(grpcClientProvider).intentAddMember(
-                      IntentAddMemberRequest(name: intentName, members: [request]),
-                    );
-                ref.invalidate(intentsStreamProvider);
-                if (dialogContext.mounted) Navigator.pop(dialogContext);
-              } catch (e) {
-                if (dialogContext.mounted) setDialogState(() => error = '$e');
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  member.dispose();
 }
 
 Future<void> showDeleteIntentDialog(

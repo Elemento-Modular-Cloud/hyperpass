@@ -18,34 +18,22 @@ import '../sidebar.dart';
 import '../widgets/launchpad_button.dart';
 import '../vm_details/cpus_slider.dart';
 import '../vm_details/disk_slider.dart';
-import '../vm_details/mapping_slider.dart';
 import '../vm_details/ram_slider.dart';
 import '../vm_details/spec_input.dart';
+import 'compose/compose_graph.dart';
 import 'gateway_ca.dart';
 import 'service_branding.dart';
 import 'service_cloud_init.dart';
 import 'service_instance_id.dart';
+import 'service_intent_member.dart';
 import 'service_library.dart';
 import 'service_parameters_form.dart';
+
+export 'service_intent_member.dart';
 
 /// The services target Ubuntu (docker.io, docker-compose-v2), which is also
 /// what the daemon launches when no image is requested.
 const _serviceOs = 'Ubuntu';
-
-int serviceCpus(MarketplaceService service) =>
-    max(defaultCpus, service.resources.minCpu);
-
-int serviceMemoryBytes(MarketplaceService service) =>
-    max(defaultRam, service.resources.minMemoryGb.gibi);
-
-/// Base VM disk plus everything the manifest wants to persist. The rendered
-/// cloud-init grows the root filesystem to fill it.
-int serviceDiskBytes(MarketplaceService service) =>
-    defaultDisk + service.totalStorageGb.gibi;
-
-/// Name used when a service's cloud-init is saved into the user's library.
-String serviceCloudInitName(MarketplaceService service) =>
-    service.id.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '-');
 
 /// Sentinel dropdown value for "create a new intent" (mirrors the private
 /// constant of the same name in launch_form.dart — a leading NUL can never
@@ -133,7 +121,8 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
       items: {
         null: 'None (standalone instance)',
         _createNewIntentValue: '+ Create new intent...',
-        for (final existingIntent in intentNames) existingIntent: existingIntent,
+        for (final existingIntent in intentNames)
+          existingIntent: existingIntent,
       },
     );
 
@@ -159,7 +148,8 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
             if (_selectedIntent != null)
               SpecInput(
                 label: 'Role in intent',
-                helper: 'What this service is within the intent (e.g. "redis").',
+                helper:
+                    'What this service is within the intent (e.g. "redis").',
                 hint: 'e.g. redis',
                 initialValue: _intentRole,
                 onSaved: (value) => _intentRole = value ?? '',
@@ -299,9 +289,6 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
 
     // Leaving `image` unset launches the daemon's default Ubuntu LTS.
     _request.serviceId = service.id;
-    ref
-        .read(serviceInstanceBindingsProvider.notifier)
-        .bind(_request.instanceName, service.id);
     final navigator = Navigator.of(context);
     final destination = serviceInstanceSidebarKey(_request.instanceName);
 
@@ -309,6 +296,9 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final bool started;
     final String successSidebarKey;
     if (selectedIntent == null) {
+      ref
+          .read(serviceInstanceBindingsProvider.notifier)
+          .bind(_request.instanceName, service.id);
       started = await initiateLaunchFlow(
         context,
         ref,
@@ -358,20 +348,20 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     }
 
     try {
-      final member = IntentMemberRequest(
-        role: _intentRole.trim(),
-        image: _request.image,
+      final role = _intentRole.trim();
+      final member = buildServiceIntentMember(
+        service: widget.service,
+        role: role,
+        variables: _parameters.values,
         numCores: _request.numCores,
         memSize: _request.memSize,
         diskSpace: _request.diskSpace,
-        serviceId: widget.service.id,
       );
       if (_request.hasCloudInitUserData()) {
         member.cloudInitUserData = _request.cloudInitUserData;
       }
 
       final grpcClient = ref.read(grpcClientProvider);
-      final role = _intentRole.trim();
       final String intentName;
       final Future<dynamic> op;
       if (newIntentName != null) {
@@ -399,6 +389,10 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
           );
       await op;
 
+      ref.read(serviceInstanceBindingsProvider.notifier).bind(
+            intentMemberInstanceName(intentName, role),
+            widget.service.id,
+          );
       ref.invalidate(intentsStreamProvider);
       return true;
     } catch (error) {

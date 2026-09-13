@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yaml/yaml.dart';
 
 import 'marketplace_catalog.dart';
+import 'service_spec.dart';
 
 /// Last-resort catalog shipped in the app. Runtime prefers a live marketplace
 /// download (cached on disk); this seed is used only when that fails.
@@ -236,6 +237,7 @@ class MarketplaceService {
     this.serviceInfo,
     this.icon,
     this.color,
+    this.spec,
   });
 
   /// Directory name, e.g. `qdrant_v1`. Unique within the library.
@@ -270,6 +272,22 @@ class MarketplaceService {
 
   /// Catalog accent from `metadata.color` (`#RRGGBB`).
   final String? color;
+
+  /// Formal I/O from `spec.yaml`, if that file parsed. Null when missing
+  /// or invalid — [composeSpec] then falls back to scanned placeholders.
+  final ServiceSpec? spec;
+
+  /// Spec used by the compose canvas: declared contracts when present,
+  /// otherwise untyped inputs recovered from `{{placeholders}}`.
+  ServiceSpec get composeSpec {
+    final parsed = spec;
+    if (parsed != null && (parsed.hasContracts || parsed.inputs.isNotEmpty)) {
+      return parsed;
+    }
+    return ServiceSpec.fromInputNames(id, {
+      for (final variable in variables) variable.name: variable.documentation,
+    });
+  }
 
   /// SVG markup when [icon] points at a bundled file.
   String? get iconSvg {
@@ -327,6 +345,11 @@ class MarketplaceService {
     final colorRaw = metadata['color'];
     final color = colorRaw == null ? null : '$colorRaw'.trim();
 
+    final specText = sources['spec.yaml'];
+    final spec = specText == null || specText.trim().isEmpty
+        ? null
+        : ServiceSpec.tryParse(specText, serviceId: id);
+
     return MarketplaceService(
       id: id,
       name: metadata['name'] as String? ?? id,
@@ -372,6 +395,7 @@ class MarketplaceService {
       ),
       variables: _extractVariables(sources),
       sources: sources,
+      spec: spec,
     );
   }
 }

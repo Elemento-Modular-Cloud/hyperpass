@@ -29,6 +29,9 @@ void main() {
     expect(seed.byId('n8n_v3'), isNotNull);
     expect(seed.byId('postgres_v2'), isNotNull);
     expect(seed.byId('mariadb_v2'), isNotNull);
+    expect(seed.byId('qdrant_v1')!.spec, isNotNull);
+    expect(seed.byId('n8n_v3')!.spec, isNotNull);
+    expect(seed.byId('qdrant_v1')!.composeSpec.provides, isNotEmpty);
   });
 
   test('seed services expose catalog SVG icons without deploying them', () {
@@ -165,7 +168,8 @@ void main() {
   });
 
   test('injects gateway CA before growpart and marketplace runcmd', () {
-    const pem = '-----BEGIN CERTIFICATE-----\nMIIBdemo\n-----END CERTIFICATE-----\n';
+    const pem =
+        '-----BEGIN CERTIFICATE-----\nMIIBdemo\n-----END CERTIFICATE-----\n';
     final rendered = renderServiceCloudInit(
       fixtureService(id: 'demo_v1'),
       gatewayCaPem: pem,

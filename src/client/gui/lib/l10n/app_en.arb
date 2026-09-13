@@ -3309,5 +3309,167 @@
     "featureLockedImageHint": "Sign in to launch this image.",
     "@featureLockedImageHint": {
         "description": "Catalogue card hint for non-Ubuntu images locked in guest mode"
+    },
+    "composeLabel": "Compose",
+    "@composeLabel": {
+        "description": "Sidebar entry and page title for the service compose canvas"
+    },
+    "composeSubtitle": "Connect services, VMs, and LLMs on a saved intent, then deploy.",
+    "@composeSubtitle": {
+        "description": "Subtitle under the compose canvas heading"
+    },
+    "composeIntentName": "Intent name",
+    "@composeIntentName": {
+        "description": "Label for the compose graph's daemon intent name"
+    },
+    "composeIntentNameHint": "e.g. lab-stack",
+    "@composeIntentNameHint": {
+        "description": "Hint for the compose intent name field"
+    },
+    "composePaletteTitle": "Services",
+    "@composePaletteTitle": {
+        "description": "Heading above the compose service palette"
+    },
+    "composeInspectorTitle": "Node",
+    "@composeInspectorTitle": {
+        "description": "Heading for the selected compose node inspector"
+    },
+    "composeInspectorEmpty": "Select a node or add a service, VM, or LLM from the palette.",
+    "@composeInspectorEmpty": {
+        "description": "Empty inspector copy on the compose canvas"
+    },
+    "composeDeployAction": "Deploy intent",
+    "@composeDeployAction": {
+        "description": "Button that launches the compose graph as an intent"
+    },
+    "composeDeploying": "Deploying…",
+    "@composeDeploying": {
+        "description": "Compose deploy button label while members are launching"
+    },
+    "composeNewDraft": "New intent",
+    "@composeNewDraft": {
+        "description": "Creates a named intent and opens a blank compose graph"
+    },
+    "composeNewIntent": "New intent",
+    "@composeNewIntent": {
+        "description": "Button that names and opens a new compose intent"
+    },
+    "composeSave": "Save",
+    "@composeSave": {
+        "description": "Persists the compose graph and creates the daemon intent if needed"
+    },
+    "composeSelectIntent": "Select a saved intent",
+    "@composeSelectIntent": {
+        "description": "Hint on the compose intent picker when none is selected"
+    },
+    "composeNeedIntent": "Create or select an intent before editing the graph.",
+    "@composeNeedIntent": {
+        "description": "Shown when the compose palette is used without a named intent"
+    },
+    "composeSaved": "Saved intent {name}",
+    "@composeSaved": {
+        "description": "Snack after persisting a compose graph",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "composeCreateIntent": "Create",
+    "@composeCreateIntent": {
+        "description": "Confirms the new compose intent name dialog"
+    },
+    "composeKindService": "Service",
+    "@composeKindService": {
+        "description": "Inspector label for a marketplace service node"
+    },
+    "composeKindVm": "VM",
+    "@composeKindVm": {
+        "description": "Inspector label for a virtual machine node"
+    },
+    "composeKindLlm": "LLM",
+    "@composeKindLlm": {
+        "description": "Inspector label for a language-model node"
+    },
+    "composeOpenInCompose": "Open in Compose",
+    "@composeOpenInCompose": {
+        "description": "Intents card action that opens the compose canvas for that intent"
+    },
+    "composeDeleteNode": "Remove node",
+    "@composeDeleteNode": {
+        "description": "Inspector action that deletes the selected compose node"
+    },
+    "composeRemoveEdge": "Remove connection",
+    "@composeRemoveEdge": {
+        "description": "Tooltip for deleting a compose contract edge"
+    },
+    "composeProvides": "Provides",
+    "@composeProvides": {
+        "description": "Inspector heading for output contract pins"
+    },
+    "composeRequires": "Requires",
+    "@composeRequires": {
+        "description": "Inspector heading for input contract pins"
+    },
+    "composeNoPins": "None declared",
+    "@composeNoPins": {
+        "description": "Shown when a compose node has no contract pins"
+    },
+    "composeRoleLabel": "Role",
+    "@composeRoleLabel": {
+        "description": "Inspector field for the intent member role"
+    },
+    "composeEmptyCanvas": "Add services, VMs, or LLMs from the palette. Click an output pin, then an input — or drag between them.",
+    "@composeEmptyCanvas": {
+        "description": "Hint shown on an empty compose canvas"
+    },
+    "intentAddServiceTooltip": "Add a member",
+    "@intentAddServiceTooltip": {
+        "description": "Intents card action that opens the member picker"
+    },
+    "intentAddServiceTitle": "Add to {intent}",
+    "@intentAddServiceTitle": {
+        "description": "Title of the dialog that adds a catalog item to an intent",
+        "placeholders": {
+            "intent": {
+                "type": "String"
+            }
+        }
+    },
+    "intentAddServiceSubtitle": "Choose a marketplace service, VM image, or downloaded LLM to launch as a member of this intent.",
+    "@intentAddServiceSubtitle": {
+        "description": "Subtitle in the add-member-to-intent dialog"
+    },
+    "intentAddServiceSearch": "Search",
+    "@intentAddServiceSearch": {
+        "description": "Search field hint in the add-member-to-intent dialog"
+    },
+    "intentAddServiceEmpty": "No matching services.",
+    "@intentAddServiceEmpty": {
+        "description": "Empty state when the intent service picker filter matches nothing"
+    },
+    "intentAddServiceDone": "Done",
+    "@intentAddServiceDone": {
+        "description": "Closes the add-member-to-intent dialog"
+    },
+    "intentAddTabServices": "Services",
+    "@intentAddTabServices": {
+        "description": "Tab label for marketplace services in the intent member picker"
+    },
+    "intentAddTabVms": "VMs",
+    "@intentAddTabVms": {
+        "description": "Tab label for catalogue VM images in the intent member picker"
+    },
+    "intentAddTabLlms": "LLMs",
+    "@intentAddTabLlms": {
+        "description": "Tab label for downloaded models in the intent member picker"
+    },
+    "intentAddVmsEmpty": "No matching VM images.",
+    "@intentAddVmsEmpty": {
+        "description": "Empty state for the VM tab in the intent member picker"
+    },
+    "intentAddLlmsEmpty": "No downloaded models yet.",
+    "@intentAddLlmsEmpty": {
+        "description": "Empty state for the LLM tab in the intent member picker"
     }
 }

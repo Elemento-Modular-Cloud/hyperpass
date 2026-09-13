@@ -35,6 +35,7 @@ import 'multipass_auth_banner.dart';
 import 'overview/overview_screen.dart';
 import 'platform/platform.dart';
 import 'providers.dart';
+import 'services/compose/compose_screen.dart';
 import 'services/service_bindings.dart';
 import 'services/service_instance_id.dart';
 import 'services/service_instances_screen.dart';
@@ -358,7 +359,8 @@ class SideBar extends ConsumerWidget {
           openOrPromptLocked(access.canUseLlms, LlmInstancesScreen.sidebarKey),
     );
 
-    final activeDownloads = ref.watch(downloadManagerProvider).where((j) => j.isActive).length;
+    final activeDownloads =
+        ref.watch(downloadManagerProvider).where((j) => j.isActive).length;
 
     final llmDownloaded = SidebarEntry(
       icon: FontAwesomeIcons.download,
@@ -368,8 +370,8 @@ class SideBar extends ConsumerWidget {
           ? activeDownloads.toString()
           : null,
       locked: !access.canUseLlms,
-      onPressed: () => openOrPromptLocked(
-          access.canUseLlms, LlmDownloadedScreen.sidebarKey),
+      onPressed: () =>
+          openOrPromptLocked(access.canUseLlms, LlmDownloadedScreen.sidebarKey),
     );
 
     final apiKeyCount = access.canUseLlms
@@ -429,6 +431,15 @@ class SideBar extends ConsumerWidget {
           access.canUseServices, ServiceInstancesScreen.sidebarKey),
     );
 
+    final compose = SidebarEntry(
+      icon: FontAwesomeIcons.shareNodes,
+      selected: isSelected(ComposeScreen.sidebarKey),
+      label: l10n.composeLabel,
+      locked: !access.canUseServices,
+      onPressed: () =>
+          openOrPromptLocked(access.canUseServices, ComposeScreen.sidebarKey),
+    );
+
     final help = SidebarEntry(
       icon: FontAwesomeIcons.circleQuestion,
       selected: isSelected(HelpScreen.sidebarKey),
@@ -449,7 +460,8 @@ class SideBar extends ConsumerWidget {
 
     final header = DragToMoveArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(collapsed ? 4 : 16, 4, collapsed ? 4 : 16, 4),
+        padding:
+            EdgeInsets.fromLTRB(collapsed ? 4 : 16, 4, collapsed ? 4 : 16, 4),
         child: SizedBox(
           height: _SidebarStyle.brandAreaHeight,
           child: collapsed
@@ -457,9 +469,11 @@ class SideBar extends ConsumerWidget {
                   child: IconButton(
                     tooltip: l10n.sidebarExpandTooltip,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    onPressed: () =>
-                        ref.read(sidebarForceExpandedProvider.notifier).toggle(),
+                    constraints:
+                        const BoxConstraints(minWidth: 36, minHeight: 36),
+                    onPressed: () => ref
+                        .read(sidebarForceExpandedProvider.notifier)
+                        .toggle(),
                     icon: SvgPicture.asset(
                       Brand.logoAsset,
                       width: 28,
@@ -480,7 +494,8 @@ class SideBar extends ConsumerWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: _SidebarStyle.headerTitleColor(appearanceTheme),
+                          color:
+                              _SidebarStyle.headerTitleColor(appearanceTheme),
                           fontFamily: Brand.fontFamily,
                           fontSize: _SidebarStyle.brandTitleSize,
                           fontWeight: FontWeight.w700,
@@ -594,6 +609,7 @@ class SideBar extends ConsumerWidget {
           locked: !access.canUseServices,
         ),
         services,
+        compose,
         serviceInstances,
         SidebarSectionHeader(l10n.sidebarSectionManage),
         llmSetup,
@@ -987,10 +1003,8 @@ class _SidebarSystemSectionState extends ConsumerState<_SidebarSystemSection> {
               child: Column(
                 children: [
                   widget.daemonStatus,
-                  if (widget.multipassStatus !=
-                          MultipassSidebarStatus.hidden &&
-                      widget.multipassStatus !=
-                          MultipassSidebarStatus.disabled)
+                  if (widget.multipassStatus != MultipassSidebarStatus.hidden &&
+                      widget.multipassStatus != MultipassSidebarStatus.disabled)
                     widget.multipassStatusRow,
                 ],
               ),
