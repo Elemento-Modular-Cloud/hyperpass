@@ -116,3 +116,35 @@ TEST(TestLlmLoadParams, jsonRoundTripPreservesOptionalFields)
     EXPECT_EQ(back.n_gpu_layers(), "auto");
     EXPECT_TRUE(back.fit());
 }
+
+TEST(TestLlmLoadParams, identicalFingerprintsMatch)
+{
+    mp::LlmLoadParams params;
+    params.set_ctx_size(4096);
+    params.set_n_gpu_layers("auto");
+    const mp::LlmLoadFingerprint a{"qwen", "llamacpp", "/models/qwen.gguf", 4096, 0, params};
+    auto b = a;
+    EXPECT_TRUE(mp::llm_loads_identical(a, b));
+}
+
+TEST(TestLlmLoadParams, fingerprintsDifferOnSettings)
+{
+    mp::LlmLoadParams params;
+    params.set_ctx_size(4096);
+    mp::LlmLoadFingerprint a{"qwen", "llamacpp", "/models/qwen.gguf", 4096, 0, params};
+    auto other_ctx = a;
+    other_ctx.ctx_size = 8192;
+    EXPECT_FALSE(mp::llm_loads_identical(a, other_ctx));
+
+    auto other_backend = a;
+    other_backend.backend = "mlx";
+    EXPECT_FALSE(mp::llm_loads_identical(a, other_backend));
+
+    auto other_path = a;
+    other_path.path = "/models/qwen-q4.gguf";
+    EXPECT_FALSE(mp::llm_loads_identical(a, other_path));
+
+    auto other_params = a;
+    other_params.params.set_n_gpu_layers("0");
+    EXPECT_FALSE(mp::llm_loads_identical(a, other_params));
+}

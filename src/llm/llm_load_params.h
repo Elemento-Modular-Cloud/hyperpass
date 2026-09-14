@@ -40,6 +40,20 @@ struct ResolvedLlmLoad
     LlmLoadParams echoed;
 };
 
+// Effective identity of a loaded (or about-to-load) instance. Used to warn when
+// a second Load would start another copy with the same model and settings.
+struct LlmLoadFingerprint
+{
+    std::string model_id;
+    std::string backend;
+    std::string path;
+    int ctx_size{4096};
+    int max_tokens{0};
+    LlmLoadParams params;
+};
+
+bool llm_loads_identical(const LlmLoadFingerprint& a, const LlmLoadFingerprint& b);
+
 ResolvedLlmLoad resolve_llm_load(const LoadModelRequest& request, bool gpu_available);
 
 QJsonObject llm_load_params_to_json(const LlmLoadParams& params);

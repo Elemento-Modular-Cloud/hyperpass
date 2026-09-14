@@ -31,6 +31,12 @@ class NotificationsNotifier extends Notifier<BuiltList<Widget>> {
     add(ErrorNotification(text: format(error)));
   }
 
+  void addWarning(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    add(WarningNotification(text: trimmed));
+  }
+
   void addOperation<T>(
     Future<T> op, {
     required String loading,

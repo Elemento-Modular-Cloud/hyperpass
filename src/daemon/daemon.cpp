@@ -3270,8 +3270,11 @@ class IntentMemberLlmLoadSink
 {
 public:
     IntentMemberLlmLoadSink(grpc::ServerReaderWriterInterface<OuterReply, OuterRequest>* outer,
-                            std::shared_ptr<std::string> captured_instance_id)
-        : outer{outer}, captured_instance_id{std::move(captured_instance_id)}
+                            std::shared_ptr<std::string> captured_instance_id,
+                            std::shared_ptr<std::string> captured_warning)
+        : outer{outer},
+          captured_instance_id{std::move(captured_instance_id)},
+          captured_warning{std::move(captured_warning)}
     {
     }
 
@@ -3294,10 +3297,15 @@ public:
     {
         if (!reply.instance_id().empty())
             *captured_instance_id = reply.instance_id();
-        if (!reply.log_line().empty())
+        if (!reply.reply_message().empty() && captured_warning)
+            *captured_warning = reply.reply_message();
+        if (!reply.log_line().empty() || !reply.reply_message().empty())
         {
             OuterReply forwarded;
-            forwarded.set_log_line(reply.log_line());
+            if (!reply.log_line().empty())
+                forwarded.set_log_line(reply.log_line());
+            else
+                forwarded.set_log_line(reply.reply_message() + "\n");
             outer->Write(forwarded);
         }
         return true;
@@ -3306,7 +3314,15 @@ public:
 private:
     grpc::ServerReaderWriterInterface<OuterReply, OuterRequest>* outer;
     std::shared_ptr<std::string> captured_instance_id;
+    std::shared_ptr<std::string> captured_warning;
 };
+
+std::string with_optional_warning(const std::string& body, const std::string& warning)
+{
+    if (warning.empty())
+        return body;
+    return fmt::format("{}\n{}", warning, body);
+}
 
 // A one-shot DaemonRpcContext for a single intent member's internal launch:
 // forwards the eventual status to `on_done` instead of fulfilling a promise
@@ -3588,20 +3604,22 @@ try
 
     auto load_requests = std::make_shared<std::vector<LoadModelRequest>>(std::move(*built_llm));
     auto captured_instance_id = std::make_shared<std::string>();
+    auto captured_warning = std::make_shared<std::string>();
     std::shared_ptr<grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>> llm_sink =
         std::make_shared<IntentMemberLlmLoadSink<IntentCreateReply, IntentCreateRequest>>(
-            server, captured_instance_id);
+            server, captured_instance_id, captured_warning);
 
     launch_intent_members(
         launch_requests,
         sink,
-        [this, server, context, name, load_requests, llm_sink, captured_instance_id](
-            std::vector<IntentSpec::Member> vm_members) {
+        [this, server, context, name, load_requests, llm_sink, captured_instance_id,
+         captured_warning](std::vector<IntentSpec::Member> vm_members) {
             launch_intent_llm_members(
                 load_requests,
                 llm_sink,
                 captured_instance_id,
-                [this, server, context, name, vm_members = std::move(vm_members)](
+                [this, server, context, name, captured_warning,
+                 vm_members = std::move(vm_members)](
                     std::vector<IntentSpec::Member> llm_members) mutable {
                     IntentSpec spec;
                     spec.name = name;
@@ -3615,9 +3633,11 @@ try
                     persist_intents();
 
                     IntentCreateReply reply;
-                    reply.set_reply_message(fmt::format("Intent \"{}\" created with {} member(s).",
-                                                        name,
-                                                        spec.members.size()));
+                    reply.set_reply_message(with_optional_warning(
+                        fmt::format("Intent \"{}\" created with {} member(s).",
+                                    name,
+                                    spec.members.size()),
+                        *captured_warning));
                     server->Write(reply);
                     context->set_value(grpc::Status::OK);
                 },
@@ -3659,20 +3679,22 @@ try
 
     auto load_requests = std::make_shared<std::vector<LoadModelRequest>>(std::move(*built_llm));
     auto captured_instance_id = std::make_shared<std::string>();
+    auto captured_warning = std::make_shared<std::string>();
     std::shared_ptr<grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>> llm_sink =
         std::make_shared<IntentMemberLlmLoadSink<IntentAddMemberReply, IntentAddMemberRequest>>(
-            server, captured_instance_id);
+            server, captured_instance_id, captured_warning);
 
     launch_intent_members(
         launch_requests,
         sink,
-        [this, server, context, name, load_requests, llm_sink, captured_instance_id](
-            std::vector<IntentSpec::Member> vm_members) {
+        [this, server, context, name, load_requests, llm_sink, captured_instance_id,
+         captured_warning](std::vector<IntentSpec::Member> vm_members) {
             launch_intent_llm_members(
                 load_requests,
                 llm_sink,
                 captured_instance_id,
-                [this, server, context, name, vm_members = std::move(vm_members)](
+                [this, server, context, name, captured_warning,
+                 vm_members = std::move(vm_members)](
                     std::vector<IntentSpec::Member> llm_members) mutable {
                     // launch_intent_members/launch_intent_llm_members run asynchronously;
                     // guard against the intent having been deleted (by a concurrent
@@ -3698,8 +3720,9 @@ try
                     persist_intents();
 
                     IntentAddMemberReply reply;
-                    reply.set_reply_message(
-                        fmt::format("Added {} member(s) to intent \"{}\".", added, name));
+                    reply.set_reply_message(with_optional_warning(
+                        fmt::format("Added {} member(s) to intent \"{}\".", added, name),
+                        *captured_warning));
                     server->Write(reply);
                     context->set_value(grpc::Status::OK);
                 },

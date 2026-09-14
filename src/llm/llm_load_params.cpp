@@ -49,6 +49,13 @@ bool mp::looks_like_moe_model(const std::string& model_id)
     return moe_re.match(id).hasMatch();
 }
 
+bool mp::llm_loads_identical(const LlmLoadFingerprint& a, const LlmLoadFingerprint& b)
+{
+    return a.model_id == b.model_id && a.backend == b.backend && a.path == b.path &&
+           a.ctx_size == b.ctx_size && a.max_tokens == b.max_tokens &&
+           llm_load_params_to_json(a.params) == llm_load_params_to_json(b.params);
+}
+
 double mp::kv_cache_byte_scale(const std::string& cache_type_k, const std::string& cache_type_v)
 {
     const auto scale_of = [](const QString& type) {

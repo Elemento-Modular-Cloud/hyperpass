@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart' hide State;
 import 'package:grpc/grpc.dart' hide ConnectionState;
 
+import '../brand.dart';
 import '../extensions.dart';
 import '../grpc_client.dart';
 import '../l10n/app_localizations.dart';
@@ -145,6 +146,15 @@ class ErrorNotification extends SimpleNotification {
           child: Text(text),
           barColor: Colors.red,
           icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+        );
+}
+
+class WarningNotification extends TimeoutNotification {
+  WarningNotification({super.key, required String text})
+      : super(
+          child: Text(text),
+          barColor: Brand.warning,
+          icon: const Icon(Icons.warning_amber_outlined, color: Brand.warning),
         );
 }
 

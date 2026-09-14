@@ -140,6 +140,8 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         spinner.start("Loading model ");
         auto on_success = [this, &spinner](LoadModelReply& reply) -> ReturnCodeVariant {
             spinner.stop();
+            if (!reply.reply_message().empty())
+                cerr << reply.reply_message() << "\n";
             cout << fmt::format("Loaded {} as {} on 127.0.0.1:{} (instance {}, claimed {})\n",
                                 reply.model_id(),
                                 reply.openai_id(),

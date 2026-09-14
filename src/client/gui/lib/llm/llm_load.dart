@@ -136,7 +136,7 @@ Future<void> _completeLlmLoad({
     );
 
     if (intentName == null) {
-      await client
+      final reply = await client
           .loadModel(
             modelId,
             quant: quant,
@@ -146,9 +146,16 @@ Future<void> _completeLlmLoad({
             params: form.toProto(),
           )
           .last;
+      if (reply.replyMessage.startsWith('warning:')) {
+        providerContainer
+            .read(notificationsProvider.notifier)
+            .addWarning(reply.replyMessage);
+      }
       providerContainer.read(recentActivityProvider.notifier).record(
             title: 'Loaded $modelId',
-            detail: form.runtime,
+            detail: reply.replyMessage.isNotEmpty
+                ? reply.replyMessage
+                : form.runtime,
           );
     } else {
       final member = IntentMemberRequest(

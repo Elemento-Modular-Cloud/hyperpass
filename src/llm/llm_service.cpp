@@ -672,49 +672,6 @@ void mp::LlmService::load_model_impl(
     bool& runner_transferred)
 {
     const auto model_id = request->model_id();
-
-    // A second Load of the same model used to spawn another llama-server (new
-    // UUID, new port). Two copies of a GGUF with the default 4 slots is an easy
-    // OOM on a laptop. Reuse the live instance instead.
-    {
-        std::optional<LoadModelReply> reused;
-        auto persist_reuse = false;
-        {
-            std::lock_guard lock{mutex};
-            for (auto& [_, existing] : sessions)
-            {
-                if (existing.model_id != model_id || !session_is_live(existing))
-                    continue;
-                existing.last_used = std::chrono::steady_clock::now();
-                if (!request->intent().empty() && existing.intent.empty())
-                {
-                    existing.intent = request->intent();
-                    existing.intent_role = request->intent_role();
-                    persist_reuse = true;
-                }
-                LoadModelReply reply;
-                reply.set_instance_id(existing.instance_id);
-                reply.set_model_id(existing.model_id);
-                reply.set_openai_id(existing.openai_id);
-                reply.set_port(static_cast<uint32_t>(existing.port));
-                reply.set_memory_claimed(static_cast<uint64_t>(existing.memory.in_bytes()));
-                reply.set_reply_message("already loaded");
-                reused = std::move(reply);
-                break;
-            }
-        }
-        if (reused)
-        {
-            if (persist_reuse)
-                persist_sessions();
-            log_lifecycle(reused->instance_id(),
-                          "info",
-                          fmt::format("load reused existing instance for {}", model_id));
-            server->Write(*reused);
-            return;
-        }
-    }
-
     const auto instance_id = mp::utils::make_uuid();
     log_lifecycle(instance_id, "info", fmt::format("load started for {}", model_id));
 
@@ -736,6 +693,35 @@ void mp::LlmService::load_model_impl(
                                       ctx,
                                       resolved.llama.cache_type_k.toStdString(),
                                       resolved.llama.cache_type_v.toStdString());
+
+    std::string duplicate_warning;
+    {
+        const LlmLoadFingerprint incoming{model_id,
+                                          backend_name(kind),
+                                          art.path,
+                                          ctx,
+                                          max_tokens,
+                                          resolved.echoed};
+        std::lock_guard lock{mutex};
+        for (const auto& [_, existing] : sessions)
+        {
+            if (!session_is_live(existing))
+                continue;
+            const LlmLoadFingerprint live{existing.model_id,
+                                          existing.backend,
+                                          existing.path,
+                                          existing.ctx_size,
+                                          existing.max_tokens,
+                                          existing.params};
+            if (!llm_loads_identical(incoming, live))
+                continue;
+            duplicate_warning = fmt::format(
+                "warning: an identical instance of '{}' is already running ({}); starting another copy",
+                model_id,
+                existing.instance_id);
+            break;
+        }
+    }
 
     auto result = pool.try_claim(instance_id, WorkloadKind::llm, claim, 0);
     if (!result.accepted)
@@ -819,8 +805,15 @@ void mp::LlmService::load_model_impl(
     reply.set_openai_id(session.openai_id);
     reply.set_port(static_cast<uint32_t>(session.port));
     reply.set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
-    if (!result.message.empty())
+    if (!duplicate_warning.empty() && !result.message.empty())
+        reply.set_reply_message(fmt::format("{}; {}", duplicate_warning, result.message));
+    else if (!duplicate_warning.empty())
+        reply.set_reply_message(duplicate_warning);
+    else if (!result.message.empty())
         reply.set_reply_message(result.message);
+
+    if (!duplicate_warning.empty())
+        log_lifecycle(instance_id, "warning", duplicate_warning);
 
     {
         std::lock_guard lock{mutex};
