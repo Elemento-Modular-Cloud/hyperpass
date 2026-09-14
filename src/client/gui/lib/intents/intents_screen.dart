@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/feature_access.dart';
 import '../confirmation_dialog.dart';
 import '../l10n/app_localizations.dart';
 import '../layout/compact_layout.dart';
@@ -13,6 +14,7 @@ import '../sidebar.dart';
 import '../vm_details/vm_status_icon.dart';
 import '../widgets/launchpad_button.dart';
 import 'intent_add_member.dart';
+import 'intents_hub.dart';
 
 /// A named group of instances launched together (e.g. "test-app-1" = redis +
 /// postgres). Backed by the daemon's own intent registry (`elp intent
@@ -25,78 +27,172 @@ class IntentsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final intentsAsync = ref.watch(intentsStreamProvider);
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     final l10n = AppLocalizations.of(context)!;
+    final tab = ref.watch(intentsHubTabProvider);
+    final access = ref.watch(featureAccessProvider);
+
+    if (!access.canUseServices && tab == IntentsHubTab.compose) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(intentsHubTabProvider.notifier).showList();
+      });
+    }
 
     return Scaffold(
       body: PageSurface(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Intents',
-                    style: TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
-                  ),
-                ),
-                IconButton(
-                  tooltip: l10n.catalogueRefresh,
-                  onPressed: () => ref.invalidate(intentsStreamProvider),
-                  icon: const Icon(Icons.refresh),
-                ),
-                const SizedBox(width: 8),
-                LaunchPadButton.secondary(
-                  onPressed: () async {
-                    final name = await showNewComposeIntentDialog(context, ref);
-                    if (name == null) return;
-                    ref
-                        .read(sidebarKeyProvider.notifier)
-                        .set(ComposeScreen.sidebarKey);
-                  },
-                  child: Text(l10n.composeLabel),
-                ),
-                const SizedBox(width: 8),
-                LaunchPadButton.primary(
-                  onPressed: () => showCreateIntentDialog(context, ref),
-                  child: const Text('New intent'),
-                ),
-              ],
+            Text(
+              l10n.intentsLabel,
+              style: const TextStyle(fontSize: 37, fontWeight: FontWeight.w300),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Named groups of instances launched together, e.g. a "redis" and '
-              'a "postgres" instance for the same app.',
-              style: TextStyle(
-                  fontSize: 14, color: onSurface.withValues(alpha: 0.7)),
-            ),
-            const SizedBox(height: 24),
+            const _IntentsHubTabs(),
+            const SizedBox(height: 16),
             Expanded(
-              child: intentsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Center(child: Text('$error')),
-                data: (intents) => intents.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No intents yet. Create one to launch instances as a '
-                          'named group.',
-                          style: TextStyle(
-                              color: onSurface.withValues(alpha: 0.6)),
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: intents.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) =>
-                            _IntentCard(intent: intents[index]),
-                      ),
-              ),
+              child: access.canUseServices
+                  ? IndexedStack(
+                      index: tab == IntentsHubTab.compose ? 1 : 0,
+                      children: const [
+                        _IntentsListPane(),
+                        ComposeScreen(embedded: true),
+                      ],
+                    )
+                  : const _IntentsListPane(),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _IntentsHubTabs extends ConsumerStatefulWidget {
+  const _IntentsHubTabs();
+
+  @override
+  ConsumerState<_IntentsHubTabs> createState() => _IntentsHubTabsState();
+}
+
+class _IntentsHubTabsState extends ConsumerState<_IntentsHubTabs>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex:
+          ref.read(intentsHubTabProvider) == IntentsHubTab.compose ? 1 : 0,
+    );
+    _tabs.addListener(_syncFromTabs);
+  }
+
+  @override
+  void dispose() {
+    _tabs.removeListener(_syncFromTabs);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  void _syncFromTabs() {
+    if (_tabs.indexIsChanging) return;
+    final notifier = ref.read(intentsHubTabProvider.notifier);
+    if (_tabs.index == 1) {
+      notifier.showCompose();
+    } else {
+      notifier.showList();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final access = ref.watch(featureAccessProvider);
+    if (!access.canUseServices) return const SizedBox.shrink();
+
+    ref.listen(intentsHubTabProvider, (previous, next) {
+      final index = next == IntentsHubTab.compose ? 1 : 0;
+      if (_tabs.index != index) _tabs.animateTo(index);
+    });
+
+    return TabBar(
+      key: const ValueKey('intents-hub-tabs'),
+      controller: _tabs,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      tabs: [
+        Tab(
+          key: const ValueKey('intents-hub-tab-list'),
+          text: l10n.intentsListTab,
+        ),
+        Tab(
+          key: const ValueKey('intents-hub-tab-compose'),
+          text: l10n.composeLabel,
+        ),
+      ],
+    );
+  }
+}
+
+class _IntentsListPane extends ConsumerWidget {
+  const _IntentsListPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final intentsAsync = ref.watch(intentsStreamProvider);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final l10n = AppLocalizations.of(context)!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Spacer(),
+            IconButton(
+              tooltip: l10n.catalogueRefresh,
+              onPressed: () => ref.invalidate(intentsStreamProvider),
+              icon: const Icon(Icons.refresh),
+            ),
+            const SizedBox(width: 8),
+            LaunchPadButton.primary(
+              onPressed: () => showCreateIntentDialog(context, ref),
+              child: Text(l10n.composeNewIntent),
+            ),
+          ],
+        ),
+        Text(
+          l10n.intentsSubtitle,
+          style: TextStyle(
+            fontSize: 14,
+            color: onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: intentsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Center(child: Text('$error')),
+            data: (intents) => intents.isEmpty
+                ? Center(
+                    child: Text(
+                      'No intents yet. Create one to launch instances as a '
+                      'named group.',
+                      style: TextStyle(color: onSurface.withValues(alpha: 0.6)),
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: intents.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) =>
+                        _IntentCard(intent: intents[index]),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }

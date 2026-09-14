@@ -20,6 +20,7 @@ import 'cloud_init/cloud_init_screen.dart';
 import 'downloads/download_manager.dart';
 import 'glass_panel.dart';
 import 'help.dart';
+import 'intents/intents_hub.dart';
 import 'intents/intents_screen.dart';
 import 'migrate/migrate_screen.dart';
 import 'l10n/app_localizations.dart';
@@ -80,6 +81,14 @@ class SidebarKeyNotifier extends Notifier<String> {
     }
     if (parseServiceInstanceSidebarKey(key) != null) {
       ref.read(serviceInstanceVisitedProvider(key).notifier).setVisited();
+    }
+    if (key == ComposeScreen.sidebarKey) {
+      ref.read(intentsHubTabProvider.notifier).showCompose();
+      state = IntentsScreen.sidebarKey;
+      return;
+    }
+    if (key == IntentsScreen.sidebarKey) {
+      ref.read(intentsHubTabProvider.notifier).showList();
     }
     state = key;
   }
@@ -306,7 +315,7 @@ class SideBar extends ConsumerWidget {
     final intents = SidebarEntry(
       icon: FontAwesomeIcons.objectGroup,
       selected: isSelected(IntentsScreen.sidebarKey),
-      label: 'Intents',
+      label: l10n.intentsLabel,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(IntentsScreen.sidebarKey);
       },
@@ -429,15 +438,6 @@ class SideBar extends ConsumerWidget {
       locked: !access.canUseServices,
       onPressed: () => openOrPromptLocked(
           access.canUseServices, ServiceInstancesScreen.sidebarKey),
-    );
-
-    final compose = SidebarEntry(
-      icon: FontAwesomeIcons.shareNodes,
-      selected: isSelected(ComposeScreen.sidebarKey),
-      label: l10n.composeLabel,
-      locked: !access.canUseServices,
-      onPressed: () =>
-          openOrPromptLocked(access.canUseServices, ComposeScreen.sidebarKey),
     );
 
     final help = SidebarEntry(
@@ -609,7 +609,6 @@ class SideBar extends ConsumerWidget {
           locked: !access.canUseServices,
         ),
         services,
-        compose,
         serviceInstances,
         SidebarSectionHeader(l10n.sidebarSectionManage),
         llmSetup,

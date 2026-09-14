@@ -12,6 +12,7 @@ import '../service_branding.dart';
 import '../service_library.dart';
 import 'compose_graph.dart';
 import 'compose_store.dart';
+import 'compose_style.dart';
 
 const composeNodeWidth = 228.0;
 const composeNodeHeaderHeight = 42.0;
@@ -19,6 +20,10 @@ const composePinRowHeight = 22.0;
 const composeNodePinsPaddingTop = 4.0;
 const composeNodePinsPaddingBottom = 6.0;
 const composePinHitSlop = 10.0;
+const composeMinScale = 0.25;
+const composeMaxScale = 2.6;
+const composeCanvasWidth = 3200.0;
+const composeCanvasHeight = 2200.0;
 
 class ComposeCanvas extends ConsumerStatefulWidget {
   const ComposeCanvas({required this.library, super.key});
@@ -33,19 +38,38 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
   final _transform = TransformationController();
   final _viewerKey = GlobalKey();
   String? _dragNodeId;
-  Offset? _dragNodeStart;
+  Map<String, Offset> _dragNodeStarts = const {};
   Offset? _dragPointerStart;
   String? _wireFromId;
   String? _wireContract;
   Offset? _wireEnd;
   int? _wirePointer;
+  Offset? _marqueeStart;
+  Offset? _marqueeEnd;
+  int? _marqueePointer;
+  Offset? _backgroundDown;
+  bool _shift = false;
 
   bool get _wiring => _wireFromId != null;
+  bool get _dragging => _dragNodeId != null;
+  bool get _marquee => _marqueeStart != null;
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_onHardwareKey);
+  }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onHardwareKey);
     _transform.dispose();
     super.dispose();
+  }
+
+  bool _onHardwareKey(KeyEvent event) {
+    _syncModifiers();
+    return false;
   }
 
   Offset _toScene(Offset global) {
@@ -54,6 +78,17 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
       return _transform.toScene(global);
     }
     return _transform.toScene(box.globalToLocal(global));
+  }
+
+  bool get _additiveKeys {
+    return HardwareKeyboard.instance.isShiftPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+  }
+
+  void _syncModifiers() {
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+    if (shift != _shift) setState(() => _shift = shift);
   }
 
   void _clearWire() {
@@ -73,6 +108,9 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
       _wireContract = contract;
       _wireEnd = _toScene(global);
       _wirePointer = pointer;
+      _marqueeStart = null;
+      _marqueeEnd = null;
+      _marqueePointer = null;
     });
   }
 
@@ -133,158 +171,358 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
     _clearWire();
   }
 
+  void _zoomBy(double factor) {
+    final box = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final current = _transform.value.getMaxScaleOnAxis();
+    final nextScale = (current * factor).clamp(composeMinScale, composeMaxScale);
+    final applied = nextScale / current;
+    final center = Offset(box.size.width / 2, box.size.height / 2);
+    final scene = _transform.toScene(center);
+    final next = _transform.value.clone()
+      ..translateByDouble(scene.dx, scene.dy, 0, 1)
+      ..scaleByDouble(applied, applied, 1, 1)
+      ..translateByDouble(-scene.dx, -scene.dy, 0, 1);
+    _transform.value = next;
+  }
+
+  void _fitView() {
+    final box = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final graph = ref.read(composeEditorProvider).graph;
+    final bounds = composeNodesBounds(graph.nodes, widget.library);
+    _transform.value = composeFitMatrix(
+      content: bounds,
+      viewport: box.size,
+    );
+  }
+
+  void _onBackgroundPointerDown(PointerDownEvent event) {
+    if (_wiring || _dragging) return;
+    final scene = _toScene(event.position);
+    _backgroundDown = scene;
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      setState(() {
+        _marqueePointer = event.pointer;
+        _marqueeStart = scene;
+        _marqueeEnd = scene;
+      });
+    }
+  }
+
+  void _onBackgroundPointerMove(PointerMoveEvent event) {
+    if (_marqueePointer != event.pointer || _marqueeStart == null) return;
+    setState(() => _marqueeEnd = _toScene(event.position));
+  }
+
+  void _onBackgroundPointerUp(PointerEvent event) {
+    if (_marqueePointer == event.pointer) {
+      final start = _marqueeStart;
+      final end = _marqueeEnd ?? start;
+      setState(() {
+        _marqueeStart = null;
+        _marqueeEnd = null;
+        _marqueePointer = null;
+      });
+      _backgroundDown = null;
+      if (start == null || end == null) return;
+      final rect = Rect.fromPoints(start, end);
+      if (rect.shortestSide < 4) {
+        if (!_additiveKeys) {
+          ref.read(composeEditorProvider.notifier).selectNode(null);
+        }
+        return;
+      }
+      final ids = composeNodesInRect(
+        ref.read(composeEditorProvider).graph,
+        widget.library,
+        rect,
+      );
+      ref.read(composeEditorProvider.notifier).selectNodes(
+            ids,
+            additive: _additiveKeys,
+          );
+      return;
+    }
+
+    final down = _backgroundDown;
+    _backgroundDown = null;
+    if (down == null || _wiring || _dragging) return;
+    final moved = (_toScene(event.position) - down).distance;
+    if (moved < 4 && !_additiveKeys) {
+      ref.read(composeEditorProvider.notifier).selectNode(null);
+    }
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    _syncModifiers();
+    final l10n = AppLocalizations.of(context);
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape) {
+      if (_wiring) {
+        _clearWire();
+        return KeyEventResult.handled;
+      }
+      if (_marquee) {
+        setState(() {
+          _marqueeStart = null;
+          _marqueeEnd = null;
+          _marqueePointer = null;
+        });
+        return KeyEventResult.handled;
+      }
+      ref.read(composeEditorProvider.notifier).selectNode(null);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.delete ||
+        key == LogicalKeyboardKey.backspace) {
+      ref.read(composeEditorProvider.notifier).removeSelected();
+      return KeyEventResult.handled;
+    }
+    if ((HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isControlPressed) &&
+        key == LogicalKeyboardKey.keyA) {
+      ref.read(composeEditorProvider.notifier).selectAll();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.equal ||
+        key == LogicalKeyboardKey.numpadAdd) {
+      _zoomBy(1.15);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.minus ||
+        key == LogicalKeyboardKey.numpadSubtract) {
+      _zoomBy(1 / 1.15);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.digit0 && l10n != null) {
+      _fitView();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final editor = ref.watch(composeEditorProvider);
     final graph = editor.graph;
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final l10n = AppLocalizations.of(context)!;
+    final panEnabled = !_wiring && !_dragging && !_marquee && !_shift;
 
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): _clearWire,
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_wiring) {
+            _clearWire();
+          } else {
+            ref.read(composeEditorProvider.notifier).selectNode(null);
+          }
+        },
       },
       child: Focus(
         autofocus: true,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: ColoredBox(
-            color: onSurface.withValues(alpha: 0.04),
-            child: Stack(
-              children: [
-                GestureDetector(
-                  onPanUpdate: (details) {
-                    if (_wiring || _dragNodeId != null) return;
-                    final next = _transform.value.clone()
-                      ..translateByDouble(
-                        details.delta.dx,
-                        details.delta.dy,
-                        0,
-                        1,
-                      );
-                    _transform.value = next;
-                  },
-                  child: InteractiveViewer(
-                    key: _viewerKey,
-                    transformationController: _transform,
-                    constrained: false,
-                    minScale: 0.4,
-                    maxScale: 2.2,
-                    panEnabled: false,
-                    scaleEnabled: !_wiring,
-                    boundaryMargin: const EdgeInsets.all(800),
-                    child: SizedBox(
-                      width: 2400,
-                      height: 1600,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: CustomPaint(
-                              painter: _EdgesPainter(
-                                graph: graph,
-                                library: widget.library,
-                                color: onSurface.withValues(alpha: 0.45),
-                                accent: Brand.primary,
-                                wireFrom: _wireFromId == null
-                                    ? null
-                                    : pinPosition(
-                                        graph.nodeById(_wireFromId!)!,
-                                        widget.library,
-                                        _wireContract!,
-                                        output: true,
-                                      ),
-                                wireTo: _wireEnd,
-                              ),
-                            ),
-                          ),
-                          for (final node in graph.nodes)
-                            Positioned(
-                              left: node.x,
-                              top: node.y,
-                              child: _ComposeNodeCard(
-                                node: node,
-                                library: widget.library,
-                                selected: editor.selectedNodeId == node.id,
-                                highlightContract: _wireContract,
-                                wiring: _wiring,
-                                onSelect: () => ref
-                                    .read(composeEditorProvider.notifier)
-                                    .selectNode(node.id),
-                                onDragStart: (origin) {
-                                  _dragNodeId = node.id;
-                                  _dragNodeStart = Offset(node.x, node.y);
-                                  _dragPointerStart = origin;
-                                },
-                                onDragUpdate: (global) {
-                                  if (_dragNodeId != node.id ||
-                                      _dragNodeStart == null ||
-                                      _dragPointerStart == null) {
-                                    return;
-                                  }
-                                  final delta = _toScene(global) -
-                                      _toScene(_dragPointerStart!);
-                                  ref
-                                      .read(composeEditorProvider.notifier)
-                                      .moveNode(
-                                        node.id,
-                                        _dragNodeStart!.dx + delta.dx,
-                                        _dragNodeStart!.dy + delta.dy,
-                                      );
-                                },
-                                onDragEnd: () {
-                                  if (_dragNodeId == node.id) {
-                                    _dragNodeId = null;
-                                    _dragNodeStart = null;
-                                    _dragPointerStart = null;
-                                  }
-                                },
-                                onOutputDown: (contract, global, pointer) =>
-                                    _tapOutputPin(
-                                  node.id,
-                                  contract,
-                                  global,
-                                  pointer,
+        onKeyEvent: _onKey,
+        child: SizedBox.expand(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: ColoredBox(
+              color: onSurface.withValues(alpha: 0.04),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final sceneSize = composeSceneSize(constraints.biggest);
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      InteractiveViewer(
+                        key: _viewerKey,
+                        transformationController: _transform,
+                        constrained: false,
+                        clipBehavior: Clip.hardEdge,
+                        minScale: composeMinScale,
+                        maxScale: composeMaxScale,
+                        panEnabled: panEnabled,
+                        scaleEnabled: !_wiring && !_marquee,
+                        boundaryMargin: const EdgeInsets.all(1200),
+                        child: SizedBox(
+                          width: sceneSize.width,
+                          height: sceneSize.height,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned.fill(
+                                child: Listener(
+                                  behavior: HitTestBehavior.translucent,
+                                  onPointerDown: _onBackgroundPointerDown,
+                                  onPointerMove: _onBackgroundPointerMove,
+                                  onPointerUp: _onBackgroundPointerUp,
+                                  onPointerCancel: _onBackgroundPointerUp,
+                                  child: const SizedBox.expand(),
                                 ),
-                                onInputDown: (contract) =>
-                                    _tapInputPin(node.id, contract),
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: Listener(
-                    behavior: HitTestBehavior.translucent,
-                    onPointerHover: (event) {
-                      if (_wiring) _updateWire(event.position);
-                    },
-                    onPointerMove: (event) {
-                      if (_wiring) _updateWire(event.position);
-                    },
-                    onPointerDown: _onWirePointerDown,
-                    onPointerUp: (event) {
-                      if (_wiring) _tryCompleteWire(event.position);
-                    },
-                  ),
-                ),
-                if (graph.nodes.isEmpty)
-                  IgnorePointer(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(
-                          AppLocalizations.of(context)!.composeEmptyCanvas,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: Brand.fontFamily,
-                            color: onSurface.withValues(alpha: 0.55),
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: CustomPaint(
+                                    painter: _EdgesPainter(
+                                      graph: graph,
+                                      library: widget.library,
+                                      wireFrom: _wireFromId == null
+                                          ? null
+                                          : pinPosition(
+                                              graph.nodeById(_wireFromId!)!,
+                                              widget.library,
+                                              _wireContract!,
+                                              output: true,
+                                            ),
+                                      wireTo: _wireEnd,
+                                      wireColor: _wireContract == null
+                                          ? Brand.primary
+                                          : composeContractColor(
+                                              _wireContract!),
+                                      marquee: _marqueeStart == null ||
+                                              _marqueeEnd == null
+                                          ? null
+                                          : Rect.fromPoints(
+                                              _marqueeStart!,
+                                              _marqueeEnd!,
+                                            ),
+                                      marqueeColor: Brand.info,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              for (final node in graph.nodes)
+                                Positioned(
+                                  left: node.x,
+                                  top: node.y,
+                                  child: _ComposeNodeCard(
+                                    node: node,
+                                    library: widget.library,
+                                    selected: editor.selectedNodeIds
+                                        .contains(node.id),
+                                    highlightContract: _wireContract,
+                                    wiring: _wiring,
+                                    onSelect: () => ref
+                                        .read(composeEditorProvider.notifier)
+                                        .selectNode(
+                                          node.id,
+                                          additive: _additiveKeys,
+                                        ),
+                                    onDragStart: (origin) {
+                                      final notifier = ref.read(
+                                        composeEditorProvider.notifier,
+                                      );
+                                      if (!editor.selectedNodeIds
+                                          .contains(node.id)) {
+                                        notifier.selectNode(node.id);
+                                      }
+                                      final selected = {
+                                        ...ref
+                                            .read(composeEditorProvider)
+                                            .selectedNodeIds,
+                                        node.id,
+                                      };
+                                      setState(() {
+                                        _dragNodeId = node.id;
+                                        _dragPointerStart = origin;
+                                        _dragNodeStarts = {
+                                          for (final item in graph.nodes)
+                                            if (selected.contains(item.id))
+                                              item.id:
+                                                  Offset(item.x, item.y),
+                                        };
+                                      });
+                                    },
+                                    onDragUpdate: (global) {
+                                      if (_dragNodeId != node.id ||
+                                          _dragPointerStart == null ||
+                                          _dragNodeStarts.isEmpty) {
+                                        return;
+                                      }
+                                      final delta = _toScene(global) -
+                                          _toScene(_dragPointerStart!);
+                                      ref
+                                          .read(composeEditorProvider.notifier)
+                                          .moveNodes({
+                                        for (final entry
+                                            in _dragNodeStarts.entries)
+                                          entry.key: (
+                                            entry.value.dx + delta.dx,
+                                            entry.value.dy + delta.dy,
+                                          ),
+                                      });
+                                    },
+                                    onDragEnd: () {
+                                      if (_dragNodeId == node.id) {
+                                        setState(() {
+                                          _dragNodeId = null;
+                                          _dragNodeStarts = const {};
+                                          _dragPointerStart = null;
+                                        });
+                                      }
+                                    },
+                                    onOutputDown:
+                                        (contract, global, pointer) =>
+                                            _tapOutputPin(
+                                      node.id,
+                                      contract,
+                                      global,
+                                      pointer,
+                                    ),
+                                    onInputDown: (contract) =>
+                                        _tapInputPin(node.id, contract),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                      if (_wiring)
+                        Positioned.fill(
+                          child: Listener(
+                            behavior: HitTestBehavior.translucent,
+                            onPointerHover: (event) =>
+                                _updateWire(event.position),
+                            onPointerMove: (event) =>
+                                _updateWire(event.position),
+                            onPointerDown: _onWirePointerDown,
+                            onPointerUp: (event) =>
+                                _tryCompleteWire(event.position),
+                          ),
+                        ),
+                      Positioned(
+                        right: 10,
+                        top: 10,
+                        child: _CanvasTools(
+                          onZoomIn: () => _zoomBy(1.15),
+                          onZoomOut: () => _zoomBy(1 / 1.15),
+                          onFit: _fitView,
+                          zoomInTooltip: l10n.composeZoomIn,
+                          zoomOutTooltip: l10n.composeZoomOut,
+                          fitTooltip: l10n.composeFitView,
+                        ),
+                      ),
+                      if (graph.nodes.isEmpty)
+                        IgnorePointer(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Text(
+                                l10n.composeEmptyCanvas,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontFamily: Brand.fontFamily,
+                                  color: onSurface.withValues(alpha: 0.55),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -314,6 +552,16 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
   }
 }
 
+Size composeSceneSize(Size viewport) {
+  final width = viewport.width.isFinite
+      ? math.max(composeCanvasWidth, viewport.width / composeMinScale)
+      : composeCanvasWidth;
+  final height = viewport.height.isFinite
+      ? math.max(composeCanvasHeight, viewport.height / composeMinScale)
+      : composeCanvasHeight;
+  return Size(width, height);
+}
+
 double composePinStride() => composePinRowHeight + composePinHitSlop;
 
 double composeNodeHeight(ComposeNode node, MarketplaceLibrary library) {
@@ -326,6 +574,62 @@ double composeNodeHeight(ComposeNode node, MarketplaceLibrary library) {
       composeNodePinsPaddingTop +
       math.max(rows, 1) * composePinStride() +
       composeNodePinsPaddingBottom;
+}
+
+Rect composeNodeRect(ComposeNode node, MarketplaceLibrary library) {
+  return Rect.fromLTWH(
+    node.x,
+    node.y,
+    composeNodeWidth,
+    composeNodeHeight(node, library),
+  );
+}
+
+Rect composeNodesBounds(
+  Iterable<ComposeNode> nodes,
+  MarketplaceLibrary library,
+) {
+  Rect? bounds;
+  for (final node in nodes) {
+    final rect = composeNodeRect(node, library);
+    bounds = bounds == null ? rect : bounds.expandToInclude(rect);
+  }
+  return bounds ?? Rect.zero;
+}
+
+Set<String> composeNodesInRect(
+  ComposeGraph graph,
+  MarketplaceLibrary library,
+  Rect rect,
+) {
+  return {
+    for (final node in graph.nodes)
+      if (composeNodeRect(node, library).overlaps(rect)) node.id,
+  };
+}
+
+Matrix4 composeFitMatrix({
+  required Rect content,
+  required Size viewport,
+  double minScale = composeMinScale,
+  double maxScale = composeMaxScale,
+  double padding = 48,
+}) {
+  if (content.isEmpty || !viewport.isFinite || viewport.isEmpty) {
+    return Matrix4.identity();
+  }
+  final padded = content.inflate(padding);
+  final scale = (math.min(
+    viewport.width / padded.width,
+    viewport.height / padded.height,
+  ))
+      .clamp(minScale, maxScale);
+  final dx = (viewport.width - padded.width * scale) / 2 - padded.left * scale;
+  final dy =
+      (viewport.height - padded.height * scale) / 2 - padded.top * scale;
+  return Matrix4.identity()
+    ..translateByDouble(dx, dy, 0, 1)
+    ..scaleByDouble(scale, scale, 1, 1);
 }
 
 Offset pinPosition(
@@ -344,11 +648,81 @@ Offset pinPosition(
       composeNodePinsPaddingTop +
       index * stride +
       stride / 2;
-  const pinCenterInset = 2.0 + composePinHitSlop / 2 + 6.0;
+  const pinCenterInset = 2.0 + composePinHitSlop / 2 + composePinBulletSize / 2;
   final x = output
       ? node.x + composeNodeWidth - pinCenterInset
       : node.x + pinCenterInset;
   return Offset(x, y);
+}
+
+class _CanvasTools extends StatelessWidget {
+  const _CanvasTools({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onFit,
+    required this.zoomInTooltip,
+    required this.zoomOutTooltip,
+    required this.fitTooltip,
+  });
+
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onFit;
+  final String zoomInTooltip;
+  final String zoomOutTooltip;
+  final String fitTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Material(
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+      elevation: 2,
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _toolButton(
+            key: const ValueKey('compose-zoom-out'),
+            icon: Icons.remove,
+            tooltip: zoomOutTooltip,
+            onPressed: onZoomOut,
+            onSurface: onSurface,
+          ),
+          _toolButton(
+            key: const ValueKey('compose-zoom-in'),
+            icon: Icons.add,
+            tooltip: zoomInTooltip,
+            onPressed: onZoomIn,
+            onSurface: onSurface,
+          ),
+          _toolButton(
+            key: const ValueKey('compose-fit'),
+            icon: Icons.fit_screen,
+            tooltip: fitTooltip,
+            onPressed: onFit,
+            onSurface: onSurface,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toolButton({
+    required Key key,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+    required Color onSurface,
+  }) {
+    return IconButton(
+      key: key,
+      tooltip: tooltip,
+      visualDensity: VisualDensity.compact,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18, color: onSurface.withValues(alpha: 0.8)),
+    );
+  }
 }
 
 class _ComposeNodeCard extends StatelessWidget {
@@ -472,9 +846,11 @@ class _ComposeNodeCard extends StatelessWidget {
                               for (final contract in requires)
                                 _PinRow(
                                   label: composePinLabel(contract),
+                                  color: composeContractColor(contract),
                                   alignEnd: false,
                                   lit: highlightContract == contract,
-                                  fanOut: composeInputFansIn(spec, contract),
+                                  multiple:
+                                      composeInputFansIn(spec, contract),
                                   onPointerDown: (_) => onInputDown(contract),
                                 ),
                             ],
@@ -488,9 +864,10 @@ class _ComposeNodeCard extends StatelessWidget {
                               for (final contract in provides)
                                 _PinRow(
                                   label: composePinLabel(contract),
+                                  color: composeContractColor(contract),
                                   alignEnd: true,
                                   lit: highlightContract == contract,
-                                  fanOut: composeOutputFansOut(contract),
+                                  multiple: composeOutputFansOut(contract),
                                   onPointerDown: (event) => onOutputDown(
                                     contract,
                                     event.position,
@@ -562,50 +939,31 @@ class _NodeBadge extends StatelessWidget {
 class _PinRow extends StatelessWidget {
   const _PinRow({
     required this.label,
+    required this.color,
     required this.alignEnd,
     required this.lit,
-    required this.fanOut,
+    required this.multiple,
     required this.onPointerDown,
   });
 
   final String label;
+  final Color color;
   final bool alignEnd;
   final bool lit;
-  final bool fanOut;
+  final bool multiple;
   final void Function(PointerDownEvent event) onPointerDown;
 
   @override
   Widget build(BuildContext context) {
-    final fill = lit ? Brand.primary : Theme.of(context).colorScheme.onSurface;
     final pin = Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: onPointerDown,
       child: Padding(
         padding: const EdgeInsets.all(composePinHitSlop / 2),
-        child: SizedBox(
-          width: 12,
-          height: 12,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: fill,
-              border: Border.all(color: Brand.primary, width: 1.5),
-            ),
-            child: fanOut
-                ? Padding(
-                    padding: const EdgeInsets.all(2.5),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Brand.primary, width: 1.2),
-                        color: lit
-                            ? Brand.primary
-                            : Theme.of(context).colorScheme.surface,
-                      ),
-                    ),
-                  )
-                : null,
-          ),
+        child: ComposePinBullet(
+          color: color,
+          multiple: multiple,
+          lit: lit,
         ),
       ),
     );
@@ -615,7 +973,12 @@ class _PinRow extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       maxLines: 1,
       textAlign: alignEnd ? TextAlign.right : TextAlign.left,
-      style: const TextStyle(fontSize: 11, fontFamily: Brand.fontFamily),
+      style: TextStyle(
+        fontSize: 11,
+        fontFamily: Brand.fontFamily,
+        color: color,
+        fontWeight: FontWeight.w600,
+      ),
     );
 
     return SizedBox(
@@ -633,41 +996,56 @@ class _EdgesPainter extends CustomPainter {
   _EdgesPainter({
     required this.graph,
     required this.library,
-    required this.color,
-    required this.accent,
+    required this.wireColor,
+    required this.marqueeColor,
     this.wireFrom,
     this.wireTo,
+    this.marquee,
   });
 
   final ComposeGraph graph;
   final MarketplaceLibrary library;
-  final Color color;
-  final Color accent;
+  final Color wireColor;
+  final Color marqueeColor;
   final Offset? wireFrom;
   final Offset? wireTo;
+  final Rect? marquee;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.6
-      ..style = PaintingStyle.stroke;
-
     for (final edge in graph.edges) {
       final from = graph.nodeById(edge.from);
       final to = graph.nodeById(edge.to);
       if (from == null || to == null) continue;
       final start = pinPosition(from, library, edge.contract, output: true);
       final end = pinPosition(to, library, edge.contract, output: false);
+      final paint = Paint()
+        ..color = composeContractColor(edge.contract)
+        ..strokeWidth = 2.2
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
       _curve(canvas, paint, start, end);
     }
 
     if (wireFrom != null && wireTo != null) {
       final live = Paint()
-        ..color = accent
-        ..strokeWidth = 1.8
-        ..style = PaintingStyle.stroke;
+        ..color = wireColor
+        ..strokeWidth = 2.0
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
       _curve(canvas, live, wireFrom!, wireTo!);
+    }
+
+    if (marquee != null && marquee!.shortestSide > 2) {
+      final fill = Paint()
+        ..color = marqueeColor.withValues(alpha: 0.12)
+        ..style = PaintingStyle.fill;
+      final stroke = Paint()
+        ..color = marqueeColor.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      canvas.drawRect(marquee!, fill);
+      canvas.drawRect(marquee!, stroke);
     }
   }
 

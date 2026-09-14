@@ -46,21 +46,25 @@ void saveComposeGraphs(
 class ComposeEditorState {
   const ComposeEditorState({
     required this.graph,
-    this.selectedNodeId,
+    this.selectedNodeIds = const {},
   });
 
   final ComposeGraph graph;
-  final String? selectedNodeId;
+  final Set<String> selectedNodeIds;
+
+  String? get selectedNodeId =>
+      selectedNodeIds.isEmpty ? null : selectedNodeIds.first;
 
   ComposeEditorState copyWith({
     ComposeGraph? graph,
-    String? selectedNodeId,
+    Set<String>? selectedNodeIds,
     bool clearSelection = false,
   }) {
     return ComposeEditorState(
       graph: graph ?? this.graph,
-      selectedNodeId:
-          clearSelection ? null : (selectedNodeId ?? this.selectedNodeId),
+      selectedNodeIds: clearSelection
+          ? const {}
+          : (selectedNodeIds ?? this.selectedNodeIds),
     );
   }
 }
@@ -129,8 +133,30 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     state = state.copyWith(graph: graph);
   }
 
-  void selectNode(String? id) {
-    state = state.copyWith(selectedNodeId: id, clearSelection: id == null);
+  void selectNode(String? id, {bool additive = false}) {
+    if (id == null) {
+      state = state.copyWith(clearSelection: true);
+      return;
+    }
+    if (!additive) {
+      state = state.copyWith(selectedNodeIds: {id});
+      return;
+    }
+    final next = {...state.selectedNodeIds};
+    if (!next.add(id)) next.remove(id);
+    state = state.copyWith(selectedNodeIds: next);
+  }
+
+  void selectNodes(Set<String> ids, {bool additive = false}) {
+    state = state.copyWith(
+      selectedNodeIds: additive ? {...state.selectedNodeIds, ...ids} : {...ids},
+    );
+  }
+
+  void selectAll() {
+    state = state.copyWith(
+      selectedNodeIds: {for (final node in state.graph.nodes) node.id},
+    );
   }
 
   void addService(MarketplaceService service, {double? x, double? y}) {
@@ -204,13 +230,24 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     if (state.graph.intentName.trim().isEmpty) return;
     final graph = state.graph.copyWith(nodes: [...state.graph.nodes, node]);
     _persist(graph);
-    state = state.copyWith(graph: graph, selectedNodeId: node.id);
+    state = state.copyWith(graph: graph, selectedNodeIds: {node.id});
   }
 
   void moveNode(String id, double x, double y) {
+    moveNodes({id: (x, y)});
+  }
+
+  void moveNodes(Map<String, (double, double)> positions) {
+    if (positions.isEmpty) return;
     final nodes = [
       for (final node in state.graph.nodes)
-        if (node.id == id) node.copyWith(x: x, y: y) else node,
+        if (positions.containsKey(node.id))
+          node.copyWith(
+            x: positions[node.id]!.$1,
+            y: positions[node.id]!.$2,
+          )
+        else
+          node,
     ];
     final graph = state.graph.copyWith(nodes: nodes);
     _persist(graph);
@@ -257,11 +294,29 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
       ],
     );
     _persist(graph);
-    state = state.copyWith(
-      graph: graph,
-      clearSelection: state.selectedNodeId == id,
-      selectedNodeId: state.selectedNodeId == id ? null : state.selectedNodeId,
+    final remaining = {...state.selectedNodeIds}..remove(id);
+    state = state.copyWith(graph: graph, selectedNodeIds: remaining);
+  }
+
+  void removeSelected() {
+    final ids = state.selectedNodeIds;
+    if (ids.isEmpty) return;
+    if (ids.length == 1) {
+      removeNode(ids.first);
+      return;
+    }
+    final graph = state.graph.copyWith(
+      nodes: [
+        for (final node in state.graph.nodes)
+          if (!ids.contains(node.id)) node
+      ],
+      edges: [
+        for (final edge in state.graph.edges)
+          if (!ids.contains(edge.from) && !ids.contains(edge.to)) edge,
+      ],
     );
+    _persist(graph);
+    state = state.copyWith(graph: graph, clearSelection: true);
   }
 
   bool addEdge(ComposeEdge edge, MarketplaceLibrary library) {

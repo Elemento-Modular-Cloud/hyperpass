@@ -3310,9 +3310,21 @@
     "@featureLockedImageHint": {
         "description": "Catalogue card hint for non-Ubuntu images locked in guest mode"
     },
+    "intentsLabel": "Intents",
+    "@intentsLabel": {
+        "description": "Sidebar entry and page title for intents and the compose canvas"
+    },
+    "intentsListTab": "Intents",
+    "@intentsListTab": {
+        "description": "Hub tab that lists saved intents"
+    },
+    "intentsSubtitle": "Named groups of instances launched together, e.g. a redis and a postgres instance for the same app.",
+    "@intentsSubtitle": {
+        "description": "Subtitle under the intents list"
+    },
     "composeLabel": "Compose",
     "@composeLabel": {
-        "description": "Sidebar entry and page title for the service compose canvas"
+        "description": "Hub tab and heading for the intent compose canvas"
     },
     "composeSubtitle": "Connect services, VMs, and LLMs on a saved intent, then deploy.",
     "@composeSubtitle": {
@@ -3419,9 +3431,34 @@
     "@composeRoleLabel": {
         "description": "Inspector field for the intent member role"
     },
-    "composeEmptyCanvas": "Add services, VMs, or LLMs from the palette. Click an output pin, then an input — or drag between them.",
+    "composeEmptyCanvas": "Add services, VMs, or LLMs from the palette. Click an output pin, then an input — or drag between them. Drag empty space to pan, scroll to zoom.",
     "@composeEmptyCanvas": {
         "description": "Hint shown on an empty compose canvas"
+    },
+    "composeZoomIn": "Zoom in",
+    "@composeZoomIn": {
+        "description": "Compose canvas zoom-in control"
+    },
+    "composeZoomOut": "Zoom out",
+    "@composeZoomOut": {
+        "description": "Compose canvas zoom-out control"
+    },
+    "composeFitView": "Fit to view",
+    "@composeFitView": {
+        "description": "Compose canvas control that frames every node"
+    },
+    "composeInspectorMulti": "{count} nodes selected",
+    "@composeInspectorMulti": {
+        "description": "Inspector heading when several compose nodes are selected",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "composeDeleteSelected": "Remove selected",
+    "@composeDeleteSelected": {
+        "description": "Inspector action that deletes every selected compose node"
     },
     "intentAddServiceTooltip": "Add a member",
     "@intentAddServiceTooltip": {

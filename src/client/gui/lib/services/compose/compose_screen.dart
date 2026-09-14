@@ -26,6 +26,7 @@ import 'compose_canvas.dart';
 import 'compose_graph.dart';
 import 'compose_run.dart';
 import 'compose_store.dart';
+import 'compose_style.dart';
 
 Future<void> ensureNamedComposeIntent(WidgetRef ref, String name) async {
   if (!ref.read(daemonAvailableProvider)) return;
@@ -41,7 +42,9 @@ Future<void> ensureNamedComposeIntent(WidgetRef ref, String name) async {
 class ComposeScreen extends ConsumerWidget {
   static const sidebarKey = 'service-compose';
 
-  const ComposeScreen({super.key});
+  const ComposeScreen({this.embedded = false, super.key});
+
+  final bool embedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,108 +55,108 @@ class ComposeScreen extends ConsumerWidget {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final hasIntent = editor.graph.intentName.trim().isNotEmpty;
 
-    return Scaffold(
-      body: PageSurface(
-        child: libraryAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) =>
-              Center(child: Text(l10n.servicesLoadError('$error'))),
-          data: (library) {
-            final issues = validateComposeGraph(editor.graph, library);
-            final deploying = progress?.running == true;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final body = libraryAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text(l10n.servicesLoadError('$error'))),
+      data: (library) {
+        final issues = validateComposeGraph(editor.graph, library);
+        final deploying = progress?.running == true;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.composeLabel,
-                        style: const TextStyle(
-                          fontSize: 37,
-                          fontWeight: FontWeight.w300,
-                        ),
+                if (!embedded)
+                  Expanded(
+                    child: Text(
+                      l10n.composeLabel,
+                      style: const TextStyle(
+                        fontSize: 37,
+                        fontWeight: FontWeight.w300,
                       ),
                     ),
-                    LaunchPadButton.secondary(
-                      onPressed: deploying
-                          ? null
-                          : () => showNewComposeIntentDialog(context, ref),
-                      child: Text(l10n.composeNewIntent),
-                    ),
-                    const SizedBox(width: 8),
-                    LaunchPadButton.secondary(
-                      onPressed: deploying || !hasIntent
-                          ? null
-                          : () => _save(context, ref),
-                      child: Text(l10n.composeSave),
-                    ),
-                    const SizedBox(width: 8),
-                    LaunchPadButton.primary(
-                      onPressed: deploying || issues.isNotEmpty
-                          ? null
-                          : () => _deploy(context, ref, library, editor.graph),
-                      child: Text(
-                        deploying
-                            ? (progress?.message ?? l10n.composeDeploying)
-                            : l10n.composeDeployAction,
-                      ),
-                    ),
-                  ],
+                  )
+                else
+                  const Spacer(),
+                LaunchPadButton.secondary(
+                  onPressed: deploying
+                      ? null
+                      : () => showNewComposeIntentDialog(context, ref),
+                  child: Text(l10n.composeNewIntent),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.composeSubtitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: onSurface.withValues(alpha: 0.7),
-                  ),
+                const SizedBox(width: 8),
+                LaunchPadButton.secondary(
+                  onPressed: deploying || !hasIntent
+                      ? null
+                      : () => _save(context, ref),
+                  child: Text(l10n.composeSave),
                 ),
-                const SizedBox(height: 16),
-                const SizedBox(
-                  width: 360,
-                  child: _IntentPicker(),
-                ),
-                if (progress?.error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    progress!.error!,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error),
-                  ),
-                ],
-                if (issues.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    issues.first.message,
-                    style:
-                        TextStyle(color: Theme.of(context).colorScheme.error),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                Expanded(
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 240,
-                        child: _ComposePalette(library: library),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: ComposeCanvas(library: library)),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 280,
-                        child: _ComposeInspector(library: library),
-                      ),
-                    ],
+                const SizedBox(width: 8),
+                LaunchPadButton.primary(
+                  onPressed: deploying || issues.isNotEmpty
+                      ? null
+                      : () => _deploy(context, ref, library, editor.graph),
+                  child: Text(
+                    deploying
+                        ? (progress?.message ?? l10n.composeDeploying)
+                        : l10n.composeDeployAction,
                   ),
                 ),
               ],
-            );
-          },
-        ),
-      ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.composeSubtitle,
+              style: TextStyle(
+                fontSize: 14,
+                color: onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const SizedBox(
+              width: 360,
+              child: _IntentPicker(),
+            ),
+            if (progress?.error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                progress!.error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (issues.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                issues.first.message,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 240,
+                    child: _ComposePalette(library: library),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: ComposeCanvas(library: library)),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 280,
+                    child: _ComposeInspector(library: library),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
+
+    if (embedded) return body;
+    return Scaffold(body: PageSurface(child: body));
   }
 
   Future<void> _save(BuildContext context, WidgetRef ref) async {
@@ -554,11 +557,29 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final editor = ref.watch(composeEditorProvider);
-    final node = editor.selectedNodeId == null
-        ? null
-        : editor.graph.nodeById(editor.selectedNodeId!);
+    final selectedIds = editor.selectedNodeIds;
+    final node = selectedIds.length == 1
+        ? editor.graph.nodeById(selectedIds.first)
+        : null;
     _syncControllers(node);
     final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    if (selectedIds.length > 1) {
+      return ListView(
+        children: [
+          Text(
+            l10n.composeInspectorMulti(selectedIds.length),
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          LaunchPadButton.destructive(
+            onPressed: () =>
+                ref.read(composeEditorProvider.notifier).removeSelected(),
+            child: Text(l10n.composeDeleteSelected),
+          ),
+        ],
+      );
+    }
 
     if (node == null) {
       return Text(
@@ -608,8 +629,14 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
               style: TextStyle(color: onSurface.withValues(alpha: 0.6)))
         else
           for (final contract in composeInputContracts(spec))
-            Text('← ${composePinLabel(contract)}',
-                style: const TextStyle(fontSize: 13)),
+            Text(
+              '← ${composePinLabel(contract)}',
+              style: TextStyle(
+                fontSize: 13,
+                color: composeContractColor(contract),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
         const SizedBox(height: 12),
         Text(l10n.composeProvides,
             style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -621,7 +648,11 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
           for (final contract in composeOutputContracts(spec))
             Text(
               '${composePinLabel(contract)}${composeOutputFansOut(contract) ? ' →∗' : ' →'}',
-              style: const TextStyle(fontSize: 13),
+              style: TextStyle(
+                fontSize: 13,
+                color: composeContractColor(contract),
+                fontWeight: FontWeight.w600,
+              ),
             ),
         const SizedBox(height: 16),
         for (final input in spec.inputs.values)

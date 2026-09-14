@@ -51,6 +51,9 @@ void main() {
     expect(find.text('Services'), findsWidgets);
     expect(find.text('VMs'), findsOneWidget);
     expect(find.text('LLMs'), findsOneWidget);
+    expect(find.byKey(const ValueKey('compose-zoom-in')), findsOneWidget);
+    expect(find.byKey(const ValueKey('compose-zoom-out')), findsOneWidget);
+    expect(find.byKey(const ValueKey('compose-fit')), findsOneWidget);
     expect(
       find.byKey(
         const ValueKey('compose-palette-qdrant_v1'),
