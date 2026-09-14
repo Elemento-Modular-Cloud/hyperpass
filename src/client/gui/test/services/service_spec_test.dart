@@ -11,8 +11,9 @@ void main() {
   test('seed services parse spec.yaml when present', () {
     final qdrant = seed.byId('qdrant_v1')!;
     expect(qdrant.spec, isNotNull);
-    expect(qdrant.spec!.provides.keys, containsAll(['qdrant', 'caddy_ca']));
-    expect(qdrant.spec!.requires, isEmpty);
+    expect(qdrant.spec!.provides.keys, contains('qdrant'));
+    expect(qdrant.spec!.provides.containsKey('caddy_ca'), isFalse);
+    expect(qdrant.spec!.requires.keys, contains('caddy_ca'));
     expect(qdrant.spec!.outputs.containsKey('/endpoints/api'), isTrue);
     expect(
       qdrant.spec!.provides['qdrant']!.outputs['api_key'],
@@ -25,13 +26,28 @@ void main() {
       n8n.spec!.requires.keys,
       containsAll(['openai_compatible', 'n8n_sandbox', 'qdrant', 'caddy_ca']),
     );
-    expect(n8n.spec!.provides.keys, contains('caddy_ca'));
+    expect(n8n.spec!.provides.containsKey('caddy_ca'), isFalse);
+    expect(
+      n8n.spec!.requires['caddy_ca']!.inputs['acme_directory_url'],
+      'acme_directory_url',
+    );
     expect(n8n.spec!.requires['qdrant']!.inputs['url'], 'qdrant_url');
     expect(n8n.spec!.groups.map((g) => g.name), contains('qdrant'));
 
     final lms = seed.byId('llmstudio_v1')!;
     expect(lms.spec, isNotNull);
     expect(lms.spec!.provides.containsKey('openai_compatible'), isTrue);
+    expect(lms.spec!.provides.containsKey('caddy_ca'), isFalse);
+    expect(lms.spec!.requires.containsKey('caddy_ca'), isTrue);
+
+    final ca = seed.byId('caddy_ca_v1')!;
+    expect(ca.spec!.provides['caddy_ca']!.outputs['ca_url'], '/endpoints/ca');
+    expect(
+      ca.spec!.provides['caddy_ca']!.outputs['acme_directory_url'],
+      '/endpoints/acme',
+    );
+    expect(ca.spec!.requires, isEmpty);
+    expect(ca.variables, isEmpty);
 
     final owu = seed.byId('openwebui_v1')!;
     final owuOpenAi = owu.spec!.requires['openai_compatible']!;
@@ -254,6 +270,30 @@ void main() {
       ),
       throwsStateError,
     );
+  });
+
+  test('bindContracts maps issuer caddy_ca onto n8n including ACME', () {
+    final issuer = seed.byId('caddy_ca_v1')!.composeSpec;
+    final n8n = seed.byId('n8n_v3')!.composeSpec;
+    final bound = bindContracts(
+      producers: [
+        ContractProducer(
+          spec: issuer,
+          serviceInfo: const {
+            'endpoints': {
+              'ca': 'http://10.0.0.9/ca.crt',
+              'acme': 'http://10.0.0.9/acme/elemento/directory',
+            },
+          },
+        ),
+      ],
+      consumer: n8n,
+      contractId: 'caddy_ca',
+    );
+    expect(bound, {
+      'ca_url': 'http://10.0.0.9/ca.crt',
+      'acme_directory_url': 'http://10.0.0.9/acme/elemento/directory',
+    });
   });
 
   test('bindContract rejects unknown contracts', () {

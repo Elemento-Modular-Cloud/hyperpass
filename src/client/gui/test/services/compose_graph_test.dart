@@ -20,7 +20,13 @@ api_version: elemento.spec/v1
 kind: ServiceSpec
 metadata:
   name: qdrant_v1
-inputs: {}
+inputs:
+  ca_url:
+    type: ca_url
+    required: false
+  acme_directory_url:
+    type: url
+    required: false
 outputs:
   /endpoints/api:
     type: url
@@ -29,10 +35,12 @@ provides:
     outputs:
       url: /endpoints/api
       api_key: /credentials/tokens/0
+requires:
   caddy_ca:
-    outputs:
-      ca_url: /endpoints/ca
-requires: {}
+    optional: true
+    inputs:
+      ca_url: ca_url
+      acme_directory_url: acme_directory_url
 ''';
 
 const _n8nSpec = '''
@@ -49,6 +57,12 @@ inputs:
     type: url
   qdrant_api_key:
     type: secret
+  ca_url:
+    type: ca_url
+    required: false
+  acme_directory_url:
+    type: url
+    required: false
 groups:
   qdrant:
     when: qdrant_url
@@ -57,10 +71,7 @@ groups:
     when: model_url
     require: [model_api_key]
 outputs: {}
-provides:
-  caddy_ca:
-    outputs:
-      ca_url: /endpoints/ca
+provides: {}
 requires:
   qdrant:
     optional: true
@@ -72,10 +83,12 @@ requires:
     inputs:
       base_url: model_url
       api_key: model_api_key
+      ca_url: ca_url
   caddy_ca:
     optional: true
     inputs:
       ca_url: ca_url
+      acme_directory_url: acme_directory_url
 ''';
 
 const _lmsSpec = '''
@@ -83,16 +96,44 @@ api_version: elemento.spec/v1
 kind: ServiceSpec
 metadata:
   name: llmstudio_v1
-inputs: {}
+inputs:
+  ca_url:
+    type: ca_url
+    required: false
+  acme_directory_url:
+    type: url
+    required: false
 outputs: {}
 provides:
   openai_compatible:
     outputs:
       base_url: /endpoints/api
       api_key: /credentials/tokens/0
+      ca_url: /endpoints/ca
+requires:
+  caddy_ca:
+    optional: true
+    inputs:
+      ca_url: ca_url
+      acme_directory_url: acme_directory_url
+''';
+
+const _issuerSpec = '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: caddy_ca_v1
+inputs: {}
+outputs:
+  /endpoints/ca:
+    type: ca_url
+  /endpoints/acme:
+    type: url
+provides:
   caddy_ca:
     outputs:
       ca_url: /endpoints/ca
+      acme_directory_url: /endpoints/acme
 requires: {}
 ''';
 
@@ -115,10 +156,7 @@ inputs:
     type: semicolon_list
     required: false
 outputs: {}
-provides:
-  caddy_ca:
-    outputs:
-      ca_url: /endpoints/ca
+provides: {}
 requires:
   openai_compatible:
     optional: true
@@ -151,6 +189,7 @@ void main() {
       _specService(id: 'n8n_v3', spec: _n8nSpec),
       _specService(id: 'llmstudio_v1', spec: _lmsSpec),
       _specService(id: 'openwebui_v1', spec: _openWebUiSpec),
+      _specService(id: 'caddy_ca_v1', spec: _issuerSpec),
     ]);
     qdrant = const ComposeNode(
       id: 'a',
@@ -292,9 +331,16 @@ void main() {
   });
 
   test('canConnect and companion caddy_ca edge', () {
+    const issuer = ComposeNode(
+      id: 'ca',
+      role: 'caddy-ca',
+      serviceId: 'caddy_ca_v1',
+      x: 0,
+      y: 400,
+    );
     final graph = ComposeGraph(
       intentName: 'lab',
-      nodes: [lms, n8n],
+      nodes: [issuer, lms, n8n],
     );
     expect(
       canConnect(
@@ -306,30 +352,51 @@ void main() {
       ),
       isTrue,
     );
-    final companion = companionCaddyCaEdge(
-      graph: graph.copyWith(
-        edges: const [
-          ComposeEdge(from: 'c', to: 'b', contract: 'openai_compatible'),
-        ],
-      ),
-      library: library,
-      edge: const ComposeEdge(
-        from: 'c',
-        to: 'b',
-        contract: 'openai_compatible',
-      ),
+    expect(
+      companionCaddyCaEdge(
+        graph: graph.copyWith(
+          edges: const [
+            ComposeEdge(from: 'c', to: 'b', contract: 'openai_compatible'),
+          ],
+        ),
+        library: library,
+        edge: const ComposeEdge(
+          from: 'c',
+          to: 'b',
+          contract: 'openai_compatible',
+        ),
+      )?.from,
+      'ca',
     );
-    expect(companion?.contract, 'caddy_ca');
+    expect(
+      companionCaddyCaEdge(
+        graph: ComposeGraph(intentName: 'lab', nodes: [lms, n8n]),
+        library: library,
+        edge: const ComposeEdge(
+          from: 'c',
+          to: 'b',
+          contract: 'openai_compatible',
+        ),
+      ),
+      isNull,
+    );
   });
 
   test('openai and caddy_ca outputs can fan out to many consumers', () {
+    const issuer = ComposeNode(
+      id: 'ca',
+      role: 'caddy-ca',
+      serviceId: 'caddy_ca_v1',
+      x: 0,
+      y: 400,
+    );
     final n8n2 = n8n.copyWith(id: 'd', role: 'n8n-b', x: 400, y: 0);
     final graph = ComposeGraph(
       intentName: 'lab',
-      nodes: [lms, n8n, n8n2],
+      nodes: [issuer, lms, n8n, n8n2],
       edges: const [
         ComposeEdge(from: 'c', to: 'b', contract: 'openai_compatible'),
-        ComposeEdge(from: 'c', to: 'b', contract: 'caddy_ca'),
+        ComposeEdge(from: 'ca', to: 'b', contract: 'caddy_ca'),
       ],
     );
     expect(
@@ -346,11 +413,19 @@ void main() {
       canConnect(
         graph: graph,
         library: library,
-        fromId: 'c',
+        fromId: 'ca',
         toId: 'd',
         contract: caddyCaContract,
       ),
       isTrue,
+    );
+    expect(
+      isCaddyCaIssuer(specForNode(issuer, library)),
+      isTrue,
+    );
+    expect(
+      isCaddyCaIssuer(specForNode(lms, library)),
+      isFalse,
     );
   });
 
@@ -503,10 +578,20 @@ void main() {
     );
 
     final withOpenAi = owuGraph.copyWith(
+      nodes: [
+        const ComposeNode(
+          id: 'ca',
+          role: 'caddy-ca',
+          serviceId: 'caddy_ca_v1',
+          x: 0,
+          y: 600,
+        ),
+        ...owuGraph.nodes,
+      ],
       edges: const [
         ComposeEdge(
             from: 'llm-a', to: 'owu', contract: openaiCompatibleContract),
-        ComposeEdge(from: 'llm-a', to: 'owu', contract: caddyCaContract),
+        ComposeEdge(from: 'ca', to: 'owu', contract: caddyCaContract),
         ComposeEdge(
             from: 'llm-b', to: 'owu', contract: openaiCompatibleContract),
       ],
@@ -523,5 +608,29 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('hints when a CA issuer is on the canvas but not wired', () {
+    const issuer = ComposeNode(
+      id: 'ca',
+      role: 'caddy-ca',
+      serviceId: 'caddy_ca_v1',
+      x: 0,
+      y: 400,
+    );
+    final unwired = ComposeGraph(
+      intentName: 'lab',
+      nodes: [issuer, n8n],
+    );
+    expect(
+      validateComposeGraph(unwired, library).any((i) => i.code == 'ca_unwired'),
+      isTrue,
+    );
+    final wired = unwired.copyWith(
+      edges: const [
+        ComposeEdge(from: 'ca', to: 'b', contract: 'caddy_ca'),
+      ],
+    );
+    expect(validateComposeGraph(wired, library), isEmpty);
   });
 }

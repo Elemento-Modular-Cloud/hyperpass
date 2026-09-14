@@ -7,6 +7,7 @@ catalog shipped in the app, so it should contain every current service.
 Usage:
     scripts/fetch-marketplace-seed.py
     scripts/fetch-marketplace-seed.py --ref feat-cloudinit-imp
+    scripts/fetch-marketplace-seed.py --local /path/to/elemento-marketplace
 """
 
 from __future__ import annotations
@@ -76,6 +77,57 @@ def decode_text(payload: bytes) -> str | None:
         return None
 
 
+def bundle_from_services_dir(services_dir: Path, commit: str) -> dict:
+    by_service: dict[str, dict[str, str]] = {}
+    if not services_dir.is_dir():
+        raise SystemExit(f"Not a directory: {services_dir}")
+    for service_dir in sorted(p for p in services_dir.iterdir() if p.is_dir()):
+        service_id = service_dir.name
+        for path in service_dir.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.name in EXCLUDED_NAMES:
+                continue
+            relative = path.relative_to(service_dir).as_posix()
+            text = decode_text(path.read_bytes())
+            if text is None:
+                print(f"  skipping non-text file {service_id}/{relative}", file=sys.stderr)
+                continue
+            by_service.setdefault(service_id, {})[relative] = text
+
+    services = [
+        {"id": service_id, "files": by_service[service_id]}
+        for service_id in sorted(by_service)
+        if "service.yaml" in by_service[service_id]
+    ]
+    if not services:
+        raise SystemExit(f"{services_dir} contained no service.yaml files")
+    return {
+        "schema": 1,
+        "source": {"repo": REPO_URL, "commit": commit},
+        "services": services,
+    }
+
+
+def local_commit(repo_dir: Path) -> str:
+    git_dir = repo_dir / ".git"
+    if not git_dir.exists() and repo_dir.name == "services":
+        git_dir = repo_dir.parent / ".git"
+        repo_dir = repo_dir.parent
+    if not (repo_dir / ".git").exists():
+        return "local"
+    import subprocess
+
+    result = subprocess.run(
+        ["git", "-C", str(repo_dir), "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    sha = (result.stdout or "").strip()
+    return sha if result.returncode == 0 and sha else "local"
+
+
 def bundle_from_zipball(payload: bytes, commit: str) -> dict:
     by_service: dict[str, dict[str, str]] = {}
     with zipfile.ZipFile(io.BytesIO(payload)) as archive:
@@ -120,22 +172,32 @@ def bundle_from_zipball(payload: bytes, commit: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ref", default=DEFAULT_REF, help=f"Git ref (default {DEFAULT_REF})")
+    parser.add_argument(
+        "--local",
+        metavar="DIR",
+        help="Build the seed from a local marketplace checkout (repo root or services/)",
+    )
     args = parser.parse_args()
 
-    try:
-        commit = resolve_commit(args.ref)
-        zip_bytes = request_bytes(
-            f"https://api.github.com/repos/{OWNER}/{REPO}/zipball/{args.ref}"
-        )
-    except urllib.error.HTTPError as exc:
-        print(
-            f"GitHub HTTP {exc.code} fetching {OWNER}/{REPO}@{args.ref}. "
-            "Set ELP_MARKETPLACE_TOKEN or GITHUB_TOKEN if the repo is private.",
-            file=sys.stderr,
-        )
-        return 1
-
-    bundle = bundle_from_zipball(zip_bytes, commit)
+    if args.local:
+        root = Path(args.local).expanduser().resolve()
+        services_dir = root / "services" if (root / "services").is_dir() else root
+        commit = local_commit(root)
+        bundle = bundle_from_services_dir(services_dir, commit)
+    else:
+        try:
+            commit = resolve_commit(args.ref)
+            zip_bytes = request_bytes(
+                f"https://api.github.com/repos/{OWNER}/{REPO}/zipball/{args.ref}"
+            )
+        except urllib.error.HTTPError as exc:
+            print(
+                f"GitHub HTTP {exc.code} fetching {OWNER}/{REPO}@{args.ref}. "
+                "Set ELP_MARKETPLACE_TOKEN or GITHUB_TOKEN if the repo is private.",
+                file=sys.stderr,
+            )
+            return 1
+        bundle = bundle_from_zipball(zip_bytes, commit)
     SEED_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(bundle, indent=2, ensure_ascii=False) + "\n"
     SEED_PATH.write_text(payload, encoding="utf-8")

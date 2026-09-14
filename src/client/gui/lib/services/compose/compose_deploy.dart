@@ -1,4 +1,5 @@
 import '../service_library.dart';
+import '../service_spec.dart';
 import '../service_spec_bind.dart';
 import '../service_status.dart';
 import 'compose_graph.dart';
@@ -152,13 +153,17 @@ Future<void> deployComposeGraph({
       }
       if (service == null) continue;
       try {
-        variables.addAll(
-          bindContracts(
-            producers: sources,
-            consumer: specForNode(node, library),
-            contractId: entry.key,
-          ),
+        final bound = bindContracts(
+          producers: sources,
+          consumer: specForNode(node, library),
+          contractId: entry.key,
         );
+        if (entry.key == openaiCompatibleContract &&
+            incomingByContract.containsKey(caddyCaContract)) {
+          bound.remove('ca_url');
+          bound.remove('ca_urls');
+        }
+        variables.addAll(bound);
       } catch (error) {
         phases[node.id] = ComposeDeployNodePhase.failed;
         emit(

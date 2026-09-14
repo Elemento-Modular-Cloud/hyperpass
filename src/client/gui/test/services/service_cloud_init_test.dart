@@ -83,9 +83,12 @@ void main() {
 
   test('discovers parameters with their setting name and docs', () {
     final qdrant = seed.byId('qdrant_v1')!;
-    expect(qdrant.variables.map((v) => v.name), ['api_key']);
+    expect(
+      qdrant.variables.map((v) => v.name),
+      containsAll(['api_key', 'ca_url', 'acme_directory_url']),
+    );
 
-    final apiKey = qdrant.variables.single;
+    final apiKey = qdrant.variables.firstWhere((v) => v.name == 'api_key');
     expect(apiKey.key, 'QDRANT__SERVICE__API_KEY');
     expect(apiKey.label, 'QDRANT__SERVICE__API_KEY');
     expect(apiKey.sources, ['files/qdrant.env']);
@@ -227,13 +230,13 @@ void main() {
 
   test('leaves non-parameter braces alone', () {
     final caddy = fixtureService(
-      id: 'caddy_ca_v1',
+      id: 'demo_v1',
       extraFiles: {
         'files/collect.sh':
-            'echo {{.Service}}\ngrep -v \'{{\'\nCA_PEERS={{ca_peers}}\n',
+            'echo {{.Service}}\ngrep -v \'{{\'\nTOKEN={{token}}\n',
       },
     );
-    expect(caddy.variables.map((v) => v.name), ['ca_peers']);
+    expect(caddy.variables.map((v) => v.name), ['token']);
 
     final rendered = renderServiceCloudInit(
       caddy,

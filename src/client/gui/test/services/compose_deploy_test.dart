@@ -357,7 +357,184 @@ void main() {
       'openai_api_keys': 'key-qwen;key-gemma',
     });
   });
+
+  test('issuer caddy_ca binds ACME and keeps openai from overwriting ca_url',
+      () async {
+    final library = fixtureLibrary([
+      fixtureService(id: 'caddy_ca_v1', extraFiles: {'spec.yaml': _issuerSpec}),
+      fixtureService(id: 'n8n_v3', extraFiles: {'spec.yaml': _n8nCaSpec}),
+      fixtureService(
+          id: 'llmstudio_v1', extraFiles: {'spec.yaml': _lmsOpenAiSpec}),
+    ]);
+    final graph = ComposeGraph(
+      intentName: 'lab',
+      nodes: const [
+        ComposeNode(
+          id: 'ca',
+          role: 'caddy-ca',
+          serviceId: 'caddy_ca_v1',
+          x: 0,
+          y: 0,
+        ),
+        ComposeNode(
+          id: 'lms',
+          role: 'llmstudio',
+          serviceId: 'llmstudio_v1',
+          x: 0,
+          y: 80,
+        ),
+        ComposeNode(
+          id: 'n8n',
+          role: 'n8n',
+          serviceId: 'n8n_v3',
+          x: 200,
+          y: 0,
+        ),
+      ],
+      edges: const [
+        ComposeEdge(from: 'ca', to: 'n8n', contract: 'caddy_ca'),
+        ComposeEdge(from: 'lms', to: 'n8n', contract: 'openai_compatible'),
+      ],
+    );
+
+    Map<String, String>? n8nVariables;
+    final host = ComposeDeployHost(
+      intentExists: (_) => true,
+      createIntent: (_) async {},
+      existingRoles: (_) => {},
+      addMember: ({
+        required intentName,
+        required node,
+        required service,
+        required variables,
+      }) async {
+        if (node.role == 'n8n') n8nVariables = Map.of(variables);
+      },
+      waitForReady: ({
+        required node,
+        required instanceName,
+        required service,
+      }) async {
+        if (node.serviceId == 'caddy_ca_v1') {
+          return ServiceInfoDocument.parse('''
+{
+  "api_version": "elemento.service_info/v1",
+  "service": "caddy_ca_v1",
+  "status": "ready",
+  "endpoints": {
+    "ca": "http://10.0.0.9/ca.crt",
+    "acme": "http://10.0.0.9/acme/elemento/directory"
+  }
 }
+''');
+        }
+        if (node.serviceId == 'llmstudio_v1') {
+          return ServiceInfoDocument.parse('''
+{
+  "api_version": "elemento.service_info/v1",
+  "service": "llmstudio_v1",
+  "status": "ready",
+  "endpoints": {
+    "api": "https://lms.example/v1",
+    "ca": "http://lms.example/ca.crt"
+  },
+  "credentials": {"tokens": ["lms-token"]}
+}
+''');
+        }
+        return ServiceInfoDocument.parse('''
+{
+  "api_version": "elemento.service_info/v1",
+  "service": "n8n_v3",
+  "status": "ready",
+  "endpoints": {},
+  "credentials": {}
+}
+''');
+      },
+      bindInstance: (_, __) {},
+    );
+
+    await deployComposeGraph(
+      graph: graph,
+      library: library,
+      host: host,
+      onProgress: (_) {},
+    );
+
+    expect(n8nVariables, {
+      'ca_url': 'http://10.0.0.9/ca.crt',
+      'acme_directory_url': 'http://10.0.0.9/acme/elemento/directory',
+      'model_url': 'https://lms.example/v1',
+      'model_api_key': 'lms-token',
+    });
+  });
+}
+
+const _issuerSpec = '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: caddy_ca_v1
+inputs: {}
+outputs: {}
+provides:
+  caddy_ca:
+    outputs:
+      ca_url: /endpoints/ca
+      acme_directory_url: /endpoints/acme
+requires: {}
+''';
+
+const _n8nCaSpec = '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: n8n_v3
+inputs:
+  model_url:
+    type: url
+    required: false
+  model_api_key:
+    type: secret
+    required: false
+  ca_url:
+    type: ca_url
+    required: false
+  acme_directory_url:
+    type: url
+    required: false
+outputs: {}
+provides: {}
+requires:
+  openai_compatible:
+    optional: true
+    inputs:
+      base_url: model_url
+      api_key: model_api_key
+      ca_url: ca_url
+  caddy_ca:
+    optional: true
+    inputs:
+      ca_url: ca_url
+      acme_directory_url: acme_directory_url
+''';
+
+const _lmsOpenAiSpec = '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: llmstudio_v1
+inputs: {}
+outputs: {}
+provides:
+  openai_compatible:
+    outputs:
+      base_url: /endpoints/api
+      api_key: /credentials/tokens/0
+      ca_url: /endpoints/ca
+requires: {}
+''';
 
 const _owuCollectSpec = '''
 api_version: elemento.spec/v1

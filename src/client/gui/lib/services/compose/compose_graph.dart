@@ -298,6 +298,12 @@ String composePinLabel(String contract) {
   };
 }
 
+/// Dedicated issuer (`caddy_ca_v1`): provides the contract and does not consume it.
+bool isCaddyCaIssuer(ServiceSpec spec) {
+  return spec.provides.containsKey(caddyCaContract) &&
+      !spec.requires.containsKey(caddyCaContract);
+}
+
 /// Output pins may connect to many inputs. These contracts are the common
 /// one-to-many cases (LM Studio API, Caddy CA bundle, local LLMs).
 bool composeOutputFansOut(String contract) {
@@ -484,6 +490,27 @@ List<ComposeIssue> validateComposeGraph(
     }
   }
 
+  final issuers = [
+    for (final node in graph.nodes)
+      if (isCaddyCaIssuer(specForNode(node, library))) node,
+  ];
+  if (issuers.isNotEmpty) {
+    for (final node in graph.nodes) {
+      final spec = specForNode(node, library);
+      if (!spec.requires.containsKey(caddyCaContract)) continue;
+      final wired = graph.edges.any(
+        (edge) => edge.to == node.id && edge.contract == caddyCaContract,
+      );
+      if (wired) continue;
+      issues.add(ComposeIssue(
+        message: '${node.role} should take Caddy CA from ${issuers.first.role} '
+            '(launch the CA VM first)',
+        nodeId: node.id,
+        code: 'ca_unwired',
+      ));
+    }
+  }
+
   return issues;
 }
 
@@ -545,21 +572,30 @@ bool canConnect({
   return true;
 }
 
-/// Extra `caddy_ca` edge to offer when wiring an HTTPS peer contract.
+/// Extra `caddy_ca` edge when wiring an HTTPS peer, from the canvas issuer.
 ComposeEdge? companionCaddyCaEdge({
   required ComposeGraph graph,
   required MarketplaceLibrary library,
   required ComposeEdge edge,
 }) {
   if (edge.contract == caddyCaContract) return null;
-  if (!canConnect(
-    graph: graph,
-    library: library,
-    fromId: edge.from,
-    toId: edge.to,
-    contract: caddyCaContract,
-  )) {
-    return null;
+  for (final node in graph.nodes) {
+    if (node.id == edge.to) continue;
+    if (!isCaddyCaIssuer(specForNode(node, library))) continue;
+    if (!canConnect(
+      graph: graph,
+      library: library,
+      fromId: node.id,
+      toId: edge.to,
+      contract: caddyCaContract,
+    )) {
+      continue;
+    }
+    return ComposeEdge(
+      from: node.id,
+      to: edge.to,
+      contract: caddyCaContract,
+    );
   }
-  return ComposeEdge(from: edge.from, to: edge.to, contract: caddyCaContract);
+  return null;
 }
