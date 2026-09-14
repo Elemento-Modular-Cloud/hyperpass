@@ -7,6 +7,7 @@ import '../../layout/compact_layout.dart';
 import '../../page_surface.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
+import '../../vm_table/group_by_intent.dart';
 import '../../vm_table/search_box.dart';
 import '../../vm_table/table.dart' as vmtable;
 import '../../widgets/launchpad_button.dart';
@@ -87,7 +88,7 @@ class LlmInstancesScreen extends ConsumerWidget {
   }
 }
 
-class _LlmInstancesBody extends StatelessWidget {
+class _LlmInstancesBody extends ConsumerWidget {
   const _LlmInstancesBody({
     required this.live,
     required this.starting,
@@ -101,7 +102,7 @@ class _LlmInstancesBody extends StatelessWidget {
   final BuiltSet<String> selected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     if (live.isEmpty && starting.isEmpty) {
       return const NoLlmInstances();
@@ -118,12 +119,14 @@ class _LlmInstancesBody extends StatelessWidget {
           m.backend.toLowerCase().contains(q) ||
           m.intent.toLowerCase().contains(q);
     }).toList(growable: false);
+    final groupByIntent = ref.watch(groupByIntentProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
+            const GroupByIntentSwitch(),
             const Spacer(),
             SearchBox(
               key: const ValueKey('llm-search'),
@@ -137,19 +140,55 @@ class _LlmInstancesBody extends StatelessWidget {
         Flexible(
           child: Padding(
             padding: const EdgeInsets.all(8),
-            child: vmtable.Table<LoadedModelInfo>(
-              key: const ValueKey('llm-instances-table'),
-              headers: llmInstanceHeaders,
-              data: models,
-              finalRow: List.generate(
-                llmInstanceHeaders.length,
-                (_) => const SizedBox.shrink(),
-              ),
-              isSelected: (m) => selected.contains(m.instanceId),
-            ),
+            child: groupByIntent
+                ? GroupedByIntentTables<LoadedModelInfo>(
+                    data: models,
+                    headers: llmInstanceHeaders,
+                    intentOf: (m) => m.intent,
+                    isSelected: (m) => selected.contains(m.instanceId),
+                    groupSelectAll: (group) => _GroupSelectAllLlmCheckbox(
+                      ids: group
+                          .where((m) => !isPendingLlmLoad(m))
+                          .map((m) => m.instanceId)
+                          .toList(),
+                    ),
+                  )
+                : vmtable.Table<LoadedModelInfo>(
+                    key: const ValueKey('llm-instances-table'),
+                    headers: llmInstanceHeaders,
+                    data: models,
+                    finalRow: List.generate(
+                      llmInstanceHeaders.length,
+                      (_) => const SizedBox.shrink(),
+                    ),
+                    isSelected: (m) => selected.contains(m.instanceId),
+                  ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _GroupSelectAllLlmCheckbox extends ConsumerWidget {
+  const _GroupSelectAllLlmCheckbox({required this.ids});
+
+  final List<String> ids;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedLlmInstancesProvider);
+    final selectedCount = ids.where(selected.contains).length;
+    final allSelected = ids.isNotEmpty && selectedCount == ids.length;
+
+    return Center(
+      child: Checkbox(
+        tristate: true,
+        value: selectedCount == 0 ? false : (allSelected ? true : null),
+        onChanged: (checked) => ref
+            .read(selectedLlmInstancesProvider.notifier)
+            .toggleAll(ids, checked ?? false),
+      ),
     );
   }
 }

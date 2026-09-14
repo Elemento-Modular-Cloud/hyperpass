@@ -18,11 +18,19 @@ import '../services/service_status.dart';
 import '../services/services_screen.dart';
 import '../sidebar.dart';
 import '../vm_details/cpu_sparkline.dart';
+import '../vm_table/group_by_intent.dart';
 import '../vm_table/vm_table_headers.dart';
 import '../widgets/launchpad_button.dart';
 import '../widgets/resource_meter.dart';
 
 enum OverviewRunningTab { all, vms, llms, services }
+
+class _RunningTile {
+  const _RunningTile({required this.intent, required this.child});
+
+  final String intent;
+  final Widget child;
+}
 
 class OverviewRunningGrid extends ConsumerStatefulWidget {
   const OverviewRunningGrid({super.key});
@@ -60,6 +68,7 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
     final hasAny = (showVms && runningVms.isNotEmpty) ||
         (showLlms && llmModels.isNotEmpty) ||
         (showServices && runningServices.isNotEmpty);
+    final groupByIntent = ref.watch(groupByIntentProvider);
 
     return CatalogueSurface(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
@@ -76,26 +85,37 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
             ),
           ),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final tab in OverviewRunningTab.values) ...[
-                  if (tab != OverviewRunningTab.all) const SizedBox(width: 4),
-                  _TabChip(
-                    label: switch (tab) {
-                      OverviewRunningTab.all => l10n.overviewRunningTabAll,
-                      OverviewRunningTab.vms => l10n.overviewRunningTabVms,
-                      OverviewRunningTab.llms => l10n.overviewRunningTabLlms,
-                      OverviewRunningTab.services =>
-                        l10n.overviewRunningTabServices,
-                    },
-                    selected: _tab == tab,
-                    onTap: () => setState(() => _tab = tab),
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final tab in OverviewRunningTab.values) ...[
+                        if (tab != OverviewRunningTab.all)
+                          const SizedBox(width: 4),
+                        _TabChip(
+                          label: switch (tab) {
+                            OverviewRunningTab.all =>
+                              l10n.overviewRunningTabAll,
+                            OverviewRunningTab.vms =>
+                              l10n.overviewRunningTabVms,
+                            OverviewRunningTab.llms =>
+                              l10n.overviewRunningTabLlms,
+                            OverviewRunningTab.services =>
+                              l10n.overviewRunningTabServices,
+                          },
+                          selected: _tab == tab,
+                          onTap: () => setState(() => _tab = tab),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+              const GroupByIntentSwitch(),
+            ],
           ),
           const SizedBox(height: 18),
           if (!hasAny)
@@ -111,33 +131,60 @@ class _OverviewRunningGridState extends ConsumerState<OverviewRunningGrid> {
                   ((constraints.maxWidth + spacing) / (minWidth + spacing))
                       .floor(),
                 );
-                final tiles = <Widget>[
+                final tiles = <_RunningTile>[
                   if (showVms)
-                    for (final vm in runningVms) _VmCard(vm: vm),
+                    for (final vm in runningVms)
+                      _RunningTile(
+                        intent: vm.info.intent,
+                        child: _VmCard(vm: vm),
+                      ),
                   if (showLlms)
-                    for (final model in llmModels) _LlmCard(model: model),
+                    for (final model in llmModels)
+                      _RunningTile(
+                        intent: model.intent,
+                        child: _LlmCard(model: model),
+                      ),
                   if (showServices)
                     for (final service in runningServices)
-                      _ServiceCard(
-                        service: service,
-                        displayName: library
-                                ?.lookup(service.info.serviceId)
-                                ?.displayName ??
-                            service.info.serviceId,
+                      _RunningTile(
+                        intent: service.info.intent,
+                        child: _ServiceCard(
+                          service: service,
+                          displayName: library
+                                  ?.lookup(service.info.serviceId)
+                                  ?.displayName ??
+                              service.info.serviceId,
+                        ),
                       ),
                 ];
 
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: tiles.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: spacing,
-                    mainAxisSpacing: spacing,
-                    mainAxisExtent: tileHeight,
-                  ),
-                  itemBuilder: (context, index) => tiles[index],
+                Widget gridFor(List<_RunningTile> items) {
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: items.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      crossAxisSpacing: spacing,
+                      mainAxisSpacing: spacing,
+                      mainAxisExtent: tileHeight,
+                    ),
+                    itemBuilder: (context, index) => items[index].child,
+                  );
+                }
+
+                if (!groupByIntent) return gridFor(tiles);
+
+                final groups = groupItemsByIntent(tiles, (t) => t.intent);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final key in sortedIntentGroupKeys(groups.keys)) ...[
+                      IntentGroupHeading(key),
+                      gridFor(groups[key]!),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
                 );
               },
             ),

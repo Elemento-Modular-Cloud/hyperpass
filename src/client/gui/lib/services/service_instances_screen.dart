@@ -6,6 +6,7 @@ import '../layout/compact_layout.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../sidebar.dart';
+import '../vm_table/group_by_intent.dart';
 import '../vm_table/search_box.dart';
 import '../vm_table/table.dart' as vmtable;
 import '../llm/host_resource_gauges.dart';
@@ -28,12 +29,14 @@ class ServiceInstancesScreen extends ConsumerWidget {
     final search = ref.watch(serviceSearchProvider);
     final selected = ref.watch(selectedServiceInstancesProvider);
     final allInstances = ref.watch(serviceInstanceInfosProvider);
+    final groupByIntent = ref.watch(groupByIntentProvider);
     final instances = allInstances
         .where((i) {
           if (search.isEmpty) return true;
           final q = search.toLowerCase();
           return i.name.toLowerCase().contains(q) ||
-              i.info.serviceId.toLowerCase().contains(q);
+              i.info.serviceId.toLowerCase().contains(q) ||
+              i.info.intent.toLowerCase().contains(q);
         })
         .toList(growable: false);
 
@@ -63,6 +66,7 @@ class ServiceInstancesScreen extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
+                            const GroupByIntentSwitch(),
                             const Spacer(),
                             SearchBox(
                               key: const ValueKey('service-search'),
@@ -76,18 +80,31 @@ class ServiceInstancesScreen extends ConsumerWidget {
                         Flexible(
                           child: Padding(
                             padding: const EdgeInsets.all(8),
-                            child: vmtable.Table<TaggedVmInfo>(
-                              key: ValueKey(
-                                instances.map((i) => i.name).join(','),
-                              ),
-                              headers: serviceInstanceHeaders,
-                              data: instances,
-                              finalRow: List.generate(
-                                serviceInstanceHeaders.length,
-                                (_) => const SizedBox.shrink(),
-                              ),
-                              isSelected: (info) => selected.contains(info.id),
-                            ),
+                            child: groupByIntent
+                                ? GroupedByIntentTables<TaggedVmInfo>(
+                                    data: instances,
+                                    headers: serviceInstanceHeaders,
+                                    intentOf: (info) => info.info.intent,
+                                    isSelected: (info) =>
+                                        selected.contains(info.id),
+                                    groupSelectAll: (group) =>
+                                        _GroupSelectAllServiceCheckbox(
+                                      ids: group.map((info) => info.id).toList(),
+                                    ),
+                                  )
+                                : vmtable.Table<TaggedVmInfo>(
+                                    key: ValueKey(
+                                      instances.map((i) => i.name).join(','),
+                                    ),
+                                    headers: serviceInstanceHeaders,
+                                    data: instances,
+                                    finalRow: List.generate(
+                                      serviceInstanceHeaders.length,
+                                      (_) => const SizedBox.shrink(),
+                                    ),
+                                    isSelected: (info) =>
+                                        selected.contains(info.id),
+                                  ),
                           ),
                         ),
                       ],
@@ -95,6 +112,29 @@ class ServiceInstancesScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GroupSelectAllServiceCheckbox extends ConsumerWidget {
+  const _GroupSelectAllServiceCheckbox({required this.ids});
+
+  final List<VmId> ids;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedServiceInstancesProvider);
+    final selectedCount = ids.where(selected.contains).length;
+    final allSelected = ids.isNotEmpty && selectedCount == ids.length;
+
+    return Center(
+      child: Checkbox(
+        tristate: true,
+        value: selectedCount == 0 ? false : (allSelected ? true : null),
+        onChanged: (checked) => ref
+            .read(selectedServiceInstancesProvider.notifier)
+            .toggleAll(ids, checked ?? false),
       ),
     );
   }

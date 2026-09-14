@@ -101,7 +101,8 @@ class SelectAllServiceCheckbox extends ConsumerWidget {
           if (search.isEmpty) return true;
           final q = search.toLowerCase();
           return i.name.toLowerCase().contains(q) ||
-              i.info.serviceId.toLowerCase().contains(q);
+              i.info.serviceId.toLowerCase().contains(q) ||
+              i.info.intent.toLowerCase().contains(q);
         })
         .map((i) => i.id)
         .toList();

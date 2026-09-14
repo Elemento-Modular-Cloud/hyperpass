@@ -17,6 +17,7 @@ import '../vm_details/memory_usage.dart';
 import '../widgets/launchpad_button.dart';
 import '../widgets/running_list_header.dart';
 import 'bulk_actions.dart';
+import 'group_by_intent.dart';
 import 'header_selection.dart';
 import 'search_box.dart';
 import 'table.dart';
@@ -35,19 +36,6 @@ class RunningOnlyNotifier extends Notifier<bool> {
 
 final runningOnlyProvider = NotifierProvider<RunningOnlyNotifier, bool>(
   RunningOnlyNotifier.new,
-);
-
-class GroupByIntentNotifier extends Notifier<bool> {
-  @override
-  bool build() => false;
-
-  void set(bool value) {
-    state = value;
-  }
-}
-
-final groupByIntentProvider = NotifierProvider<GroupByIntentNotifier, bool>(
-  GroupByIntentNotifier.new,
 );
 
 class SelectedIntentNotifier extends Notifier<String?> {
@@ -149,11 +137,7 @@ class Vms extends ConsumerWidget {
           onChanged: (v) => ref.read(runningOnlyProvider.notifier).set(v),
         ),
         const SizedBox(width: 16),
-        Switch(
-          label: 'Group by intent',
-          value: groupByIntent,
-          onChanged: (v) => ref.read(groupByIntentProvider.notifier).set(v),
-        ),
+        const GroupByIntentSwitch(),
         const Spacer(),
         intentFilter,
         const SearchBox(),
@@ -223,10 +207,14 @@ class Vms extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(8),
             child: groupByIntent
-                ? _GroupedByIntentTables(
-                    infos: infos,
+                ? GroupedByIntentTables<TaggedVmInfo>(
+                    data: infos,
                     headers: enabledHeaders,
+                    intentOf: (info) => info.info.intent,
                     isSelected: (info) => selectedVms.contains(info.id),
+                    groupSelectAll: (group) => _GroupSelectAllCheckbox(
+                      ids: group.map((info) => info.id).toList(),
+                    ),
                   )
                 : Table<TaggedVmInfo>(
                     headers: enabledHeaders,
@@ -236,82 +224,6 @@ class Vms extends ConsumerWidget {
                   ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-/// One [Table] per intent (plus one for untagged instances), stacked in a
-/// scrollable column. Each table is given an explicit height sized to its
-/// row count, since [Table] (a 2D scrollable) needs a bounded height and
-/// can't just be dropped into an unbounded-height [ListView] like a normal
-/// widget.
-class _GroupedByIntentTables extends StatelessWidget {
-  const _GroupedByIntentTables({
-    required this.infos,
-    required this.headers,
-    required this.isSelected,
-  });
-
-  final List<TaggedVmInfo> infos;
-  final List<TableHeader<TaggedVmInfo>> headers;
-  final bool Function(TaggedVmInfo) isSelected;
-
-  static const _headerRowHeight = 56.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final groups = <String, List<TaggedVmInfo>>{};
-    for (final info in infos) {
-      groups.putIfAbsent(info.info.intent, () => []).add(info);
-    }
-    final sortedKeys = groups.keys.toList()
-      ..sort((a, b) {
-        if (a.isEmpty || b.isEmpty) return a.isEmpty ? 1 : -1;
-        return a.compareTo(b);
-      });
-
-    if (sortedKeys.isEmpty) return const SizedBox.shrink();
-
-    return ListView(
-      children: [
-        for (final key in sortedKeys) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              key.isEmpty ? 'No intent' : key,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-          ),
-          SizedBox(
-            height: _headerRowHeight + groups[key]!.length * 50,
-            child: Table<TaggedVmInfo>(
-              // "Select all" in the checkbox column must only select this
-              // group's own rows, not every instance across every intent —
-              // substitute a group-scoped checkbox for the shared header
-              // (whose default childBuilder selects across all instances).
-              headers: [
-                for (final h in headers)
-                  if (h.name == 'checkbox')
-                    TableHeader<TaggedVmInfo>(
-                      name: h.name,
-                      childBuilder: (_) => _GroupSelectAllCheckbox(
-                        ids: groups[key]!.map((info) => info.id).toList(),
-                      ),
-                      width: h.width,
-                      minWidth: h.minWidth,
-                      cellBuilder: h.cellBuilder,
-                    )
-                  else
-                    h,
-              ],
-              data: groups[key]!,
-              finalRow: const [],
-              isSelected: isSelected,
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
       ],
     );
   }

@@ -23,6 +23,12 @@ class SelectedServiceInstancesNotifier extends Notifier<BuiltSet<VmId>> {
       isSelected ? set.add(id) : set.remove(id);
     });
   }
+
+  void toggleAll(Iterable<VmId> ids, bool isSelected) {
+    state = state.rebuild((set) {
+      isSelected ? set.addAll(ids) : set.removeAll(ids);
+    });
+  }
 }
 
 final selectedServiceInstancesProvider =
