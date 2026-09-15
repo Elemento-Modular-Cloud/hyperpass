@@ -12,6 +12,7 @@ class FeatureAccess {
   const FeatureAccess({
     required this.signedIn,
     required this.guest,
+    this.canCombineAccelerators = false,
   });
 
   final bool signedIn;
@@ -23,6 +24,12 @@ class FeatureAccess {
   bool get canUseLlms => hasFullProductAccess;
   bool get canUseServices => hasFullProductAccess;
   bool get ubuntuImagesOnly => !hasFullProductAccess;
+
+  /// Treat several accelerators (CPU + GPU + MPU) as one LLM runner.
+  ///
+  /// Off for every account today so the Runner page can present the paywall
+  /// surface. Later: a purchased license tier on a signed-in account.
+  final bool canCombineAccelerators;
 }
 
 final featureAccessProvider = Provider<FeatureAccess>((ref) {

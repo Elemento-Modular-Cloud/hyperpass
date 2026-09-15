@@ -67,3 +67,36 @@ void promptFeatureLocked(BuildContext context, WidgetRef ref) {
     ),
   );
 }
+
+/// Combining CPU/GPU/MPU into one runner is a future licensed tier.
+void promptCombineAcceleratorsLocked(BuildContext context) {
+  final l10n = AppLocalizations.of(context)!;
+  final messenger = ScaffoldMessenger.of(context);
+  final onSurface = Theme.of(context).colorScheme.onSurface;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(
+    SnackBar(
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      elevation: 0,
+      backgroundColor:
+          (isDark ? Brand.voidBlack : Brand.white).withValues(alpha: 0.92),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Brand.radius),
+        side: BorderSide(
+          color: onSurface.withValues(alpha: isDark ? 0.18 : 0.12),
+        ),
+      ),
+      content: Text(
+        l10n.llmRunnerCombineLocked,
+        style: TextStyle(
+          fontFamily: Brand.fontFamily,
+          fontSize: 14,
+          color: onSurface,
+        ),
+      ),
+    ),
+  );
+}

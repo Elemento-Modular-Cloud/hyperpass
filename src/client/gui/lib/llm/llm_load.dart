@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Switch;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,8 @@ import 'llm_features.dart';
 import 'llm_load_form.dart';
 import 'llm_load_prefs.dart';
 import 'providers.dart';
+import 'runner/llm_accelerator.dart';
+import 'runner/llm_runner_providers.dart';
 
 const _inferenceBackendIds = {
   'llamacpp',
@@ -69,14 +72,26 @@ Future<void> loadLlmModel(
 
   if (!context.mounted) return;
   final prefs = ref.read(sharedPreferencesProvider);
+  final saved = readLlmLoadPrefs(prefs, modelId);
   final form = await promptLlmLoadSettings(
     context,
     l10n,
     readyRuntimes: ready.map((b) => (id: b.id, name: b.name)).toList(),
-    initial: LlmLoadForm.fromJson(
-      readLlmLoadPrefs(prefs, modelId),
-      suggestedCtx: suggestedCtx,
-    ),
+    initial: () {
+      final seeded = LlmLoadForm.fromJson(saved, suggestedCtx: suggestedCtx);
+      if (saved == null || saved['gpu_offload'] == null) {
+        final snapshot = probeLlmRunner(
+          info: ref.read(daemonInfoProvider).asData?.value,
+          backends: backends,
+          platform: defaultTargetPlatform,
+        );
+        seeded.gpuOffload = gpuOffloadForRunner(
+          selectedIds: ref.read(llmRunnerSelectedIdsProvider),
+          accelerators: snapshot.accelerators,
+        );
+      }
+      return seeded;
+    }(),
   );
   if (form == null) return;
 

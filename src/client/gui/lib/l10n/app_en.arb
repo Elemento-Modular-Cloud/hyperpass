@@ -237,6 +237,104 @@
     "@llmSetupLlamacppBlurb": {
         "description": "Short description on the llama.cpp installer card"
     },
+    "sidebarRunnerLabel": "Runner",
+    "@sidebarRunnerLabel": {
+        "description": "Sidebar label for the LLM inference runner and accelerators"
+    },
+    "llmRunnerLabel": "Runner",
+    "@llmRunnerLabel": {
+        "description": "Title of the LLM runner accelerators page"
+    },
+    "llmRunnerSubtitle": "Accelerators this host can use for local inference. Combining more than one into a single runner is a licensed feature.",
+    "@llmRunnerSubtitle": {
+        "description": "Subtitle on the LLM runner page"
+    },
+    "llmRunnerBackendTitle": "Inference backend",
+    "@llmRunnerBackendTitle": {
+        "description": "Heading above llama.cpp / MLX status on the runner page"
+    },
+    "llmRunnerBackendReady": "Ready",
+    "@llmRunnerBackendReady": {
+        "description": "Status pill when llama-server is installed"
+    },
+    "llmRunnerBackendMissing": "Not installed",
+    "@llmRunnerBackendMissing": {
+        "description": "Status pill when the inference backend is missing"
+    },
+    "llmRunnerAcceleratorsTitle": "Accelerators",
+    "@llmRunnerAcceleratorsTitle": {
+        "description": "Section heading above CPU / GPU / MPU cards"
+    },
+    "llmRunnerKindCpu": "CPU",
+    "@llmRunnerKindCpu": {
+        "description": "Accelerator kind badge for the host processor"
+    },
+    "llmRunnerKindGpu": "GPU",
+    "@llmRunnerKindGpu": {
+        "description": "Accelerator kind badge for a graphics processor"
+    },
+    "llmRunnerKindMpu": "MPU",
+    "@llmRunnerKindMpu": {
+        "description": "Accelerator kind badge for a neural / media processing unit"
+    },
+    "llmRunnerStatusAvailable": "Available",
+    "@llmRunnerStatusAvailable": {
+        "description": "Accelerator is detected and can be selected"
+    },
+    "llmRunnerStatusUnavailable": "Not detected",
+    "@llmRunnerStatusUnavailable": {
+        "description": "Accelerator is not present on this host"
+    },
+    "llmRunnerStatusSelected": "In runner",
+    "@llmRunnerStatusSelected": {
+        "description": "This accelerator is feeding the inference runner"
+    },
+    "llmRunnerStatusNotUsable": "Not used yet",
+    "@llmRunnerStatusNotUsable": {
+        "description": "Accelerator is present but the current runner cannot dispatch to it"
+    },
+    "llmRunnerCombineTitle": "Combine as one runner",
+    "@llmRunnerCombineTitle": {
+        "description": "Heading for using several accelerators as a single llama.cpp process"
+    },
+    "llmRunnerCombineBody": "Treat CPU, GPU, and MPU as one inference device. This is the licensed multi-accelerator path.",
+    "@llmRunnerCombineBody": {
+        "description": "Explains the paywalled combine-accelerators action"
+    },
+    "llmRunnerCombineAction": "Use together",
+    "@llmRunnerCombineAction": {
+        "description": "Button that selects every usable accelerator when combining is licensed"
+    },
+    "llmRunnerLicenseBadge": "Requires license",
+    "@llmRunnerLicenseBadge": {
+        "description": "Locked combine action while multi-accelerator inference is unlicensed"
+    },
+    "llmRunnerCombineLocked": "Combining multiple accelerators into one runner requires a license.",
+    "@llmRunnerCombineLocked": {
+        "description": "Snackbar when the user tries to combine accelerators without a license"
+    },
+    "llmRunnerCompositionSingle": "Runner uses {name}.",
+    "@llmRunnerCompositionSingle": {
+        "description": "Composition line when a single accelerator is selected",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
+    },
+    "llmRunnerCompositionCombined": "Using {names} as one runner.",
+    "@llmRunnerCompositionCombined": {
+        "description": "Composition line when several accelerators are combined",
+        "placeholders": {
+            "names": {
+                "type": "String"
+            }
+        }
+    },
+    "llmRunnerCompositionLocked": "Select one accelerator. Combining them as one runner requires a license.",
+    "@llmRunnerCompositionLocked": {
+        "description": "Fallback composition line when nothing is selected"
+    },
     "sidebarRuntimeLabel": "Running models",
     "@sidebarRuntimeLabel": {
         "description": "Sidebar label for loaded LLM inference instances"

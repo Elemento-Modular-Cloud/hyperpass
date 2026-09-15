@@ -32,6 +32,7 @@ import 'llm/instances/llm_downloaded_screen.dart';
 import 'llm/instances/llm_instances_screen.dart';
 import 'llm/llm_id.dart';
 import 'llm/providers.dart';
+import 'llm/runner/llm_runner_screen.dart';
 import 'llm/setup/llm_setup_screen.dart';
 import 'multipass_auth_banner.dart';
 import 'notifications.dart';
@@ -267,6 +268,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
         LlmDownloadedScreen.sidebarKey: const LlmDownloadedScreen(),
         LlmCredentialsScreen.sidebarKey: const LlmCredentialsScreen(),
         LlmSetupScreen.sidebarKey: const LlmSetupScreen(),
+        LlmRunnerScreen.sidebarKey: const LlmRunnerScreen(),
       },
       if (access.canUseServices) ...{
         ServicesScreen.sidebarKey: const ServicesScreen(),

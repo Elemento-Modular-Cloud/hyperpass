@@ -31,6 +31,7 @@ import 'llm/instances/llm_downloaded_screen.dart';
 import 'llm/instances/llm_instances_screen.dart';
 import 'llm/llm_id.dart';
 import 'llm/providers.dart';
+import 'llm/runner/llm_runner_screen.dart';
 import 'llm/setup/llm_setup_screen.dart';
 import 'multipass_auth_banner.dart';
 import 'overview/overview_screen.dart';
@@ -368,6 +369,15 @@ class SideBar extends ConsumerWidget {
           openOrPromptLocked(access.canUseLlms, LlmInstancesScreen.sidebarKey),
     );
 
+    final llmRunner = SidebarEntry(
+      icon: FontAwesomeIcons.bolt,
+      selected: isSelected(LlmRunnerScreen.sidebarKey),
+      label: l10n.sidebarRunnerLabel,
+      locked: !access.canUseLlms,
+      onPressed: () =>
+          openOrPromptLocked(access.canUseLlms, LlmRunnerScreen.sidebarKey),
+    );
+
     final activeDownloads =
         ref.watch(downloadManagerProvider).where((j) => j.isActive).length;
 
@@ -603,6 +613,7 @@ class SideBar extends ConsumerWidget {
         llmCatalogue,
         llmDownloaded,
         llmInstances,
+        llmRunner,
         llmCredentials,
         SidebarSectionHeader(
           l10n.sidebarSectionServices,

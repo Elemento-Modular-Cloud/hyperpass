@@ -54,6 +54,7 @@ void main() {
     expect(access.hasFullProductAccess, isFalse);
     expect(access.canUseLlms, isFalse);
     expect(access.canUseServices, isFalse);
+    expect(access.canCombineAccelerators, isFalse);
     expect(access.ubuntuImagesOnly, isTrue);
   });
 
@@ -72,6 +73,7 @@ void main() {
     expect(access.hasFullProductAccess, isTrue);
     expect(access.canUseLlms, isTrue);
     expect(access.canUseServices, isTrue);
+    expect(access.canCombineAccelerators, isFalse);
     expect(access.ubuntuImagesOnly, isFalse);
   });
 }
