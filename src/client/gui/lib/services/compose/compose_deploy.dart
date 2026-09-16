@@ -97,7 +97,7 @@ Future<void> deployComposeGraph({
     ));
   }
 
-  emit(message: 'Creating intent $intentName');
+  emit(message: 'Creating composition $intentName');
   if (!host.intentExists(intentName)) {
     await host.createIntent(intentName);
   }
@@ -214,5 +214,5 @@ Future<void> deployComposeGraph({
     }
   }
 
-  emit(message: 'Intent $intentName is ready', running: false, finished: true);
+  emit(message: 'Composition $intentName is ready', running: false, finished: true);
 }

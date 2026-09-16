@@ -281,7 +281,10 @@ class MarketplaceService {
   /// otherwise untyped inputs recovered from `{{placeholders}}`.
   ServiceSpec get composeSpec {
     final parsed = spec;
-    if (parsed != null && (parsed.hasContracts || parsed.inputs.isNotEmpty)) {
+    if (parsed != null &&
+        (parsed.hasContracts ||
+            parsed.inputs.isNotEmpty ||
+            parsed.hasHttpOutputs)) {
       return parsed;
     }
     return ServiceSpec.fromInputNames(id, {

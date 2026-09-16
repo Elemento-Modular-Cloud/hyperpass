@@ -64,7 +64,7 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
   ),
   TableHeader(
     name: 'INTENT',
-    childBuilder: (_) => TableHeader.defaultHeaderBuilder('Intent'),
+    childBuilder: (_) => TableHeader.defaultHeaderBuilder('Composition'),
     width: 140,
     minWidth: 100,
     sortKey: (m) => m.intent,

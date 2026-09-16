@@ -501,7 +501,98 @@ void main() {
     );
     expect(composeOutputFansOut(openaiCompatibleContract), isTrue);
     expect(composeOutputFansOut(caddyCaContract), isTrue);
+    expect(composeOutputFansOut('qdrant'), isTrue);
+    expect(composeOutputFansOut('n8n_sandbox'), isTrue);
     expect(composePinLabel(openaiCompatibleContract), 'OpenAI');
+  });
+
+  test('inspector skips generated secrets', () {
+    final spec = ServiceSpec.tryParse(
+      '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: n8n_runner_v1
+inputs:
+  sandbox_api_key:
+    type: secret
+    generated: true
+  sandbox_name:
+    type: string
+outputs: {}
+provides: {}
+requires: {}
+''',
+      serviceId: 'n8n_runner_v1',
+    )!;
+    expect(
+      composeManualInputs(spec).map((input) => input.name),
+      ['sandbox_name'],
+    );
+  });
+
+  test('required mark is an asterisk on mandatory labels', () {
+    expect(composeRequiredLabel('Role', required: true), 'Role *');
+    expect(composeRequiredLabel('token', required: false), 'token');
+  });
+
+  test('contract and group rules decide which inputs are mandatory', () {
+    final spec = ServiceSpec.tryParse(
+      '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: n8n_v3
+inputs:
+  model_url:
+    type: url
+  model_api_key:
+    type: secret
+  token:
+    type: secret
+    required: true
+groups:
+  instance_ai_model:
+    when: model_url
+    require: [model_api_key]
+requires:
+  qdrant:
+    optional: false
+    inputs:
+      url: qdrant_url
+  openai_compatible:
+    optional: true
+    inputs:
+      base_url: model_url
+''',
+      serviceId: 'n8n_v3',
+    )!;
+    expect(composeContractRequired(spec, 'qdrant'), isTrue);
+    expect(composeContractRequired(spec, 'openai_compatible'), isFalse);
+    expect(
+      composeManualInputRequired(
+        spec,
+        spec.inputs['token']!,
+        bound: const {},
+      ),
+      isTrue,
+    );
+    expect(
+      composeManualInputRequired(
+        spec,
+        spec.inputs['model_api_key']!,
+        bound: const {},
+      ),
+      isFalse,
+    );
+    expect(
+      composeManualInputRequired(
+        spec,
+        spec.inputs['model_api_key']!,
+        bound: const {'model_url'},
+      ),
+      isTrue,
+    );
   });
 
   test('two LLMs can fan in to Open WebUI OpenAI but not n8n', () {
@@ -542,6 +633,9 @@ void main() {
     expect(
         composeInputFansIn(specForNode(owu, library), openaiCompatibleContract),
         isTrue);
+    expect(
+        composeInputFansIn(specForNode(n8n, library), openaiCompatibleContract),
+        isFalse);
 
     final n8nGraph = ComposeGraph(
       intentName: 'lab',
@@ -607,6 +701,72 @@ void main() {
         ),
       ),
       isNull,
+    );
+  });
+
+  test('http outputs skip pointers already mapped by provides', () {
+    expect(
+      composeHttpOutputs(specForNode(qdrant, library)).map((o) => o.pointer),
+      isEmpty,
+    );
+    expect(
+      composeHttpOutputs(specForNode(lms, library)).map((o) => o.pointer),
+      isEmpty,
+    );
+  });
+
+  test('http outputs list url pins when nothing provides them', () {
+    final minio = _specService(
+      id: 'minio_v1',
+      spec: '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: minio_v1
+outputs:
+  /endpoints/api:
+    type: url
+  /endpoints/console:
+    type: url
+    description: Console
+  /credentials/tokens:
+    type: secret
+provides: {}
+requires: {}
+''',
+    );
+    final spec = minio.composeSpec;
+    expect(
+      composeHttpOutputs(spec).map((o) => o.pointer),
+      ['/endpoints/api', '/endpoints/console'],
+    );
+    expect(composeHttpOutputLabel(composeHttpOutputs(spec).first), 'api');
+    expect(composeHttpOutputLabel(composeHttpOutputs(spec).last), 'Console');
+  });
+
+  test('http outputs keep extra urls beside a contract pin', () {
+    final service = _specService(
+      id: 'qdrant_ui_v1',
+      spec: '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: qdrant_ui_v1
+outputs:
+  /endpoints/api:
+    type: url
+  /endpoints/ui:
+    type: url
+provides:
+  qdrant:
+    outputs:
+      url: /endpoints/api
+requires: {}
+''',
+    );
+    expect(
+      composeHttpOutputs(service.composeSpec).map((o) => o.pointer),
+      ['/endpoints/ui'],
     );
   });
 

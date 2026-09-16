@@ -262,7 +262,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     );
 
     final intentDropdown = Dropdown<String?>(
-      label: 'Intent',
+      label: 'Composition',
       width: 360,
       value: _selectedIntent,
       onChanged: (value) => setState(() {
@@ -271,13 +271,13 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       }),
       items: {
         null: 'None (standalone instance)',
-        _createNewIntentValue: '+ Create new intent...',
+        _createNewIntentValue: '+ Create new composition...',
         for (final existingIntent in intentNames) existingIntent: existingIntent,
       },
     );
 
     final newIntentNameInput = SpecInput(
-      label: 'New intent name',
+      label: 'New composition name',
       hint: 'e.g. test-app-1',
       initialValue: _newIntentName,
       onSaved: (value) => _newIntentName = value ?? '',
@@ -285,8 +285,8 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     );
 
     final intentRoleInput = SpecInput(
-      label: 'Role in intent',
-      helper: 'What this instance is within the intent (e.g. "redis").',
+      label: 'Role in composition',
+      helper: 'What this instance is within the composition (e.g. "redis").',
       hint: 'e.g. redis',
       initialValue: _intentRole,
       onSaved: (value) => _intentRole = value ?? '',
@@ -298,7 +298,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         : Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Launching into an intent doesn\'t support mounts or bridged '
+              'Launching into a composition doesn\'t support mounts or bridged '
               'networking yet; those sections are hidden below.',
               style: TextStyle(
                 fontSize: 13,
@@ -447,7 +447,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
         const Divider(height: 60),
         const SizedBox(
           height: 50,
-          child: Text('Intent', style: TextStyle(fontSize: 24)),
+          child: Text('Composition', style: TextStyle(fontSize: 24)),
         ),
         intentSection,
         const Divider(height: 60),
@@ -726,7 +726,7 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
     assert((newIntentName == null) != (existingIntentName == null));
 
     if (newIntentName != null && newIntentName.isEmpty) {
-      setState(() => _intentError = 'Please provide a name for the new intent.');
+      setState(() => _intentError = 'Please provide a name for the new composition.');
       return false;
     }
     if (_intentRole.trim().isEmpty) {
@@ -772,12 +772,12 @@ class _LaunchFormState extends ConsumerState<LaunchForm> {
       // and records the outcome to recent activity.
       ref.read(notificationsProvider.notifier).addOperation(
             op,
-            loading: 'Adding $role to intent $intentName…',
+            loading: 'Adding $role to composition $intentName…',
             onSuccess: (reply) {
               final message = reply?.replyMessage as String?;
               return message?.isNotEmpty == true
                   ? message!
-                  : 'Added $role to intent $intentName';
+                  : 'Added $role to composition $intentName';
             },
             onError: (error) => '$error',
           );

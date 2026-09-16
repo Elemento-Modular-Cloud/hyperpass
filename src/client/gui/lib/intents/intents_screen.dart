@@ -10,6 +10,7 @@ import '../migrate/migrate_screen.dart';
 import '../page_surface.dart';
 import '../providers.dart';
 import '../services/compose/compose_screen.dart';
+import '../services/compose/compose_store.dart';
 import '../sidebar.dart';
 import '../vm_details/vm_status_icon.dart';
 import '../widgets/launchpad_button.dart';
@@ -179,7 +180,7 @@ class _IntentsListPane extends ConsumerWidget {
             data: (intents) => intents.isEmpty
                 ? Center(
                     child: Text(
-                      'No intents yet. Create one to launch instances as a '
+                      'No compositions yet. Create one to launch instances as a '
                       'named group.',
                       style: TextStyle(color: onSurface.withValues(alpha: 0.6)),
                     ),
@@ -250,7 +251,7 @@ class _IntentCard extends ConsumerWidget {
                       showMigrateDialog(context, ref, name: intent.name),
                 ),
                 IconButton(
-                  tooltip: 'Delete intent',
+                  tooltip: 'Delete composition',
                   icon: const Icon(Icons.delete_outline),
                   onPressed: () =>
                       showDeleteIntentDialog(context, ref, intent.name),
@@ -408,7 +409,7 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setDialogState) => AlertDialog(
         shape: const Border(),
-        title: const Text('New intent'),
+        title: const Text('New composition'),
         content: SizedBox(
           width: CompactLayout.dialogWidth(dialogContext, 480),
           child: SingleChildScrollView(
@@ -420,7 +421,7 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
                   controller: nameController,
                   autofocus: true,
                   decoration: const InputDecoration(
-                    labelText: 'Intent name',
+                    labelText: 'Composition name',
                     hintText: 'e.g. test-app-1',
                   ),
                 ),
@@ -466,7 +467,7 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
             onPressed: () async {
               final name = nameController.text.trim();
               if (name.isEmpty) {
-                setDialogState(() => error = 'Please provide an intent name.');
+                setDialogState(() => error = 'Please provide a composition name.');
                 return;
               }
               final requests = members.map((m) => m.toRequest()).toList();
@@ -510,7 +511,7 @@ Future<void> showDeleteIntentDialog(
     context: context,
     barrierDismissible: false,
     builder: (dialogContext) => ConfirmationDialog(
-      title: 'Delete intent',
+      title: 'Delete composition',
       body: Text(
         'Delete "$intentName"? Its member instances will be deleted too.',
       ),
@@ -524,6 +525,7 @@ Future<void> showDeleteIntentDialog(
 
   try {
     await ref.read(grpcClientProvider).intentDelete(intentName, purge: true);
+    ref.read(composeEditorProvider.notifier).deleteSavedIntent(intentName);
     ref.invalidate(intentsStreamProvider);
   } catch (e) {
     if (!context.mounted) return;

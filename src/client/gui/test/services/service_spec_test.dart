@@ -74,6 +74,32 @@ void main() {
     expect(service.composeSpec.inputs, isEmpty);
   });
 
+  test('composeSpec keeps HTTP-only outputs when there are no contracts', () {
+    final service = fixtureService(
+      id: 'minio_v1',
+      extraFiles: {
+        'spec.yaml': '''
+api_version: elemento.spec/v1
+kind: ServiceSpec
+metadata:
+  name: minio_v1
+outputs:
+  /endpoints/api:
+    type: url
+  /endpoints/console:
+    type: url
+provides: {}
+requires: {}
+''',
+      },
+    );
+    expect(service.composeSpec.hasHttpOutputs, isTrue);
+    expect(
+      service.composeSpec.outputs.keys,
+      containsAll(['/endpoints/api', '/endpoints/console']),
+    );
+  });
+
   test('lookupPointer walks objects and arrays', () {
     final json = <String, Object?>{
       'endpoints': {'api': 'https://qdrant.example/v1'},

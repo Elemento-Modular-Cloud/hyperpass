@@ -64,47 +64,16 @@ class ComposeScreen extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                if (!embedded)
-                  Expanded(
-                    child: Text(
-                      l10n.composeLabel,
-                      style: const TextStyle(
-                        fontSize: 37,
-                        fontWeight: FontWeight.w300,
-                      ),
-                    ),
-                  )
-                else
-                  const Spacer(),
-                LaunchPadButton.secondary(
-                  onPressed: deploying
-                      ? null
-                      : () => showNewComposeIntentDialog(context, ref),
-                  child: Text(l10n.composeNewIntent),
+            if (!embedded) ...[
+              Text(
+                l10n.composeLabel,
+                style: const TextStyle(
+                  fontSize: 37,
+                  fontWeight: FontWeight.w300,
                 ),
-                const SizedBox(width: 8),
-                LaunchPadButton.secondary(
-                  onPressed: deploying || !hasIntent
-                      ? null
-                      : () => _save(context, ref),
-                  child: Text(l10n.composeSave),
-                ),
-                const SizedBox(width: 8),
-                LaunchPadButton.primary(
-                  onPressed: deploying || issues.isNotEmpty
-                      ? null
-                      : () => _deploy(context, ref, library, editor.graph),
-                  child: Text(
-                    deploying
-                        ? (progress?.message ?? l10n.composeDeploying)
-                        : l10n.composeDeployAction,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 8),
+            ],
             Text(
               l10n.composeSubtitle,
               style: TextStyle(
@@ -112,10 +81,50 @@ class ComposeScreen extends ConsumerWidget {
                 color: onSurface.withValues(alpha: 0.7),
               ),
             ),
-            const SizedBox(height: 16),
-            const SizedBox(
-              width: 360,
-              child: _IntentPicker(),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 200, maxWidth: 360),
+                  child: const _IntentPicker(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        LaunchPadButton.secondary(
+                          onPressed: deploying
+                              ? null
+                              : () => showNewComposeIntentDialog(context, ref),
+                          child: Text(l10n.composeNewIntent),
+                        ),
+                        LaunchPadButton.secondary(
+                          onPressed: deploying || !hasIntent
+                              ? null
+                              : () => _save(context, ref),
+                          child: Text(l10n.composeSave),
+                        ),
+                        LaunchPadButton.primary(
+                          onPressed: deploying || issues.isNotEmpty
+                              ? null
+                              : () =>
+                                  _deploy(context, ref, library, editor.graph),
+                          child: Text(
+                            deploying
+                                ? (progress?.message ?? l10n.composeDeploying)
+                                : l10n.composeDeployAction,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             if (progress?.error != null) ...[
               const SizedBox(height: 8),
@@ -138,14 +147,32 @@ class ComposeScreen extends ConsumerWidget {
                 children: [
                   SizedBox(
                     width: 240,
-                    child: _ComposePalette(library: library),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: onSurface.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                        child: _ComposePalette(library: library),
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(child: ComposeCanvas(library: library)),
                   const SizedBox(width: 12),
                   SizedBox(
                     width: 280,
-                    child: _ComposeInspector(library: library),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: onSurface.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: _ComposeInspector(library: library),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -210,22 +237,22 @@ class _IntentPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final current = ref.watch(composeEditorProvider).graph.intentName.trim();
-    final daemon = {
-      for (final intent
-          in ref.watch(intentsStreamProvider).asData?.value ?? const [])
-        intent.name,
-    };
-    final names = {
-      ...ref.read(composeEditorProvider.notifier).savedIntentNames(),
-      ...daemon,
-      if (current.isNotEmpty) current,
-    }.toList()
-      ..sort();
+    final editor = ref.watch(composeEditorProvider);
+    final current = editor.graph.intentName.trim();
+    final daemonAsync = ref.watch(intentsStreamProvider);
+    final names = composePickerNames(
+      saved: ref.read(composeEditorProvider.notifier).savedIntentNames(),
+      daemon: [
+        for (final intent in daemonAsync.asData?.value ?? const []) intent.name,
+      ],
+      current: current,
+      daemonListReady: daemonAsync.hasValue,
+    );
+    final selected = names.contains(current) ? current : null;
 
     return DropdownButtonFormField<String>(
       key: ValueKey('compose-intent-picker-$current'),
-      initialValue: current.isEmpty ? null : current,
+      initialValue: selected,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: l10n.composeIntentName,
@@ -287,15 +314,12 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TabBar(
+        ComposeWorkloadTabBar(
           controller: _tabs,
           isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          tabs: [
-            Tab(text: l10n.intentAddTabServices),
-            Tab(text: l10n.intentAddTabVms),
-            Tab(text: l10n.intentAddTabLlms),
-          ],
+          servicesLabel: l10n.intentAddTabServices,
+          vmsLabel: l10n.intentAddTabVms,
+          llmsLabel: l10n.intentAddTabLlms,
         ),
         const SizedBox(height: 8),
         Expanded(child: _tabBody(l10n)),
@@ -327,6 +351,7 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
             ),
             title: service.displayName,
             onSurface: onSurface,
+            accent: Brand.workloadService,
             onTap: () {
               if (!_ensureIntent(l10n)) return;
               ref.read(composeEditorProvider.notifier).addService(service);
@@ -364,6 +389,7 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
                     ),
                     title: entry.displayTitle(l10n),
                     onSurface: onSurface,
+                    accent: Brand.workloadVm,
                     locked: ubuntuOnly &&
                         entry.representative.os.toLowerCase() != 'ubuntu',
                     onTap: () => _addVm(l10n, entry),
@@ -394,6 +420,7 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
                     ),
                     title: model.name.isEmpty ? model.id : model.name,
                     onSurface: onSurface,
+                    accent: Brand.workloadAi,
                     onTap: () => _addLlm(l10n, model),
                   ),
               ],
@@ -407,38 +434,46 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
     required Widget leading,
     required String title,
     required Color onSurface,
+    required Color accent,
     required VoidCallback onTap,
     bool locked = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
-        color: onSurface.withValues(alpha: 0.05),
+        color: accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           key: key,
           borderRadius: BorderRadius.circular(8),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: [
-                leading,
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontFamily: Brand.fontFamily),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(color: accent, width: 3),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  leading,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontFamily: Brand.fontFamily),
+                    ),
                   ),
-                ),
-                if (locked)
-                  Icon(
-                    Icons.lock_outline,
-                    size: 16,
-                    color: onSurface.withValues(alpha: 0.45),
-                  ),
-              ],
+                  if (locked)
+                    Icon(
+                      Icons.lock_outline,
+                      size: 16,
+                      color: onSurface.withValues(alpha: 0.45),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -606,7 +641,7 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
           key: ValueKey('compose-role-${node.id}'),
           controller: _role,
           decoration: InputDecoration(
-            labelText: l10n.composeRoleLabel,
+            label: _requiredFieldLabel(context, l10n.composeRoleLabel),
             isDense: true,
           ),
           onChanged: (value) =>
@@ -629,8 +664,20 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
               style: TextStyle(color: onSurface.withValues(alpha: 0.6)))
         else
           for (final contract in composeInputContracts(spec))
-            Text(
-              '← ${composePinLabel(contract)}',
+            Text.rich(
+              TextSpan(
+                text: '← ${composePinLabel(contract)}',
+                children: [
+                  if (composeContractRequired(spec, contract))
+                    TextSpan(
+                      text: ' $composeRequiredMark',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
               style: TextStyle(
                 fontSize: 13,
                 color: composeContractColor(contract),
@@ -654,8 +701,23 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+        if (composeHttpOutputs(spec).isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(l10n.composeHttpOutputs,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          for (final output in composeHttpOutputs(spec))
+            Text(
+              '→ ${composeHttpOutputLabel(output)}',
+              style: TextStyle(
+                fontSize: 13,
+                color: composeHttpOutputColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
         const SizedBox(height: 16),
-        for (final input in spec.inputs.values)
+        for (final input in composeManualInputs(spec))
           if (!bound.contains(input.name))
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -665,7 +727,15 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
                   node.manualParams[input.name] ?? '',
                 ),
                 decoration: InputDecoration(
-                  labelText: input.name,
+                  label: _requiredFieldLabel(
+                    context,
+                    input.name,
+                    required: composeManualInputRequired(
+                      spec,
+                      input,
+                      bound: bound,
+                    ),
+                  ),
                   helperText: input.description,
                   isDense: true,
                 ),
@@ -699,6 +769,29 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
       ],
     );
   }
+}
+
+Widget _requiredFieldLabel(
+  BuildContext context,
+  String label, {
+  bool required = true,
+}) {
+  if (!required) return Text(label);
+  final error = Theme.of(context).colorScheme.error;
+  return Tooltip(
+    message: AppLocalizations.of(context)!.composeRequiredTooltip,
+    child: Text.rich(
+      TextSpan(
+        text: label,
+        children: [
+          TextSpan(
+            text: ' $composeRequiredMark',
+            style: TextStyle(color: error, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Opens the compose canvas on [intentName], creating a blank graph if needed.

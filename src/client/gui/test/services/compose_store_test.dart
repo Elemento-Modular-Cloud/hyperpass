@@ -48,6 +48,73 @@ void main() {
     expect(moved[1].y, nodes[1].y + 10);
   });
 
+  test('palette drops land on the visible canvas origin', () async {
+    final c = await container();
+    c.read(composeDropOriginProvider.notifier).set((420, 240));
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    final node = c.read(composeEditorProvider).graph.nodes.single;
+    expect(node.x, 420);
+    expect(node.y, 240);
+  });
+
+  test('moveNodes can skip persisting mid-gesture', () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    final node = c.read(composeEditorProvider).graph.nodes.single;
+    notifier.moveNodes({node.id: (node.x + 10, node.y + 10)}, persist: false);
+    final prefs = c.read(sharedPreferencesProvider);
+    final stored = loadComposeGraphs(prefs)['lab']!;
+    expect(stored.nodes.single.x, node.x);
+    expect(c.read(composeEditorProvider).graph.nodes.single.x, node.x + 10);
+  });
+
+  test('deleteSavedIntent drops a local graph and the open canvas', () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    expect(notifier.savedIntentNames(), ['lab']);
+
+    notifier.deleteSavedIntent('lab');
+    expect(notifier.savedIntentNames(), isEmpty);
+    expect(c.read(composeEditorProvider).graph.intentName, isEmpty);
+    expect(loadComposeGraphs(c.read(sharedPreferencesProvider)), isEmpty);
+  });
+
+  test('deleteSavedIntent leaves a different open composition alone', () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    notifier.openIntent('other');
+    notifier.deleteSavedIntent('lab');
+
+    expect(notifier.savedIntentNames(), isEmpty);
+    expect(c.read(composeEditorProvider).graph.intentName, 'other');
+  });
+
+  test('compose picker hides leftover local graphs once the daemon list loads',
+      () {
+    expect(
+      composePickerNames(
+        saved: const ['gone', 'lab'],
+        daemon: const ['lab'],
+        current: 'gone',
+        daemonListReady: true,
+      ),
+      ['lab'],
+    );
+    expect(
+      composePickerNames(
+        saved: const ['offline-draft'],
+        daemon: const [],
+        current: 'offline-draft',
+        daemonListReady: false,
+      ),
+      ['offline-draft'],
+    );
+  });
+
   test('removeSelected deletes the whole set', () async {
     final c = await container();
     final notifier = c.read(composeEditorProvider.notifier);

@@ -57,4 +57,10 @@ void main() {
     expect(multiple.multiple, isTrue);
     expect(find.byType(ComposePinBullet), findsNWidgets(2));
   });
+
+  test('workload tab colors match the resource monitor', () {
+    expect(composeWorkloadTabColor(0), Brand.workloadService);
+    expect(composeWorkloadTabColor(1), Brand.workloadVm);
+    expect(composeWorkloadTabColor(2), Brand.workloadAi);
+  });
 }

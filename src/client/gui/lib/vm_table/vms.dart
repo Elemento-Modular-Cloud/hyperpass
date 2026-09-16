@@ -117,13 +117,13 @@ class Vms extends ConsumerWidget {
         : Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Dropdown<String?>(
-              label: 'Intent',
+              label: 'Composition',
               width: 200,
               value: selectedIntent,
               onChanged: (v) => ref.read(selectedIntentProvider.notifier).set(v),
               items: {
-                null: 'All intents',
-                '': 'No intent',
+                null: 'All compositions',
+                '': 'No composition',
                 for (final intentName in intentNames) intentName: intentName,
               },
             ),

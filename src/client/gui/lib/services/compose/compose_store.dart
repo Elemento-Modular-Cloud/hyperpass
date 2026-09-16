@@ -71,18 +71,22 @@ class ComposeEditorState {
 
 class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
   var _nextId = 0;
+  Map<String, ComposeGraph>? _graphs;
 
   @override
   ComposeEditorState build() {
     final prefs = ref.watch(sharedPreferencesProvider);
-    final graphs = loadComposeGraphs(prefs);
+    _graphs = loadComposeGraphs(prefs);
     final current = prefs.getString(composeCurrentIntentPrefsKey) ?? '';
-    final graph = graphs[current] ??
+    final graph = _graphs![current] ??
         ComposeGraph(intentName: current.isEmpty ? '' : current);
     return ComposeEditorState(graph: graph);
   }
 
   SharedPreferences get _prefs => ref.read(sharedPreferencesProvider);
+
+  Map<String, ComposeGraph> _allGraphs() =>
+      _graphs ??= loadComposeGraphs(_prefs);
 
   String _newNodeId() {
     _nextId += 1;
@@ -90,28 +94,41 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
   }
 
   void _persist(ComposeGraph graph) {
-    final prefs = _prefs;
-    final graphs = loadComposeGraphs(prefs);
     final name = graph.intentName.trim();
     if (name.isEmpty) return;
+    final graphs = _allGraphs();
     graphs[name] = graph;
-    prefs.setString(composeCurrentIntentPrefsKey, name);
-    saveComposeGraphs(prefs, graphs);
+    _prefs.setString(composeCurrentIntentPrefsKey, name);
+    saveComposeGraphs(_prefs, graphs);
   }
 
   /// Writes the current graph. No-op until it has an intent name.
   void save() => _persist(state.graph);
 
   List<String> savedIntentNames() {
-    final names = loadComposeGraphs(_prefs).keys.toList()..sort();
+    final names = _allGraphs().keys.toList()..sort();
     return names;
   }
 
+  /// Drops a local graph. Clears the canvas when that composition is open.
+  void deleteSavedIntent(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    final graphs = _allGraphs();
+    graphs.remove(trimmed);
+    saveComposeGraphs(_prefs, graphs);
+    if (state.graph.intentName.trim() != trimmed) {
+      state = state.copyWith();
+      return;
+    }
+    _prefs.setString(composeCurrentIntentPrefsKey, '');
+    state = const ComposeEditorState(graph: ComposeGraph(intentName: ''));
+  }
+
   void openIntent(String intentName) {
-    final prefs = _prefs;
-    final graphs = loadComposeGraphs(prefs);
-    final graph = graphs[intentName] ?? ComposeGraph(intentName: intentName);
-    prefs.setString(composeCurrentIntentPrefsKey, intentName);
+    final graph =
+        _allGraphs()[intentName] ?? ComposeGraph(intentName: intentName);
+    _prefs.setString(composeCurrentIntentPrefsKey, intentName);
     state = ComposeEditorState(graph: graph);
   }
 
@@ -124,10 +141,9 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     final previous = state.graph.intentName.trim();
     final graph = state.graph.copyWith(intentName: name);
     if (previous.isNotEmpty && previous != name.trim()) {
-      final prefs = _prefs;
-      final graphs = loadComposeGraphs(prefs);
+      final graphs = _allGraphs();
       graphs.remove(previous);
-      saveComposeGraphs(prefs, graphs);
+      saveComposeGraphs(_prefs, graphs);
     }
     _persist(graph);
     state = state.copyWith(graph: graph);
@@ -159,7 +175,14 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     );
   }
 
+  (double, double) _defaultDrop() {
+    final origin = ref.read(composeDropOriginProvider);
+    final index = state.graph.nodes.length;
+    return (origin.$1 + index * 36, origin.$2 + index * 28);
+  }
+
   void addService(MarketplaceService service, {double? x, double? y}) {
+    final drop = _defaultDrop();
     _addNode(
       ComposeNode(
         id: _newNodeId(),
@@ -168,8 +191,8 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
         serviceId: service.id,
         kind: ComposeNodeKind.service,
         label: service.displayName,
-        x: x ?? (80.0 + state.graph.nodes.length * 36),
-        y: y ?? (80.0 + state.graph.nodes.length * 28),
+        x: x ?? drop.$1,
+        y: y ?? drop.$2,
       ),
     );
   }
@@ -181,6 +204,7 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     double? x,
     double? y,
   }) {
+    final drop = _defaultDrop();
     _addNode(
       ComposeNode(
         id: _newNodeId(),
@@ -189,8 +213,8 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
         kind: ComposeNodeKind.vm,
         image: image,
         label: label,
-        x: x ?? (80.0 + state.graph.nodes.length * 36),
-        y: y ?? (80.0 + state.graph.nodes.length * 28),
+        x: x ?? drop.$1,
+        y: y ?? drop.$2,
         manualParams: {
           if (diskSpace != null && diskSpace.isNotEmpty) 'diskSpace': diskSpace,
         },
@@ -208,6 +232,7 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     double? x,
     double? y,
   }) {
+    final drop = _defaultDrop();
     _addNode(
       ComposeNode(
         id: _newNodeId(),
@@ -220,8 +245,8 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
         ctxSize: ctxSize,
         maxTokens: maxTokens,
         label: label.isEmpty ? modelId : label,
-        x: x ?? (80.0 + state.graph.nodes.length * 36),
-        y: y ?? (80.0 + state.graph.nodes.length * 28),
+        x: x ?? drop.$1,
+        y: y ?? drop.$2,
       ),
     );
   }
@@ -237,7 +262,10 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     moveNodes({id: (x, y)});
   }
 
-  void moveNodes(Map<String, (double, double)> positions) {
+  void moveNodes(
+    Map<String, (double, double)> positions, {
+    bool persist = true,
+  }) {
     if (positions.isEmpty) return;
     final nodes = [
       for (final node in state.graph.nodes)
@@ -250,7 +278,7 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
           node,
     ];
     final graph = state.graph.copyWith(nodes: nodes);
-    _persist(graph);
+    if (persist) _persist(graph);
     state = state.copyWith(graph: graph);
   }
 
@@ -360,7 +388,39 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
   }
 }
 
+/// Names the compose picker should offer.
+///
+/// When the daemon list is loaded, deleted compositions must not come back
+/// from leftover local graphs. Offline, fall back to those local drafts.
+List<String> composePickerNames({
+  required Iterable<String> saved,
+  required Iterable<String> daemon,
+  required String current,
+  required bool daemonListReady,
+}) {
+  final live = daemon.toSet();
+  final names = <String>{
+    if (daemonListReady) ...live else ...saved,
+    if (current.isNotEmpty && (!daemonListReady || live.contains(current)))
+      current,
+  };
+  return names.toList()..sort();
+}
+
 final composeEditorProvider =
     NotifierProvider<ComposeEditorNotifier, ComposeEditorState>(
   ComposeEditorNotifier.new,
+);
+
+class ComposeDropOrigin extends Notifier<(double, double)> {
+  @override
+  (double, double) build() => (80, 80);
+
+  void set((double, double) origin) => state = origin;
+}
+
+/// Scene point where the palette should drop the next node (visible canvas).
+final composeDropOriginProvider =
+    NotifierProvider<ComposeDropOrigin, (double, double)>(
+  ComposeDropOrigin.new,
 );

@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('sorts named intents first and No intent last', () {
+  test('sorts named compositions first and No composition last', () {
     expect(
       sortedIntentGroupKeys(['zeta', '', 'alpha']),
       ['alpha', 'zeta', ''],
     );
-    expect(intentGroupLabel(''), 'No intent');
+    expect(intentGroupLabel(''), 'No composition');
     expect(intentGroupLabel('web'), 'web');
   });
 

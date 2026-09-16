@@ -28,7 +28,6 @@ class LlmRunnerScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: PageSurface(
-        baseColor: context.glass.cardSolid,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -156,7 +155,6 @@ class _BackendStrip extends StatelessWidget {
     final ready = snapshot.backendReady;
     final color = ready ? Brand.green : Theme.of(context).colorScheme.error;
     return CatalogueSurface(
-      baseColor: context.glass.cardSolid,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       borderColor: color.withValues(alpha: 0.4),
       child: Row(
@@ -265,7 +263,6 @@ class _AcceleratorCard extends StatelessWidget {
 
     return CatalogueSurface(
       key: Key('llm-accelerator-${accelerator.id}'),
-      baseColor: context.glass.cardSolid,
       padding: EdgeInsets.zero,
       borderColor: border,
       borderWidth: selected ? 1.6 : 1,
@@ -358,7 +355,6 @@ class _CombinePanel extends ConsumerWidget {
 
     return CatalogueSurface(
       key: const Key('llm-runner-combine'),
-      baseColor: context.glass.cardSolid,
       padding: EdgeInsets.zero,
       borderColor: canCombine
           ? Brand.accent.withValues(alpha: 0.45)

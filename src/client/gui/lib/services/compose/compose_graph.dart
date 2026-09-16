@@ -289,6 +289,33 @@ List<String> composeInputContracts(ServiceSpec spec) =>
 List<String> composeOutputContracts(ServiceSpec spec) =>
     spec.provides.keys.toList();
 
+const _httpOutputTypes = {'url', 'ca_url'};
+
+/// HTTP URL outputs that are not already exposed as a `provides` contract pin.
+List<ServiceSpecOutput> composeHttpOutputs(ServiceSpec spec) {
+  final claimed = <String>{
+    for (final provides in spec.provides.values) ...provides.outputs.values,
+  };
+  return [
+    for (final output in spec.outputs.values)
+      if (_httpOutputTypes.contains(output.type) &&
+          !claimed.contains(output.pointer))
+        output,
+  ];
+}
+
+String composeHttpOutputLabel(ServiceSpecOutput output) {
+  final description = output.description?.trim();
+  if (description != null && description.isNotEmpty) return description;
+  final parts =
+      output.pointer.split('/').where((part) => part.isNotEmpty).toList();
+  if (parts.isEmpty) return output.pointer;
+  return parts.last.replaceAll('_', ' ');
+}
+
+int composeOutputRowCount(ServiceSpec spec) =>
+    composeOutputContracts(spec).length + composeHttpOutputs(spec).length;
+
 String composePinLabel(String contract) {
   return switch (contract) {
     openaiCompatibleContract => 'OpenAI',
@@ -304,10 +331,11 @@ bool isCaddyCaIssuer(ServiceSpec spec) {
       !spec.requires.containsKey(caddyCaContract);
 }
 
-/// Output pins may connect to many inputs. These contracts are the common
-/// one-to-many cases (LM Studio API, Caddy CA bundle, local LLMs).
+/// Output pins have no outgoing cap: one producer can wire the same contract
+/// to many consumers (Qdrant, n8n sandbox, OpenAI, Caddy CA, …).
 bool composeOutputFansOut(String contract) {
-  return contract == openaiCompatibleContract || contract == caddyCaContract;
+  assert(contract.isNotEmpty);
+  return true;
 }
 
 /// Input pins that accept more than one producer (Open WebUI / LiteLLM OpenAI).
@@ -328,6 +356,40 @@ Map<String, Object?> localLlmServiceInfoRaw(ComposeNode node) {
     },
     'model': model,
   };
+}
+
+/// Inputs the inspector can edit. Generated secrets are filled at boot.
+Iterable<ServiceSpecInput> composeManualInputs(ServiceSpec spec) {
+  return spec.inputs.values.where((input) => !input.generated);
+}
+
+/// Shown after labels that the user must fill or wire.
+const composeRequiredMark = '*';
+
+String composeRequiredLabel(String label, {required bool required}) {
+  if (!required) return label;
+  return '$label $composeRequiredMark';
+}
+
+/// A consume pin that must be wired (`min` ≥ 1).
+bool composeContractRequired(ServiceSpec spec, String contract) {
+  final req = spec.requires[contract];
+  return req != null && req.min > 0;
+}
+
+/// A typed input that must be set: declared `required`, or pulled in by a
+/// group whose `when` field is already bound.
+bool composeManualInputRequired(
+  ServiceSpec spec,
+  ServiceSpecInput input, {
+  required Set<String> bound,
+}) {
+  if (input.required) return true;
+  for (final group in spec.groups) {
+    if (!bound.contains(group.when)) continue;
+    if (group.require.contains(input.name)) return true;
+  }
+  return false;
 }
 
 /// Inputs filled by incoming edges on [nodeId].
@@ -356,7 +418,7 @@ List<ComposeIssue> validateComposeGraph(
   final issues = <ComposeIssue>[];
   if (graph.intentName.trim().isEmpty) {
     issues.add(const ComposeIssue(
-      message: 'Intent name is required',
+      message: 'Composition name is required',
       code: 'intent_name',
     ));
   }

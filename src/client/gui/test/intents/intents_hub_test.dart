@@ -61,7 +61,7 @@ void main() {
       find.byKey(const ValueKey('intents-hub-tab-compose')),
       findsOneWidget,
     );
-    expect(find.text('New intent'), findsOneWidget);
+    expect(find.text('New composition'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('intents-hub-tab-compose')));
     await tester.pumpAndSettle();

@@ -48,6 +48,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Compose'), findsWidgets);
+    final picker = tester.getRect(find.byType(DropdownButtonFormField<String>));
+    final deploy = tester.getRect(find.text('Deploy composition'));
+    expect(picker.top, lessThan(deploy.bottom));
+    expect(deploy.top, lessThan(picker.bottom));
+    expect(deploy.right, greaterThan(tester.view.physicalSize.width - 80));
     expect(find.text('Services'), findsWidgets);
     expect(find.text('VMs'), findsOneWidget);
     expect(find.text('LLMs'), findsOneWidget);
@@ -113,5 +118,29 @@ void main() {
     );
     expect(added, isFalse);
     expect(container.read(composeEditorProvider).graph.edges, isEmpty);
+  });
+
+  testWidgets('n8n runner inspector hides generated secrets', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(await buildScreen());
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ComposeScreen)),
+    );
+    container
+        .read(composeEditorProvider.notifier)
+        .addService(library.byId('n8n_runner_v1')!);
+    await tester.pumpAndSettle();
+
+    expect(find.text('n8n sandbox'), findsWidgets);
+    expect(find.textContaining(composeRequiredMark), findsWidgets);
+    expect(find.text('sandbox_api_key'), findsNothing);
+    expect(find.text('sandbox_registration_token'), findsNothing);
+    expect(find.text('sandbox_runner_api_key'), findsNothing);
   });
 }

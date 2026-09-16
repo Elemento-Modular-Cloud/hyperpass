@@ -3408,29 +3408,29 @@
     "@featureLockedImageHint": {
         "description": "Catalogue card hint for non-Ubuntu images locked in guest mode"
     },
-    "intentsLabel": "Intents",
+    "intentsLabel": "Compositions",
     "@intentsLabel": {
-        "description": "Sidebar entry and page title for intents and the compose canvas"
+        "description": "Sidebar entry and page title for compositions and the compose canvas"
     },
-    "intentsListTab": "Intents",
+    "intentsListTab": "Compositions",
     "@intentsListTab": {
-        "description": "Hub tab that lists saved intents"
+        "description": "Hub tab that lists saved compositions"
     },
     "intentsSubtitle": "Named groups of instances launched together, e.g. a redis and a postgres instance for the same app.",
     "@intentsSubtitle": {
-        "description": "Subtitle under the intents list"
+        "description": "Subtitle under the compositions list"
     },
     "composeLabel": "Compose",
     "@composeLabel": {
         "description": "Hub tab and heading for the intent compose canvas"
     },
-    "composeSubtitle": "Connect services, VMs, and LLMs on a saved intent, then deploy.",
+    "composeSubtitle": "Connect services, VMs, and LLMs on a saved composition, then deploy.",
     "@composeSubtitle": {
         "description": "Subtitle under the compose canvas heading"
     },
-    "composeIntentName": "Intent name",
+    "composeIntentName": "Composition name",
     "@composeIntentName": {
-        "description": "Label for the compose graph's daemon intent name"
+        "description": "Label for the compose graph's daemon composition name"
     },
     "composeIntentNameHint": "e.g. lab-stack",
     "@composeIntentNameHint": {
@@ -3448,35 +3448,35 @@
     "@composeInspectorEmpty": {
         "description": "Empty inspector copy on the compose canvas"
     },
-    "composeDeployAction": "Deploy intent",
+    "composeDeployAction": "Deploy composition",
     "@composeDeployAction": {
-        "description": "Button that launches the compose graph as an intent"
+        "description": "Button that launches the compose graph as a composition"
     },
     "composeDeploying": "Deploying…",
     "@composeDeploying": {
         "description": "Compose deploy button label while members are launching"
     },
-    "composeNewDraft": "New intent",
+    "composeNewDraft": "New composition",
     "@composeNewDraft": {
-        "description": "Creates a named intent and opens a blank compose graph"
+        "description": "Creates a named composition and opens a blank compose graph"
     },
-    "composeNewIntent": "New intent",
+    "composeNewIntent": "New composition",
     "@composeNewIntent": {
-        "description": "Button that names and opens a new compose intent"
+        "description": "Button that names and opens a new compose composition"
     },
     "composeSave": "Save",
     "@composeSave": {
         "description": "Persists the compose graph and creates the daemon intent if needed"
     },
-    "composeSelectIntent": "Select a saved intent",
+    "composeSelectIntent": "Select a saved composition",
     "@composeSelectIntent": {
-        "description": "Hint on the compose intent picker when none is selected"
+        "description": "Hint on the compose composition picker when none is selected"
     },
-    "composeNeedIntent": "Create or select an intent before editing the graph.",
+    "composeNeedIntent": "Create or select a composition before editing the graph.",
     "@composeNeedIntent": {
-        "description": "Shown when the compose palette is used without a named intent"
+        "description": "Shown when the compose palette is used without a named composition"
     },
-    "composeSaved": "Saved intent {name}",
+    "composeSaved": "Saved composition {name}",
     "@composeSaved": {
         "description": "Snack after persisting a compose graph",
         "placeholders": {
@@ -3525,9 +3525,17 @@
     "@composeNoPins": {
         "description": "Shown when a compose node has no contract pins"
     },
+    "composeHttpOutputs": "HTTP outputs",
+    "@composeHttpOutputs": {
+        "description": "Inspector heading for display-only HTTP URL outputs on a compose node"
+    },
     "composeRoleLabel": "Role",
     "@composeRoleLabel": {
         "description": "Inspector field for the intent member role"
+    },
+    "composeRequiredTooltip": "Required",
+    "@composeRequiredTooltip": {
+        "description": "Tooltip on the asterisk that marks a mandatory compose input"
     },
     "composeEmptyCanvas": "Add services, VMs, or LLMs from the palette. Click an output pin, then an input — or drag between them. Drag empty space to pan, scroll to zoom.",
     "@composeEmptyCanvas": {
@@ -3571,7 +3579,7 @@
             }
         }
     },
-    "intentAddServiceSubtitle": "Choose a marketplace service, VM image, or downloaded LLM to launch as a member of this intent.",
+    "intentAddServiceSubtitle": "Choose a marketplace service, VM image, or downloaded LLM to launch as a member of this composition.",
     "@intentAddServiceSubtitle": {
         "description": "Subtitle in the add-member-to-intent dialog"
     },

@@ -167,6 +167,10 @@ class ServiceSpec {
 
   bool get hasContracts => provides.isNotEmpty || requires.isNotEmpty;
 
+  bool get hasHttpOutputs => outputs.values.any(
+        (output) => output.type == 'url' || output.type == 'ca_url',
+      );
+
   /// Host-local LLM: OpenAI-compatible `/v1` that consumers can wire.
   factory ServiceSpec.openaiCompatibleProvider(String name) {
     return ServiceSpec(

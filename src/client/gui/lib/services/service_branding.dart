@@ -192,11 +192,13 @@ class ServiceIconBadge extends StatelessWidget {
         ),
         padding: EdgeInsets.all(size * 0.18),
         child: hasSvg
-            ? SvgPicture.string(
-                svg,
-                fit: BoxFit.contain,
-                colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
-                excludeFromSemantics: true,
+            ? RepaintBoundary(
+                child: SvgPicture.string(
+                  svg,
+                  fit: BoxFit.contain,
+                  colorFilter: ColorFilter.mode(accent, BlendMode.srcIn),
+                  excludeFromSemantics: true,
+                ),
               )
             : Center(
                 child: FaIcon(

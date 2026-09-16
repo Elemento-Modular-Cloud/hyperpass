@@ -196,26 +196,28 @@ abstract final class _SidebarStyle {
 class SidebarSectionHeader extends ConsumerWidget {
   final String label;
   final bool locked;
+  final Color? accent;
 
   const SidebarSectionHeader(
     this.label, {
     this.locked = false,
+    this.accent,
     super.key,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (sidebarCollapsedOf(context, ref)) {
-      return const SizedBox(height: 8);
+      return const SizedBox(height: 6);
     }
     final appearanceTheme = ref.watch(
       appearanceSettingsProvider.select((settings) => settings.theme),
     );
-    final color = _SidebarStyle.sectionColor(appearanceTheme);
+    final color = accent ?? _SidebarStyle.sectionColor(appearanceTheme);
     return Opacity(
       opacity: locked ? 0.45 : 1,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
+        padding: const EdgeInsets.fromLTRB(10, 8, 8, 2),
         child: Row(
           children: [
             Expanded(
@@ -225,8 +227,8 @@ class SidebarSectionHeader extends ConsumerWidget {
                   color: color,
                   fontFamily: Brand.fontFamily,
                   fontSize: _SidebarStyle.subLabelSize,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
@@ -237,6 +239,59 @@ class SidebarSectionHeader extends ConsumerWidget {
                 color: color,
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tinted, bordered group for Compute / AI / Services.
+class SidebarSection extends ConsumerWidget {
+  const SidebarSection({
+    required this.label,
+    required this.children,
+    this.accent,
+    this.locked = false,
+    super.key,
+  });
+
+  final String label;
+  final List<Widget> children;
+  final Color? accent;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appearanceTheme = ref.watch(
+      appearanceSettingsProvider.select((settings) => settings.theme),
+    );
+    final collapsed = sidebarCollapsedOf(context, ref);
+    final isDark = appearanceTheme != AppearanceTheme.light;
+    final fill = accent == null
+        ? (isDark
+            ? Colors.white.withValues(alpha: 0.045)
+            : Colors.black.withValues(alpha: 0.035))
+        : accent!.withValues(alpha: isDark ? 0.16 : 0.10);
+    final borderColor = accent?.withValues(alpha: isDark ? 0.42 : 0.35);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(collapsed ? 4 : 8, 3, collapsed ? 4 : 8, 3),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(Brand.radius),
+          border: borderColor == null ? null : Border.all(color: borderColor),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(Brand.radius),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SidebarSectionHeader(label, locked: locked, accent: accent),
+              ...children,
+              const SizedBox(height: 4),
+            ],
+          ),
         ),
       ),
     );
@@ -299,6 +354,7 @@ class SideBar extends ConsumerWidget {
       icon: FontAwesomeIcons.layerGroup,
       selected: isSelected(CatalogueScreen.sidebarKey),
       label: l10n.sidebarImagesLabel,
+      accent: Brand.workloadVm,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CatalogueScreen.sidebarKey);
       },
@@ -308,6 +364,7 @@ class SideBar extends ConsumerWidget {
       icon: FontAwesomeIcons.cloud,
       selected: isSelected(CloudInitScreen.sidebarKey),
       label: l10n.cloudInitLabel,
+      accent: Brand.workloadVm,
       onPressed: () {
         ref.read(sidebarKeyNotifier).set(CloudInitScreen.sidebarKey);
       },
@@ -337,6 +394,7 @@ class SideBar extends ConsumerWidget {
           selectedSidebarKey.startsWith('vm-'),
       label: l10n.sidebarInstances,
       badge: vmNames.length.toString(),
+      accent: Brand.workloadVm,
       onPressed: () {
         ref.read(sidebarKeyProvider.notifier).set(VmTableScreen.sidebarKey);
       },
@@ -355,6 +413,7 @@ class SideBar extends ConsumerWidget {
       selected: isSelected(LlmCatalogueScreen.sidebarKey),
       label: l10n.sidebarModelsLabel,
       locked: !access.canUseLlms,
+      accent: Brand.workloadAi,
       onPressed: () =>
           openOrPromptLocked(access.canUseLlms, LlmCatalogueScreen.sidebarKey),
     );
@@ -365,6 +424,7 @@ class SideBar extends ConsumerWidget {
       label: l10n.sidebarRuntimeLabel,
       badge: loadedCount.toString(),
       locked: !access.canUseLlms,
+      accent: Brand.workloadAi,
       onPressed: () =>
           openOrPromptLocked(access.canUseLlms, LlmInstancesScreen.sidebarKey),
     );
@@ -374,6 +434,7 @@ class SideBar extends ConsumerWidget {
       selected: isSelected(LlmRunnerScreen.sidebarKey),
       label: l10n.sidebarRunnerLabel,
       locked: !access.canUseLlms,
+      accent: Brand.workloadAi,
       onPressed: () =>
           openOrPromptLocked(access.canUseLlms, LlmRunnerScreen.sidebarKey),
     );
@@ -389,6 +450,7 @@ class SideBar extends ConsumerWidget {
           ? activeDownloads.toString()
           : null,
       locked: !access.canUseLlms,
+      accent: Brand.workloadAi,
       onPressed: () =>
           openOrPromptLocked(access.canUseLlms, LlmDownloadedScreen.sidebarKey),
     );
@@ -406,6 +468,7 @@ class SideBar extends ConsumerWidget {
       label: l10n.llmCredentialsLabel,
       badge: apiKeyCount.toString(),
       locked: !access.canUseLlms,
+      accent: Brand.workloadAi,
       onPressed: () => openOrPromptLocked(
           access.canUseLlms, LlmCredentialsScreen.sidebarKey),
     );
@@ -436,6 +499,7 @@ class SideBar extends ConsumerWidget {
       selected: isSelected(ServicesScreen.sidebarKey),
       label: l10n.sidebarServiceCatalogueLabel,
       locked: !access.canUseServices,
+      accent: Brand.workloadService,
       onPressed: () =>
           openOrPromptLocked(access.canUseServices, ServicesScreen.sidebarKey),
     );
@@ -446,6 +510,7 @@ class SideBar extends ConsumerWidget {
       label: l10n.sidebarDeploymentsLabel,
       badge: serviceCount.toString(),
       locked: !access.canUseServices,
+      accent: Brand.workloadService,
       onPressed: () => openOrPromptLocked(
           access.canUseServices, ServiceInstancesScreen.sidebarKey),
     );
@@ -600,33 +665,64 @@ class SideBar extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
-        overview,
-        SidebarSectionHeader(l10n.sidebarSectionCompute),
-        catalogue,
-        instances,
-        intents,
-        cloudInit,
-        SidebarSectionHeader(
-          l10n.sidebarSectionAi,
-          locked: !access.canUseLlms,
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 8),
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  collapsed ? 4 : 8,
+                  2,
+                  collapsed ? 4 : 8,
+                  2,
+                ),
+                child: Column(
+                  children: [
+                    overview,
+                    intents,
+                  ],
+                ),
+              ),
+              SidebarSection(
+                key: const ValueKey('sidebar-section-compute'),
+                label: l10n.sidebarSectionCompute,
+                accent: Brand.workloadVm,
+                children: [catalogue, instances, cloudInit],
+              ),
+              SidebarSection(
+                key: const ValueKey('sidebar-section-ai'),
+                label: l10n.sidebarSectionAi,
+                locked: !access.canUseLlms,
+                accent: Brand.workloadAi,
+                children: [
+                  llmCatalogue,
+                  llmDownloaded,
+                  llmInstances,
+                  llmRunner,
+                  llmCredentials,
+                ],
+              ),
+              SidebarSection(
+                key: const ValueKey('sidebar-section-services'),
+                label: l10n.sidebarSectionServices,
+                locked: !access.canUseServices,
+                accent: Brand.workloadService,
+                children: [services, serviceInstances],
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  collapsed ? 4 : 8,
+                  2,
+                  collapsed ? 4 : 8,
+                  2,
+                ),
+                child: Column(
+                  children: [llmSetup, cache, hosts, help],
+                ),
+              ),
+            ],
+          ),
         ),
-        llmCatalogue,
-        llmDownloaded,
-        llmInstances,
-        llmRunner,
-        llmCredentials,
-        SidebarSectionHeader(
-          l10n.sidebarSectionServices,
-          locked: !access.canUseServices,
-        ),
-        services,
-        serviceInstances,
-        SidebarSectionHeader(l10n.sidebarSectionManage),
-        llmSetup,
-        cache,
-        hosts,
-        help,
-        const Spacer(),
         Divider(color: fg.withAlpha(40), height: 1),
         const SizedBox(height: 4),
         _SidebarAccountBadge(
@@ -1091,6 +1187,7 @@ class SidebarEntry extends ConsumerWidget {
   final bool locked;
   final double iconOpacity;
   final Color? iconColor;
+  final Color? accent;
 
   const SidebarEntry({
     super.key,
@@ -1103,6 +1200,7 @@ class SidebarEntry extends ConsumerWidget {
     this.locked = false,
     this.iconOpacity = 1,
     this.iconColor,
+    this.accent,
   });
 
   @override
@@ -1110,15 +1208,18 @@ class SidebarEntry extends ConsumerWidget {
     final appearanceTheme = ref.watch(
       appearanceSettingsProvider.select((settings) => settings.theme),
     );
-    final activeBg = _SidebarStyle.activeBg(appearanceTheme);
-    final activeFg = _SidebarStyle.activeFg(appearanceTheme);
+    final isDarkTheme = appearanceTheme != AppearanceTheme.light;
+    final activeBg = accent != null
+        ? accent!.withValues(alpha: isDarkTheme ? 0.34 : 0.20)
+        : _SidebarStyle.activeBg(appearanceTheme);
+    final activeFg = accent ?? _SidebarStyle.activeFg(appearanceTheme);
     final idleFg = _SidebarStyle.foreground(appearanceTheme);
     final fg = selected && !locked ? activeFg : idleFg;
     final height =
         subroute ? _SidebarStyle.subItemHeight : _SidebarStyle.itemHeight;
     final fontSize =
         subroute ? _SidebarStyle.subLabelSize : _SidebarStyle.labelSize;
-    final isDarkTheme = appearanceTheme != AppearanceTheme.light;
+    final radius = BorderRadius.circular(Brand.radius);
 
     final iconChild = Opacity(
       opacity: iconOpacity,
@@ -1128,7 +1229,10 @@ class SidebarEntry extends ConsumerWidget {
           child: FaIcon(
             icon,
             size: _SidebarStyle.iconSize,
-            color: iconColor ?? fg,
+            color: iconColor ??
+                (selected && !locked
+                    ? fg
+                    : (accent ?? fg).withValues(alpha: accent == null ? 1 : 0.72)),
           ),
         ),
       ),
@@ -1137,78 +1241,86 @@ class SidebarEntry extends ConsumerWidget {
     final collapsed = sidebarCollapsedOf(context, ref);
     final row = Opacity(
       opacity: locked ? 0.42 : 1,
-      child: Material(
-        color: selected && !locked ? activeBg : Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
-          focusColor: Brand.primaryMuted,
-          overlayColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.focused)) {
-              return Brand.primaryMuted;
-            }
-            return null;
-          }),
-          child: SizedBox(
-            height: height,
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: subroute ? 8 : 8,
-                right: 8,
-              ),
-              child: Row(
-                children: [
-                  iconChild,
-                  if (!collapsed) ...[
-                    Expanded(
-                      child: Text(
-                        label,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: fg,
-                          fontFamily: Brand.fontFamily,
-                          fontSize: fontSize,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                    if (locked)
-                      Icon(
-                        Icons.lock_outline,
-                        size: 12,
-                        color: fg.withValues(alpha: 0.8),
-                      )
-                    else if (badge != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDarkTheme
-                              ? Brand.black
-                              : Brand.greyBody.withAlpha(60),
-                          borderRadius: BorderRadius.circular(Brand.radius),
-                        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        child: Material(
+          color: selected && !locked ? activeBg : Colors.transparent,
+          borderRadius: radius,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: radius,
+            hoverColor: isDarkTheme ? Colors.white10 : Colors.black12,
+            focusColor: Brand.primaryMuted,
+            overlayColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.focused)) {
+                return Brand.primaryMuted;
+              }
+              return null;
+            }),
+            child: SizedBox(
+              height: height,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: subroute ? 8 : 6,
+                  right: 8,
+                ),
+                child: Row(
+                  children: [
+                    iconChild,
+                    if (!collapsed) ...[
+                      Expanded(
                         child: Text(
-                          badge!,
+                          label,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: fg,
-                            fontSize: 11,
+                            fontFamily: Brand.fontFamily,
+                            fontSize: fontSize,
+                            fontWeight:
+                                selected && !locked ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
                       ),
-                  ] else if (badge != null)
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: Brand.accent,
-                        shape: BoxShape.circle,
+                      if (locked)
+                        Icon(
+                          Icons.lock_outline,
+                          size: 12,
+                          color: fg.withValues(alpha: 0.8),
+                        )
+                      else if (badge != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: selected && accent != null
+                                ? accent!.withValues(alpha: isDarkTheme ? 0.45 : 0.28)
+                                : (isDarkTheme
+                                    ? Brand.black
+                                    : Brand.greyBody.withAlpha(60)),
+                            borderRadius: BorderRadius.circular(Brand.radius),
+                          ),
+                          child: Text(
+                            badge!,
+                            style: TextStyle(
+                              color: fg,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                    ] else if (badge != null)
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: accent ?? Brand.accent,
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

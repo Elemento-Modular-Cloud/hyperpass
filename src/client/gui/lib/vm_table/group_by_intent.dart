@@ -39,7 +39,8 @@ Map<String, List<T>> groupItemsByIntent<T>(
   return groups;
 }
 
-String intentGroupLabel(String intent) => intent.isEmpty ? 'No intent' : intent;
+String intentGroupLabel(String intent) =>
+    intent.isEmpty ? 'No composition' : intent;
 
 class GroupByIntentSwitch extends ConsumerWidget {
   const GroupByIntentSwitch({super.key});
@@ -49,7 +50,7 @@ class GroupByIntentSwitch extends ConsumerWidget {
     return UnconstrainedBox(
       constrainedAxis: Axis.vertical,
       child: Switch(
-        label: 'Group by intent',
+        label: 'Group by composition',
         value: ref.watch(groupByIntentProvider),
         onChanged: (v) => ref.read(groupByIntentProvider.notifier).set(v),
       ),

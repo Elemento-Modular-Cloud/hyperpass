@@ -190,12 +190,12 @@ Future<void> _completeLlmLoad({
             );
       providerContainer.read(notificationsProvider.notifier).addOperation(
             op,
-            loading: 'Adding $modelId to intent $intentName…',
+            loading: 'Adding $modelId to composition $intentName…',
             onSuccess: (reply) {
               final message = reply?.replyMessage as String?;
               return message?.isNotEmpty == true
                   ? message!
-                  : 'Added $modelId to intent $intentName';
+                  : 'Added $modelId to composition $intentName';
             },
             onError: (error) => '$error',
           );
@@ -658,7 +658,7 @@ Future<_IntentChoice?> _promptIntentAssignment(
         builder: (ctx, ref, _) {
           final intentNames = ref.watch(intentNamesProvider);
           return AlertDialog(
-            title: const Text('Assign to an intent (optional)'),
+            title: const Text('Assign to a composition (optional)'),
             content: SizedBox(
               width: CompactLayout.dialogWidth(ctx, 440),
               child: SingleChildScrollView(
@@ -667,7 +667,7 @@ Future<_IntentChoice?> _promptIntentAssignment(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Dropdown<String?>(
-                      label: 'Intent',
+                      label: 'Composition',
                       width: 360,
                       value: selectedIntent,
                       onChanged: (value) => setState(() {
@@ -676,7 +676,7 @@ Future<_IntentChoice?> _promptIntentAssignment(
                       }),
                       items: {
                         null: 'None (standalone instance)',
-                        _createNewIntentValue: '+ Create new intent...',
+                        _createNewIntentValue: '+ Create new composition...',
                         for (final name in intentNames) name: name,
                       },
                     ),
@@ -685,7 +685,7 @@ Future<_IntentChoice?> _promptIntentAssignment(
                       TextField(
                         controller: newIntentNameController,
                         decoration: const InputDecoration(
-                          labelText: 'New intent name',
+                          labelText: 'New composition name',
                           hintText: 'e.g. test-app-1',
                         ),
                       ),
@@ -695,10 +695,10 @@ Future<_IntentChoice?> _promptIntentAssignment(
                       TextField(
                         controller: intentRoleController,
                         decoration: const InputDecoration(
-                          labelText: 'Role in intent',
+                          labelText: 'Role in composition',
                           hintText: 'e.g. chat',
                           helperText:
-                              'What this model is within the intent (e.g. "chat").',
+                              'What this model is within the composition (e.g. "chat").',
                         ),
                       ),
                     ],
@@ -726,7 +726,7 @@ Future<_IntentChoice?> _promptIntentAssignment(
                     return;
                   }
                   if (isNewIntent && newIntentNameController.text.trim().isEmpty) {
-                    setState(() => error = 'Please provide a name for the new intent.');
+                    setState(() => error = 'Please provide a name for the new composition.');
                     return;
                   }
                   Navigator.pop(

@@ -51,7 +51,7 @@ class HostsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Targets for "Migrate" (see an instance or intent\'s own menu). Hosts on the '
+              'Targets for "Migrate" (see an instance or composition\'s own menu). Hosts on the '
               'same network are found automatically; add one by hand if it\'s on a '
               'different network or isn\'t found.',
               style: TextStyle(fontSize: 14, color: onSurface.withValues(alpha: 0.7)),

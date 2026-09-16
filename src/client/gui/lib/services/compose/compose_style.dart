@@ -7,6 +7,68 @@ import '../service_spec.dart';
 
 const composePinBulletSize = 16.0;
 
+/// Palette tab 0 = services, 1 = VMs, 2 = LLMs.
+Color composeWorkloadTabColor(int index) {
+  return switch (index) {
+    1 => Brand.workloadVm,
+    2 => Brand.workloadAi,
+    _ => Brand.workloadService,
+  };
+}
+
+Color get composeHttpOutputColor => Brand.info;
+
+/// Services / VMs / LLMs tabs tinted with the resource-monitor workload colors.
+class ComposeWorkloadTabBar extends StatelessWidget {
+  const ComposeWorkloadTabBar({
+    required this.controller,
+    required this.servicesLabel,
+    required this.vmsLabel,
+    required this.llmsLabel,
+    this.isScrollable = false,
+    super.key,
+  });
+
+  final TabController controller;
+  final String servicesLabel;
+  final String vmsLabel;
+  final String llmsLabel;
+  final bool isScrollable;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = controller.index;
+    final indicator = composeWorkloadTabColor(selected);
+    return TabBar(
+      controller: controller,
+      isScrollable: isScrollable,
+      tabAlignment:
+          isScrollable ? TabAlignment.start : TabAlignment.fill,
+      labelColor: indicator,
+      indicator: UnderlineTabIndicator(
+        borderSide: BorderSide(color: indicator, width: 3),
+      ),
+      tabs: [
+        Tab(child: _tabLabel(servicesLabel, 0, selected)),
+        Tab(child: _tabLabel(vmsLabel, 1, selected)),
+        Tab(child: _tabLabel(llmsLabel, 2, selected)),
+      ],
+    );
+  }
+
+  Widget _tabLabel(String text, int index, int selected) {
+    final color = composeWorkloadTabColor(index);
+    return Text(
+      text,
+      style: TextStyle(
+        color: index == selected ? color : color.withValues(alpha: 0.55),
+        fontFamily: Brand.fontFamily,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
 const _contractPalette = <Color>[
   Brand.workloadAi,
   Brand.info,
@@ -43,12 +105,14 @@ class ComposePinBullet extends StatelessWidget {
     required this.color,
     required this.multiple,
     this.lit = false,
+    this.http = false,
     super.key,
   });
 
   final Color color;
   final bool multiple;
   final bool lit;
+  final bool http;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +122,7 @@ class ComposePinBullet extends StatelessWidget {
         color: color,
         multiple: multiple,
         lit: lit,
+        http: http,
         surface: Theme.of(context).colorScheme.surface,
       ),
     );
@@ -70,17 +135,38 @@ class ComposePinBulletPainter extends CustomPainter {
     required this.multiple,
     required this.lit,
     required this.surface,
+    this.http = false,
   });
 
   final Color color;
   final bool multiple;
   final bool lit;
+  final bool http;
   final Color surface;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.shortestSide / 2 - (lit ? 1.5 : 0.6);
+
+    if (http) {
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(2.5));
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = color.withValues(alpha: 0.16)
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+      return;
+    }
 
     if (multiple) {
       canvas.drawCircle(
@@ -125,6 +211,7 @@ class ComposePinBulletPainter extends CustomPainter {
     return oldDelegate.color != color ||
         oldDelegate.multiple != multiple ||
         oldDelegate.lit != lit ||
+        oldDelegate.http != http ||
         oldDelegate.surface != surface;
   }
 }

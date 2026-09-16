@@ -21,6 +21,7 @@ import '../llm/providers.dart';
 import '../notifications.dart';
 import '../providers.dart';
 import '../services/compose/compose_graph.dart';
+import '../services/compose/compose_style.dart';
 import '../services/service_branding.dart';
 import '../services/service_intent_member.dart';
 import '../services/service_library.dart';
@@ -113,13 +114,11 @@ class _AddIntentMemberDialogState extends ConsumerState<_AddIntentMemberDialog>
               ),
             ),
             const SizedBox(height: 12),
-            TabBar(
+            ComposeWorkloadTabBar(
               controller: _tabs,
-              tabs: [
-                Tab(text: l10n.intentAddTabServices),
-                Tab(text: l10n.intentAddTabVms),
-                Tab(text: l10n.intentAddTabLlms),
-              ],
+              servicesLabel: l10n.intentAddTabServices,
+              vmsLabel: l10n.intentAddTabVms,
+              llmsLabel: l10n.intentAddTabLlms,
             ),
             const SizedBox(height: 12),
             RoundedSearchField(
@@ -433,12 +432,12 @@ class _AddIntentMemberDialogState extends ConsumerState<_AddIntentMemberDialog>
     );
     ref.read(notificationsProvider.notifier).addOperation(
           op,
-          loading: 'Adding $label to intent ${widget.intentName}…',
+          loading: 'Adding $label to composition ${widget.intentName}…',
           onSuccess: (reply) {
             final message = reply?.replyMessage;
             return message != null && message.isNotEmpty
                 ? message
-                : 'Added $label to intent ${widget.intentName}';
+                : 'Added $label to composition ${widget.intentName}';
           },
           onError: (error) => '$error',
         );

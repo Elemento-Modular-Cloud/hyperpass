@@ -111,7 +111,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     final minDisk = serviceDiskBytes(service);
 
     final intentDropdown = Dropdown<String?>(
-      label: 'Intent',
+      label: 'Composition',
       width: 360,
       value: _selectedIntent,
       onChanged: (value) => setState(() {
@@ -120,7 +120,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
       }),
       items: {
         null: 'None (standalone instance)',
-        _createNewIntentValue: '+ Create new intent...',
+        _createNewIntentValue: '+ Create new composition...',
         for (final existingIntent in intentNames)
           existingIntent: existingIntent,
       },
@@ -139,7 +139,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
             intentDropdown,
             if (_selectedIntent == _createNewIntentValue)
               SpecInput(
-                label: 'New intent name',
+                label: 'New composition name',
                 hint: 'e.g. test-app-1',
                 initialValue: _newIntentName,
                 onSaved: (value) => _newIntentName = value ?? '',
@@ -147,9 +147,9 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
               ),
             if (_selectedIntent != null)
               SpecInput(
-                label: 'Role in intent',
+                label: 'Role in composition',
                 helper:
-                    'What this service is within the intent (e.g. "redis").',
+                    'What this service is within the composition (e.g. "redis").',
                 hint: 'e.g. redis',
                 initialValue: _intentRole,
                 onSaved: (value) => _intentRole = value ?? '',
@@ -339,7 +339,7 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
     assert((newIntentName == null) != (existingIntentName == null));
 
     if (newIntentName != null && newIntentName.isEmpty) {
-      setState(() => _error = 'Please provide a name for the new intent.');
+      setState(() => _error = 'Please provide a name for the new composition.');
       return false;
     }
     if (_intentRole.trim().isEmpty) {
@@ -378,12 +378,12 @@ class _ServiceDeployDialogState extends ConsumerState<_ServiceDeployDialog> {
 
       ref.read(notificationsProvider.notifier).addOperation(
             op,
-            loading: 'Adding $role to intent $intentName…',
+            loading: 'Adding $role to composition $intentName…',
             onSuccess: (reply) {
               final message = reply?.replyMessage as String?;
               return message?.isNotEmpty == true
                   ? message!
-                  : 'Added $role to intent $intentName';
+                  : 'Added $role to composition $intentName';
             },
             onError: (error) => '$error',
           );
