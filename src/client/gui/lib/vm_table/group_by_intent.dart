@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Table, Switch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../brand.dart';
+import '../intents/composition_load.dart';
 import '../switch.dart';
 import 'table.dart';
 
@@ -59,21 +60,46 @@ class GroupByIntentSwitch extends ConsumerWidget {
 }
 
 class IntentGroupHeading extends StatelessWidget {
-  const IntentGroupHeading(this.intent, {super.key});
+  const IntentGroupHeading(
+    this.intent, {
+    this.instanceNames = const {},
+    this.reservedCpus = 0,
+    this.reservedMemBytes = 0,
+    super.key,
+  });
 
   final String intent;
+  final Set<String> instanceNames;
+  final int reservedCpus;
+  final int reservedMemBytes;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(
-        intentGroupLabel(intent),
-        style: TextStyle(
-          fontFamily: Brand.fontFamily,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              intentGroupLabel(intent),
+              style: TextStyle(
+                fontFamily: Brand.fontFamily,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: IntentCompositionLoad(
+              intentName: intent,
+              instanceNames: instanceNames,
+              reservedCpus: reservedCpus,
+              reservedMemBytes: reservedMemBytes,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -91,6 +117,8 @@ class GroupedByIntentTables<T> extends StatelessWidget {
     required this.intentOf,
     required this.isSelected,
     this.groupSelectAll,
+    this.nameOf,
+    this.occupancyOf,
     this.rowExtent = 50,
     this.headerRowHeight = 56,
   });
@@ -100,6 +128,8 @@ class GroupedByIntentTables<T> extends StatelessWidget {
   final String Function(T) intentOf;
   final bool Function(T) isSelected;
   final Widget Function(List<T> group)? groupSelectAll;
+  final String Function(T)? nameOf;
+  final ({int cpus, int memBytes}) Function(T)? occupancyOf;
   final double rowExtent;
   final double headerRowHeight;
 
@@ -112,7 +142,25 @@ class GroupedByIntentTables<T> extends StatelessWidget {
     return ListView(
       children: [
         for (final key in sortedKeys) ...[
-          IntentGroupHeading(key),
+          IntentGroupHeading(
+            key,
+            instanceNames: {
+              if (nameOf != null)
+                for (final item in groups[key]!) nameOf!(item),
+            },
+            reservedCpus: occupancyOf == null
+                ? 0
+                : groups[key]!.fold<int>(
+                    0,
+                    (sum, item) => sum + occupancyOf!(item).cpus,
+                  ),
+            reservedMemBytes: occupancyOf == null
+                ? 0
+                : groups[key]!.fold<int>(
+                    0,
+                    (sum, item) => sum + occupancyOf!(item).memBytes,
+                  ),
+          ),
           SizedBox(
             height: headerRowHeight + groups[key]!.length * rowExtent,
             child: Table<T>(

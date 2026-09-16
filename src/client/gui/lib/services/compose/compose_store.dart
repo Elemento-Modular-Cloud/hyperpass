@@ -47,10 +47,14 @@ class ComposeEditorState {
   const ComposeEditorState({
     required this.graph,
     this.selectedNodeIds = const {},
+    this.viewEpoch = 0,
   });
 
   final ComposeGraph graph;
   final Set<String> selectedNodeIds;
+
+  /// Bumped when a composition is opened so the canvas can fit the view.
+  final int viewEpoch;
 
   String? get selectedNodeId =>
       selectedNodeIds.isEmpty ? null : selectedNodeIds.first;
@@ -59,12 +63,14 @@ class ComposeEditorState {
     ComposeGraph? graph,
     Set<String>? selectedNodeIds,
     bool clearSelection = false,
+    int? viewEpoch,
   }) {
     return ComposeEditorState(
       graph: graph ?? this.graph,
       selectedNodeIds: clearSelection
           ? const {}
           : (selectedNodeIds ?? this.selectedNodeIds),
+      viewEpoch: viewEpoch ?? this.viewEpoch,
     );
   }
 }
@@ -122,19 +128,28 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
       return;
     }
     _prefs.setString(composeCurrentIntentPrefsKey, '');
-    state = const ComposeEditorState(graph: ComposeGraph(intentName: ''));
+    state = ComposeEditorState(
+      graph: const ComposeGraph(intentName: ''),
+      viewEpoch: state.viewEpoch + 1,
+    );
   }
 
   void openIntent(String intentName) {
     final graph =
         _allGraphs()[intentName] ?? ComposeGraph(intentName: intentName);
     _prefs.setString(composeCurrentIntentPrefsKey, intentName);
-    state = ComposeEditorState(graph: graph);
+    state = ComposeEditorState(
+      graph: graph,
+      viewEpoch: state.viewEpoch + 1,
+    );
   }
 
   void newDraft() {
     _prefs.setString(composeCurrentIntentPrefsKey, '');
-    state = const ComposeEditorState(graph: ComposeGraph(intentName: ''));
+    state = ComposeEditorState(
+      graph: const ComposeGraph(intentName: ''),
+      viewEpoch: state.viewEpoch + 1,
+    );
   }
 
   void setIntentName(String name) {
@@ -193,6 +208,9 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
         label: service.displayName,
         x: x ?? drop.$1,
         y: y ?? drop.$2,
+        numCores: composeServiceDefaultCpus(service),
+        memBytes: composeServiceDefaultMemBytes(service),
+        diskBytes: composeServiceDefaultDiskBytes(service),
       ),
     );
   }
@@ -215,9 +233,9 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
         label: label,
         x: x ?? drop.$1,
         y: y ?? drop.$2,
-        manualParams: {
-          if (diskSpace != null && diskSpace.isNotEmpty) 'diskSpace': diskSpace,
-        },
+        numCores: composeDefaultCpus,
+        memBytes: composeDefaultRamBytes,
+        diskBytes: parseComposeByteSize(diskSpace) ?? composeDefaultDiskBytes,
       ),
     );
   }
@@ -241,7 +259,7 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
         kind: ComposeNodeKind.llm,
         modelId: modelId,
         quant: quant,
-        runtime: runtime,
+        runtime: runtime.isEmpty ? composeDefaultRuntime : runtime,
         ctxSize: ctxSize,
         maxTokens: maxTokens,
         label: label.isEmpty ? modelId : label,
@@ -286,6 +304,38 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     final nodes = [
       for (final node in state.graph.nodes)
         if (node.id == id) node.copyWith(role: role.trim()) else node,
+    ];
+    final graph = state.graph.copyWith(nodes: nodes);
+    _persist(graph);
+    state = state.copyWith(graph: graph);
+  }
+
+  void setResources(
+    String id, {
+    int? numCores,
+    int? memBytes,
+    int? diskBytes,
+    int? ctxSize,
+    int? maxTokens,
+    String? quant,
+    String? runtime,
+    String? cloudInitName,
+  }) {
+    final nodes = [
+      for (final node in state.graph.nodes)
+        if (node.id == id)
+          node.copyWith(
+            numCores: numCores,
+            memBytes: memBytes,
+            diskBytes: diskBytes,
+            ctxSize: ctxSize,
+            maxTokens: maxTokens,
+            quant: quant,
+            runtime: runtime,
+            cloudInitName: cloudInitName,
+          )
+        else
+          node,
     ];
     final graph = state.graph.copyWith(nodes: nodes);
     _persist(graph);

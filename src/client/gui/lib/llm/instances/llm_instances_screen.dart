@@ -2,6 +2,7 @@ import 'package:built_collection/built_collection.dart';
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../intents/composition_load.dart';
 import '../../l10n/app_localizations.dart';
 import '../../layout/compact_layout.dart';
 import '../../page_surface.dart';
@@ -146,6 +147,8 @@ class _LlmInstancesBody extends ConsumerWidget {
                     headers: llmInstanceHeaders,
                     intentOf: (m) => m.intent,
                     isSelected: (m) => selected.contains(m.instanceId),
+                    nameOf: (m) => m.instanceId,
+                    occupancyOf: occupancyOfLlm,
                     groupSelectAll: (group) => _GroupSelectAllLlmCheckbox(
                       ids: group
                           .where((m) => !isPendingLlmLoad(m))

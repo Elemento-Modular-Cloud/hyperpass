@@ -1,4 +1,5 @@
 import 'package:elp_gui/providers.dart';
+import 'package:elp_gui/services/compose/compose_graph.dart';
 import 'package:elp_gui/services/compose/compose_store.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,7 +87,9 @@ void main() {
     final c = await container();
     final notifier = c.read(composeEditorProvider.notifier);
     notifier.addVm(image: '24.04', label: 'Ubuntu');
+    expect(c.read(composeEditorProvider).viewEpoch, 0);
     notifier.openIntent('other');
+    expect(c.read(composeEditorProvider).viewEpoch, 1);
     notifier.deleteSavedIntent('lab');
 
     expect(notifier.savedIntentNames(), isEmpty);
@@ -124,5 +127,42 @@ void main() {
     notifier.removeSelected();
     expect(c.read(composeEditorProvider).graph.nodes, isEmpty);
     expect(c.read(composeEditorProvider).selectedNodeIds, isEmpty);
+  });
+
+  test('setResources updates cpu ram disk and context', () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    notifier.addLlm(modelId: 'qwen', ctxSize: 8192);
+    final nodes = c.read(composeEditorProvider).graph.nodes;
+    final vm = nodes.firstWhere((n) => n.kind == ComposeNodeKind.vm);
+    final llm = nodes.firstWhere((n) => n.kind == ComposeNodeKind.llm);
+
+    notifier.setResources(
+      vm.id,
+      numCores: 8,
+      memBytes: 4 * composeGibibyte,
+      diskBytes: 40 * composeGibibyte,
+    );
+    notifier.setResources(llm.id, ctxSize: 32768);
+    notifier.setResources(
+      llm.id,
+      maxTokens: 512,
+      quant: 'Q4_K_M',
+      runtime: 'llamacpp',
+    );
+    notifier.setResources(vm.id, cloudInitName: 'lab-init');
+
+    final updated = c.read(composeEditorProvider).graph.nodes;
+    final updatedVm = updated.firstWhere((n) => n.id == vm.id);
+    final updatedLlm = updated.firstWhere((n) => n.id == llm.id);
+    expect(updatedVm.numCores, 8);
+    expect(updatedVm.memBytes, 4 * composeGibibyte);
+    expect(updatedVm.diskBytes, 40 * composeGibibyte);
+    expect(updatedVm.cloudInitName, 'lab-init');
+    expect(updatedLlm.ctxSize, 32768);
+    expect(updatedLlm.maxTokens, 512);
+    expect(updatedLlm.quant, 'Q4_K_M');
+    expect(updatedLlm.runtime, 'llamacpp');
   });
 }

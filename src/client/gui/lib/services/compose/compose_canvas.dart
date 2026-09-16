@@ -20,6 +20,7 @@ const composeNodeHeaderHeight = 42.0;
 const composePinRowHeight = 22.0;
 const composeNodePinsPaddingTop = 4.0;
 const composeNodePinsPaddingBottom = 6.0;
+const composeNodeFooterHeight = 26.0;
 const composePinHitSlop = 10.0;
 const composeMinScale = 0.25;
 const composeMaxScale = 2.6;
@@ -75,6 +76,7 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
   void initState() {
     super.initState();
     _transform.addListener(_syncDropOrigin);
+    _scheduleFit();
   }
 
   @override
@@ -435,9 +437,22 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
     _transform.value = next;
   }
 
-  void _fitView() {
+  void _scheduleFit() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fitView(retry: 6);
+    });
+  }
+
+  void _fitView({int retry = 0}) {
     final box = _viewerKey.currentContext?.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize) return;
+    if (box == null || !box.hasSize || box.size.isEmpty) {
+      if (retry > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _fitView(retry: retry - 1);
+        });
+      }
+      return;
+    }
     final graph = ref.read(composeEditorProvider).graph;
     final bounds = composeNodesBounds(graph.nodes, widget.library);
     _transform.value = composeFitMatrix(
@@ -578,6 +593,13 @@ class _ComposeCanvasState extends ConsumerState<ComposeCanvas> {
   @override
   Widget build(BuildContext context) {
     final editor = ref.watch(composeEditorProvider);
+    ref.listen(
+      composeEditorProvider.select((s) => (s.graph.intentName, s.viewEpoch)),
+      (previous, next) {
+        if (previous == next) return;
+        _scheduleFit();
+      },
+    );
     final graph = _displayGraph(editor.graph);
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final l10n = AppLocalizations.of(context)!;
@@ -816,7 +838,8 @@ double composeNodeHeight(ComposeNode node, MarketplaceLibrary library) {
   return composeNodeHeaderHeight +
       composeNodePinsPaddingTop +
       math.max(rows, 1) * composePinStride() +
-      composeNodePinsPaddingBottom;
+      composeNodePinsPaddingBottom +
+      composeNodeFooterHeight;
 }
 
 Rect composeNodeRect(ComposeNode node, MarketplaceLibrary library) {
@@ -1167,6 +1190,39 @@ class _ComposeNodeCard extends StatelessWidget {
                         ),
                       ],
                     ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: onSurface.withValues(alpha: 0.10)),
+                ),
+              ),
+              child: SizedBox(
+                key: ValueKey('compose-node-footer-${node.id}'),
+                height: composeNodeFooterHeight,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      composeResourceFooter(
+                        node,
+                        node.isService
+                            ? library.lookup(node.serviceId)
+                            : null,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontFamily: Brand.fontFamily,
+                        color: onSurface.withValues(alpha: 0.62),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),

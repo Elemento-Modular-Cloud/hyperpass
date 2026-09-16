@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dart:convert';
 
-import '../../catalogue/launch_form.dart';
 import '../../llm/llm_features.dart';
 import '../../llm/providers.dart';
 import '../../providers.dart';
+import '../../cloud_init/cloud_init_store.dart';
 import '../gateway_ca.dart';
 import '../service_intent_member.dart';
 import '../service_library.dart';
@@ -67,8 +67,19 @@ ComposeDeployHost composeDeployHostFor(Ref ref) {
         pem = null;
       }
       String llmRuntime = node.runtime;
-      if (node.kind == ComposeNodeKind.llm && llmRuntime.isEmpty) {
-        llmRuntime = await _composeLlmRuntime(ref, node.runtime);
+      if (node.kind == ComposeNodeKind.llm) {
+        llmRuntime = await _composeLlmRuntime(ref, composeResolvedRuntime(node));
+      }
+      String? cloudInit;
+      if (node.kind == ComposeNodeKind.vm && node.cloudInitName.isNotEmpty) {
+        try {
+          final store = await ref.read(cloudInitStoreProvider.future);
+          cloudInit = await store.read(node.cloudInitName);
+        } catch (_) {
+          throw ComposeDeployException(
+            'Cloud-init "${node.cloudInitName}" could not be read',
+          );
+        }
       }
       final member = switch (node.kind) {
         ComposeNodeKind.service => buildServiceIntentMember(
@@ -76,20 +87,24 @@ ComposeDeployHost composeDeployHostFor(Ref ref) {
             role: node.role,
             variables: variables,
             gatewayCaPem: pem,
+            numCores: composeResolvedCpus(node, service),
+            memSize: '${composeResolvedMemBytes(node, service)}B',
+            diskSpace: '${composeResolvedDiskBytes(node, service)}B',
           ),
         ComposeNodeKind.vm => IntentMemberRequest(
             role: node.role,
             image: node.image,
-            numCores: defaultCpus,
-            memSize: '${defaultRam}B',
-            diskSpace: node.manualParams['diskSpace'] ?? '${defaultDisk}B',
+            numCores: composeResolvedCpus(node),
+            memSize: '${composeResolvedMemBytes(node)}B',
+            diskSpace: '${composeResolvedDiskBytes(node)}B',
+            cloudInitUserData: cloudInit ?? '',
           ),
         ComposeNodeKind.llm => IntentMemberRequest(
             role: node.role,
             modelId: node.modelId,
             quant: node.quant,
             runtime: llmRuntime,
-            ctxSize: node.ctxSize,
+            ctxSize: composeResolvedCtxSize(node),
             maxTokens: node.maxTokens,
           ),
       };

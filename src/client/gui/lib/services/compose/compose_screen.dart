@@ -8,10 +8,13 @@ import '../../catalogue/catalogue.dart';
 import '../../catalogue/catalogue_entry.dart';
 import '../../catalogue/launch_form.dart';
 import '../../distro_branding.dart';
+import '../../intents/composition_load.dart';
 import '../../intents/intents_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../layout/compact_layout.dart';
 import '../../llm/catalogue/model_branding.dart';
+import '../../cloud_init/cloud_init_store.dart';
+import '../../llm/llm_features.dart';
 import '../../llm/llm_load.dart';
 import '../../llm/llm_load_form.dart';
 import '../../llm/llm_load_prefs.dart';
@@ -140,6 +143,10 @@ class ComposeScreen extends ConsumerWidget {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ],
+            if (hasIntent) ...[
+              const SizedBox(height: 10),
+              _ComposeLoadBar(library: library, graph: editor.graph),
+            ],
             const SizedBox(height: 16),
             Expanded(
               child: Row(
@@ -228,6 +235,28 @@ class ComposeScreen extends ConsumerWidget {
     } catch (_) {
       // Progress already holds the error.
     }
+  }
+}
+
+class _ComposeLoadBar extends ConsumerWidget {
+  const _ComposeLoadBar({required this.library, required this.graph});
+
+  final MarketplaceLibrary library;
+  final ComposeGraph graph;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final daemon = ref.watch(daemonInfoProvider).asData?.value;
+    if (daemon == null) return const SizedBox.shrink();
+    return CompositionLoadMeters(
+      key: const ValueKey('compose-load-meters'),
+      load: compositionLoadFromGraph(
+        graph: graph,
+        library: library,
+        cpuHost: daemon.cpus,
+        memHost: daemon.memory.toInt(),
+      ),
+    );
   }
 }
 
@@ -544,12 +573,26 @@ class _ComposeInspector extends ConsumerStatefulWidget {
 
 class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
   final _role = TextEditingController();
+  final _cpu = TextEditingController();
+  final _ram = TextEditingController();
+  final _disk = TextEditingController();
+  final _ctx = TextEditingController();
+  final _maxTokens = TextEditingController();
+  final _quant = TextEditingController();
+  final _runtime = TextEditingController();
   final _params = <String, TextEditingController>{};
   String? _boundNodeId;
 
   @override
   void dispose() {
     _role.dispose();
+    _cpu.dispose();
+    _ram.dispose();
+    _disk.dispose();
+    _ctx.dispose();
+    _maxTokens.dispose();
+    _quant.dispose();
+    _runtime.dispose();
     for (final controller in _params.values) {
       controller.dispose();
     }
@@ -564,6 +607,15 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
     if (_boundNodeId != node.id) {
       _boundNodeId = node.id;
       _role.text = node.role;
+      final service =
+          node.isService ? widget.library.lookup(node.serviceId) : null;
+      _cpu.text = '${composeResolvedCpus(node, service)}';
+      _ram.text = _gibField(composeResolvedMemBytes(node, service));
+      _disk.text = _gibField(composeResolvedDiskBytes(node, service));
+      _ctx.text = '${composeResolvedCtxSize(node)}';
+      _maxTokens.text = '${node.maxTokens}';
+      _quant.text = node.quant;
+      _runtime.text = composeResolvedRuntime(node);
       for (final controller in _params.values) {
         controller.dispose();
       }
@@ -576,6 +628,18 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
     }
   }
 
+  static String _gibField(int bytes) {
+    final gibi = bytes / composeGibibyte;
+    if ((gibi - gibi.round()).abs() < 0.05) return '${gibi.round()}';
+    return gibi.toStringAsFixed(1);
+  }
+
+  static int? _gibToBytes(String raw) {
+    final parsed = double.tryParse(raw.trim());
+    if (parsed == null || parsed <= 0) return null;
+    return (parsed * composeGibibyte).round();
+  }
+
   TextEditingController _paramController(String name, String value) {
     return _params.putIfAbsent(name, () => TextEditingController(text: value));
   }
@@ -586,6 +650,221 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
       ComposeNodeKind.llm => l10n.composeKindLlm,
       ComposeNodeKind.service => l10n.composeKindService,
     };
+  }
+
+  String _runtimeLabel(AppLocalizations l10n, String id) {
+    return switch (id) {
+      'llamacpp' => l10n.modelsRuntimeLlama,
+      'mlx' => l10n.modelsRuntimeMlx,
+      _ => id,
+    };
+  }
+
+  List<Widget> _llmFields(AppLocalizations l10n, ComposeNode node) {
+    final backends = ref.watch(llmBackendsProvider).asData?.value;
+    final ready = {
+      for (final backend in backends?.backends ?? const [])
+        if (backend.status == 'ready' &&
+            (backend.id == 'llamacpp' ||
+                (enableMlxBackend && backend.id == 'mlx')))
+          backend.id,
+    };
+    final runtime = composeResolvedRuntime(node);
+    ready.add(runtime);
+
+    return [
+      if (ready.length > 1)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: DropdownButtonFormField<String>(
+            key: ValueKey('compose-runtime-${node.id}'),
+            initialValue: runtime,
+            isDense: true,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: l10n.modelsRuntimeLabel,
+              isDense: true,
+            ),
+            items: [
+              for (final id in ready)
+                DropdownMenuItem(value: id, child: Text(_runtimeLabel(l10n, id))),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              ref
+                  .read(composeEditorProvider.notifier)
+                  .setResources(node.id, runtime: value);
+            },
+          ),
+        )
+      else
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: TextField(
+            key: ValueKey('compose-runtime-${node.id}'),
+            controller: _runtime,
+            decoration: InputDecoration(
+              labelText: l10n.modelsRuntimeLabel,
+              isDense: true,
+            ),
+            onChanged: (value) {
+              final trimmed = value.trim();
+              if (trimmed.isEmpty) return;
+              ref
+                  .read(composeEditorProvider.notifier)
+                  .setResources(node.id, runtime: trimmed);
+            },
+          ),
+        ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          key: ValueKey('compose-quant-${node.id}'),
+          controller: _quant,
+          decoration: InputDecoration(
+            labelText: l10n.modelsDetailQuant,
+            isDense: true,
+          ),
+          onChanged: (value) => ref
+              .read(composeEditorProvider.notifier)
+              .setResources(node.id, quant: value.trim()),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          key: ValueKey('compose-ctx-${node.id}'),
+          controller: _ctx,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: l10n.composeResourceContext,
+            isDense: true,
+          ),
+          onChanged: (value) {
+            final parsed = int.tryParse(value.trim());
+            if (parsed == null || parsed <= 0) return;
+            ref
+                .read(composeEditorProvider.notifier)
+                .setResources(node.id, ctxSize: parsed);
+          },
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          key: ValueKey('compose-max-tokens-${node.id}'),
+          controller: _maxTokens,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: l10n.modelsMaxTokensLabel,
+            helperText: l10n.modelsMaxTokensHelper,
+            isDense: true,
+          ),
+          onChanged: (value) {
+            final parsed = int.tryParse(value.trim());
+            if (parsed == null || parsed < 0) return;
+            ref
+                .read(composeEditorProvider.notifier)
+                .setResources(node.id, maxTokens: parsed);
+          },
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _vmResourceFields(AppLocalizations l10n, ComposeNode node) {
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          key: ValueKey('compose-cpu-${node.id}'),
+          controller: _cpu,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: l10n.composeResourceCpu,
+            isDense: true,
+          ),
+          onChanged: (value) {
+            final parsed = int.tryParse(value.trim());
+            if (parsed == null || parsed <= 0) return;
+            ref
+                .read(composeEditorProvider.notifier)
+                .setResources(node.id, numCores: parsed);
+          },
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          key: ValueKey('compose-ram-${node.id}'),
+          controller: _ram,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: l10n.composeResourceRam,
+            isDense: true,
+          ),
+          onChanged: (value) {
+            final bytes = _gibToBytes(value);
+            if (bytes == null) return;
+            ref
+                .read(composeEditorProvider.notifier)
+                .setResources(node.id, memBytes: bytes);
+          },
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          key: ValueKey('compose-disk-${node.id}'),
+          controller: _disk,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: l10n.composeResourceStorage,
+            isDense: true,
+          ),
+          onChanged: (value) {
+            final bytes = _gibToBytes(value);
+            if (bytes == null) return;
+            ref
+                .read(composeEditorProvider.notifier)
+                .setResources(node.id, diskBytes: bytes);
+          },
+        ),
+      ),
+    ];
+  }
+
+  Widget _cloudInitField(AppLocalizations l10n, ComposeNode node) {
+    final configs =
+        ref.watch(cloudInitConfigsProvider).asData?.value ?? const [];
+    final names = {
+      '',
+      for (final config in configs) config.name,
+      if (node.cloudInitName.isNotEmpty) node.cloudInitName,
+    };
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey('compose-cloud-init-${node.id}'),
+        initialValue: node.cloudInitName,
+        isDense: true,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: l10n.cloudInitLabel,
+          isDense: true,
+        ),
+        items: [
+          for (final name in names)
+            DropdownMenuItem(
+              value: name,
+              child: Text(name.isEmpty ? l10n.cloudInitLaunchNone : name),
+            ),
+        ],
+        onChanged: (value) => ref
+            .read(composeEditorProvider.notifier)
+            .setResources(node.id, cloudInitName: value ?? ''),
+      ),
+    );
   }
 
   @override
@@ -656,6 +935,16 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
           ),
         ),
         const SizedBox(height: 16),
+        Text(l10n.composeResources,
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        if (node.kind == ComposeNodeKind.llm)
+          ..._llmFields(l10n, node)
+        else ...[
+          ..._vmResourceFields(l10n, node),
+          if (node.kind == ComposeNodeKind.vm) _cloudInitField(l10n, node),
+        ],
+        const SizedBox(height: 8),
         Text(l10n.composeRequires,
             style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),

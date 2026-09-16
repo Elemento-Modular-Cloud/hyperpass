@@ -31,6 +31,10 @@ class ComposeNode {
     this.runtime = '',
     this.ctxSize = 0,
     this.maxTokens = 0,
+    this.numCores = 0,
+    this.memBytes = 0,
+    this.diskBytes = 0,
+    this.cloudInitName = '',
     this.label = '',
     this.manualParams = const {},
   });
@@ -49,6 +53,18 @@ class ComposeNode {
   final String runtime;
   final int ctxSize;
   final int maxTokens;
+
+  /// Guest CPUs. `0` means use the kind-specific default.
+  final int numCores;
+
+  /// Guest RAM in bytes. `0` means use the kind-specific default.
+  final int memBytes;
+
+  /// Guest disk in bytes. `0` means use the kind-specific default.
+  final int diskBytes;
+
+  /// Named local cloud-init config for VM members. Empty means none.
+  final String cloudInitName;
   final String label;
   final double x;
   final double y;
@@ -76,6 +92,10 @@ class ComposeNode {
     String? runtime,
     int? ctxSize,
     int? maxTokens,
+    int? numCores,
+    int? memBytes,
+    int? diskBytes,
+    String? cloudInitName,
     String? label,
     double? x,
     double? y,
@@ -92,6 +112,10 @@ class ComposeNode {
       runtime: runtime ?? this.runtime,
       ctxSize: ctxSize ?? this.ctxSize,
       maxTokens: maxTokens ?? this.maxTokens,
+      numCores: numCores ?? this.numCores,
+      memBytes: memBytes ?? this.memBytes,
+      diskBytes: diskBytes ?? this.diskBytes,
+      cloudInitName: cloudInitName ?? this.cloudInitName,
       label: label ?? this.label,
       x: x ?? this.x,
       y: y ?? this.y,
@@ -110,6 +134,10 @@ class ComposeNode {
         'runtime': runtime,
         'ctxSize': ctxSize,
         'maxTokens': maxTokens,
+        'numCores': numCores,
+        'memBytes': memBytes,
+        'diskBytes': diskBytes,
+        'cloudInitName': cloudInitName,
         'label': label,
         'x': x,
         'y': y,
@@ -135,12 +163,111 @@ class ComposeNode {
       runtime: '${json['runtime'] ?? ''}',
       ctxSize: (json['ctxSize'] as num?)?.toInt() ?? 0,
       maxTokens: (json['maxTokens'] as num?)?.toInt() ?? 0,
+      numCores: (json['numCores'] as num?)?.toInt() ?? 0,
+      memBytes: (json['memBytes'] as num?)?.toInt() ?? 0,
+      diskBytes: (json['diskBytes'] as num?)?.toInt() ??
+          parseComposeByteSize(params['diskSpace']) ??
+          0,
+      cloudInitName: '${json['cloudInitName'] ?? ''}',
       label: '${json['label'] ?? ''}',
       x: (json['x'] as num?)?.toDouble() ?? 0,
       y: (json['y'] as num?)?.toDouble() ?? 0,
       manualParams: params,
     );
   }
+}
+
+const composeGibibyte = 1024 * 1024 * 1024;
+const composeDefaultCpus = 1;
+const composeDefaultRamBytes = composeGibibyte;
+const composeDefaultDiskBytes = 5 * composeGibibyte;
+const composeDefaultCtxSize = 8192;
+const composeDefaultRuntime = 'llamacpp';
+
+String composeResolvedRuntime(ComposeNode node) {
+  return node.runtime.isEmpty ? composeDefaultRuntime : node.runtime;
+}
+
+int composeServiceDefaultCpus(MarketplaceService service) {
+  final min = service.resources.minCpu;
+  return min > composeDefaultCpus ? min : composeDefaultCpus;
+}
+
+int composeServiceDefaultMemBytes(MarketplaceService service) {
+  final min = service.resources.minMemoryGb * composeGibibyte;
+  return min > composeDefaultRamBytes ? min : composeDefaultRamBytes;
+}
+
+int composeServiceDefaultDiskBytes(MarketplaceService service) {
+  return composeDefaultDiskBytes + service.totalStorageGb * composeGibibyte;
+}
+
+int? parseComposeByteSize(String? raw) {
+  if (raw == null) return null;
+  final value = raw.trim();
+  if (value.isEmpty) return null;
+  final lower = value.toLowerCase();
+  var scale = 1;
+  var number = value;
+  if (lower.endsWith('gib')) {
+    scale = composeGibibyte;
+    number = value.substring(0, value.length - 3);
+  } else if (lower.endsWith('mib')) {
+    scale = 1024 * 1024;
+    number = value.substring(0, value.length - 3);
+  } else if (lower.endsWith('kib')) {
+    scale = 1024;
+    number = value.substring(0, value.length - 3);
+  } else if (lower.endsWith('b')) {
+    number = value.substring(0, value.length - 1);
+  }
+  final parsed = num.tryParse(number.trim());
+  if (parsed == null) return null;
+  return (parsed * scale).round();
+}
+
+int composeResolvedCpus(ComposeNode node, [MarketplaceService? service]) {
+  if (node.numCores > 0) return node.numCores;
+  if (service != null) return composeServiceDefaultCpus(service);
+  return composeDefaultCpus;
+}
+
+int composeResolvedMemBytes(ComposeNode node, [MarketplaceService? service]) {
+  if (node.memBytes > 0) return node.memBytes;
+  if (service != null) return composeServiceDefaultMemBytes(service);
+  return composeDefaultRamBytes;
+}
+
+int composeResolvedDiskBytes(ComposeNode node, [MarketplaceService? service]) {
+  if (node.diskBytes > 0) return node.diskBytes;
+  final legacy = parseComposeByteSize(node.manualParams['diskSpace']);
+  if (legacy != null && legacy > 0) return legacy;
+  if (service != null) return composeServiceDefaultDiskBytes(service);
+  return composeDefaultDiskBytes;
+}
+
+int composeResolvedCtxSize(ComposeNode node) {
+  return node.ctxSize > 0 ? node.ctxSize : composeDefaultCtxSize;
+}
+
+String formatComposeGib(int bytes) {
+  final gibi = bytes / composeGibibyte;
+  if ((gibi - gibi.round()).abs() < 0.05) return '${gibi.round()} GiB';
+  return '${gibi.toStringAsFixed(1)} GiB';
+}
+
+String composeResourceFooter(ComposeNode node, [MarketplaceService? service]) {
+  if (node.kind == ComposeNodeKind.llm) {
+    return [
+      if (node.quant.isNotEmpty) node.quant,
+      composeResolvedRuntime(node),
+      '${composeResolvedCtxSize(node)} ctx',
+      if (node.maxTokens > 0) '${node.maxTokens} tok',
+    ].join(' · ');
+  }
+  return '${composeResolvedCpus(node, service)} CPU · '
+      '${formatComposeGib(composeResolvedMemBytes(node, service))} · '
+      '${formatComposeGib(composeResolvedDiskBytes(node, service))}';
 }
 
 /// A typed contract wire from a producer node to a consumer node.

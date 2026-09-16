@@ -793,4 +793,51 @@ requires: {}
     );
     expect(validateComposeGraph(wired, library), isEmpty);
   });
+
+  test('resource fields round-trip and resolve defaults', () {
+    const custom = ComposeNode(
+      id: 'vm',
+      role: 'box',
+      serviceId: '24.04',
+      kind: ComposeNodeKind.vm,
+      image: '24.04',
+      numCores: 4,
+      memBytes: 2 * composeGibibyte,
+      diskBytes: 20 * composeGibibyte,
+      x: 0,
+      y: 0,
+    );
+    final restored = ComposeNode.fromJson(custom.toJson());
+    expect(restored.numCores, 4);
+    expect(restored.memBytes, 2 * composeGibibyte);
+    expect(restored.diskBytes, 20 * composeGibibyte);
+    expect(composeResourceFooter(restored), '4 CPU · 2 GiB · 20 GiB');
+
+    const legacy = ComposeNode(
+      id: 'old',
+      role: 'box',
+      serviceId: '24.04',
+      kind: ComposeNodeKind.vm,
+      image: '24.04',
+      manualParams: {'diskSpace': '10737418240B'},
+      x: 0,
+      y: 0,
+    );
+    expect(composeResolvedCpus(legacy), composeDefaultCpus);
+    expect(composeResolvedMemBytes(legacy), composeDefaultRamBytes);
+    expect(composeResolvedDiskBytes(legacy), 10 * composeGibibyte);
+
+    const llm = ComposeNode(
+      id: 'llm',
+      role: 'model',
+      serviceId: 'qwen',
+      kind: ComposeNodeKind.llm,
+      modelId: 'qwen',
+      ctxSize: 16384,
+      x: 0,
+      y: 0,
+    );
+    expect(composeResourceFooter(llm), 'llamacpp · 16384 ctx');
+    expect(parseComposeByteSize('5GiB'), 5 * composeGibibyte);
+  });
 }

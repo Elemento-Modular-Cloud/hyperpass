@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Table, Switch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../catalogue/catalogue.dart';
+import '../intents/composition_load.dart';
 import '../daemon_source.dart';
 import '../dropdown.dart';
 import '../l10n/app_localizations.dart';
@@ -212,6 +213,8 @@ class Vms extends ConsumerWidget {
                     headers: enabledHeaders,
                     intentOf: (info) => info.info.intent,
                     isSelected: (info) => selectedVms.contains(info.id),
+                    nameOf: (info) => info.name,
+                    occupancyOf: occupancyOfVm,
                     groupSelectAll: (group) => _GroupSelectAllCheckbox(
                       ids: group.map((info) => info.id).toList(),
                     ),

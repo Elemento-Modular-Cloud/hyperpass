@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Tooltip;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../intents/composition_load.dart';
 import '../l10n/app_localizations.dart';
 import '../layout/compact_layout.dart';
 import '../page_surface.dart';
@@ -87,6 +88,8 @@ class ServiceInstancesScreen extends ConsumerWidget {
                                     intentOf: (info) => info.info.intent,
                                     isSelected: (info) =>
                                         selected.contains(info.id),
+                                    nameOf: (info) => info.name,
+                                    occupancyOf: occupancyOfVm,
                                     groupSelectAll: (group) =>
                                         _GroupSelectAllServiceCheckbox(
                                       ids: group.map((info) => info.id).toList(),

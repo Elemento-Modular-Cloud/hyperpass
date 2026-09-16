@@ -14,6 +14,7 @@ import '../services/compose/compose_store.dart';
 import '../sidebar.dart';
 import '../vm_details/vm_status_icon.dart';
 import '../widgets/launchpad_button.dart';
+import 'composition_load.dart';
 import 'intent_add_member.dart';
 import 'intents_hub.dart';
 
@@ -257,6 +258,13 @@ class _IntentCard extends ConsumerWidget {
                       showDeleteIntentDialog(context, ref, intent.name),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            IntentCompositionLoad(
+              intentName: intent.name,
+              instanceNames: {
+                for (final member in intent.members) member.instanceName,
+              },
             ),
             if (intent.members.isEmpty)
               Padding(

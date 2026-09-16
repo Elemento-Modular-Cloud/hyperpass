@@ -3533,6 +3533,26 @@
     "@composeRoleLabel": {
         "description": "Inspector field for the intent member role"
     },
+    "composeResources": "Resources",
+    "@composeResources": {
+        "description": "Inspector heading for CPU, RAM, storage, and context size"
+    },
+    "composeResourceCpu": "CPU",
+    "@composeResourceCpu": {
+        "description": "Inspector field for compose node vCPU count"
+    },
+    "composeResourceRam": "RAM (GiB)",
+    "@composeResourceRam": {
+        "description": "Inspector field for compose node memory in gibibytes"
+    },
+    "composeResourceStorage": "Storage (GiB)",
+    "@composeResourceStorage": {
+        "description": "Inspector field for compose node disk in gibibytes"
+    },
+    "composeResourceContext": "Context size",
+    "@composeResourceContext": {
+        "description": "Inspector field for LLM context window tokens"
+    },
     "composeRequiredTooltip": "Required",
     "@composeRequiredTooltip": {
         "description": "Tooltip on the asterisk that marks a mandatory compose input"

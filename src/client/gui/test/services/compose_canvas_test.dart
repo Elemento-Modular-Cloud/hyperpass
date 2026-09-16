@@ -371,4 +371,50 @@ requires:
 
     expect(find.textContaining(composeRequiredMark), findsWidgets);
   });
+
+  testWidgets('opening a composition fits nodes in view', (tester) async {
+    final container = await pumpCanvas(tester);
+    final controller = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!;
+    expect(controller.value, Matrix4.identity());
+
+    final notifier = container.read(composeEditorProvider.notifier);
+    notifier.addService(library.byId('empty_v1')!, x: 800, y: 600);
+    await tester.pumpAndSettle();
+    expect(controller.value, Matrix4.identity());
+
+    notifier.openIntent('lab');
+    await tester.pumpAndSettle();
+
+    final box = tester.renderObject<RenderBox>(find.byType(InteractiveViewer));
+    final node = container.read(composeEditorProvider).graph.nodes.single;
+    final expected = composeFitMatrix(
+      content: composeNodesBounds([node], library),
+      viewport: box.size,
+    );
+    expect(controller.value.storage, expected.storage);
+  });
+
+  testWidgets('node cards show resource footers', (tester) async {
+    final container = await pumpCanvas(tester);
+    final notifier = container.read(composeEditorProvider.notifier);
+    notifier.addService(library.byId('empty_v1')!, x: 80, y: 80);
+    notifier.addLlm(modelId: 'qwen', ctxSize: 16384, x: 360, y: 80);
+    await tester.pumpAndSettle();
+
+    final nodes = container.read(composeEditorProvider).graph.nodes;
+    final service = nodes.firstWhere((n) => n.kind == ComposeNodeKind.service);
+    final llm = nodes.firstWhere((n) => n.kind == ComposeNodeKind.llm);
+    expect(
+      find.byKey(ValueKey('compose-node-footer-${service.id}')),
+      findsOneWidget,
+    );
+    expect(find.text('1 CPU · 1 GiB · 5 GiB'), findsOneWidget);
+    expect(
+      find.byKey(ValueKey('compose-node-footer-${llm.id}')),
+      findsOneWidget,
+    );
+    expect(find.text('llamacpp · 16384 ctx'), findsOneWidget);
+  });
 }
