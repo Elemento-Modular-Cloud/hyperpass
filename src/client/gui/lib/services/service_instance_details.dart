@@ -13,6 +13,7 @@ import '../providers.dart';
 import '../sidebar.dart';
 import '../vm_action.dart';
 import '../vm_details/ip_addresses.dart';
+import '../vm_details/port_forwards.dart';
 import '../vm_details/terminal_tabs.dart';
 import '../vm_details/vm_status_icon.dart';
 import 'service_branding.dart';
@@ -221,6 +222,12 @@ class ServiceInstanceDetailsScreen extends ConsumerWidget {
               Expanded(child: IpAddresses(info.instanceInfo.ipv4)),
             ],
           ),
+        ),
+        const Divider(height: 32),
+        PortForwardsDetails(
+          instanceName: instanceName,
+          serviceId: serviceId,
+          suggestedGuestPorts: template?.exposedPorts ?? const [],
         ),
       ],
     );

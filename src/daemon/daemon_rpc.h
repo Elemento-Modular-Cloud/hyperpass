@@ -177,6 +177,18 @@ signals:
         const RemoveKnownHostRequest* request,
         grpc::ServerReaderWriter<RemoveKnownHostReply, RemoveKnownHostRequest>* server,
         DaemonRpcContext* context);
+    void on_add_port_forward(
+        const AddPortForwardRequest* request,
+        grpc::ServerReaderWriter<AddPortForwardReply, AddPortForwardRequest>* server,
+        DaemonRpcContext* context);
+    void on_list_port_forwards(
+        const ListPortForwardsRequest* request,
+        grpc::ServerReaderWriter<ListPortForwardsReply, ListPortForwardsRequest>* server,
+        DaemonRpcContext* context);
+    void on_remove_port_forward(
+        const RemovePortForwardRequest* request,
+        grpc::ServerReaderWriter<RemovePortForwardReply, RemovePortForwardRequest>* server,
+        DaemonRpcContext* context);
     void on_zones(const ZonesRequest* request,
                   grpc::ServerReaderWriter<ZonesReply, ZonesRequest>* server,
                   DaemonRpcContext* context);
@@ -338,6 +350,16 @@ protected:
     grpc::Status remove_known_host(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<RemoveKnownHostReply, RemoveKnownHostRequest>* server) override;
+    grpc::Status add_port_forward(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<AddPortForwardReply, AddPortForwardRequest>* server) override;
+    grpc::Status list_port_forwards(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ListPortForwardsReply, ListPortForwardsRequest>* server) override;
+    grpc::Status remove_port_forward(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<RemovePortForwardReply, RemovePortForwardRequest>* server)
+        override;
     grpc::Status zones(grpc::ServerContext* context,
                        grpc::ServerReaderWriter<ZonesReply, ZonesRequest>* server) override;
     grpc::Status zones_state(

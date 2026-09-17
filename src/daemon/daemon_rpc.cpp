@@ -660,6 +660,45 @@ grpc::Status mp::DaemonRpc::remove_known_host(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::add_port_forward(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<AddPortForwardReply, AddPortForwardRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_add_port_forward,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::list_port_forwards(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ListPortForwardsReply, ListPortForwardsRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_list_port_forwards,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::remove_port_forward(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<RemovePortForwardReply, RemovePortForwardRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_remove_port_forward,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::zones(grpc::ServerContext* context,
                                   grpc::ServerReaderWriter<ZonesReply, ZonesRequest>* server)
 {

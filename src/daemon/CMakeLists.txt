@@ -26,6 +26,7 @@ add_library(daemon STATIC
   llm_dispatcher.cpp
   resource_pool.cpp
   runtime_instance_info_helper.cpp
+  port_forward_manager.cpp
   snapshot_settings_handler.cpp)
 
 include_directories(daemon

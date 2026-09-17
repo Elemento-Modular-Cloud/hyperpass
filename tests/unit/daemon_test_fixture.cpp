@@ -812,3 +812,33 @@ template grpc::Status mpt::DaemonTestFixture::call_daemon_slot(
     DaemonSlotPtr<mp::ZonesStateReply, mp::ZonesStateRequest>,
     const mp::ZonesStateRequest&,
     Server<StrictMock, mp::ZonesStateReply, mp::ZonesStateRequest>&);
+template grpc::Status mpt::DaemonTestFixture::call_daemon_slot(
+    mp::Daemon&,
+    DaemonSlotPtr<mp::AddPortForwardReply, mp::AddPortForwardRequest>,
+    const mp::AddPortForwardRequest&,
+    Server<StrictMock, mp::AddPortForwardReply, mp::AddPortForwardRequest>&&);
+template grpc::Status mpt::DaemonTestFixture::call_daemon_slot(
+    mp::Daemon&,
+    DaemonSlotPtr<mp::AddPortForwardReply, mp::AddPortForwardRequest>,
+    const mp::AddPortForwardRequest&,
+    Server<StrictMock, mp::AddPortForwardReply, mp::AddPortForwardRequest>&);
+template grpc::Status mpt::DaemonTestFixture::call_daemon_slot(
+    mp::Daemon&,
+    DaemonSlotPtr<mp::ListPortForwardsReply, mp::ListPortForwardsRequest>,
+    const mp::ListPortForwardsRequest&,
+    Server<StrictMock, mp::ListPortForwardsReply, mp::ListPortForwardsRequest>&&);
+template grpc::Status mpt::DaemonTestFixture::call_daemon_slot(
+    mp::Daemon&,
+    DaemonSlotPtr<mp::ListPortForwardsReply, mp::ListPortForwardsRequest>,
+    const mp::ListPortForwardsRequest&,
+    Server<StrictMock, mp::ListPortForwardsReply, mp::ListPortForwardsRequest>&);
+template grpc::Status mpt::DaemonTestFixture::call_daemon_slot(
+    mp::Daemon&,
+    DaemonSlotPtr<mp::RemovePortForwardReply, mp::RemovePortForwardRequest>,
+    const mp::RemovePortForwardRequest&,
+    Server<StrictMock, mp::RemovePortForwardReply, mp::RemovePortForwardRequest>&&);
+template grpc::Status mpt::DaemonTestFixture::call_daemon_slot(
+    mp::Daemon&,
+    DaemonSlotPtr<mp::RemovePortForwardReply, mp::RemovePortForwardRequest>,
+    const mp::RemovePortForwardRequest&,
+    Server<StrictMock, mp::RemovePortForwardReply, mp::RemovePortForwardRequest>&);

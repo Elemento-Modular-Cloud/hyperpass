@@ -9,6 +9,7 @@ import 'vm_details_bridge.dart';
 import 'vm_details_general.dart';
 import 'vm_details_mounts.dart';
 import 'vm_details_resources.dart';
+import 'port_forwards.dart';
 
 enum VmDetailsLocation { shells, details }
 
@@ -146,6 +147,12 @@ class VmDetails extends ConsumerWidget {
               active: activeEditPage,
               letEnabledFor: const [ActiveEditPage.mounts],
               child: MountDetails(id),
+            ),
+            const Divider(height: 60),
+            DisableSection(
+              active: activeEditPage,
+              letEnabledFor: const [],
+              child: PortForwardsDetails(instanceName: id.name),
             ),
           ],
         ),

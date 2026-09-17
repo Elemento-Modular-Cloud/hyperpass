@@ -452,6 +452,35 @@ class GrpcClient {
     return doRpc(_client.remove_known_host, RemoveKnownHostRequest(label: label));
   }
 
+  Future<AddPortForwardReply?> addPortForward({
+    required String instance,
+    required int hostPort,
+    int guestPort = 0,
+    String hostBind = '127.0.0.1',
+  }) {
+    return doRpc(
+      _client.add_port_forward,
+      AddPortForwardRequest(
+        instance: instance,
+        hostPort: hostPort,
+        guestPort: guestPort,
+        hostBind: hostBind,
+      ),
+    );
+  }
+
+  Future<List<PortForward>> listPortForwards({String instance = ''}) {
+    return doRpc(
+      _client.list_port_forwards,
+      ListPortForwardsRequest(instance: instance),
+      log: false,
+    ).then((r) => r?.forwards.toList() ?? const []);
+  }
+
+  Future<RemovePortForwardReply?> removePortForward(String id) {
+    return doRpc(_client.remove_port_forward, RemovePortForwardRequest(id: id));
+  }
+
   Future<void> authenticate(String passphrase) {
     return doRpc(
       _client.authenticate,

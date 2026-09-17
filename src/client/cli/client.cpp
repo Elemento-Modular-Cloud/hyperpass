@@ -35,6 +35,7 @@
 #include "cmd/migrate.h"
 #include "cmd/mount.h"
 #include "cmd/networks.h"
+#include "cmd/port_forward.h"
 #include "cmd/prefer.h"
 #include "cmd/purge.h"
 #include "cmd/recover.h"
@@ -103,6 +104,7 @@ mp::Client::Client(ClientConfig& config)
     add_command<cmd::List>();
     add_command<cmd::Llm>();
     add_command<cmd::Networks>();
+    add_command<cmd::PortForward>();
     add_command<cmd::Mount>();
     add_command<cmd::Prefer>(aliases);
     add_command<cmd::Recover>();

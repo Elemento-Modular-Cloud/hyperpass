@@ -26,10 +26,13 @@
 #include <multipass/intent_spec.h>
 #include <multipass/mdns_service.h>
 #include <multipass/mount_handler.h>
+#include <multipass/port_forward.h>
 #include <multipass/resource_pool.h>
 #include <multipass/virtual_machine.h>
 #include <multipass/vm_specs.h>
 #include <multipass/vm_status_monitor.h>
+
+#include "port_forward_manager.h"
 
 #include <chrono>
 #include <future>
@@ -66,6 +69,10 @@ public:
     void persist_instances();
     void persist_intents();
     void persist_known_hosts();
+    void persist_port_forwards();
+    void refresh_port_forwards_for(const std::string& instance);
+    void remove_port_forwards_for(const std::string& instance);
+    PortForward* fill_port_forward_proto(PortForward* out, const PortForwardRule& rule) const;
 
 protected:
     using InstanceTable = std::unordered_map<std::string, VirtualMachine::ShPtr>;
@@ -250,6 +257,22 @@ public slots:
         grpc::ServerReaderWriterInterface<RemoveKnownHostReply, RemoveKnownHostRequest>* server,
         DaemonRpcContext* context);
 
+    virtual void add_port_forward(
+        const AddPortForwardRequest* request,
+        grpc::ServerReaderWriterInterface<AddPortForwardReply, AddPortForwardRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void list_port_forwards(
+        const ListPortForwardsRequest* request,
+        grpc::ServerReaderWriterInterface<ListPortForwardsReply, ListPortForwardsRequest>* server,
+        DaemonRpcContext* context);
+
+    virtual void remove_port_forward(
+        const RemovePortForwardRequest* request,
+        grpc::ServerReaderWriterInterface<RemovePortForwardReply, RemovePortForwardRequest>*
+            server,
+        DaemonRpcContext* context);
+
 private:
     void release_resources(const std::string& instance);
     void create_vm(const CreateRequest* request,
@@ -370,6 +393,8 @@ protected:
     InstanceTable operative_instances;
     std::unordered_map<std::string, KnownHost> known_hosts; // label -> host
     std::unordered_map<std::string, MdnsHostInfo> discovered_hosts; // label -> info
+    std::unordered_map<std::string, PortForwardRule> port_forwards; // id -> rule
+    std::unique_ptr<PortForwardManager> port_forward_manager;
 
     bool is_bridged(const std::string& instance_name) const;
     void add_bridged_interface(const std::string& instance_name);

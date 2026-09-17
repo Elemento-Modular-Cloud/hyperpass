@@ -603,6 +603,51 @@ public:
                 PrepareAsyncremove_known_hostRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::AddPortForwardRequest,
+                                                   multipass::AddPortForwardReply>*),
+                add_port_forwardRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::AddPortForwardRequest,
+                                                        multipass::AddPortForwardReply>*),
+                Asyncadd_port_forwardRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::AddPortForwardRequest,
+                                                        multipass::AddPortForwardReply>*),
+                PrepareAsyncadd_port_forwardRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListPortForwardsRequest,
+                                                   multipass::ListPortForwardsReply>*),
+                list_port_forwardsRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListPortForwardsRequest,
+                                                        multipass::ListPortForwardsReply>*),
+                Asynclist_port_forwardsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListPortForwardsRequest,
+                                                        multipass::ListPortForwardsReply>*),
+                PrepareAsynclist_port_forwardsRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::RemovePortForwardRequest,
+                                                   multipass::RemovePortForwardReply>*),
+                remove_port_forwardRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RemovePortForwardRequest,
+                                                        multipass::RemovePortForwardReply>*),
+                Asyncremove_port_forwardRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RemovePortForwardRequest,
+                                                        multipass::RemovePortForwardReply>*),
+                PrepareAsyncremove_port_forwardRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::WaitReadyRequest,
                                                    multipass::WaitReadyReply>*),
                 wait_readyRaw,

@@ -174,6 +174,8 @@ constexpr auto category = "daemon";
 constexpr auto instance_db_name = "multipassd-vm-instances.json";
 constexpr auto intent_db_name = "multipassd-intents.json";
 constexpr auto known_hosts_db_name = "multipassd-known-hosts.json";
+constexpr auto port_forwards_db_name = "multipassd-port-forwards.json";
+constexpr auto default_port_forward_bind = "127.0.0.1";
 constexpr auto sshfs_error_template =
     "Error enabling mount support in '{}'"
     "\n\nPlease install the 'multipass-sshfs' snap manually inside the instance.";
@@ -448,6 +450,51 @@ std::unordered_map<std::string, mp::KnownHost> load_known_hosts_db(const mp::Pat
                 identity_file = std::string(it->value().as_string());
             reconstructed_records.emplace(key, mp::KnownHost{target, identity_file});
         }
+    }
+    return reconstructed_records;
+}
+
+std::unordered_map<std::string, mp::PortForwardRule> load_port_forwards_db(const mp::Path& data_path)
+{
+    QDir data_dir{data_path};
+    QFile db_file{data_dir.filePath(port_forwards_db_name)};
+    if (!db_file.open(QIODevice::ReadOnly))
+        return {};
+
+    boost::json::value records;
+    try
+    {
+        records = boost::json::parse(std::string_view(db_file.readAll()));
+    }
+    catch (const std::runtime_error&)
+    {
+        return {};
+    }
+
+    if (!records.is_object())
+        return {};
+
+    std::unordered_map<std::string, mp::PortForwardRule> reconstructed_records;
+    for (const auto& [key, record] : records.as_object())
+    {
+        if (!record.is_object())
+            continue;
+        const auto& obj = record.as_object();
+        mp::PortForwardRule rule;
+        rule.id = key;
+        if (auto it = obj.find("instance"); it != obj.end() && it->value().is_string())
+            rule.instance = std::string(it->value().as_string());
+        if (auto it = obj.find("host_bind"); it != obj.end() && it->value().is_string())
+            rule.host_bind = std::string(it->value().as_string());
+        else
+            rule.host_bind = default_port_forward_bind;
+        if (auto it = obj.find("host_port"); it != obj.end() && it->value().is_int64())
+            rule.host_port = static_cast<int>(it->value().as_int64());
+        if (auto it = obj.find("guest_port"); it != obj.end() && it->value().is_int64())
+            rule.guest_port = static_cast<int>(it->value().as_int64());
+        if (rule.instance.empty() || rule.host_port <= 0 || rule.guest_port <= 0)
+            continue;
+        reconstructed_records.emplace(key, std::move(rule));
     }
     return reconstructed_records;
 }
@@ -747,6 +794,18 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_
                      &mp::DaemonRpc::on_remove_known_host,
                      &daemon,
                      &mp::Daemon::remove_known_host);
+    QObject::connect(&rpc,
+                     &mp::DaemonRpc::on_add_port_forward,
+                     &daemon,
+                     &mp::Daemon::add_port_forward);
+    QObject::connect(&rpc,
+                     &mp::DaemonRpc::on_list_port_forwards,
+                     &daemon,
+                     &mp::Daemon::list_port_forwards);
+    QObject::connect(&rpc,
+                     &mp::DaemonRpc::on_remove_port_forward,
+                     &daemon,
+                     &mp::Daemon::remove_port_forward);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones, &daemon, &mp::Daemon::zones);
     QObject::connect(&rpc, &mp::DaemonRpc::on_zones_state, &daemon, &mp::Daemon::zones_state);
     if (llm_dispatcher)
@@ -1535,6 +1594,9 @@ mp::Daemon::Daemon(std::unique_ptr<const DaemonConfig> the_config)
         config->data_directory, config->factory->get_backend_directory_name()));
     known_hosts = load_known_hosts_db(mp::utils::backend_directory_path(
         config->data_directory, config->factory->get_backend_directory_name()));
+    port_forwards = load_port_forwards_db(mp::utils::backend_directory_path(
+        config->data_directory, config->factory->get_backend_directory_name()));
+    port_forward_manager = std::make_unique<PortForwardManager>(this);
 
     {
         MdnsAdvertisement advertisement;
@@ -4523,6 +4585,140 @@ catch (const std::exception& e)
     context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
 }
 
+void mp::Daemon::add_port_forward(
+    const AddPortForwardRequest* request,
+    grpc::ServerReaderWriterInterface<AddPortForwardReply, AddPortForwardRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    const auto& instance = request->instance();
+    if (instance.empty())
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Please provide an instance name", ""});
+
+    if (operative_instances.find(instance) == operative_instances.end() &&
+        deleted_instances.find(instance) == deleted_instances.end())
+        return context->set_value(
+            {grpc::StatusCode::NOT_FOUND, fmt::format("Instance \"{}\" does not exist", instance), ""});
+
+    const int host_port = request->host_port();
+    const int guest_port = request->guest_port() > 0 ? request->guest_port() : host_port;
+    if (host_port <= 0 || host_port > 65535)
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Host port must be between 1 and 65535", ""});
+    if (guest_port <= 0 || guest_port > 65535)
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Guest port must be between 1 and 65535", ""});
+
+    const auto host_bind =
+        request->host_bind().empty() ? default_port_forward_bind : request->host_bind();
+
+    for (const auto& [_, existing] : port_forwards)
+    {
+        if (existing.host_bind == host_bind && existing.host_port == host_port)
+        {
+            return context->set_value(
+                {grpc::StatusCode::ALREADY_EXISTS,
+                 fmt::format("Host {}:{} is already forwarded (id {})",
+                             host_bind,
+                             host_port,
+                             existing.id),
+                 ""});
+        }
+    }
+
+    PortForwardRule rule;
+    rule.id = mp::utils::make_uuid();
+    rule.instance = instance;
+    rule.host_bind = host_bind;
+    rule.host_port = host_port;
+    rule.guest_port = guest_port;
+
+    port_forwards[rule.id] = rule;
+    persist_port_forwards();
+
+    if (auto vm_it = operative_instances.find(instance); vm_it != operative_instances.end() &&
+                                                         MP_UTILS.is_running(vm_it->second->current_state()))
+    {
+        if (auto ip = vm_it->second->management_ipv4())
+        {
+            if (auto err = port_forward_manager->activate(rule, ip->as_string()))
+                mpl::warn(category, "Port forward {} saved but inactive: {}", rule.id, *err);
+        }
+    }
+
+    AddPortForwardReply reply;
+    fill_port_forward_proto(reply.mutable_forward(), port_forwards[rule.id]);
+    reply.set_reply_message(fmt::format("Added port forward {}:{} → {}:{} ({})",
+                                        host_bind,
+                                        host_port,
+                                        instance,
+                                        guest_port,
+                                        rule.id));
+    server->Write(reply);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::list_port_forwards(
+    const ListPortForwardsRequest* request,
+    grpc::ServerReaderWriterInterface<ListPortForwardsReply, ListPortForwardsRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    ListPortForwardsReply reply;
+    for (const auto& [_, rule] : port_forwards)
+    {
+        if (!request->instance().empty() && rule.instance != request->instance())
+            continue;
+        fill_port_forward_proto(reply.add_forwards(), rule);
+    }
+    server->Write(reply);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
+void mp::Daemon::remove_port_forward(
+    const RemovePortForwardRequest* request,
+    grpc::ServerReaderWriterInterface<RemovePortForwardReply, RemovePortForwardRequest>* server,
+    DaemonRpcContext* context)
+try
+{
+    if (request->id().empty())
+        return context->set_value(
+            {grpc::StatusCode::INVALID_ARGUMENT, "Please provide a port forward id", ""});
+
+    auto it = port_forwards.find(request->id());
+    if (it == port_forwards.end())
+        return context->set_value({grpc::StatusCode::NOT_FOUND,
+                                   fmt::format("Port forward \"{}\" not found", request->id()),
+                                   ""});
+
+    const auto summary = fmt::format("{}:{} → {}:{}",
+                                     it->second.host_bind,
+                                     it->second.host_port,
+                                     it->second.instance,
+                                     it->second.guest_port);
+    port_forward_manager->deactivate(it->first);
+    port_forwards.erase(it);
+    persist_port_forwards();
+
+    RemovePortForwardReply reply;
+    reply.set_reply_message(fmt::format("Removed port forward {} ({})", request->id(), summary));
+    server->Write(reply);
+    context->set_value(grpc::Status::OK);
+}
+catch (const std::exception& e)
+{
+    context->set_value(grpc::Status(grpc::StatusCode::INTERNAL, e.what(), ""));
+}
+
 void mp::Daemon::daemon_info(
     const DaemonInfoRequest*,
     grpc::ServerReaderWriterInterface<DaemonInfoReply, DaemonInfoRequest>* server,
@@ -4840,6 +5036,104 @@ void mp::Daemon::persist_known_hosts()
                                                     config->factory->get_backend_directory_name())};
     MP_FILEOPS.write_transactionally(data_dir.filePath(known_hosts_db_name),
                                      pretty_print(boost::json::value(records)));
+}
+
+void mp::Daemon::persist_port_forwards()
+{
+    boost::json::object records;
+    for (const auto& [id, rule] : port_forwards)
+    {
+        records[id] = {{"instance", rule.instance},
+                       {"host_bind", rule.host_bind},
+                       {"host_port", rule.host_port},
+                       {"guest_port", rule.guest_port}};
+    }
+
+    QDir data_dir{mp::utils::backend_directory_path(config->data_directory,
+                                                    config->factory->get_backend_directory_name())};
+    MP_FILEOPS.write_transactionally(data_dir.filePath(port_forwards_db_name),
+                                     pretty_print(boost::json::value(records)));
+}
+
+mp::PortForward* mp::Daemon::fill_port_forward_proto(PortForward* out,
+                                                     const PortForwardRule& rule) const
+{
+    out->set_id(rule.id);
+    out->set_instance(rule.instance);
+    out->set_host_bind(rule.host_bind);
+    out->set_host_port(rule.host_port);
+    out->set_guest_port(rule.guest_port);
+
+    const auto runtime = port_forward_manager->status(rule.id);
+    out->set_active(runtime.active);
+    out->set_guest_ip(runtime.guest_ip);
+    out->set_status_message(runtime.status_message);
+
+    if (!runtime.active)
+    {
+        if (auto it = operative_instances.find(rule.instance); it != operative_instances.end())
+        {
+            if (auto ip = it->second->management_ipv4())
+                out->set_guest_ip(ip->as_string());
+            if (out->status_message().empty() || out->status_message() == "Inactive")
+            {
+                if (!MP_UTILS.is_running(it->second->current_state()))
+                    out->set_status_message("Instance is not running");
+                else if (!it->second->management_ipv4())
+                    out->set_status_message("Guest IP unavailable");
+            }
+        }
+        else if (out->status_message().empty() || out->status_message() == "Inactive")
+        {
+            out->set_status_message("Instance not found");
+        }
+    }
+
+    return out;
+}
+
+void mp::Daemon::refresh_port_forwards_for(const std::string& instance)
+{
+    auto vm_it = operative_instances.find(instance);
+    if (vm_it == operative_instances.end() || !MP_UTILS.is_running(vm_it->second->current_state()))
+    {
+        port_forward_manager->deactivate_all_for(instance);
+        return;
+    }
+
+    auto ip = vm_it->second->management_ipv4();
+    if (!ip)
+    {
+        port_forward_manager->deactivate_all_for(instance);
+        return;
+    }
+
+    const auto guest_ip = ip->as_string();
+    for (const auto& [id, rule] : port_forwards)
+    {
+        if (rule.instance != instance)
+            continue;
+        if (auto err = port_forward_manager->activate(rule, guest_ip))
+            mpl::warn(category, "Failed to activate port forward {}: {}", id, *err);
+    }
+}
+
+void mp::Daemon::remove_port_forwards_for(const std::string& instance)
+{
+    port_forward_manager->deactivate_all_for(instance);
+    bool removed = false;
+    for (auto it = port_forwards.begin(); it != port_forwards.end();)
+    {
+        if (it->second.instance == instance)
+        {
+            it = port_forwards.erase(it);
+            removed = true;
+        }
+        else
+            ++it;
+    }
+    if (removed)
+        persist_port_forwards();
 }
 
 void mp::Daemon::release_resources(const std::string& instance)
@@ -5172,6 +5466,7 @@ bool mp::Daemon::delete_vm(InstanceTable::iterator vm_it, bool purge, DeleteRepl
 
         mounts[name].clear();
 
+        port_forward_manager->deactivate_all_for(name);
         instance->shutdown(purge == true ? VirtualMachine::ShutdownPolicy::Poweroff
                                          : VirtualMachine::ShutdownPolicy::Halt);
         if (!purge)
@@ -5189,6 +5484,7 @@ bool mp::Daemon::delete_vm(InstanceTable::iterator vm_it, bool purge, DeleteRepl
     if (purge)
     {
         response.add_purged_instances(name);
+        remove_port_forwards_for(name);
         release_resources(name);
 
         instances_dirty = true;
@@ -5227,7 +5523,10 @@ grpc::Status mp::Daemon::shutdown_vm(VirtualMachine& vm, const std::chrono::mill
     const auto& name = vm.get_name();
     delayed_shutdown_instances.erase(name);
 
-    auto stop_all_mounts = [this](const std::string& name) { stop_mounts(name); };
+    auto stop_all_mounts = [this](const std::string& name) {
+        stop_mounts(name);
+        port_forward_manager->deactivate_all_for(name);
+    };
     auto& shutdown_timer = delayed_shutdown_instances[name] =
         std::make_unique<DelayedShutdownTimer>(&vm, stop_all_mounts);
 
@@ -5245,6 +5544,7 @@ grpc::Status mp::Daemon::switch_off_vm(VirtualMachine& vm)
     const auto& name = vm.get_name();
     delayed_shutdown_instances.erase(name);
 
+    port_forward_manager->deactivate_all_for(name);
     vm.shutdown(VirtualMachine::ShutdownPolicy::Poweroff);
     release_vm_claim(name);
 
@@ -5482,6 +5782,8 @@ error_string mp::Daemon::async_wait_for_ssh_and_start_mounts_for(
 
             persist_instances();
         }
+
+        refresh_port_forwards_for(name);
     }
     catch (const std::exception& e)
     {

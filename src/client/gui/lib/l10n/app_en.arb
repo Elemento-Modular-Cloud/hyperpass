@@ -1772,6 +1772,143 @@
     "@mountsTitle": {
         "description": "Section heading on the Mounts details tab"
     },
+    "portForwardsTitle": "Port forwards",
+    "@portForwardsTitle": {
+        "description": "Section heading for host-to-guest TCP port forwards"
+    },
+    "portForwardsSidebar": "Routing",
+    "@portForwardsSidebar": {
+        "description": "Sidebar label for the global port-forward routing table"
+    },
+    "portForwardsScreenTitle": "Routing",
+    "@portForwardsScreenTitle": {
+        "description": "Page title for the global host→guest routing table"
+    },
+    "portForwardsScreenSubtitle": "All host TCP ports forwarded to guest instance IPs. Bind is localhost by default.",
+    "@portForwardsScreenSubtitle": {
+        "description": "Subtitle under the Routing page title"
+    },
+    "portForwardsRefresh": "Refresh",
+    "@portForwardsRefresh": {
+        "description": "Tooltip for refreshing the routing table"
+    },
+    "portForwardColHost": "HOST",
+    "@portForwardColHost": {
+        "description": "Routing table column for host bind:port"
+    },
+    "portForwardColInstance": "INSTANCE",
+    "@portForwardColInstance": {
+        "description": "Routing table column for the guest instance name"
+    },
+    "portForwardColGuest": "GUEST",
+    "@portForwardColGuest": {
+        "description": "Routing table column for guest IP:port"
+    },
+    "portForwardColStatus": "STATUS",
+    "@portForwardColStatus": {
+        "description": "Routing table column for active/inactive status"
+    },
+    "portForwardColActions": "ACTIONS",
+    "@portForwardColActions": {
+        "description": "Routing table column for row actions"
+    },
+    "portForwardNoInstances": "No instances available to forward to.",
+    "@portForwardNoInstances": {
+        "description": "Shown when adding a forward but no VMs exist"
+    },
+    "portForwardInvalidHostPort": "Host port must be between 1 and 65535.",
+    "@portForwardInvalidHostPort": {
+        "description": "Validation error for host port in the add dialog"
+    },
+    "portForwardInvalidGuestPort": "Guest port must be between 1 and 65535.",
+    "@portForwardInvalidGuestPort": {
+        "description": "Validation error for guest port in the add dialog"
+    },
+    "portForwardPickInstance": "Instance",
+    "@portForwardPickInstance": {
+        "description": "Section label for picking a target instance in the add port-forward dialog"
+    },
+    "portForwardPickDestination": "Destination",
+    "@portForwardPickDestination": {
+        "description": "Section label for destination/guest port helpers"
+    },
+    "portForwardPickDestinationHint": "From this service’s published endpoints and provides contracts.",
+    "@portForwardPickDestinationHint": {
+        "description": "Helper text under the destination section"
+    },
+    "portForwardNoDestinationHints": "No published endpoints yet — enter a guest port manually.",
+    "@portForwardNoDestinationHints": {
+        "description": "Shown when service-info has not exposed endpoints"
+    },
+    "portForwardPickHostPort": "Host port",
+    "@portForwardPickHostPort": {
+        "description": "Section label for selectable host listen ports"
+    },
+    "portForwardPlainVm": "VM",
+    "@portForwardPlainVm": {
+        "description": "Subtitle for a plain (non-service) instance tile"
+    },
+    "portForwardsSubtitle": "Map a local host port to this instance’s management IP and guest port.",
+    "@portForwardsSubtitle": {
+        "description": "Short explanation under the Port forwards heading"
+    },
+    "portForwardsEmpty": "No port forwards yet.",
+    "@portForwardsEmpty": {
+        "description": "Shown when the instance has no port forwards configured"
+    },
+    "portForwardAdd": "Add port forward",
+    "@portForwardAdd": {
+        "description": "Button to open the add port-forward form"
+    },
+    "portForwardHostPort": "Host port",
+    "@portForwardHostPort": {
+        "description": "Label for the host listen port field"
+    },
+    "portForwardGuestPort": "Guest port",
+    "@portForwardGuestPort": {
+        "description": "Label for the guest destination port field"
+    },
+    "portForwardGuestPortHint": "Same as host",
+    "@portForwardGuestPortHint": {
+        "description": "Hint when guest port defaults to the host port"
+    },
+    "portForwardBind": "Bind address",
+    "@portForwardBind": {
+        "description": "Label for the host bind address field"
+    },
+    "portForwardActive": "Active",
+    "@portForwardActive": {
+        "description": "Status label when a port forward listener is up"
+    },
+    "portForwardInactive": "Inactive",
+    "@portForwardInactive": {
+        "description": "Status label when a port forward is not listening"
+    },
+    "portForwardAdding": "Adding port forward…",
+    "@portForwardAdding": {
+        "description": "Notification while creating a port forward"
+    },
+    "portForwardAdded": "Port forward added",
+    "@portForwardAdded": {
+        "description": "Notification after a port forward is created"
+    },
+    "portForwardRemoving": "Removing port forward…",
+    "@portForwardRemoving": {
+        "description": "Notification while removing a port forward"
+    },
+    "portForwardRemoved": "Port forward removed",
+    "@portForwardRemoved": {
+        "description": "Notification after a port forward is removed"
+    },
+    "portForwardSuggestPort": "Guest :{port}",
+    "@portForwardSuggestPort": {
+        "description": "Quick-fill chip for a catalog ingress port",
+        "placeholders": {
+            "port": {
+                "type": "int"
+            }
+        }
+    },
     "mountsAddMount": "Add mount",
     "@mountsAddMount": {
         "description": "Button label to open the add-mount form"

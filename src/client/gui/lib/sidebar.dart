@@ -23,6 +23,7 @@ import 'help.dart';
 import 'intents/intents_hub.dart';
 import 'intents/intents_screen.dart';
 import 'migrate/migrate_screen.dart';
+import 'port_forwards/port_forwards_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'layout/compact_layout.dart';
 import 'llm/catalogue/llm_catalogue_screen.dart';
@@ -388,6 +389,15 @@ class SideBar extends ConsumerWidget {
       },
     );
 
+    final portForwards = SidebarEntry(
+      icon: FontAwesomeIcons.route,
+      selected: isSelected(PortForwardsScreen.sidebarKey),
+      label: l10n.portForwardsSidebar,
+      onPressed: () {
+        ref.read(sidebarKeyNotifier).set(PortForwardsScreen.sidebarKey);
+      },
+    );
+
     final instances = SidebarEntry(
       icon: FontAwesomeIcons.server,
       selected: isSelected(VmTableScreen.sidebarKey) ||
@@ -717,7 +727,7 @@ class SideBar extends ConsumerWidget {
                   2,
                 ),
                 child: Column(
-                  children: [llmSetup, cache, hosts, help],
+                  children: [llmSetup, cache, hosts, portForwards, help],
                 ),
               ),
             ],

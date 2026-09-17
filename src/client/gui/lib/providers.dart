@@ -348,6 +348,47 @@ final networkHostsStreamProvider = StreamProvider<List<NetworkHost>>((ref) async
   }
 });
 
+/// Port forwards for a single instance (polled).
+final portForwardsProvider =
+    StreamProvider.autoDispose.family<List<PortForward>, String>((ref, instance) async* {
+  if (!ref.watch(daemonAvailableProvider)) {
+    yield const [];
+    return;
+  }
+  final grpcClient = ref.watch(grpcClientProvider);
+  while (true) {
+    final timer = Future.delayed(2900.milliseconds);
+    try {
+      yield await grpcClient.listPortForwards(instance: instance);
+    } catch (error, stackTrace) {
+      logger.w('Error on polling list_port_forwards', error: error, stackTrace: stackTrace);
+      yield const [];
+    }
+    await timer;
+    await Future.delayed(100.milliseconds);
+  }
+});
+
+/// All port forwards across instances (polled).
+final allPortForwardsProvider = StreamProvider<List<PortForward>>((ref) async* {
+  if (!ref.watch(daemonAvailableProvider)) {
+    yield const [];
+    return;
+  }
+  final grpcClient = ref.watch(grpcClientProvider);
+  while (true) {
+    final timer = Future.delayed(2900.milliseconds);
+    try {
+      yield await grpcClient.listPortForwards();
+    } catch (error, stackTrace) {
+      logger.w('Error on polling all list_port_forwards', error: error, stackTrace: stackTrace);
+      yield const [];
+    }
+    await timer;
+    await Future.delayed(100.milliseconds);
+  }
+});
+
 class AllVmInfosNotifier extends Notifier<List<TaggedVmInfo>> {
   @override
   List<TaggedVmInfo> build() {

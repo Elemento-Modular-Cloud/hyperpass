@@ -85,6 +85,7 @@ add_executable(multipass_cpp_tests
   test_daemon_find.cpp
   test_daemon_initialization_guard.cpp
   test_daemon_mount.cpp
+  test_daemon_port_forward.cpp
   test_daemon_restart.cpp
   test_daemon_snapshot_restore.cpp
   test_daemon_start.cpp
@@ -116,6 +117,7 @@ add_executable(multipass_cpp_tests
   test_output_formatter.cpp
   test_permission_utils.cpp
   test_persistent_settings_handler.cpp
+  test_port_forward_manager.cpp
   test_plain_ssh_session.cpp
   test_private_pass_provider.cpp
   test_qemu_img_utils.cpp

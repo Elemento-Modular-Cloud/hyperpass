@@ -35,6 +35,7 @@ add_library(commands STATIC
   migrate.cpp
   mount.cpp
   networks.cpp
+  port_forward.cpp
   prefer.cpp
   purge.cpp
   recover.cpp

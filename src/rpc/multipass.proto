@@ -59,6 +59,9 @@ service Rpc {
     rpc list_network_hosts (stream ListNetworkHostsRequest) returns (stream ListNetworkHostsReply);
     rpc add_known_host (stream AddKnownHostRequest) returns (stream AddKnownHostReply);
     rpc remove_known_host (stream RemoveKnownHostRequest) returns (stream RemoveKnownHostReply);
+    rpc add_port_forward (stream AddPortForwardRequest) returns (stream AddPortForwardReply);
+    rpc list_port_forwards (stream ListPortForwardsRequest) returns (stream ListPortForwardsReply);
+    rpc remove_port_forward (stream RemovePortForwardRequest) returns (stream RemovePortForwardReply);
 
     rpc find_models (stream FindModelsRequest) returns (stream FindModelsReply);
     rpc pull_model (stream PullModelRequest) returns (stream PullModelReply);
@@ -780,6 +783,51 @@ message RemoveKnownHostRequest {
 }
 
 message RemoveKnownHostReply {
+    string log_line = 1;
+    string reply_message = 2;
+}
+
+message PortForward {
+    string id = 1;
+    string instance = 2;
+    string host_bind = 3;
+    int32 host_port = 4;
+    int32 guest_port = 5;
+    string guest_ip = 6; // resolved at list/activate time; empty if unavailable
+    bool active = 7;
+    string status_message = 8;
+}
+
+message AddPortForwardRequest {
+    string instance = 1;
+    int32 host_port = 2;
+    int32 guest_port = 3; // 0 means same as host_port
+    string host_bind = 4; // empty means 127.0.0.1
+    int32 verbosity_level = 5;
+}
+
+message AddPortForwardReply {
+    string log_line = 1;
+    string reply_message = 2;
+    PortForward forward = 3;
+}
+
+message ListPortForwardsRequest {
+    string instance = 1; // empty: all instances
+    int32 verbosity_level = 2;
+}
+
+message ListPortForwardsReply {
+    repeated PortForward forwards = 1;
+    string log_line = 2;
+}
+
+message RemovePortForwardRequest {
+    string id = 1;
+    int32 verbosity_level = 2;
+}
+
+message RemovePortForwardReply {
     string log_line = 1;
     string reply_message = 2;
 }

@@ -244,7 +244,11 @@ class _TableState<T> extends State<Table<T>> {
     final headerCells = [
       for (final (i, header) in widget.headers.indexed) buildHeader(i, header),
     ];
-    final cells = [headerCells, ...dataList.map(buildRow), widget.finalRow];
+    final cells = [
+      headerCells,
+      ...dataList.map(buildRow),
+      if (widget.finalRow.isNotEmpty) widget.finalRow,
+    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
