@@ -28,10 +28,13 @@ function help_and_exit {
     echo ""
     echo "Optional notarization requires:"
     echo "    --notarize-id <apple-id> --notarize-password <password>"
-    echo "These are your Apple ID and the app-specific password for 'altool' - refer to this doc for details:"
+    echo "These are your Apple ID and an app-specific password for notarytool:"
     echo "https://developer.apple.com/documentation/security/notarizing_your_app_before_distribution/customizing_the_notarization_workflow "
     echo ""
-    echo "You may also need to pass --notarize-provider <ProviderShortName>, see \`xcrun altool --list-providers\` if you have more than one."
+    echo "notarytool also needs a 10-character Team ID (--team-id). Pass"
+    echo "    --notarize-provider <TeamID>"
+    echo "or omit it to take the Team ID from the Developer ID identity name, e.g."
+    echo "    Developer ID Application: Elemento SRL (9WTDB7G2C7)"
     exit 1
 }
 
@@ -107,14 +110,22 @@ function check_already_signed
     [ $status1 -eq 0 ] && [ $status2 -eq 0 ]
 }
 
+SKIP_SIGN=0
 if check_already_signed "${PKGFILE}"; then
-    echo "${PKGFILE} is already signed, aborting"
-    exit 1
+    if [ -z "${NOTARIZE_ID+x}" ] || [ -z "${NOTARIZE_PASSWORD+x}" ]; then
+        echo "${PKGFILE} is already signed, aborting"
+        exit 1
+    fi
+    echo "${PKGFILE} is already signed; skipping codesign and submitting for notarization"
+    SKIP_SIGN=1
+    COPIED="${PKGFILE}"
 fi
 
 
 PKGFILENAME=$(basename "${PKGFILE}")
-if [ -f "${PKGFILENAME}" ]; then
+if [ "${SKIP_SIGN}" = "1" ]; then
+    :
+elif [ -f "${PKGFILENAME}" ]; then
     echo "Making backup copy of ${PKGFILE}"
     cp -v "${PKGFILE}" "${PKGFILENAME}.orig"
 fi
@@ -190,6 +201,7 @@ function codesign_binaries {
 
 SCRIPTDIR=$(perl -MCwd=realpath -e "print realpath '$0/..'")
 
+if [ "${SKIP_SIGN}" != "1" ]; then
 WORKDIR=$(mktemp -d)
 function clean_workdir
 {
@@ -256,6 +268,7 @@ if [ -z "${COPIED}" ]; then
   echo "error: signed package was created but could not be copied out of ${WORKDIR}" >&2
   exit 1
 fi
+fi
 
 ####
 #### Notarization ######
@@ -266,86 +279,62 @@ if [ -z "${NOTARIZE_ID+x}" ] || [ -z "${NOTARIZE_PASSWORD+x}" ]; then
     exit 0
 fi
 
+NOTARIZE_PKG="${COPIED}"
 
-# Extract necessary metadata from pkg
-TITLE=$(xmllint --xpath "string(//title)" "${PKG_ROOT}/Distribution")
-VERSION=$(xmllint --xpath "string(//product/@version)" "${PKG_ROOT}/Distribution")
-echo "Title: '${TITLE}'"
-echo "Version: '${VERSION}'"
+team_id_from_identity() {
+    local ident="$1"
+    if [ -z "${ident}" ] || [ "${ident}" = "-" ]; then
+        return
+    fi
+    local from_name
+    from_name="$(printf '%s' "${ident}" | sed -n 's/.*(\([A-Z0-9]\{10\}\)).*/\1/p')"
+    if [ -n "${from_name}" ]; then
+        printf '%s\n' "${from_name}"
+        return
+    fi
+    security find-identity -v 2>/dev/null \
+        | sed -n "s/.*${ident}.*(\([A-Z0-9]\{10\}\)).*/\1/p" \
+        | head -1
+}
 
-# Generate a unique bundle id for this submission (replacing + with -)
-BUNDLE_ID="${TITLE}.${VERSION//+/-}.$(date +%s)"
-
-# send notarization
-echo -n "Sending ${PKGFILENAME} for notarization..."
-_tmpout=$(mktemp)
-
-# optional notarization provider (now "team ID" in notarytool)
-NOTARIZE_OPTS=()
-if [ -n "${NOTARIZE_PROVIDER:-}" ]; then
-    NOTARIZE_OPTS=( --team-id "${NOTARIZE_PROVIDER}" )
+NOTARIZE_TEAM="${NOTARIZE_PROVIDER:-}"
+if [ -z "${NOTARIZE_TEAM}" ]; then
+    NOTARIZE_TEAM="$(team_id_from_identity "${SIGN_APP:-}")"
+fi
+if [ -z "${NOTARIZE_TEAM}" ]; then
+    NOTARIZE_TEAM="$(team_id_from_identity "${SIGN_PKG:-}")"
+fi
+if [ -z "${NOTARIZE_TEAM}" ]; then
+    echo "error: notarytool requires --team-id. Pass --notarize-provider <TeamID>" >&2
+    echo "       (Elemento Developer ID team is 9WTDB7G2C7)." >&2
+    exit 1
 fi
 
-xcrun notarytool submit \
-             --wait \
-             --apple-id "${NOTARIZE_ID}" \
-             --password "${NOTARIZE_PASSWORD}" \
-             "${NOTARIZE_OPTS[@]}" "${PKGFILENAME}" 2>&1 | tee "${_tmpout}"
+echo "Sending ${NOTARIZE_PKG} for notarization (team ${NOTARIZE_TEAM})..."
+_tmpout=$(mktemp)
 
-# check the request uuid
-_requuid=$(cat "${_tmpout}" | grep "RequestUUID" | awk '{ print $3 }')
-echo "RequestUUID: ${_requuid}"
+NOTARIZE_CMD=(xcrun notarytool submit --wait
+    --apple-id "${NOTARIZE_ID}"
+    --password "${NOTARIZE_PASSWORD}"
+    --team-id "${NOTARIZE_TEAM}"
+    "${NOTARIZE_PKG}")
 
-if [ -z "${_requuid}" ]; then
-    echo "There was an error:"
+"${NOTARIZE_CMD[@]}" 2>&1 | tee "${_tmpout}"
+
+if ! grep -Eiq 'status:[[:space:]]+Accepted' "${_tmpout}"; then
+    echo "Error: notarization unsuccessful"
     echo "==================================================================="
     cat "${_tmpout}"
     echo "==================================================================="
-    echo "Error getting RequestUUID, notarization unsuccessful"
     exit 3
 fi
 
-echo "Waiting for notarization to be complete (this could take up to an hour, depending on Apple's servers).."
+echo "Notarization successful! Stapling..."
+xcrun stapler staple -v "${NOTARIZE_PKG}"
 
-function print_tasks
-{
-    echo "Waiting cancelled!"
-    echo ""
-    echo "To manually monitor notarization process with"
-    echo "    xcrun altool --notarization-info '${_requuid}' --username '${NOTARIZE_ID}' --password '${NOTARIZE_PASSWORD}'"
-    echo "and if successful, staple the notarization to the package with"
-    echo "    xcrun stapler staple -v '${PKGFILENAME}'"
-}
-trap print_tasks SIGINT
-
-
-for c in {80..0}; do
-    sleep 60
-    xcrun notarytool info \
-                 --username "${NOTARIZE_ID}" \
-                 --password "${NOTARIZE_PASSWORD}" \
-                 "${_requuid}" 2>&1 | tee ${_tmpout}
-    _status=$(cat "${_tmpout}" | grep "Status:" | awk '{ print $2 }')
-    if [ "${_status}" == "invalid" ]; then
-        echo "Error: Got invalid notarization!"
-        echo "==================================================================="
-        cat "${_tmpout}"
-        echo "==================================================================="
-        exit 4
-    fi
-
-    if [ "${_status}" == "success" ]; then
-        echo -n "Notarization successful! Stapling..."
-        xcrun stapler staple -v "${PKGFILENAME}"
-        break
-    fi
-    echo "Notarization in progress, waiting..."
-done
-
-# Verifying notarized
-if ! xcrun stapler validate "${PKGFILENAME}" | grep worked ; then
+if ! xcrun stapler validate "${NOTARIZE_PKG}" | grep worked ; then
     echo "Error: final package verification failed";
     exit 5
 fi
 
-echo "..done. ${PKGFILENAME} is notarized and ready to upload"
+echo "..done. ${NOTARIZE_PKG} is notarized and ready to upload"
