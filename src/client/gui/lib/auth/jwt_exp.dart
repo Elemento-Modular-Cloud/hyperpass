@@ -11,6 +11,7 @@ int? jwtExpUnix(String token) {
     final exp = payload['exp'];
     if (exp is int) return exp;
     if (exp is num) return exp.toInt();
+    if (exp is String) return int.tryParse(exp);
     return null;
   } catch (_) {
     return null;
@@ -26,4 +27,19 @@ bool jwtShouldRefresh(String? token,
   final current =
       (now ?? DateTime.now().toUtc()).millisecondsSinceEpoch ~/ 1000;
   return exp - current <= skewSeconds;
+}
+
+/// Delay until [token] should be refreshed (`exp - skew`).
+///
+/// [Duration.zero] when the token is missing, unparsable, already expired,
+/// or inside the skew window.
+Duration jwtRefreshDelay(String? token,
+    {required int skewSeconds, DateTime? now}) {
+  if (jwtShouldRefresh(token, skewSeconds: skewSeconds, now: now)) {
+    return Duration.zero;
+  }
+  final exp = jwtExpUnix(token!);
+  final current =
+      (now ?? DateTime.now().toUtc()).millisecondsSinceEpoch ~/ 1000;
+  return Duration(seconds: exp! - current - skewSeconds);
 }

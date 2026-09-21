@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grpc/grpc.dart';
 import 'package:intersperse/intersperse.dart';
 
+import '../auth/auth_provider.dart';
+import '../auth/auth_state.dart';
 import '../auth/feature_access.dart';
+import '../auth/portal_auth_client.dart';
 import '../brand.dart';
 import '../l10n/app_localizations.dart';
 import '../providers.dart';
@@ -46,6 +49,14 @@ final imagesProvider = FutureProvider<List<ImageInfo>>((ref) async {
     return [];
   }
 
+  if (ref.read(authProvider) is AuthAuthenticated) {
+    try {
+      await ref.read(authProvider.notifier).requireAccessToken();
+    } on PortalAuthException {
+      // Session expired; find still runs so gated images can drop.
+    }
+  }
+
   return ref
       .watch(grpcClientProvider)
       .find()
@@ -75,6 +86,13 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
+      if (ref.read(authProvider) is AuthAuthenticated) {
+        try {
+          await ref.read(authProvider.notifier).requireAccessToken();
+        } on PortalAuthException {
+          // Session expired; still force-find so gated images drop.
+        }
+      }
       if (ref.read(daemonAvailableProvider)) {
         await ref.read(grpcClientProvider).find(forceUpdate: true);
       }

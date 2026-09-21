@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:synchronized/synchronized.dart';
 
@@ -38,14 +40,38 @@ final authProvider =
 
 class AuthNotifier extends Notifier<AuthState> {
   final _tokenLock = Lock();
+  Timer? _refreshTimer;
 
   AuthSessionStore get _store => ref.read(authSessionStoreProvider);
   PortalAuthClient get _client => ref.read(portalAuthClientProvider);
 
   @override
   AuthState build() {
+    ref.onDispose(_cancelRefreshTimer);
     Future.microtask(_bootstrap);
     return const AuthUnknown();
+  }
+
+  void _cancelRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  void _scheduleRefresh(String token) {
+    _cancelRefreshTimer();
+    if (token.isEmpty) return;
+    final delay = jwtRefreshDelay(
+      token,
+      skewSeconds: PortalConfig.refreshSkewSeconds,
+    );
+    _refreshTimer = Timer(delay, () {
+      unawaited(
+        requireAccessToken().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stackTrace) {},
+        ),
+      );
+    });
   }
 
   Future<void> _bootstrap() async {
@@ -253,16 +279,20 @@ class AuthNotifier extends Notifier<AuthState> {
       if (_store.staySignedIn) {
         final password = await _store.readPassword();
         if (password != null && password.isNotEmpty) {
-          final tokens =
-              await _client.login(username: username, password: password);
-          await _store.saveSession(
-            username: username,
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            password: password,
-            staySignedIn: true,
-          );
-          return _rememberSpacedockToken(tokens.accessToken);
+          try {
+            final tokens =
+                await _client.login(username: username, password: password);
+            await _store.saveSession(
+              username: username,
+              accessToken: tokens.accessToken,
+              refreshToken: tokens.refreshToken,
+              password: password,
+              staySignedIn: true,
+            );
+            return _rememberSpacedockToken(tokens.accessToken);
+          } catch (_) {
+            // Fall through to sign-out.
+          }
         }
       }
 
@@ -277,6 +307,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
   String _rememberSpacedockToken(String token) {
     ref.read(spacedockAccessTokenProvider.notifier).setToken(token);
+    _scheduleRefresh(token);
     return token;
   }
 }

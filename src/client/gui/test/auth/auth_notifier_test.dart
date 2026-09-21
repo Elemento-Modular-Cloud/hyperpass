@@ -205,4 +205,91 @@ void main() {
     expect(await store.readPassword(), isNull);
     expect(container.read(spacedockAccessTokenProvider), '');
   });
+
+  test('requireAccessToken refreshes expired JWT and updates Spacedock token',
+      () async {
+    final validExp =
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600;
+    await store.saveSession(
+      username: 'user@elemento.cloud',
+      accessToken: _jwtWithExp(validExp),
+      refreshToken: 'refresh-old',
+      password: 'pw',
+      staySignedIn: true,
+    );
+
+    final freshExp =
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600;
+    final freshToken = _jwtWithExp(freshExp);
+    final container = makeContainer(
+      MockClient((request) async {
+        expect(request.url.path, contains('/auth/refresh'));
+        return http.Response(
+          jsonEncode({
+            'access_token': freshToken,
+            'refresh_token': 'refresh-new',
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(container.dispose);
+
+    container.read(authProvider);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(container.read(authProvider), isA<AuthAuthenticated>());
+
+    final expired =
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - 10;
+    await store.updateTokens(
+      accessToken: _jwtWithExp(expired),
+      refreshToken: 'refresh-old',
+    );
+
+    final token =
+        await container.read(authProvider.notifier).requireAccessToken();
+    expect(token, freshToken);
+    expect(container.read(spacedockAccessTokenProvider), freshToken);
+    expect(await store.readRefreshToken(), 'refresh-new');
+  });
+
+  test('requireAccessToken signs out and clears Spacedock token on expiry',
+      () async {
+    final validExp =
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 + 3600;
+    await store.saveSession(
+      username: 'user@elemento.cloud',
+      accessToken: _jwtWithExp(validExp),
+      refreshToken: 'refresh-old',
+      password: 'bad-pw',
+      staySignedIn: true,
+    );
+
+    final container = makeContainer(
+      MockClient((_) async => http.Response('nope', 401)),
+    );
+    addTearDown(container.dispose);
+
+    container.read(authProvider);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(container.read(authProvider), isA<AuthAuthenticated>());
+
+    final expired =
+        DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000 - 10;
+    await store.updateTokens(
+      accessToken: _jwtWithExp(expired),
+      refreshToken: 'bad-refresh',
+    );
+
+    await expectLater(
+      container.read(authProvider.notifier).requireAccessToken(),
+      throwsA(isA<PortalAuthException>()),
+    );
+    expect(container.read(authProvider), isA<AuthUnauthenticated>());
+    expect(container.read(spacedockAccessTokenProvider), '');
+    expect(await store.readAccessToken(), isNull);
+  });
 }
