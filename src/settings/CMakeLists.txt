@@ -17,6 +17,7 @@ add_library(settings STATIC
         basic_setting_spec.cpp
         bool_setting_spec.cpp
         custom_setting_spec.cpp
+        memory_settings_handler.cpp
         persistent_settings_handler.cpp
         settings.cpp)
 

@@ -25,11 +25,14 @@
 #include <multipass/cli/client_common.h>
 #include <multipass/constants.h>
 #include <multipass/settings/basic_setting_spec.h>
+#include <multipass/settings/memory_settings_handler.h>
 #include <multipass/settings/persistent_settings_handler.h>
 
 #include <src/daemon/daemon_init_settings.h>
 
 #include <QDir>
+
+#include <vector>
 
 namespace mp = multipass;
 namespace mpt = mp::test;
@@ -44,12 +47,21 @@ struct TestGlobalSettingsHandlers : public Test
         ON_CALL(mock_platform, default_privileged_mounts).WillByDefault(Return("true"));
         ON_CALL(mock_platform, is_backend_supported).WillByDefault(Return(true));
 
-        EXPECT_CALL(mock_settings,
-                    register_handler(Pointer(
-                        WhenDynamicCastTo<const mp::PersistentSettingsHandler*>(NotNull()))))
-            .WillOnce([this](auto uptr) {
-                handler = std::move(uptr);
-                return handler.get();
+        EXPECT_CALL(mock_settings, register_handler(_))
+            .WillRepeatedly([this](auto uptr) {
+                auto* raw = uptr.get();
+                if (dynamic_cast<mp::PersistentSettingsHandler*>(raw))
+                {
+                    handler = std::move(uptr);
+                    return handler.get();
+                }
+                if (dynamic_cast<mp::MemorySettingsHandler*>(raw))
+                {
+                    memory_handler = std::move(uptr);
+                    return memory_handler.get();
+                }
+                extra_handlers.push_back(std::move(uptr));
+                return extra_handlers.back().get();
             });
     }
 
@@ -123,6 +135,8 @@ public:
     mpt::MockPlatform& mock_platform = *mock_platform_injection.first;
 
     std::unique_ptr<mp::SettingsHandler> handler = nullptr;
+    std::unique_ptr<mp::SettingsHandler> memory_handler = nullptr;
+    std::vector<std::unique_ptr<mp::SettingsHandler>> extra_handlers;
 };
 
 TEST_F(TestGlobalSettingsHandlers, clientsRegisterPersistentHandlerWithClientFilename)
@@ -219,7 +233,7 @@ INSTANTIATE_TEST_SUITE_P(TestBadPetEnvSetting,
 TEST_F(TestGlobalSettingsHandlers, daemonRegistersPersistentHandlerWithDaemonFilename)
 {
     auto config_location = QStringLiteral("/a/b/c");
-    auto expected_filename = config_location + "/multipassd.conf";
+    auto expected_filename = config_location + "/elpd.conf";
 
     EXPECT_CALL(mock_platform, daemon_config_home).WillOnce(Return(config_location));
 
@@ -273,6 +287,22 @@ TEST_F(TestGlobalSettingsHandlers, daemonRegistersPersistentHandlerForDaemonPlat
     inject_default_returning_mock_qsettings();
 
     expect_setting_values(platform_defaults);
+}
+
+TEST_F(TestGlobalSettingsHandlers, daemonRegistersMemoryHandlerForSpacedockToken)
+{
+    mp::daemon::register_global_settings_handlers();
+
+    ASSERT_NE(memory_handler, nullptr);
+    EXPECT_EQ(memory_handler->get(mp::spacedock_token_key), "");
+
+    [[maybe_unused]] mp::UserMessages messages{};
+    memory_handler->set(mp::spacedock_token_key, "portal-jwt", messages);
+    EXPECT_EQ(memory_handler->get(mp::spacedock_token_key), "portal-jwt");
+
+    MP_ASSERT_THROW_THAT(handler->get(mp::spacedock_token_key),
+                         mp::UnrecognizedSettingException,
+                         mpt::match_what(HasSubstr(mp::spacedock_token_key)));
 }
 
 TEST_F(TestGlobalSettingsHandlers, daemonDoesNotRegisterPersistentHandlerForClientSettings)

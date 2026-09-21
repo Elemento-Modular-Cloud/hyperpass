@@ -825,6 +825,8 @@ class GuiSettingNotifier extends Notifier<String?> {
       onAppCloseKey: 'ask',
       themeModeKey: 'system',
       showMultipassInstancesKey: 'true',
+      // Opt-in: LaunchPad appearance stays local unless the user enables sync.
+      syncAppearanceWithElectrosKey: 'false',
     };
 
     return sharedPreferences.getString(arg) ?? defaultValues[arg];
@@ -844,6 +846,7 @@ const onAppCloseKey = 'onAppClose';
 const hotkeyKey = 'hotkey';
 const askTerminalCloseKey = 'askTerminalClose';
 const themeModeKey = 'themeMode';
+const syncAppearanceWithElectrosKey = 'syncAppearanceWithElectros';
 final guiSettingProvider = NotifierProvider.autoDispose
     .family<GuiSettingNotifier, String?, String>(GuiSettingNotifier.new);
 

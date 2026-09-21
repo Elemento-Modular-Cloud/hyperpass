@@ -55,7 +55,12 @@ struct CustomImageHost : public Test
     }
 
     QByteArray payload = mpt::load_test_file("custom_image_host/good_manifest.json");
+    QByteArray schema1_payload = QByteArray{"{\"schema\":1,\"source\":{\"repo\":\"r\",\"commit\":\"c\"},"
+                                           "\"distributions\":"} +
+                                 payload + "}";
     NiceMock<mpt::MockURLDownloader> mock_url_downloader;
+    mpt::SetEnvScope distributions_env{mp::distributions_url_env_var,
+                                       "https://example.test/distribution-info.json"};
 
     int num_images_for_arch(const QByteArray& manifest)
     {
@@ -326,6 +331,96 @@ TEST_F(CustomImageHost, missingLocalManifestLogsAndReturnsEmptyImages)
     mpt::SetEnvScope env{mp::distributions_url_env_var, "/no/such/distribution-info.json"};
 
     EXPECT_CALL(mock_url_downloader, download(_, _)).Times(0);
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), 0);
+}
+
+TEST_F(CustomImageHost, unwrapsSchema1DistributionsBundle)
+{
+    EXPECT_CALL(mock_url_downloader, download(_, _)).WillOnce(Return(schema1_payload));
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), num_images_for_arch(payload));
+}
+
+TEST_F(CustomImageHost, skipsSpacedockCatalogWithoutToken)
+{
+    mpt::UnsetEnvScope unset_distributions{mp::distributions_url_env_var};
+    mpt::UnsetEnvScope unset_token{mp::spacedock_token_env_var};
+
+    EXPECT_CALL(mock_url_downloader, download(_, _)).Times(0);
+    EXPECT_CALL(mock_url_downloader, set_header(_, _)).Times(0);
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), 0);
+}
+
+TEST_F(CustomImageHost, fetchesDefaultSpacedockBundleWithBearerToken)
+{
+    mpt::UnsetEnvScope unset_distributions{mp::distributions_url_env_var};
+    mpt::SetEnvScope token{mp::spacedock_token_env_var, "portal-jwt"};
+
+    {
+        InSequence seq;
+        EXPECT_CALL(mock_url_downloader, clear_headers());
+        EXPECT_CALL(mock_url_downloader,
+                    set_header(QByteArray{"Authorization"}, QByteArray{"Bearer portal-jwt"}));
+        EXPECT_CALL(mock_url_downloader,
+                    download(QUrl{"https://spacedock.elemento.cloud/v1/images/bundle"}, _, false))
+            .WillOnce(Return(schema1_payload));
+        EXPECT_CALL(mock_url_downloader, clear_headers());
+    }
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), num_images_for_arch(payload));
+}
+
+TEST_F(CustomImageHost, doesNotAttachBearerForOverrideCatalogUrl)
+{
+    EXPECT_CALL(mock_url_downloader, set_header(_, _)).Times(0);
+    EXPECT_CALL(mock_url_downloader,
+                download(QUrl{"https://example.test/distribution-info.json"}, _))
+        .WillOnce(Return(payload));
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), num_images_for_arch(payload));
+}
+
+TEST_F(CustomImageHost, usesSpacedockBaseFromEnv)
+{
+    mpt::UnsetEnvScope unset_distributions{mp::distributions_url_env_var};
+    mpt::SetEnvScope token{mp::spacedock_token_env_var, "portal-jwt"};
+    mpt::SetEnvScope base{mp::spacedock_url_env_var, "http://127.0.0.1:8080/"};
+
+    EXPECT_CALL(mock_url_downloader,
+                download(QUrl{"http://127.0.0.1:8080/v1/images/bundle"}, _, false))
+        .WillOnce(Return(schema1_payload));
+
+    mp::CustomVMImageHost host{&mock_url_downloader};
+    host.update_manifests(false);
+
+    EXPECT_EQ(host.all_images_for("", false).size(), num_images_for_arch(payload));
+}
+
+TEST_F(CustomImageHost, spacedockNetworkFailureYieldsEmptyCatalog)
+{
+    mpt::UnsetEnvScope unset_distributions{mp::distributions_url_env_var};
+    mpt::SetEnvScope token{mp::spacedock_token_env_var, "portal-jwt"};
+
+    EXPECT_CALL(mock_url_downloader, download(_, _, false))
+        .WillOnce(Throw(mp::DownloadException{"https://spacedock.elemento.cloud/v1/images/bundle",
+                                             "host unreachable"}));
 
     mp::CustomVMImageHost host{&mock_url_downloader};
     host.update_manifests(false);

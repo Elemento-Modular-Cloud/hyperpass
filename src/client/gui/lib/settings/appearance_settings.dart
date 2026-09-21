@@ -10,6 +10,7 @@ import '../brand.dart';
 import '../catalogue/catalogue_surface.dart';
 import '../hsv_colour_picker.dart';
 import '../l10n/app_localizations.dart';
+import '../providers.dart';
 import '../switch.dart';
 import '../widgets/launchpad_button.dart';
 import '../wallpaper_store.dart';
@@ -54,6 +55,22 @@ class AppearanceSettingsSection extends ConsumerWidget {
                 value: appearance.useGlassmorphism,
                 trailingSwitch: true,
                 onChanged: notifier.setUseGlassmorphism,
+              ),
+              const SizedBox(height: 8),
+              Switch(
+                label: l10n.appearanceSyncElectrosToggle,
+                value: isAppearanceSyncWithElectrosEnabled(
+                  ref.watch(guiSettingProvider(syncAppearanceWithElectrosKey)),
+                ),
+                trailingSwitch: true,
+                onChanged: (value) {
+                  ref
+                      .read(
+                        guiSettingProvider(syncAppearanceWithElectrosKey)
+                            .notifier,
+                      )
+                      .set(value ? 'true' : 'false');
+                },
               ),
               if (appearance.useGlassmorphism) ...[
                 const SizedBox(height: 16),

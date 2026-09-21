@@ -1494,6 +1494,10 @@
     "@appearanceGlassToggle": {
         "description": "Toggle frosted glass panels"
     },
+    "appearanceSyncElectrosToggle": "Sync appearance with Electros",
+    "@appearanceSyncElectrosToggle": {
+        "description": "Toggle sharing theme and wallpaper with the Electros desktop app"
+    },
     "appearanceThemeLabel": "Theme",
     "@appearanceThemeLabel": {
         "description": "Label for light/dark/midnight theme picker"

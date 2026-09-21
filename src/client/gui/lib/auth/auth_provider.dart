@@ -9,6 +9,20 @@ import 'jwt_exp.dart';
 import 'portal_auth_client.dart';
 import 'portal_config.dart';
 
+/// Latest Portal access token for Spacedock. Empty string means signed out.
+/// Null means bootstrap has not decided yet — do not clear the daemon token.
+class SpacedockAccessTokenNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void setToken(String token) => state = token;
+}
+
+final spacedockAccessTokenProvider =
+    NotifierProvider<SpacedockAccessTokenNotifier, String?>(
+  SpacedockAccessTokenNotifier.new,
+);
+
 final authSessionStoreProvider = Provider<AuthSessionStore>((ref) {
   return AuthSessionStore(prefs: ref.watch(sharedPreferencesProvider));
 });
@@ -49,6 +63,7 @@ class AuthNotifier extends Notifier<AuthState> {
         } else {
           state = const AuthUnauthenticated();
         }
+        _rememberSpacedockToken('');
         return;
       }
 
@@ -58,6 +73,7 @@ class AuthNotifier extends Notifier<AuthState> {
       )) {
         await _store.setGuestMode(false);
         state = AuthAuthenticated(username);
+        _rememberSpacedockToken(access);
         return;
       }
 
@@ -72,10 +88,12 @@ class AuthNotifier extends Notifier<AuthState> {
         } else {
           state = const AuthUnauthenticated();
         }
+        _rememberSpacedockToken('');
       }
     } catch (_) {
       await _store.clear();
       state = const AuthUnauthenticated();
+      _rememberSpacedockToken('');
     }
   }
 
@@ -92,6 +110,7 @@ class AuthNotifier extends Notifier<AuthState> {
         );
         await _store.setGuestMode(false);
         state = AuthAuthenticated(username);
+        _rememberSpacedockToken(tokens.accessToken);
         return true;
       } catch (_) {
         // Fall through to stay-signed userpass.
@@ -113,6 +132,7 @@ class AuthNotifier extends Notifier<AuthState> {
         staySignedIn: true,
       );
       state = AuthAuthenticated(username);
+      _rememberSpacedockToken(tokens.accessToken);
       return true;
     } catch (_) {
       return false;
@@ -141,6 +161,7 @@ class AuthNotifier extends Notifier<AuthState> {
         staySignedIn: staySignedIn,
       );
       state = AuthAuthenticated(trimmed);
+      _rememberSpacedockToken(tokens.accessToken);
     } on PortalAuthException catch (e) {
       logger.w('Portal login rejected', error: e);
       state = AuthError(e.message);
@@ -177,12 +198,14 @@ class AuthNotifier extends Notifier<AuthState> {
           error: e, stackTrace: st);
     }
     state = const AuthGuest();
+    _rememberSpacedockToken('');
   }
 
   /// Leave guest mode and show the Portal login form.
   Future<void> requestSignIn() async {
     await _store.setGuestMode(false);
     state = const AuthUnauthenticated();
+    _rememberSpacedockToken('');
   }
 
   Future<void> logout() async {
@@ -194,6 +217,7 @@ class AuthNotifier extends Notifier<AuthState> {
           error: e, stackTrace: st);
     }
     state = const AuthUnauthenticated();
+    _rememberSpacedockToken('');
   }
 
   /// Returns a usable access token, refreshing (or re-logging in) if needed.
@@ -209,7 +233,7 @@ class AuthNotifier extends Notifier<AuthState> {
         access,
         skewSeconds: PortalConfig.refreshSkewSeconds,
       )) {
-        return access!;
+        return _rememberSpacedockToken(access!);
       }
 
       final refresh = await _store.readRefreshToken();
@@ -220,7 +244,7 @@ class AuthNotifier extends Notifier<AuthState> {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken ?? refresh,
           );
-          return tokens.accessToken;
+          return _rememberSpacedockToken(tokens.accessToken);
         } catch (_) {
           // Fall through to stay-signed userpass.
         }
@@ -238,7 +262,7 @@ class AuthNotifier extends Notifier<AuthState> {
             password: password,
             staySignedIn: true,
           );
-          return tokens.accessToken;
+          return _rememberSpacedockToken(tokens.accessToken);
         }
       }
 
@@ -246,7 +270,13 @@ class AuthNotifier extends Notifier<AuthState> {
       state = const AuthUnauthenticated(
         message: 'Your session expired. Please sign in again.',
       );
+      _rememberSpacedockToken('');
       throw PortalAuthException('Session expired.');
     });
+  }
+
+  String _rememberSpacedockToken(String token) {
+    ref.read(spacedockAccessTokenProvider.notifier).setToken(token);
+    return token;
   }
 }

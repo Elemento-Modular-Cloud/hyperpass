@@ -53,8 +53,11 @@ constexpr auto home_automount_dir = "Home";
 constexpr auto multipass_storage_env_var = "ELP_STORAGE";
 constexpr auto driver_env_var = "ELP_VM_DRIVER";
 constexpr auto distributions_url_env_var = "ELP_DISTRIBUTIONS_URL";
-constexpr auto default_distributions_url =
-    "https://elemento-modular-cloud.github.io/elp/distribution-info.json";
+constexpr auto spacedock_url_env_var = "ELP_SPACEDOCK_URL";
+constexpr auto spacedock_token_env_var = "ELP_SPACEDOCK_TOKEN";
+constexpr auto default_spacedock_url = "https://spacedock.elemento.cloud";
+constexpr auto spacedock_marketplace_bundle_path = "/v1/marketplace/bundle";
+constexpr auto spacedock_images_bundle_path = "/v1/images/bundle";
 constexpr auto server_address_env_var = "ELP_SERVER_ADDRESS";
 constexpr auto api_listen_env_var = "ELP_API_LISTEN";
 constexpr auto llm_proxy_listen_env_var = "ELP_LLM_PROXY_LISTEN";
@@ -97,6 +100,7 @@ constexpr auto host_memory_policy_key = "local.host.memory-policy";
 constexpr auto llm_backend_key = "local.llm.backend";
 constexpr auto llm_hf_token_key = "local.llm.hf-token";
 constexpr auto llm_idle_unload_key = "local.llm.idle-unload";
+constexpr auto spacedock_token_key = "local.spacedock.token";
 
 constexpr auto default_host_memory_reserve = "4G";
 constexpr auto default_host_memory_policy = "strict";

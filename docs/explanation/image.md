@@ -8,7 +8,7 @@ Multipass uses **images** (short for [disk images](https://en.wikipedia.org/wiki
 You can use `elp find` to view a list of the available images. These images are obtained from different sources, such as:
 * Ubuntu Cloud Images: https://cloud-images.ubuntu.com/
 * Ubuntu CD Images: https://cdimages.ubuntu.com/
-* Third-party cloud images (Debian, Fedora, AlmaLinux, Rocky Linux, and others) catalogued in the [distribution manifest](https://github.com/Elemento-Modular-Cloud/elp/blob/main/data/distributions/distribution-info.json)
+* Third-party cloud images (Debian, Fedora, AlmaLinux, Rocky Linux, and others) catalogued by [Spacedock](https://spacedock.elemento.cloud) after Elemento Portal sign-in
 
 and more.
 
@@ -18,9 +18,17 @@ You can also launch images from a file or URL, as long as they provide the tools
 
 ## Custom third-party image catalog
 
-By default, Electros LaunchPad downloads the third-party image list from
-[GitHub Pages](https://elemento-modular-cloud.github.io/elp/distribution-info.json).
-To use a different catalog — a local file or another URL — set `ELP_DISTRIBUTIONS_URL` on **elpd**:
+Signed-in clients download the third-party image list from
+[Spacedock](https://spacedock.elemento.cloud/v1/images/bundle) using the Portal
+JWT. Guests, and any failed Spacedock fetch, keep **only Canonical Ubuntu**
+images from `https://cloud-images.ubuntu.com/` (and the other Ubuntu remotes).
+The public GitHub Pages catalog is no longer a production fallback.
+
+Point **elpd** at a local file or another URL with `ELP_DISTRIBUTIONS_URL`
+(this wins over Spacedock). For a local Spacedock replica, set
+`ELP_SPACEDOCK_URL` instead (for example `http://127.0.0.1:8080`). Headless
+`elp find` can pass a JWT with `ELP_SPACEDOCK_TOKEN` when the GUI is not
+syncing `local.spacedock.token`.
 
 ```text
 # Local file (bare path)

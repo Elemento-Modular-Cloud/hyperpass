@@ -212,12 +212,20 @@ void _mirrorAppearanceToElemento(AppearanceSettings settings) {
 
 /// Loads appearance preferring the newest of `~/.elemento/appearance` and Electros.
 ///
+/// When [syncWithElectros] is false, only SharedPreferences is used so LaunchPad
+/// appearance stays independent of Electros.
+///
 /// [includeElectrosLocalStorage] is expensive (Chromium LevelDB). Skip it on
 /// the first frame and merge Electros afterwards.
 AppearanceSettings loadAppearanceSettings({
   String? sharedPrefsRaw,
   bool includeElectrosLocalStorage = true,
+  bool syncWithElectros = true,
 }) {
+  if (!syncWithElectros) {
+    return _tryParseAppearance(sharedPrefsRaw) ?? const AppearanceSettings();
+  }
+
   final file = elementoAppearanceFile();
   AppearanceSettings? fromFile;
   DateTime? fileModified;
@@ -253,24 +261,36 @@ AppearanceSettings loadAppearanceSettings({
   return const AppearanceSettings();
 }
 
+bool isAppearanceSyncWithElectrosEnabled(String? raw) => raw == 'true';
+
 bool appearanceEquals(AppearanceSettings a, AppearanceSettings b) =>
     jsonEncode(a.toJson()) == jsonEncode(b.toJson());
 
 class AppearanceSettingsNotifier extends Notifier<AppearanceSettings> {
   static const _pollInterval = Duration(seconds: 2);
 
+  bool get _syncWithElectros => isAppearanceSyncWithElectrosEnabled(
+        ref.read(guiSettingProvider(syncAppearanceWithElectrosKey)),
+      );
+
   @override
   AppearanceSettings build() {
     final prefs = ref.read(sharedPreferencesProvider);
+    final sync = isAppearanceSyncWithElectrosEnabled(
+      ref.watch(guiSettingProvider(syncAppearanceWithElectrosKey)),
+    );
     final initial = loadAppearanceSettings(
       sharedPrefsRaw: prefs.getString(appearanceStorageKey),
       includeElectrosLocalStorage: false,
+      syncWithElectros: sync,
     );
 
-    _startElementoWatchers();
-    Future<void>.microtask(() {
-      if (ref.mounted) _reloadFromElemento();
-    });
+    if (sync) {
+      _startElementoWatchers();
+      Future<void>.microtask(() {
+        if (ref.mounted) _reloadFromElemento();
+      });
+    }
     return initial;
   }
 
@@ -300,9 +320,11 @@ class AppearanceSettingsNotifier extends Notifier<AppearanceSettings> {
   }
 
   void _reloadFromElemento() {
+    if (!_syncWithElectros) return;
     final prefs = ref.read(sharedPreferencesProvider);
     final next = loadAppearanceSettings(
       sharedPrefsRaw: prefs.getString(appearanceStorageKey),
+      syncWithElectros: true,
     );
     if (!appearanceEquals(next, state)) {
       state = next;
@@ -315,6 +337,8 @@ class AppearanceSettingsNotifier extends Notifier<AppearanceSettings> {
     final encoded = jsonEncode(state.toJson());
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setString(appearanceStorageKey, encoded);
+
+    if (!_syncWithElectros) return;
 
     try {
       final home = elementoHomeDirectory();

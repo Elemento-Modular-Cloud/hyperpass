@@ -6,10 +6,9 @@ import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
-/// Default GitHub ref for the Elemento marketplace library.
-const marketplaceDefaultRef = 'feat-cloudinit-imp';
+import '../auth/spacedock_config.dart';
 
-/// Repo that owns the live `services/` tree.
+/// Repo that owns the live `services/` tree (local checkouts / seed metadata).
 const marketplaceRepoOwner = 'Elemento-Modular-Cloud';
 const marketplaceRepoName = 'elemento-marketplace';
 const marketplaceRepoUrl =
@@ -17,9 +16,8 @@ const marketplaceRepoUrl =
 
 /// Optional direct JSON bundle URL (`ELP_MARKETPLACE_URL`).
 ///
-/// Used only when [marketplaceDirOverride] is unset. Production is expected
-/// to populate a clone-shaped directory (via CDN) and point
-/// `ELP_MARKETPLACE_DIR` at it.
+/// Used only when [marketplaceDirOverride] is unset. Production fetches the
+/// schema-1 bundle from Spacedock when signed in.
 String? marketplaceBundleUrlOverride() =>
     Platform.environment['ELP_MARKETPLACE_URL'];
 
@@ -77,11 +75,7 @@ Future<String> marketplaceCheckoutCommit(String path) async {
   return 'local';
 }
 
-String marketplaceRef() =>
-    Platform.environment['ELP_MARKETPLACE_REF'] ?? marketplaceDefaultRef;
-
-/// GitHub token for private marketplace clones (`ELP_MARKETPLACE_TOKEN` or
-/// `GITHUB_TOKEN`). Unauthenticated requests still work for public repos.
+/// GitHub token for a GitHub-hosted `ELP_MARKETPLACE_URL` override.
 String? marketplaceGithubToken() =>
     Platform.environment['ELP_MARKETPLACE_TOKEN'] ??
     Platform.environment['GITHUB_TOKEN'];
@@ -90,43 +84,45 @@ const _cacheFileName = 'marketplace_services.json';
 const _excludedNames = {'.DS_Store', 'Thumbs.db'};
 
 /// Fetches the marketplace service library JSON: remote (or local dir) → disk
-/// cache. Returns null when the caller should use its shipped seed fallback.
+/// cache. Returns null when there is no directory, cache, or reachable bundle.
 class MarketplaceCatalog {
   MarketplaceCatalog({
     http.Client? httpClient,
     Directory? cacheDirectory,
     String? bundleUrl,
     String? servicesDirectory,
-    String? ref,
     String? githubToken,
+    String? accessToken,
+    Future<String?> Function()? accessTokenProvider,
   })  : _client = httpClient ?? http.Client(),
         _ownsClient = httpClient == null,
         _cacheDirectory = cacheDirectory,
         bundleUrl = bundleUrl ?? marketplaceBundleUrlOverride(),
         servicesDirectory = servicesDirectory ?? marketplaceDirOverride(),
-        ref = ref ?? marketplaceRef(),
-        githubToken = githubToken ?? marketplaceGithubToken();
+        githubToken = githubToken ?? marketplaceGithubToken(),
+        accessToken = accessToken,
+        accessTokenProvider = accessTokenProvider;
 
   final http.Client _client;
   final bool _ownsClient;
   final Directory? _cacheDirectory;
 
-  /// Direct JSON bundle URL. Null means "assemble from the GitHub zipball".
+  /// Direct JSON bundle URL. Empty/null means Spacedock (when signed in).
   final String? bundleUrl;
 
   /// Clone root or `services/` tree. When set, the catalog reads that
-  /// directory on every load (no zipball / JSON URL).
+  /// directory on every load (no remote JSON URL).
   final String? servicesDirectory;
 
-  final String ref;
   final String? githubToken;
+  final String? accessToken;
+  final Future<String?> Function()? accessTokenProvider;
 
   void close() {
     if (_ownsClient) _client.close();
   }
 
-  /// Returns bundle JSON, or null when the caller should fall back to the
-  /// shipped seed.
+  /// Returns bundle JSON, or null when there is nothing to load.
   Future<String?> loadJson({bool forceRefresh = false}) async {
     if (servicesDirectory != null && servicesDirectory!.isNotEmpty) {
       return _loadFromServicesDirectory();
@@ -136,15 +132,14 @@ class MarketplaceCatalog {
     if (!forceRefresh && await cacheFile.exists()) {
       try {
         final cached = await cacheFile.readAsString();
-        final cachedCommit = _commitOf(cached);
-        final refreshed = await _tryRefresh(cacheFile, cachedCommit);
+        final refreshed = await _tryRefresh(cacheFile);
         return refreshed ?? cached;
       } catch (_) {
         // Corrupt cache — fall through to a full reload.
       }
     }
 
-    final remote = await _tryRefresh(cacheFile, null);
+    final remote = await _tryRefresh(cacheFile);
     if (remote != null) return remote;
 
     if (await cacheFile.exists()) {
@@ -171,12 +166,12 @@ class MarketplaceCatalog {
     return serialiseBundle(bundle);
   }
 
-  Future<String?> _tryRefresh(File cacheFile, String? cachedCommit) async {
+  Future<String?> _tryRefresh(File cacheFile) async {
     try {
-      final json = bundleUrl != null && bundleUrl!.isNotEmpty
-          ? await _fetchJsonBundle(bundleUrl!)
-          : await _fetchZipballBundle(cachedCommit: cachedCommit);
-      if (json == null) return null;
+      final token = await _resolveAccessToken();
+      final url = _remoteBundleUrl(token);
+      if (url == null) return null;
+      final json = await _fetchJsonBundle(url, accessToken: token);
       await _writeCache(cacheFile, json);
       return json;
     } catch (_) {
@@ -184,10 +179,30 @@ class MarketplaceCatalog {
     }
   }
 
-  Future<String> _fetchJsonBundle(String url) async {
+  String? _remoteBundleUrl(String? token) {
+    if (bundleUrl != null && bundleUrl!.isNotEmpty) return bundleUrl;
+    if (token != null && token.isNotEmpty) {
+      return SpacedockConfig.marketplaceBundleUrl();
+    }
+    return null;
+  }
+
+  Future<String?> _resolveAccessToken() async {
+    if (accessTokenProvider != null) {
+      return accessTokenProvider!();
+    }
+    if (accessToken != null && accessToken!.isNotEmpty) return accessToken;
+    return null;
+  }
+
+  Future<String> _fetchJsonBundle(String url, {String? accessToken}) async {
     final response = await _client.get(
       Uri.parse(url),
-      headers: _authHeaders(accept: 'application/json'),
+      headers: _authHeaders(
+        accept: 'application/json',
+        url: url,
+        accessToken: accessToken,
+      ),
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
@@ -199,70 +214,28 @@ class MarketplaceCatalog {
     return response.body;
   }
 
-  /// Returns null when [cachedCommit] already matches the remote tip.
-  Future<String?> _fetchZipballBundle({String? cachedCommit}) async {
-    final tip = await _resolveTipCommit();
-    if (cachedCommit != null &&
-        cachedCommit.isNotEmpty &&
-        cachedCommit != 'unknown' &&
-        cachedCommit != 'local' &&
-        (tip == cachedCommit ||
-            tip.startsWith(cachedCommit) ||
-            cachedCommit.startsWith(tip))) {
-      return null;
-    }
-
-    final zipUri = Uri.parse(
-      'https://api.github.com/repos/$marketplaceRepoOwner/$marketplaceRepoName/zipball/$ref',
-    );
-    final response = await _client.get(
-      zipUri,
-      headers: _authHeaders(accept: 'application/vnd.github+json'),
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        'Marketplace zipball HTTP ${response.statusCode}',
-        uri: zipUri,
-      );
-    }
-
-    final archive = ZipDecoder().decodeBytes(response.bodyBytes);
-    final bundle = buildBundleFromZipArchive(
-      archive,
-      commit: tip,
-      repo: marketplaceRepoUrl,
-    );
-    return serialiseBundle(bundle);
-  }
-
-  Future<String> _resolveTipCommit() async {
-    final uri = Uri.parse(
-      'https://api.github.com/repos/$marketplaceRepoOwner/$marketplaceRepoName/commits/$ref',
-    );
-    final response = await _client.get(
-      uri,
-      headers: _authHeaders(accept: 'application/vnd.github+json'),
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      return 'unknown';
-    }
-    final decoded = jsonDecode(response.body);
-    if (decoded is Map && decoded['sha'] is String) {
-      return decoded['sha'] as String;
-    }
-    return 'unknown';
-  }
-
-  Map<String, String> _authHeaders({required String accept}) {
+  Map<String, String> _authHeaders({
+    required String accept,
+    required String url,
+    String? accessToken,
+  }) {
     final headers = <String, String>{
       'Accept': accept,
       'User-Agent': 'Electros-LaunchPad',
     };
-    final token = githubToken;
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
+    if (_isGithubUrl(url) &&
+        githubToken != null &&
+        githubToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $githubToken';
+    } else if (accessToken != null && accessToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $accessToken';
     }
     return headers;
+  }
+
+  bool _isGithubUrl(String url) {
+    final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+    return host == 'github.com' || host.endsWith('.github.com');
   }
 
   Future<File> _cacheFile() async {
@@ -384,16 +357,6 @@ void _assertBundleSchema(String json) {
       decoded['services'] is! List) {
     throw const FormatException('Unsupported marketplace bundle schema');
   }
-}
-
-String _commitOf(String json) {
-  final decoded = jsonDecode(json);
-  if (decoded is! Map) return 'unknown';
-  final source = decoded['source'];
-  if (source is Map && source['commit'] is String) {
-    return source['commit'] as String;
-  }
-  return 'unknown';
 }
 
 Future<Map<String, String>> _collectServiceFiles(Directory serviceDir) async {

@@ -209,10 +209,10 @@ class GrpcClient {
     );
   }
 
-  Future<FindReply> find() {
+  Future<FindReply> find({bool forceUpdate = false}) {
     return doRpc(
       _client.find,
-      FindRequest(),
+      FindRequest(forceManifestNetworkDownload: forceUpdate),
     ).then((r) => r!);
   }
 

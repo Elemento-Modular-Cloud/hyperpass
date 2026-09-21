@@ -18,11 +18,13 @@
 #include <multipass/constants.h>
 #include <multipass/exceptions/download_exception.h>
 #include <multipass/exceptions/image_not_found_exception.h>
+#include <multipass/exceptions/settings_exceptions.h>
 #include <multipass/exceptions/unsupported_arch_exception.h>
 #include <multipass/file_ops.h>
 #include <multipass/image_host/custom_image_host.h>
 #include <multipass/logging/log.h>
 #include <multipass/query.h>
+#include <multipass/settings/settings.h>
 #include <multipass/url_downloader.h>
 #include <multipass/utils.h>
 
@@ -44,12 +46,69 @@ namespace
 constexpr auto category = "custom_image_host";
 constexpr auto no_remote{""};
 
+QString trim_trailing_slashes(QString value)
+{
+    while (value.endsWith(QLatin1Char('/')))
+        value.chop(1);
+    return value;
+}
+
+QString spacedock_base_url()
+{
+    const auto override = qEnvironmentVariable(mp::spacedock_url_env_var);
+    return trim_trailing_slashes(override.isEmpty() ? QString{mp::default_spacedock_url}
+                                                    : override);
+}
+
+QString default_images_bundle_url()
+{
+    return spacedock_base_url() + QLatin1String{mp::spacedock_images_bundle_path};
+}
+
 auto get_manifest_url()
 {
-    return qEnvironmentVariable(mp::distributions_url_env_var).isEmpty()
-             ? QString{mp::default_distributions_url}
-             : qEnvironmentVariable(mp::distributions_url_env_var);
+    const auto override = qEnvironmentVariable(mp::distributions_url_env_var);
+    return override.isEmpty() ? default_images_bundle_url() : override;
 }
+
+bool is_spacedock_images_url(const QString& source)
+{
+    const QUrl url{source, QUrl::TolerantMode};
+    return url.path() == QLatin1String{mp::spacedock_images_bundle_path};
+}
+
+QString spacedock_bearer_token()
+{
+    const auto from_env = qEnvironmentVariable(mp::spacedock_token_env_var);
+    if (!from_env.isEmpty())
+        return from_env;
+
+    try
+    {
+        return MP_SETTINGS.get(mp::spacedock_token_key);
+    }
+    catch (const mp::UnrecognizedSettingException&)
+    {
+        return {};
+    }
+}
+
+class ScopedDownloaderHeaders
+{
+public:
+    explicit ScopedDownloaderHeaders(mp::URLDownloader* downloader) : downloader{downloader}
+    {
+    }
+
+    ~ScopedDownloaderHeaders()
+    {
+        if (downloader)
+            downloader->clear_headers();
+    }
+
+private:
+    mp::URLDownloader* downloader;
+};
 
 std::optional<QString> local_manifest_path(const QString& source)
 {
@@ -78,6 +137,18 @@ QByteArray read_local_manifest(const QString& path)
     return MP_FILEOPS.read_all(file);
 }
 
+boost::json::object catalog_object(const QByteArray& data)
+{
+    auto manifest = boost::json::parse(std::string_view(data)).as_object();
+    if (const auto distributions = manifest.if_contains("distributions");
+        distributions && distributions->is_object())
+    {
+        return distributions->as_object();
+    }
+
+    return manifest;
+}
+
 QByteArray load_manifest_data(mp::URLDownloader* url_downloader, bool force_update)
 {
     const auto source = get_manifest_url();
@@ -85,6 +156,27 @@ QByteArray load_manifest_data(mp::URLDownloader* url_downloader, bool force_upda
 
     if (const auto path = local_manifest_path(source))
         return read_local_manifest(*path);
+
+    const auto token = spacedock_bearer_token();
+    if (is_spacedock_images_url(source) && token.isEmpty())
+    {
+        mpl::log(mpl::Level::debug,
+                 category,
+                 "Skipping Spacedock image catalog: no Portal token");
+        throw mp::DownloadException{source.toStdString(), "authentication required"};
+    }
+
+    if (is_spacedock_images_url(source) && url_downloader)
+    {
+        ScopedDownloaderHeaders guard{url_downloader};
+        url_downloader->clear_headers();
+        url_downloader->set_header("Authorization",
+                                   QByteArray{"Bearer "} + token.toUtf8());
+        // Gated catalog: never serve a stale HTTP disk cache when the gate is down.
+        return url_downloader->download(QUrl{source},
+                                        /*force_update=*/true,
+                                        /*allow_cache_fallback=*/false);
+    }
 
     return url_downloader->download(QUrl{source}, force_update);
 }
@@ -96,7 +188,7 @@ std::vector<mp::VMImageInfo> fetch_image_info(const std::string& arch,
     try
     {
         auto data = load_manifest_data(url_downloader, force_update);
-        auto manifest = boost::json::parse(std::string_view(data)).as_object();
+        auto manifest = catalog_object(data);
         mpl::log(mpl::Level::debug, category, "Found {} items", manifest.size());
 
         mp::ArchContext context{arch};

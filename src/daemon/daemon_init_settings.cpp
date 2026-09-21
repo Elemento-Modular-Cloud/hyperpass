@@ -25,6 +25,7 @@
 #include <multipass/settings/basic_setting_spec.h>
 #include <multipass/settings/bool_setting_spec.h>
 #include <multipass/settings/custom_setting_spec.h>
+#include <multipass/settings/memory_settings_handler.h>
 #include <multipass/settings/persistent_settings_handler.h>
 #include <multipass/settings/settings.h>
 #include <multipass/utils.h>
@@ -208,4 +209,9 @@ void mp::daemon::register_global_settings_handlers()
     MP_SETTINGS.register_handler(
         std::make_unique<PersistentSettingsHandler>(persistent_settings_filename(),
                                                     std::move(settings)));
+
+    SettingSpec::Set memory_settings;
+    memory_settings.insert(std::make_unique<BasicSettingSpec>(mp::spacedock_token_key, ""));
+    MP_SETTINGS.register_handler(
+        std::make_unique<MemorySettingsHandler>(std::move(memory_settings)));
 }

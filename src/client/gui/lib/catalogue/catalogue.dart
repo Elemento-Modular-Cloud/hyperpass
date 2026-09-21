@@ -63,11 +63,27 @@ class CatalogueScreen extends ConsumerStatefulWidget {
 
 class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
   final _searchController = TextEditingController();
+  bool _refreshing = false;
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshImages() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      if (ref.read(daemonAvailableProvider)) {
+        await ref.read(grpcClientProvider).find(forceUpdate: true);
+      }
+    } catch (_) {
+      // Still reload the provider so the grid/error state updates.
+    } finally {
+      ref.invalidate(imagesProvider);
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   @override
@@ -83,38 +99,49 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
+                final search = RoundedSearchField(
+                  width: null,
+                  controller: _searchController,
+                  hint: l10n.catalogueSearchHint,
+                  onChanged: (value) =>
+                      ref.read(catalogueSearchProvider.notifier).set(value),
+                );
+                final refresh = IconButton(
+                  tooltip: l10n.catalogueRefresh,
+                  onPressed: _refreshing ? null : _refreshImages,
+                  icon: _refreshing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                );
+
                 if (constraints.maxWidth >= 720) {
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Expanded(child: _CatalogueHeader(l10n: l10n)),
                       const SizedBox(width: 16),
-                      SizedBox(
-                        width: 260,
-                        child: RoundedSearchField(
-                          width: null,
-                          controller: _searchController,
-                          hint: l10n.catalogueSearchHint,
-                          onChanged: (value) => ref
-                              .read(catalogueSearchProvider.notifier)
-                              .set(value),
-                        ),
-                      ),
+                      SizedBox(width: 260, child: search),
+                      const SizedBox(width: 8),
+                      refresh,
                     ],
                   );
                 }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _CatalogueHeader(l10n: l10n),
-                    const SizedBox(height: 12),
-                    RoundedSearchField(
-                      width: null,
-                      controller: _searchController,
-                      hint: l10n.catalogueSearchHint,
-                      onChanged: (value) =>
-                          ref.read(catalogueSearchProvider.notifier).set(value),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _CatalogueHeader(l10n: l10n)),
+                        refresh,
+                      ],
                     ),
+                    const SizedBox(height: 12),
+                    search,
                   ],
                 );
               },
@@ -150,7 +177,7 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
           ),
           const SizedBox(height: 16),
           TextButton(
-            onPressed: () => ref.invalidate(imagesProvider),
+            onPressed: _refreshImages,
             child: Text(l10n.catalogueRefresh),
           ),
         ],

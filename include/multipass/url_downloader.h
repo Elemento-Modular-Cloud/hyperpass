@@ -61,11 +61,14 @@ public:
                              const ProgressMonitor& monitor);
     virtual QByteArray download(const QUrl& url);
     virtual QByteArray download(const QUrl& url, const bool force_update);
+    virtual QByteArray download(const QUrl& url,
+                                const bool force_update,
+                                const bool allow_cache_fallback);
     virtual QDateTime last_modified(const QUrl& url);
     virtual void abort_all_downloads();
 
-    void set_header(const QByteArray& name, const QByteArray& value);
-    void clear_headers();
+    virtual void set_header(const QByteArray& name, const QByteArray& value);
+    virtual void clear_headers();
 
 protected:
     std::atomic_bool abort_downloads{false};

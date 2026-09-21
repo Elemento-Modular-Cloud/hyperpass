@@ -1,0 +1,46 @@
+/*
+ * Copyright (C) Elemento.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 3.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#pragma once
+
+#include "setting_spec.h"
+#include "settings_handler.h"
+
+#include <map>
+#include <mutex>
+
+namespace multipass
+{
+class MemorySettingsHandler : public SettingsHandler
+{
+public:
+    explicit MemorySettingsHandler(SettingSpec::Set settings); // no nulls please
+    QString get(const QString& key) const override;
+    void set(const QString& key, const QString& val, UserMessages& messages) override;
+    std::set<QString> keys() const override;
+
+private:
+    const SettingSpec& get_setting(const QString& key) const; // throws on unknown key
+
+    using SettingMap = std::map<QString, SettingSpec::UPtr>;
+    static SettingMap convert(SettingSpec::Set);
+
+    SettingMap settings;
+    std::map<QString, QString> values;
+    mutable std::mutex mutex;
+};
+} // namespace multipass

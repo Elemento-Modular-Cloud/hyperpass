@@ -57,5 +57,8 @@ inline void expect_default_host_resource_settings(MockSettings& mock_settings)
     EXPECT_CALL(mock_settings, get(Eq(QString{multipass::llm_idle_unload_key})))
         .Times(AnyNumber())
         .WillRepeatedly(Return(QString{multipass::default_llm_idle_unload}));
+    EXPECT_CALL(mock_settings, get(Eq(QString{multipass::spacedock_token_key})))
+        .Times(AnyNumber())
+        .WillRepeatedly(Return(QString{}));
 }
 } // namespace multipass::test

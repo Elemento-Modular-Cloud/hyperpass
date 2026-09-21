@@ -196,10 +196,13 @@ void main() {
 
     expect(container.read(authProvider), isA<AuthAuthenticated>());
     expect(await store.readPassword(), 'secret');
+    expect(container.read(spacedockAccessTokenProvider), isNotNull);
+    expect(container.read(spacedockAccessTokenProvider), isNotEmpty);
 
     await container.read(authProvider.notifier).logout();
     expect(container.read(authProvider), isA<AuthUnauthenticated>());
     expect(await store.readAccessToken(), isNull);
     expect(await store.readPassword(), isNull);
+    expect(container.read(spacedockAccessTokenProvider), '');
   });
 }

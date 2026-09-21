@@ -73,7 +73,21 @@ elp shell alma-test
 ./scripts/run-dev-gui.sh
 ```
 
-The GUI reads a **clone-shaped marketplace directory** (`services/<id>/service.yaml`, …) from `ELP_MARKETPLACE_DIR` and reloads when those files change. `run-dev-gui.sh` clones [elemento-marketplace](https://github.com/Elemento-Modular-Cloud/elemento-marketplace) into `.cache/elemento-marketplace` if needed and fast-forwards that checkout when online (override with `ELP_MARKETPLACE_DIR` / `ELP_MARKETPLACE_REF`). Production will drop the same layout via CDN.
+**Against live Spacedock** (sign in so the Portal JWT is sent; Canonical Ubuntu still works as fallback):
+
+```bash
+# Terminal 1
+./scripts/run-spacedock-daemon.sh
+
+# Terminal 2
+./scripts/run-spacedock-gui.sh
+```
+
+These skip the local `distribution-info.json` and marketplace checkout. Override the gate with `ELP_SPACEDOCK_URL` (for example `http://127.0.0.1:8080`). Headless `elp find`: `export ELP_SPACEDOCK_TOKEN=…`. Stop with `./scripts/run-spacedock-daemon.sh --stop`.
+
+When Spacedock is unreachable, the GUI shows an empty service library (not the shipped seed) and no custom images. Canonical Ubuntu images still come from Canonical. Restart the daemon after a rebuild so the in-memory image catalog is dropped.
+
+The GUI reads a **clone-shaped marketplace directory** (`services/<id>/service.yaml`, …) from `ELP_MARKETPLACE_DIR` and reloads when those files change. `run-dev-gui.sh` clones [elemento-marketplace](https://github.com/Elemento-Modular-Cloud/elemento-marketplace) into `.cache/elemento-marketplace` if needed and fast-forwards that checkout when online (override with `ELP_MARKETPLACE_DIR`). When that env is unset and you are signed in, the GUI fetches `https://spacedock.elemento.cloud/v1/marketplace/bundle` (or `{ELP_SPACEDOCK_URL}/v1/marketplace/bundle`) with the Portal JWT. A local gate: `../elemento-spacedock/scripts/run-local.sh` then `export ELP_SPACEDOCK_URL=http://127.0.0.1:8080`.
 
 Use **`build/bin/elp`**, not the system Multipass binary.
 
@@ -129,7 +143,9 @@ If you still need to restore stock Multipass TLS:
 |-----------------|--------|
 | `--address unix:…` / `ELP_SERVER_ADDRESS` | Point CLI/GUI at the build-tree daemon |
 | `ELP_STORAGE` | Keep images/instances out of an installed Electros LaunchPad data dir |
-| `ELP_DISTRIBUTIONS_URL` | Point third-party catalog at this repo’s `distribution-info.json` |
+| `ELP_DISTRIBUTIONS_URL` | Point third-party catalog at this repo’s `distribution-info.json` (skips Spacedock) |
+| `ELP_SPACEDOCK_URL` | Local or alternate Spacedock base (default `https://spacedock.elemento.cloud`) |
+| `ELP_SPACEDOCK_TOKEN` | Portal JWT for headless `elp find` against Spacedock |
 
 A packaged Electros LaunchPad install already uses distinct defaults from Multipass and can coexist without these overrides.
 

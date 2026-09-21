@@ -19,4 +19,17 @@ void main() {
     expect(settings.wallpaperType, WallpaperType.atmosphere);
     expect(settings.theme, AppearanceTheme.dark);
   });
+
+  test('sync off loads SharedPreferences only', () {
+    final settings = loadAppearanceSettings(
+      sharedPrefsRaw:
+          '{"wallpaperType":"none","theme":"highContrast","useGlassmorphism":true}',
+      syncWithElectros: false,
+      includeElectrosLocalStorage: true,
+    );
+    expect(settings.wallpaperType, WallpaperType.none);
+    expect(settings.theme, AppearanceTheme.highContrast);
+    expect(isAppearanceSyncWithElectrosEnabled(null), isFalse);
+    expect(isAppearanceSyncWithElectrosEnabled('true'), isTrue);
+  });
 }

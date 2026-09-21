@@ -111,7 +111,8 @@ QByteArray download(QNetworkAccessManager* manager,
                     const std::atomic_bool& abort_download,
                     const QNetworkRequest::CacheLoadControl cache_load_control =
                         QNetworkRequest::CacheLoadControl::PreferNetwork,
-                    const std::vector<std::pair<QByteArray, QByteArray>>& extra_headers = {})
+                    const std::vector<std::pair<QByteArray, QByteArray>>& extra_headers = {},
+                    bool allow_cache_fallback = true)
 {
     QTimer download_timeout;
     download_timeout.setInterval(timeout);
@@ -158,7 +159,8 @@ QByteArray download(QNetworkAccessManager* manager,
             on_error();
             throw mp::AbortedDownloadException{error_string};
         }
-        if (cache_load_control == QNetworkRequest::CacheLoadControl::AlwaysCache)
+        if (cache_load_control == QNetworkRequest::CacheLoadControl::AlwaysCache ||
+            !allow_cache_fallback)
         {
             on_error();
             // Log at error level since we are giving up
@@ -341,6 +343,13 @@ QByteArray mp::URLDownloader::download(const QUrl& url)
 
 QByteArray mp::URLDownloader::download(const QUrl& url, const bool force_update)
 {
+    return download(url, force_update, true);
+}
+
+QByteArray mp::URLDownloader::download(const QUrl& url,
+                                       const bool force_update,
+                                       const bool allow_cache_fallback)
+{
     auto manager{MP_NETMGRFACTORY.make_network_manager(cache_dir_path)};
 
     // This will connect to the QNetworkReply::readReady signal and when emitted,
@@ -368,7 +377,8 @@ QByteArray mp::URLDownloader::download(const QUrl& url, const bool force_update)
         [] {},
         abort_downloads,
         cache_load_control,
-        extra_headers);
+        extra_headers,
+        allow_cache_fallback);
 }
 
 QDateTime mp::URLDownloader::last_modified(const QUrl& url)

@@ -24,6 +24,7 @@ Environment:
   ELP_SERVER_ADDRESS  Overrides the socket if set
   ELP_MARKETPLACE_DIR Clone-shaped marketplace root (default: .cache/elemento-marketplace)
   ELP_MARKETPLACE_REF Git branch to clone when the checkout is missing
+  ELP_SPACEDOCK       Set to 1 by run-spacedock-gui.sh (skip local checkout)
 EOF
 }
 
@@ -90,18 +91,28 @@ fi
 export ELP_SERVER_ADDRESS="${ELP_SERVER_ADDRESS:-unix:${ELP_SOCKET}}"
 export PATH="${BUILD_DIR}/bin:${PATH}"
 
-MARKETPLACE_DIR="$("${ROOT}/scripts/ensure-marketplace-checkout.sh")"
-export ELP_MARKETPLACE_DIR="${MARKETPLACE_DIR}"
+if [[ "${ELP_SPACEDOCK:-0}" == "1" ]]; then
+  unset ELP_MARKETPLACE_DIR
+  unset ELP_MARKETPLACE_URL
+  export ELP_SPACEDOCK_URL="${ELP_SPACEDOCK_URL:-https://spacedock.elemento.cloud}"
+  MARKET_LABEL="${ELP_SPACEDOCK_URL}/v1/marketplace/bundle (sign in required)"
+  DAEMON_HINT="./scripts/run-spacedock-daemon.sh"
+else
+  MARKETPLACE_DIR="$("${ROOT}/scripts/ensure-marketplace-checkout.sh")"
+  export ELP_MARKETPLACE_DIR="${MARKETPLACE_DIR}"
+  MARKET_LABEL="${ELP_MARKETPLACE_DIR}"
+  DAEMON_HINT="./scripts/run-dev-daemon.sh"
+fi
 
 if [[ ! -S "$ELP_SOCKET" ]]; then
   echo "warning: dev daemon socket not found at ${ELP_SOCKET}" >&2
-  echo "         Start the daemon: ./scripts/run-dev-daemon.sh" >&2
+  echo "         Start the daemon: ${DAEMON_HINT}" >&2
 fi
 
 echo "==> Dev Electros LaunchPad GUI"
 echo "    binary:  ${GUI_APP}"
 echo "    daemon:  ${ELP_SERVER_ADDRESS}"
-echo "    market:  ${ELP_MARKETPLACE_DIR}"
+echo "    market:  ${MARKET_LABEL}"
 echo
 
 exec "$GUI_APP" "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}"

@@ -210,6 +210,92 @@ prerequisites:
     catalog.close();
   });
 
+  test('fetches the Spacedock bundle with a Portal JWT when signed in',
+      () async {
+    final cacheDir =
+        await Directory.systemTemp.createTemp('marketplace-cache-');
+    addTearDown(() => cacheDir.delete(recursive: true));
+
+    const payload = '''
+{
+  "schema": 1,
+  "source": {"repo": "https://example.test/repo.git", "commit": "cafebabe"},
+  "services": [
+    {
+      "id": "url_v1",
+      "files": {
+        "service.yaml": "api_version: elemento.cloud/v1\\nkind: ServiceTemplate\\nmetadata:\\n  name: url_v1\\n  display_name: From URL\\n  version: 1.0.0\\n  description: Remote\\ncloud_init:\\n  entrypoint: cloud-init.yaml\\nprerequisites:\\n  resources:\\n    min_cpu: 1\\n    min_memory_gb: 1\\n",
+        "cloud-init.yaml": "#cloud-config\\n"
+      }
+    }
+  ]
+}
+''';
+
+    final client = MockClient((request) async {
+      expect(
+        request.url.toString(),
+        'https://spacedock.elemento.cloud/v1/marketplace/bundle',
+      );
+      expect(request.headers['Authorization'], 'Bearer portal-jwt');
+      return http.Response(payload, 200);
+    });
+
+    final catalog = MarketplaceCatalog(
+      httpClient: client,
+      cacheDirectory: cacheDir,
+      bundleUrl: '',
+      servicesDirectory: '',
+      accessToken: 'portal-jwt',
+    );
+
+    final json = await catalog.loadJson(forceRefresh: true);
+    expect(json, isNotNull);
+    expect(MarketplaceLibrary.parse(json!).byId('url_v1')?.displayName,
+        'From URL');
+    catalog.close();
+  });
+
+  test('load returns an empty library when Spacedock and cache miss', () async {
+    final cacheDir =
+        await Directory.systemTemp.createTemp('marketplace-empty-');
+    addTearDown(() => cacheDir.delete(recursive: true));
+
+    final catalog = MarketplaceCatalog(
+      httpClient: MockClient((request) async {
+        fail('unsigned catalog must not hit the network: ${request.url}');
+      }),
+      cacheDirectory: cacheDir,
+      bundleUrl: '',
+      servicesDirectory: '',
+    );
+    addTearDown(catalog.close);
+
+    final library = await MarketplaceLibrary.load(catalog: catalog);
+    expect(library.services, isEmpty);
+    expect(library.commit, 'none');
+  });
+
+  test('skips the remote marketplace when unsigned', () async {
+    final cacheDir =
+        await Directory.systemTemp.createTemp('marketplace-cache-');
+    addTearDown(() => cacheDir.delete(recursive: true));
+
+    final client = MockClient((request) async {
+      fail('unsigned catalog must not hit the network: ${request.url}');
+    });
+
+    final catalog = MarketplaceCatalog(
+      httpClient: client,
+      cacheDirectory: cacheDir,
+      bundleUrl: '',
+      servicesDirectory: '',
+    );
+
+    expect(await catalog.loadJson(forceRefresh: true), isNull);
+    catalog.close();
+  });
+
   test('ignores git and editor paths when watching a checkout', () {
     expect(ignoreMarketplaceWatchPath('/tmp/repo/.git/HEAD'), isTrue);
     expect(ignoreMarketplaceWatchPath(r'C:\repo\.git\config'), isTrue);

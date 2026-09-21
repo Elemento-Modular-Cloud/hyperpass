@@ -110,6 +110,7 @@ add_executable(multipass_cpp_tests
   test_llm_load_params.cpp
   test_log.cpp
   test_log_location.cpp
+  test_memory_settings_handler.cpp
   test_memory_size.cpp
   test_mock_standard_paths.cpp
   test_mount_handler.cpp

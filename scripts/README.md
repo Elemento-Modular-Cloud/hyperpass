@@ -65,6 +65,10 @@ See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `elpd` next to system 
 # Terminal 2 — dev GUI (or use the CLI env vars from LOCAL_DEV.md)
 ./scripts/run-dev-gui.sh
 
+# Or hit live Spacedock instead of local catalogs (sign in in the GUI)
+./scripts/run-spacedock-daemon.sh
+./scripts/run-spacedock-gui.sh
+
 # Optional — matcher (HTTPS :7777) and LLM proxy (HTTP :11434)
 ./scripts/run-dev-api.sh --insecure-no-auth
 ./scripts/run-dev-llm-proxy.sh

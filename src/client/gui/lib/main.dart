@@ -14,6 +14,7 @@ import 'auth/auth_provider.dart';
 import 'auth/auth_state.dart';
 import 'auth/feature_access.dart';
 import 'auth/login_screen.dart';
+import 'auth/spacedock_session.dart';
 import 'l10n/app_localizations.dart';
 import 'cache/cache_screen.dart';
 import 'catalogue/catalogue.dart';
@@ -141,6 +142,7 @@ class _AppState extends ConsumerState<App> with WindowListener {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+    ref.watch(spacedockCatalogSyncProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Feature-lock snackbars must not linger after sign-in / logout.

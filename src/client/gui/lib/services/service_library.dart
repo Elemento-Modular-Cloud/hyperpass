@@ -6,12 +6,15 @@ import 'package:flutter/services.dart' show AssetBundle, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yaml/yaml.dart';
 
+import '../auth/auth_provider.dart';
+import '../auth/auth_state.dart';
 import 'marketplace_catalog.dart';
 import 'service_spec.dart';
 
-/// Last-resort catalog shipped in the app. Runtime prefers a live marketplace
-/// download (cached on disk); this seed is used only when that fails.
-/// Refresh with `scripts/fetch-marketplace-seed.py`.
+/// Offline catalog used by widget tests and `loadSeed()`.
+/// Runtime no longer falls back to this — gated content comes from Spacedock
+/// (or `ELP_MARKETPLACE_DIR` / cache). Refresh with
+/// `scripts/fetch-marketplace-seed.py`.
 const marketplaceSeedAsset = 'assets/marketplace_seed.json';
 
 /// Placeholder syntax used by the marketplace service library, e.g.
@@ -406,6 +409,9 @@ class MarketplaceService {
 class MarketplaceLibrary {
   const MarketplaceLibrary({required this.commit, required this.services});
 
+  /// Signed-in fetch missed and there is no disk cache (or the user is a guest).
+  static const empty = MarketplaceLibrary(commit: 'none', services: []);
+
   /// Commit of the marketplace library the bundle was generated from
   /// (remote tip, local checkout, or shipped asset).
   final String commit;
@@ -461,16 +467,15 @@ class MarketplaceLibrary {
     );
   }
 
-  /// Load the shipped seed catalog (tests / last-resort fallback).
+  /// Load the shipped seed catalog (tests).
   static Future<MarketplaceLibrary> loadSeed([AssetBundle? assets]) async {
     final json = await (assets ?? rootBundle).loadString(marketplaceSeedAsset);
     return parse(json);
   }
 
-  /// Clone-shaped directory (`ELP_MARKETPLACE_DIR`), else zipball/cache,
-  /// else the shipped seed.
+  /// Clone-shaped directory (`ELP_MARKETPLACE_DIR`), else Spacedock/cache.
+  /// Returns [empty] when those miss so a down gate does not leak the seed.
   static Future<MarketplaceLibrary> load({
-    AssetBundle? assets,
     MarketplaceCatalog? catalog,
   }) async {
     final resolved = catalog ?? MarketplaceCatalog();
@@ -481,7 +486,7 @@ class MarketplaceLibrary {
     } finally {
       if (owns) resolved.close();
     }
-    return loadSeed(assets);
+    return empty;
   }
 }
 
@@ -513,7 +518,12 @@ final marketplaceLibraryProvider = FutureProvider<MarketplaceLibrary>((ref) {
 });
 
 Future<MarketplaceLibrary> _loadAndWatchMarketplace(Ref ref) async {
-  final catalog = MarketplaceCatalog();
+  final auth = ref.watch(authProvider);
+  final catalog = MarketplaceCatalog(
+    accessTokenProvider: auth is AuthAuthenticated
+        ? () => ref.read(authProvider.notifier).requireAccessToken()
+        : null,
+  );
   ref.onDispose(catalog.close);
 
   final servicesDir = resolveMarketplaceServicesDir(catalog.servicesDirectory);
