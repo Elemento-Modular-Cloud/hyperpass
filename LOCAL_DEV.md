@@ -29,7 +29,7 @@ See [`scripts/README.md`](./scripts/README.md) and `BUILD.*.md` for options and 
 
 ## Side-by-side daemon (recommended)
 
-Keep system Multipass on its default socket. Run Electros LaunchPad `elpd` from your build with a **temporary socket**, **storage**, and (for catalog work) **distributions URL**.
+Keep system Multipass on its default socket. Run Electros LaunchPad `elpd` from your build with a **temporary socket** and **storage**. Third-party images come from Spacedock by default (Portal JWT required).
 
 ### Terminal 1 — dev daemon
 
@@ -39,7 +39,7 @@ Keep system Multipass on its default socket. Run Electros LaunchPad `elpd` from 
 
 Leave this running. Stock Multipass continues to use `/var/run/multipass_socket` (macOS) or its platform default. Dev Electros LaunchPad uses `/tmp/elp.socket` by default.
 
-The script sets `ELP_STORAGE`, `ELP_DISTRIBUTIONS_URL`, and `--address` for you. It also auto-exports `ELP_LLMFIT` and `ELP_LLAMA_SERVER` when those binaries are on your PATH. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
+The script sets `ELP_STORAGE`, `ELP_SPACEDOCK_URL`, and `--address` for you. It also auto-exports `ELP_LLMFIT` and `ELP_LLAMA_SERVER` when those binaries are on your PATH. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
 
 **Models / LLM:** The daemon can also **auto-install** pinned `llmfit` and `llama-server` into `$ELP_STORAGE/data/llm/tools/` via the GUI (**Models → Backends → Install**). Env overrides still win over managed installs and PATH.
 
@@ -62,7 +62,7 @@ export ELP_SERVER_ADDRESS=unix:/tmp/elp.socket
 export PATH="$PWD/build/bin:$PATH"
 
 elp version
-elp find          # expect debian, fedora, almalinux, rocky (and Ubuntu remotes)
+elp find          # third-party images need Spacedock + Portal JWT; Ubuntu remotes always work
 elp launch almalinux -n alma-test
 elp shell alma-test
 ```
@@ -73,7 +73,7 @@ elp shell alma-test
 ./scripts/run-dev-gui.sh
 ```
 
-**Against live Spacedock** (sign in so the Portal JWT is sent; Canonical Ubuntu still works as fallback):
+**Against live Spacedock** (sign in so the Portal JWT is sent; Canonical Ubuntu still works as fallback). The daemon already defaults to Spacedock; these scripts skip a local marketplace checkout:
 
 ```bash
 # Terminal 1
@@ -83,7 +83,7 @@ elp shell alma-test
 ./scripts/run-spacedock-gui.sh
 ```
 
-These skip the local `distribution-info.json` and marketplace checkout. Override the gate with `ELP_SPACEDOCK_URL` (for example `http://127.0.0.1:8080`). Headless `elp find`: `export ELP_SPACEDOCK_TOKEN=…`. Stop with `./scripts/run-spacedock-daemon.sh --stop`.
+Override the gate with `ELP_SPACEDOCK_URL` (for example `http://127.0.0.1:8080`). Headless `elp find`: `export ELP_SPACEDOCK_TOKEN=…`. Stop with `./scripts/run-spacedock-daemon.sh --stop`.
 
 When Spacedock is unreachable, the GUI shows an empty service library (not the shipped seed) and no custom images. Canonical Ubuntu images still come from Canonical. Restart the daemon after a rebuild so the in-memory image catalog is dropped.
 
@@ -117,7 +117,10 @@ REPO="$PWD"   # repo root
 mkdir -p /tmp/elp-data
 
 export ELP_STORAGE=/tmp/elp-data
-export ELP_DISTRIBUTIONS_URL="$REPO/data/distributions/distribution-info.json"
+# Optional: override Spacedock with a custom catalog file/URL
+# export ELP_DISTRIBUTIONS_URL=/absolute/path/to/distribution-info.json
+# Or point at a local Spacedock gate:
+# export ELP_SPACEDOCK_URL=http://127.0.0.1:8080
 
 sudo -E "$REPO/build/bin/elpd" \
   --logger stderr \
@@ -143,9 +146,9 @@ If you still need to restore stock Multipass TLS:
 |-----------------|--------|
 | `--address unix:…` / `ELP_SERVER_ADDRESS` | Point CLI/GUI at the build-tree daemon |
 | `ELP_STORAGE` | Keep images/instances out of an installed Electros LaunchPad data dir |
-| `ELP_DISTRIBUTIONS_URL` | Point third-party catalog at this repo’s `distribution-info.json` (skips Spacedock) |
 | `ELP_SPACEDOCK_URL` | Local or alternate Spacedock base (default `https://spacedock.elemento.cloud`) |
 | `ELP_SPACEDOCK_TOKEN` | Portal JWT for headless `elp find` against Spacedock |
+| `ELP_DISTRIBUTIONS_URL` | Optional custom catalog file/URL (skips Spacedock) |
 
 A packaged Electros LaunchPad install already uses distinct defaults from Multipass and can coexist without these overrides.
 

@@ -22,7 +22,6 @@ Signed-in clients download the third-party image list from
 [Spacedock](https://spacedock.elemento.cloud/v1/images/bundle) using the Portal
 JWT. Guests, and any failed Spacedock fetch, keep **only Canonical Ubuntu**
 images from `https://cloud-images.ubuntu.com/` (and the other Ubuntu remotes).
-The public GitHub Pages catalog is no longer a production fallback.
 
 Point **elpd** at a local file or another URL with `ELP_DISTRIBUTIONS_URL`
 (this wins over Spacedock). For a local Spacedock replica, set

@@ -7,7 +7,6 @@ BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 DAEMON="${BUILD_DIR}/bin/elpd"
 ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
 ELP_STORAGE="${ELP_STORAGE:-/tmp/elp-data}"
-ELP_SPACEDOCK="${ELP_SPACEDOCK:-0}"
 VERBOSITY="${VERBOSITY:-debug}"
 ACTION=start
 
@@ -16,8 +15,8 @@ usage() {
 Usage: $(basename "$0") [options] [-- <extra elpd args>]
 
 Start (or stop) a local elpd from the build tree without replacing the
-system Multipass daemon. Uses a separate socket, storage directory, and
-distributions catalog by default.
+system Multipass daemon. Uses a separate socket and storage directory.
+The third-party image catalog defaults to Spacedock (Portal JWT required).
 
 Note: A packaged Electros LaunchPad install already uses distinct defaults from Multipass;
 this script is mainly for exercising a build-tree daemon.
@@ -30,15 +29,14 @@ Options:
 
 Environment:
   BUILD_DIR                   Build tree (default: ${ROOT}/build)
-  ELP_SOCKET            Unix socket path (default: ${ELP_SOCKET})
-  ELP_STORAGE           Instance/image storage (default: ${ELP_STORAGE})
-  ELP_DISTRIBUTIONS_URL Catalog JSON path or URL (ignored when ELP_SPACEDOCK=1)
-  ELP_SPACEDOCK               Set to 1 by run-spacedock-daemon.sh
+  ELP_SOCKET                  Unix socket path (default: ${ELP_SOCKET})
+  ELP_STORAGE                 Instance/image storage (default: ${ELP_STORAGE})
+  ELP_DISTRIBUTIONS_URL       Optional catalog JSON path/URL (skips Spacedock)
   ELP_SPACEDOCK_URL           Spacedock base (default https://spacedock.elemento.cloud)
   ELP_SPACEDOCK_TOKEN         Portal JWT for headless elp find
   VERBOSITY                   Log level (default: debug)
-  ELP_LLMFIT            Path to llmfit (auto-detected when possible)
-  ELP_LLAMA_SERVER      Path to llama-server for GGUF inference
+  ELP_LLMFIT                  Path to llmfit (auto-detected when possible)
+  ELP_LLAMA_SERVER            Path to llama-server for GGUF inference
 
 Examples:
   $(basename "$0")
@@ -84,12 +82,11 @@ fi
 mkdir -p "$ELP_STORAGE"
 
 export ELP_STORAGE
-if [[ "$ELP_SPACEDOCK" == "1" ]]; then
+if [[ -n "${ELP_DISTRIBUTIONS_URL:-}" ]]; then
+  export ELP_DISTRIBUTIONS_URL
+else
   unset ELP_DISTRIBUTIONS_URL
   export ELP_SPACEDOCK_URL="${ELP_SPACEDOCK_URL:-https://spacedock.elemento.cloud}"
-else
-  ELP_DISTRIBUTIONS_URL="${ELP_DISTRIBUTIONS_URL:-${ROOT}/data/distributions/distribution-info.json}"
-  export ELP_DISTRIBUTIONS_URL
 fi
 
 resolve_tool() {
@@ -129,15 +126,15 @@ echo "==> Dev elpd"
 echo "    binary:      ${DAEMON}"
 echo "    socket:      unix:${ELP_SOCKET}"
 echo "    storage:     ${ELP_STORAGE}"
-if [[ "$ELP_SPACEDOCK" == "1" ]]; then
+if [[ -n "${ELP_DISTRIBUTIONS_URL:-}" ]]; then
+  echo "    catalog:     ${ELP_DISTRIBUTIONS_URL}"
+else
   echo "    catalog:     ${ELP_SPACEDOCK_URL}/v1/images/bundle (Spacedock; needs Portal JWT)"
   if [[ -n "${ELP_SPACEDOCK_TOKEN:-}" ]]; then
     echo "    token:       ELP_SPACEDOCK_TOKEN is set"
   else
     echo "    token:       sign in via the GUI, or set ELP_SPACEDOCK_TOKEN for headless find"
   fi
-else
-  echo "    catalog:     ${ELP_DISTRIBUTIONS_URL}"
 fi
 if [[ -n "${ELP_LLMFIT:-}" ]]; then
   echo "    llmfit:      ${ELP_LLMFIT}"

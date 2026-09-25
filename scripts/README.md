@@ -56,16 +56,16 @@ Pass extra CMake configure arguments after `--` (Unix) or as remaining args (Win
 
 ## Side-by-side with an installed Multipass
 
-See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `elpd` next to system Multipass (separate socket, storage, and distributions catalog).
+See [`LOCAL_DEV.md`](../LOCAL_DEV.md) for running a built `elpd` next to system Multipass (separate socket and storage; Spacedock image catalog by default).
 
 ```bash
-# Terminal 1 — dev daemon (requires sudo on macOS/Linux)
+# Terminal 1 — dev daemon (requires sudo on macOS/Linux; Spacedock catalog)
 ./scripts/run-dev-daemon.sh
 
 # Terminal 2 — dev GUI (or use the CLI env vars from LOCAL_DEV.md)
 ./scripts/run-dev-gui.sh
 
-# Or hit live Spacedock instead of local catalogs (sign in in the GUI)
+# Skip local marketplace checkout and hit live Spacedock (sign in in the GUI)
 ./scripts/run-spacedock-daemon.sh
 ./scripts/run-spacedock-gui.sh
 

@@ -157,22 +157,22 @@ Make sure you have dylibbundler installed!
 Once it is complete, you will have a Multipass.pkg file in the build directory.
 
 
-Local third-party catalog
+Third-party image catalog
 -------------------------
 
-A local build includes `CustomVMImageHost`, which lists Debian, Fedora, AlmaLinux, Rocky Linux, and other distros from a JSON manifest.
+A local build includes `CustomVMImageHost`, which lists Debian, Fedora, AlmaLinux, Rocky Linux, and other distros from Spacedock after Elemento Portal sign-in (`https://spacedock.elemento.cloud/v1/images/bundle`). Guests, and any failed Spacedock fetch, keep only Canonical Ubuntu images.
 
-By default the daemon fetches the catalog published on GitHub Pages:
-`https://elemento-modular-cloud.github.io/elp/distribution-info.json`.
-To use a catalog from this tree (or any other file/URL), set `ELP_DISTRIBUTIONS_URL` on **elpd**:
+To point **elpd** at a local file or another URL instead, set `ELP_DISTRIBUTIONS_URL`:
 
 ```text
-ELP_DISTRIBUTIONS_URL=/absolute/path/to/data/distributions/distribution-info.json
+ELP_DISTRIBUTIONS_URL=/absolute/path/to/distribution-info.json
 # or
 ELP_DISTRIBUTIONS_URL=https://example.com/distribution-info.json
 ```
 
-On macOS, add an `EnvironmentVariables` entry for that key in
+For a local Spacedock gate, set `ELP_SPACEDOCK_URL` (for example `http://127.0.0.1:8080`). Headless `elp find` can pass a JWT with `ELP_SPACEDOCK_TOKEN`.
+
+On macOS, add an `EnvironmentVariables` entry for those keys in
 `/Library/LaunchDaemons/com.elemento.elpd.plist`, then:
 
 ```text
@@ -180,7 +180,7 @@ sudo launchctl unload /Library/LaunchDaemons/com.elemento.elpd.plist
 sudo launchctl load /Library/LaunchDaemons/com.elemento.elpd.plist
 ```
 
-Verify with `elp find` and a GUI Catalogue refresh. `launch almalinux` and `launch rocky` should appear in the listing.
+Verify with `elp find` and a GUI Catalogue refresh. `launch almalinux` and `launch rocky` should appear when Spacedock (or your override catalog) is reachable.
 
 For running this build beside an already-installed Multipass (recommended while developing), see [`LOCAL_DEV.md`](./LOCAL_DEV.md).
 
