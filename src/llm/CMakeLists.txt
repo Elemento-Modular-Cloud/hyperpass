@@ -26,6 +26,8 @@ add_library(llm STATIC
   managed_tools.cpp
   mlx_server_process_spec.cpp
   model_vault.cpp
+  openai_compat_client.cpp
+  provider_store.cpp
   runtime_installer.cpp)
 
 target_include_directories(llm

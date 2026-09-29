@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide ImageInfo;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -269,11 +271,33 @@ class _IntentPicker extends ConsumerWidget {
     final editor = ref.watch(composeEditorProvider);
     final current = editor.graph.intentName.trim();
     final daemonAsync = ref.watch(intentsStreamProvider);
+    // SharedPreferences graphs outlive daemon deletes (e.g. CLI purge). Drop
+    // orphans so recreating a name cannot resurrect an old topology.
+    ref.listen(intentsStreamProvider, (previous, next) {
+      final intents = next.asData?.value;
+      if (intents == null) return;
+      ref.read(composeEditorProvider.notifier).pruneOrphanedGraphs([
+        for (final intent in intents) intent.name,
+      ]);
+    });
+    final List<String> daemonNames = [
+      for (final intent in daemonAsync.asData?.value ?? const <IntentInfo>[])
+        intent.name,
+    ];
+    if (daemonAsync.hasValue) {
+      final live = daemonNames.toSet();
+      final saved = ref.read(composeEditorProvider.notifier).savedIntentNames();
+      if (saved.any((name) => !live.contains(name))) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref
+              .read(composeEditorProvider.notifier)
+              .pruneOrphanedGraphs(daemonNames);
+        });
+      }
+    }
     final names = composePickerNames(
       saved: ref.read(composeEditorProvider.notifier).savedIntentNames(),
-      daemon: [
-        for (final intent in daemonAsync.asData?.value ?? const []) intent.name,
-      ],
+      daemon: daemonNames,
       current: current,
       daemonListReady: daemonAsync.hasValue,
     );
@@ -431,31 +455,34 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
 
   Widget _llmList(AppLocalizations l10n) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    return ref.watch(loadedModelsProvider).when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('$error')),
-          data: (reply) {
-            if (reply.cached.isEmpty) {
-              return Center(child: Text(l10n.intentAddLlmsEmpty));
-            }
-            return ListView(
-              children: [
-                for (final model in reply.cached)
-                  _paletteRow(
-                    key: ValueKey('compose-palette-llm-${model.id}'),
-                    leading: ModelProviderBadge(
-                      branding: brandingForSuggestion(model),
-                      size: 22,
-                    ),
-                    title: model.name.isEmpty ? model.id : model.name,
-                    onSurface: onSurface,
-                    accent: Brand.workloadAi,
-                    onTap: () => _addLlm(l10n, model),
-                  ),
-              ],
-            );
-          },
-        );
+    return ListView(
+      children: [
+        _paletteRow(
+          key: const ValueKey('compose-palette-llm-standard'),
+          leading: Icon(
+            Icons.memory_outlined,
+            size: 22,
+            color: Brand.workloadAi,
+          ),
+          title: l10n.composeLlmStandardBlock,
+          onSurface: onSurface,
+          accent: Brand.workloadAi,
+          onTap: () => _addStandardLlm(l10n),
+        ),
+        _paletteRow(
+          key: const ValueKey('compose-palette-llm-cloud'),
+          leading: Icon(
+            Icons.cloud_outlined,
+            size: 22,
+            color: Brand.info,
+          ),
+          title: l10n.composeLlmCloudBlock,
+          onSurface: onSurface,
+          accent: Brand.info,
+          onTap: () => _addCloudLlm(l10n),
+        ),
+      ],
+    );
   }
 
   Widget _paletteRow({
@@ -539,13 +566,16 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
         );
   }
 
-  void _addLlm(AppLocalizations l10n, ModelSuggestion model) {
+  Future<void> _addStandardLlm(AppLocalizations l10n) async {
     if (!_ensureIntent(l10n)) return;
     if (!_ensureFeature(ref.read(featureAccessProvider).canUseLlms)) return;
+    final model = await _pickCatalogModel(l10n);
+    if (!mounted || model == null) return;
     final prefs = ref.read(sharedPreferencesProvider);
     final form = LlmLoadForm.fromJson(readLlmLoadPrefs(prefs, model.id));
     ref.read(composeEditorProvider.notifier).addLlm(
           modelId: model.id,
+          llmMode: ComposeLlmMode.standard,
           label: model.name.isEmpty ? model.id : model.name,
           quant: model.bestQuant,
           runtime: form.runtime,
@@ -558,8 +588,380 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
         );
   }
 
+  Future<void> _addCloudLlm(AppLocalizations l10n) async {
+    if (!_ensureIntent(l10n)) return;
+    if (!_ensureFeature(ref.read(featureAccessProvider).canUseLlms)) return;
+    final model = await _pickCloudModel(l10n);
+    if (!mounted || model == null) return;
+    final label = model.openaiId.isNotEmpty
+        ? model.openaiId
+        : (model.modelId.isNotEmpty ? model.modelId : 'cloud');
+    ref.read(composeEditorProvider.notifier).addLlm(
+          modelId: model.openaiId.isNotEmpty ? model.openaiId : model.modelId,
+          llmMode: ComposeLlmMode.cloud,
+          label: label,
+        );
+  }
+
+  Future<ModelSuggestion?> _pickCatalogModel(AppLocalizations l10n) {
+    return showDialog<ModelSuggestion>(
+      context: context,
+      builder: (context) => const _ComposeCatalogPickerDialog(),
+    );
+  }
+
+  Future<LoadedModelInfo?> _pickCloudModel(AppLocalizations l10n) {
+    return showDialog<LoadedModelInfo>(
+      context: context,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          final async = ref.watch(loadedModelsProvider);
+          return _ComposeModelPickerDialog<LoadedModelInfo>(
+            title: l10n.composeLlmPickCloud,
+            emptyLabel: l10n.composeLlmCloudEmpty,
+            models: async.whenData(
+              (reply) => [
+                for (final m in reply.models)
+                  if (isRemoteLlmModel(m)) m,
+              ],
+            ),
+            itemKey: (m) => 'compose-pick-cloud-${m.instanceId}',
+            titleOf: (m) =>
+                m.openaiId.isNotEmpty ? m.openaiId : m.modelId,
+            subtitleOf: (m) => [
+              if (m.ownedBy.isNotEmpty) m.ownedBy,
+              if (m.providerId.isNotEmpty) m.providerId,
+            ].where((s) => s.isNotEmpty).join(' · '),
+            leadingOf: (m) => ModelProviderBadge(
+              branding: brandingForLoaded(m),
+              size: 28,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   static String _vmId(ImageInfo image) =>
       image.aliases.isEmpty ? image.os : image.aliases.first;
+}
+
+class _ComposeCatalogPickerDialog extends ConsumerStatefulWidget {
+  const _ComposeCatalogPickerDialog();
+
+  @override
+  ConsumerState<_ComposeCatalogPickerDialog> createState() =>
+      _ComposeCatalogPickerDialogState();
+}
+
+class _ComposeCatalogPickerDialogState
+    extends ConsumerState<_ComposeCatalogPickerDialog> {
+  final _query = TextEditingController();
+  var _debounced = '';
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      setState(() => _debounced = value.trim());
+    });
+  }
+
+  void _useTypedId() {
+    final id = _query.text.trim();
+    if (id.isEmpty) return;
+    Navigator.pop(
+      context,
+      ModelSuggestion(id: id, name: id),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final async = ref.watch(composeCatalogModelsProvider(_debounced));
+    final typed = _query.text.trim();
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return AlertDialog(
+      title: Text(l10n.composeLlmPickCatalog),
+      content: SizedBox(
+        width: 520,
+        height: 460,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _query,
+              autofocus: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search, size: 20),
+                hintText: l10n.composeLlmModelIdHint,
+                isDense: true,
+              ),
+              onChanged: (value) {
+                setState(() {});
+                _onQueryChanged(value);
+              },
+              onSubmitted: (_) => _useTypedId(),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('compose-catalog-use-id'),
+                onPressed: typed.isEmpty ? null : _useTypedId,
+                icon: const Icon(Icons.check, size: 18),
+                label: Text(
+                  typed.isEmpty
+                      ? l10n.composeLlmUseModelId
+                      : '${l10n.composeLlmUseModelId}: $typed',
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: async.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('$error')),
+                data: (result) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (result.hint.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            result.hint,
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontSize: 12,
+                              color: onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      if (!result.catalogAvailable && result.models.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'Suggestions',
+                            style: TextStyle(
+                              fontFamily: Brand.fontFamily,
+                              fontWeight: FontWeight.w600,
+                              color: onSurface.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                      Expanded(
+                        child: result.models.isEmpty
+                            ? Center(child: Text(l10n.composeLlmCatalogEmpty))
+                            : ListView.builder(
+                                itemCount: result.models.length,
+                                itemBuilder: (context, index) {
+                                  final model = result.models[index];
+                                  final title = model.name.isEmpty
+                                      ? model.id
+                                      : model.name;
+                                  final subtitle = [
+                                    model.id,
+                                    if (model.bestQuant.isNotEmpty)
+                                      model.bestQuant,
+                                    if (model.provider.isNotEmpty)
+                                      model.provider,
+                                  ].join(' · ');
+                                  return ListTile(
+                                    key: ValueKey(
+                                      'compose-pick-catalog-${model.id}',
+                                    ),
+                                    leading: ModelProviderBadge(
+                                      branding: brandingForSuggestion(model),
+                                      size: 28,
+                                    ),
+                                    title: Text(
+                                      title,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: Brand.fontFamily,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      subtitle,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontFamily: Brand.fontFamily,
+                                        color: onSurface.withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    onTap: () =>
+                                        Navigator.pop(context, model),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.commonCancel),
+        ),
+      ],
+    );
+  }
+}
+
+class _ComposeModelPickerDialog<T> extends StatelessWidget {
+  const _ComposeModelPickerDialog({
+    required this.title,
+    required this.emptyLabel,
+    required this.models,
+    required this.itemKey,
+    required this.titleOf,
+    required this.subtitleOf,
+    required this.leadingOf,
+  });
+
+  final String title;
+  final String emptyLabel;
+  final AsyncValue<List<T>> models;
+  final String Function(T) itemKey;
+  final String Function(T) titleOf;
+  final String Function(T) subtitleOf;
+  final Widget Function(T) leadingOf;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: 480,
+        height: 420,
+        child: models.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('$error')),
+          data: (items) {
+            if (items.isEmpty) {
+              return Center(child: Text(emptyLabel));
+            }
+            return _ComposeModelPickerList<T>(
+              items: items,
+              itemKey: itemKey,
+              titleOf: titleOf,
+              subtitleOf: subtitleOf,
+              leadingOf: leadingOf,
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.commonCancel),
+        ),
+      ],
+    );
+  }
+}
+
+class _ComposeModelPickerList<T> extends StatefulWidget {
+  const _ComposeModelPickerList({
+    required this.items,
+    required this.itemKey,
+    required this.titleOf,
+    required this.subtitleOf,
+    required this.leadingOf,
+  });
+
+  final List<T> items;
+  final String Function(T) itemKey;
+  final String Function(T) titleOf;
+  final String Function(T) subtitleOf;
+  final Widget Function(T) leadingOf;
+
+  @override
+  State<_ComposeModelPickerList<T>> createState() =>
+      _ComposeModelPickerListState<T>();
+}
+
+class _ComposeModelPickerListState<T> extends State<_ComposeModelPickerList<T>> {
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.text.trim().toLowerCase();
+    final filtered = [
+      for (final item in widget.items)
+        if (q.isEmpty ||
+            widget.titleOf(item).toLowerCase().contains(q) ||
+            widget.subtitleOf(item).toLowerCase().contains(q))
+          item,
+    ];
+    return Column(
+      children: [
+        TextField(
+          controller: _query,
+          autofocus: true,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search, size: 20),
+            isDense: true,
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: filtered.isEmpty
+              ? const Center(child: Text('No matches'))
+              : ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final item = filtered[index];
+                    return ListTile(
+                      key: ValueKey(widget.itemKey(item)),
+                      leading: widget.leadingOf(item),
+                      title: Text(
+                        widget.titleOf(item),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontFamily: Brand.fontFamily),
+                      ),
+                      subtitle: Text(
+                        widget.subtitleOf(item),
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: Brand.fontFamily,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6),
+                        ),
+                      ),
+                      onTap: () => Navigator.pop(context, item),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ComposeInspector extends ConsumerStatefulWidget {
@@ -647,7 +1049,9 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
   String _kindLabel(AppLocalizations l10n, ComposeNode node) {
     return switch (node.kind) {
       ComposeNodeKind.vm => l10n.composeKindVm,
-      ComposeNodeKind.llm => l10n.composeKindLlm,
+      ComposeNodeKind.llm => node.isCloudLlm
+          ? l10n.composeLlmCloudBlock
+          : l10n.composeLlmStandardBlock,
       ComposeNodeKind.service => l10n.composeKindService,
     };
   }
@@ -661,6 +1065,67 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
   }
 
   List<Widget> _llmFields(AppLocalizations l10n, ComposeNode node) {
+    if (node.isCloudLlm) {
+      return [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: OutlinedButton.icon(
+            key: ValueKey('compose-llm-model-${node.id}'),
+            onPressed: () async {
+              final model = await showDialog<LoadedModelInfo>(
+                context: context,
+                builder: (context) => Consumer(
+                  builder: (context, ref, _) {
+                    final async = ref.watch(loadedModelsProvider);
+                    return _ComposeModelPickerDialog<LoadedModelInfo>(
+                      title: l10n.composeLlmPickCloud,
+                      emptyLabel: l10n.composeLlmCloudEmpty,
+                      models: async.whenData(
+                        (reply) => [
+                          for (final m in reply.models)
+                            if (isRemoteLlmModel(m)) m,
+                        ],
+                      ),
+                      itemKey: (m) => 'compose-pick-cloud-${m.instanceId}',
+                      titleOf: (m) =>
+                          m.openaiId.isNotEmpty ? m.openaiId : m.modelId,
+                      subtitleOf: (m) => [
+                        if (m.ownedBy.isNotEmpty) m.ownedBy,
+                        if (m.providerId.isNotEmpty) m.providerId,
+                      ].where((s) => s.isNotEmpty).join(' · '),
+                      leadingOf: (m) => ModelProviderBadge(
+                        branding: brandingForLoaded(m),
+                        size: 28,
+                      ),
+                    );
+                  },
+                ),
+              );
+              if (model == null) return;
+              final id =
+                  model.openaiId.isNotEmpty ? model.openaiId : model.modelId;
+              ref.read(composeEditorProvider.notifier).setLlmModel(
+                    node.id,
+                    modelId: id,
+                    label: id,
+                    runtime: 'openai-compat',
+                    quant: '',
+                    ctxSize: 0,
+                    maxTokens: 0,
+                  );
+            },
+            icon: const Icon(Icons.cloud_outlined, size: 18),
+            label: Text(
+              node.modelId.isEmpty
+                  ? l10n.composeLlmPickCloud
+                  : node.modelId,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ];
+    }
+
     final backends = ref.watch(llmBackendsProvider).asData?.value;
     final ready = {
       for (final backend in backends?.backends ?? const [])
@@ -673,6 +1138,44 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
     ready.add(runtime);
 
     return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: OutlinedButton.icon(
+          key: ValueKey('compose-llm-model-${node.id}'),
+          onPressed: () async {
+            final model = await showDialog<ModelSuggestion>(
+              context: context,
+              builder: (context) => const _ComposeCatalogPickerDialog(),
+            );
+            if (model == null) return;
+            final prefs = ref.read(sharedPreferencesProvider);
+            final form =
+                LlmLoadForm.fromJson(readLlmLoadPrefs(prefs, model.id));
+            ref.read(composeEditorProvider.notifier).setLlmModel(
+                  node.id,
+                  modelId: model.id,
+                  label: model.name.isEmpty ? model.id : model.name,
+                  quant: model.bestQuant,
+                  runtime: form.runtime.isEmpty
+                      ? composeResolvedRuntime(node)
+                      : form.runtime,
+                  ctxSize: suggestedCtxForModel(
+                        usableContext: model.usableContext.toInt(),
+                        contextLength: model.contextLength.toInt(),
+                      ) ??
+                      composeResolvedCtxSize(node),
+                  maxTokens: form.maxTokens,
+                );
+          },
+          icon: const Icon(Icons.memory_outlined, size: 18),
+          label: Text(
+            node.modelId.isEmpty
+                ? l10n.composeLlmPickCatalog
+                : node.modelId,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
       if (ready.length > 1)
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
@@ -1161,8 +1664,7 @@ Future<String?> showNewComposeIntentDialog(
   );
   controller.dispose();
   if (name == null || name.isEmpty) return null;
-  ref.read(composeEditorProvider.notifier).openIntent(name);
-  ref.read(composeEditorProvider.notifier).save();
+  ref.read(composeEditorProvider.notifier).startFreshIntent(name);
   try {
     await ensureNamedComposeIntent(ref, name);
   } catch (_) {

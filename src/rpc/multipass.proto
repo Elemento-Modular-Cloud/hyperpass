@@ -78,6 +78,12 @@ service Rpc {
     rpc touch_model (stream TouchModelRequest) returns (stream TouchModelReply);
     rpc delete_model (stream DeleteModelRequest) returns (stream DeleteModelReply);
     rpc stream_model_logs (stream StreamModelLogsRequest) returns (stream StreamModelLogsReply);
+    rpc create_llm_provider (stream CreateLlmProviderRequest) returns (stream CreateLlmProviderReply);
+    rpc list_llm_providers (stream ListLlmProvidersRequest) returns (stream ListLlmProvidersReply);
+    rpc update_llm_provider (stream UpdateLlmProviderRequest) returns (stream UpdateLlmProviderReply);
+    rpc delete_llm_provider (stream DeleteLlmProviderRequest) returns (stream DeleteLlmProviderReply);
+    rpc refresh_llm_provider (stream RefreshLlmProviderRequest) returns (stream RefreshLlmProviderReply);
+    rpc resolve_model_route (stream ResolveModelRouteRequest) returns (stream ResolveModelRouteReply);
 }
 
 message LaunchRequest {
@@ -1029,6 +1035,10 @@ message LoadedModelInfo {
     LlmLoadParams params = 11;
     string intent = 12;
     string intent_role = 13;
+    // OpenAI-compat passthrough (backend == "openai-compat").
+    string provider_id = 14;
+    string upstream_model_id = 15;
+    string owned_by = 16;
 }
 
 message ListModelsRequest {
@@ -1199,4 +1209,107 @@ message DeleteModelReply {
     string log_line = 1;
     string model_id = 2;
     uint64 freed_bytes = 3;
+}
+
+message LlmProviderInfo {
+    string id = 1;
+    string label = 2;
+    string preset = 3;
+    string base_url = 4;
+    string key_prefix = 5;
+    repeated string include = 6;
+    repeated string exclude = 7;
+    int64 created_at = 8;
+    int64 last_refresh_at = 9;
+    int32 model_count = 10;
+}
+
+message CreateLlmProviderRequest {
+    string label = 1;
+    string preset = 2; // openai | openrouter | anthropic | custom
+    string base_url = 3;
+    string api_key = 4;
+    repeated string include = 5;
+    repeated string exclude = 6;
+    bool refresh = 7; // default true when omitted by older clients: treat as true in service
+    int32 verbosity_level = 8;
+}
+
+message CreateLlmProviderReply {
+    string log_line = 1;
+    LlmProviderInfo provider = 2;
+    int32 models_added = 3;
+}
+
+message ListLlmProvidersRequest {
+    int32 verbosity_level = 1;
+}
+
+message ListLlmProvidersReply {
+    string log_line = 1;
+    repeated LlmProviderInfo providers = 2;
+}
+
+message UpdateLlmProviderRequest {
+    string id = 1;
+    int32 verbosity_level = 2;
+    string label = 3;
+    bool update_label = 4;
+    string base_url = 5;
+    bool update_base_url = 6;
+    string api_key = 7;
+    bool update_api_key = 8;
+    repeated string include = 9;
+    bool update_include = 10;
+    repeated string exclude = 11;
+    bool update_exclude = 12;
+    bool refresh = 13;
+}
+
+message UpdateLlmProviderReply {
+    string log_line = 1;
+    LlmProviderInfo provider = 2;
+    int32 models_added = 3;
+}
+
+message DeleteLlmProviderRequest {
+    string id = 1;
+    int32 verbosity_level = 2;
+}
+
+message DeleteLlmProviderReply {
+    string log_line = 1;
+    string id = 2;
+    int32 models_removed = 3;
+}
+
+message RefreshLlmProviderRequest {
+    string id = 1;
+    int32 verbosity_level = 2;
+}
+
+message RefreshLlmProviderReply {
+    string log_line = 1;
+    LlmProviderInfo provider = 2;
+    int32 models_added = 3;
+    int32 models_removed = 4;
+    int32 models_kept = 5;
+}
+
+message ResolveModelRouteRequest {
+    string instance_id = 1;
+    int32 verbosity_level = 2;
+}
+
+message ResolveModelRouteReply {
+    string log_line = 1;
+    string kind = 2; // "local" | "openai-compat"
+    string instance_id = 3;
+    string openai_id = 4;
+    uint32 port = 5;
+    int32 max_tokens = 6;
+    string base_url = 7;
+    string upstream_model_id = 8;
+    string api_key = 9;
+    string owned_by = 10;
 }

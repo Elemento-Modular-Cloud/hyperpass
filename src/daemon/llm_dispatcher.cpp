@@ -243,3 +243,56 @@ void mp::LlmDispatcher::stream_model_logs(
 {
     run_async(context, [this, request, server] { llm_service->stream_model_logs(request, server); });
 }
+
+void mp::LlmDispatcher::create_llm_provider(
+    const CreateLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<CreateLlmProviderReply, CreateLlmProviderRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_async(context,
+              [this, request, server] { llm_service->create_llm_provider(request, server); });
+}
+
+void mp::LlmDispatcher::list_llm_providers(
+    const ListLlmProvidersRequest* request,
+    grpc::ServerReaderWriterInterface<ListLlmProvidersReply, ListLlmProvidersRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_sync(context, [this, request, server] { llm_service->list_llm_providers(request, server); });
+}
+
+void mp::LlmDispatcher::update_llm_provider(
+    const UpdateLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<UpdateLlmProviderReply, UpdateLlmProviderRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_async(context,
+              [this, request, server] { llm_service->update_llm_provider(request, server); });
+}
+
+void mp::LlmDispatcher::delete_llm_provider(
+    const DeleteLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<DeleteLlmProviderReply, DeleteLlmProviderRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_async(context,
+              [this, request, server] { llm_service->delete_llm_provider(request, server); });
+}
+
+void mp::LlmDispatcher::refresh_llm_provider(
+    const RefreshLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<RefreshLlmProviderReply, RefreshLlmProviderRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_async(context,
+              [this, request, server] { llm_service->refresh_llm_provider(request, server); });
+}
+
+void mp::LlmDispatcher::resolve_model_route(
+    const ResolveModelRouteRequest* request,
+    grpc::ServerReaderWriterInterface<ResolveModelRouteReply, ResolveModelRouteRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_sync(context,
+             [this, request, server] { llm_service->resolve_model_route(request, server); });
+}

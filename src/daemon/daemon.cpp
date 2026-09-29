@@ -831,6 +831,30 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_
                          llm_dispatcher,
                          &mp::LlmDispatcher::stream_model_logs);
         QObject::connect(&rpc, &mp::DaemonRpc::on_delete_model, llm_dispatcher, &mp::LlmDispatcher::delete_model);
+        QObject::connect(&rpc,
+                         &mp::DaemonRpc::on_create_llm_provider,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::create_llm_provider);
+        QObject::connect(&rpc,
+                         &mp::DaemonRpc::on_list_llm_providers,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::list_llm_providers);
+        QObject::connect(&rpc,
+                         &mp::DaemonRpc::on_update_llm_provider,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::update_llm_provider);
+        QObject::connect(&rpc,
+                         &mp::DaemonRpc::on_delete_llm_provider,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::delete_llm_provider);
+        QObject::connect(&rpc,
+                         &mp::DaemonRpc::on_refresh_llm_provider,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::refresh_llm_provider);
+        QObject::connect(&rpc,
+                         &mp::DaemonRpc::on_resolve_model_route,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::resolve_model_route);
     }
 }
 

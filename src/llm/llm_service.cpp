@@ -23,6 +23,7 @@
 #include "llama_server_process_spec.h"
 #include "managed_tools.h"
 #include "mlx_server_process_spec.h"
+#include "openai_compat_client.h"
 #include "runtime_installer.h"
 
 #include <multipass/constants.h>
@@ -54,6 +55,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QUrl>
+#include <QUuid>
 
 #include <algorithm>
 #include <cctype>
@@ -99,6 +101,7 @@ mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path d
       vault{data_directory, downloader},
       advisor{llm::managed_tools_root(data_directory)},
       keys{data_directory},
+      providers{data_directory},
       downloader{downloader},
       data_directory{data_directory}
 {
@@ -176,8 +179,22 @@ void mp::LlmService::restore_claims()
             session.params = llm_load_params_from_json(obj.value("params").toObject());
         session.intent = obj.value("intent").toString().toStdString();
         session.intent_role = obj.value("intent_role").toString().toStdString();
+        session.provider_id = obj.value("provider_id").toString().toStdString();
+        session.upstream_model_id = obj.value("upstream_model_id").toString().toStdString();
+        session.owned_by = obj.value("owned_by").toString().toStdString();
         if (session.instance_id.empty())
             continue;
+        if (session_is_remote(session))
+        {
+            if (!providers.get(session.provider_id))
+                continue;
+            if (session.upstream_model_id.empty())
+                session.upstream_model_id = session.openai_id;
+            if (session.backend.empty())
+                session.backend = openai_compat_backend;
+            recovered.push_back(std::move(session));
+            continue;
+        }
         if (!session_is_live(session) && live_cmds.find(session.pid) == live_cmds.end())
             continue;
         if (session.pid > 0)
@@ -672,6 +689,62 @@ void mp::LlmService::load_model_impl(
     bool& runner_transferred)
 {
     const auto model_id = request->model_id();
+    const auto runtime = QString::fromStdString(request->runtime()).toLower();
+    const bool claim_cloud = runtime == QString::fromUtf8(openai_compat_backend) ||
+                             runtime == QStringLiteral("openai_compat");
+    if (claim_cloud)
+    {
+        std::string matched_id;
+        std::string openai_id;
+        uint32_t port = 0;
+        uint64_t memory_claimed = 0;
+        {
+            std::lock_guard lock{mutex};
+            std::optional<std::string> found;
+            for (auto& [id, session] : sessions)
+            {
+                if (!session_is_remote(session))
+                    continue;
+                if (session.model_id != model_id && session.openai_id != model_id &&
+                    session.upstream_model_id != model_id)
+                    continue;
+                if (found)
+                    throw std::runtime_error(fmt::format(
+                        "multiple cloud sessions match '{}'; refresh the provider or pick a unique model",
+                        model_id));
+                found = id;
+            }
+            if (!found)
+                throw std::runtime_error(fmt::format(
+                    "no cloud model '{}' is available; add/refresh a provider under Credentials",
+                    model_id));
+            matched_id = *found;
+            auto& session = sessions[matched_id];
+            session.intent = request->intent();
+            session.intent_role = request->intent_role();
+            session.last_used = std::chrono::steady_clock::now();
+            openai_id = session.openai_id;
+            port = static_cast<uint32_t>(session.port);
+            memory_claimed = static_cast<uint64_t>(session.memory.in_bytes());
+        }
+        persist_sessions();
+        LoadModelReply reply;
+        reply.set_instance_id(matched_id);
+        reply.set_model_id(model_id);
+        reply.set_openai_id(openai_id);
+        reply.set_port(port);
+        reply.set_memory_claimed(memory_claimed);
+        reply.set_reply_message(
+            fmt::format("claimed cloud model '{}' for intent", model_id));
+        log_lifecycle(matched_id,
+                      "info",
+                      fmt::format("claimed cloud model {} for intent '{}'",
+                                  model_id,
+                                  request->intent()));
+        server->Write(reply);
+        return;
+    }
+
     const auto instance_id = mp::utils::make_uuid();
     log_lifecycle(instance_id, "info", fmt::format("load started for {}", model_id));
 
@@ -940,6 +1013,12 @@ void mp::LlmService::list_models(
         *info->mutable_params() = session.params;
         info->set_intent(session.intent);
         info->set_intent_role(session.intent_role);
+        if (!session.provider_id.empty())
+            info->set_provider_id(session.provider_id);
+        if (!session.upstream_model_id.empty())
+            info->set_upstream_model_id(session.upstream_model_id);
+        if (!session.owned_by.empty())
+            info->set_owned_by(session.owned_by);
     }
     for (const auto& art : vault.list())
     {
@@ -1356,19 +1435,8 @@ std::optional<mp::LoadedModelInfo> mp::LlmService::instance_info(const std::stri
     if (it == sessions.end())
         return std::nullopt;
 
-    const auto& session = it->second;
     LoadedModelInfo info;
-    info.set_instance_id(session.instance_id);
-    info.set_model_id(session.model_id);
-    info.set_openai_id(session.openai_id);
-    info.set_backend(session.backend);
-    info.set_path(session.path);
-    info.set_port(static_cast<uint32_t>(session.port));
-    info.set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
-    info.set_max_tokens(session.max_tokens);
-    info.set_ctx_size(session.ctx_size);
-    info.set_intent(session.intent);
-    info.set_intent_role(session.intent_role);
+    fill_loaded_model_info(&info, it->second);
     return info;
 }
 
@@ -1409,6 +1477,8 @@ void mp::LlmService::idle_unload_tick()
         std::lock_guard lock{mutex};
         for (const auto& [id, session] : sessions)
         {
+            if (session_is_remote(session))
+                continue;
             if (now - session.last_used > ttl)
                 idle.push_back(id);
         }
@@ -1443,6 +1513,12 @@ void mp::LlmService::persist_sessions() const
                 obj["params"] = params;
             obj["intent"] = QString::fromStdString(session.intent);
             obj["intent_role"] = QString::fromStdString(session.intent_role);
+            if (!session.provider_id.empty())
+                obj["provider_id"] = QString::fromStdString(session.provider_id);
+            if (!session.upstream_model_id.empty())
+                obj["upstream_model_id"] = QString::fromStdString(session.upstream_model_id);
+            if (!session.owned_by.empty())
+                obj["owned_by"] = QString::fromStdString(session.owned_by);
             array.append(obj);
         }
     }
@@ -1458,8 +1534,15 @@ QString mp::LlmService::sessions_file() const
     return QDir{data_directory}.filePath("llm-sessions.json");
 }
 
+bool mp::LlmService::session_is_remote(const LoadedSession& session) const
+{
+    return session.backend == openai_compat_backend || !session.provider_id.empty();
+}
+
 bool mp::LlmService::session_is_live(const LoadedSession& session) const
 {
+    if (session_is_remote(session))
+        return providers.get(session.provider_id).has_value();
     if (session.process && session.process->running())
         return true;
     return mpu::pid_is_alive(session.pid);
@@ -1470,6 +1553,22 @@ void mp::LlmService::restore_session(LoadedSession session)
     if (session.instance_id.empty())
         return;
     const auto id = session.instance_id;
+    if (session_is_remote(session))
+    {
+        session.memory = MemorySize::from_bytes(0);
+        session.port = 0;
+        session.pid = 0;
+        mpl::info(category,
+                  "Restored remote LLM instance '{}' ({}) provider={}",
+                  id,
+                  session.openai_id,
+                  session.provider_id);
+        activity_log.hydrate(id);
+        log_lifecycle(id, "info", "remote session restored from disk");
+        std::lock_guard lock{mutex};
+        sessions[id] = std::move(session);
+        return;
+    }
     const auto claim = session.memory.in_bytes() > 0 ? session.memory : MemorySize{"512M"};
     pool.force_claim(id, WorkloadKind::llm, claim, 0);
     session.memory = claim;
@@ -1487,4 +1586,354 @@ void mp::LlmService::restore_session(LoadedSession session)
                               session.port));
     std::lock_guard lock{mutex};
     sessions[id] = std::move(session);
+}
+
+void mp::LlmService::fill_loaded_model_info(LoadedModelInfo* info, const LoadedSession& session) const
+{
+    info->set_instance_id(session.instance_id);
+    info->set_model_id(session.model_id);
+    info->set_openai_id(session.openai_id);
+    info->set_backend(session.backend);
+    info->set_path(session.path);
+    info->set_port(static_cast<uint32_t>(session.port));
+    info->set_memory_claimed(static_cast<uint64_t>(session.memory.in_bytes()));
+    info->set_state(session_is_live(session) ? "loaded" : "stopped");
+    info->set_max_tokens(session.max_tokens);
+    info->set_ctx_size(session.ctx_size);
+    *info->mutable_params() = session.params;
+    info->set_intent(session.intent);
+    info->set_intent_role(session.intent_role);
+    if (!session.provider_id.empty())
+        info->set_provider_id(session.provider_id);
+    if (!session.upstream_model_id.empty())
+        info->set_upstream_model_id(session.upstream_model_id);
+    if (!session.owned_by.empty())
+        info->set_owned_by(session.owned_by);
+}
+
+mp::LlmProviderInfo mp::LlmService::provider_info(const LlmProviderRecord& rec) const
+{
+    LlmProviderInfo info;
+    info.set_id(rec.id);
+    info.set_label(rec.label);
+    info.set_preset(rec.preset);
+    info.set_base_url(rec.base_url);
+    info.set_key_prefix(rec.key_prefix);
+    for (const auto& pat : rec.include)
+        info.add_include(pat);
+    for (const auto& pat : rec.exclude)
+        info.add_exclude(pat);
+    info.set_created_at(rec.created_at);
+    info.set_last_refresh_at(rec.last_refresh_at);
+    int count = 0;
+    {
+        std::lock_guard lock{mutex};
+        for (const auto& [_, session] : sessions)
+        {
+            if (session.provider_id == rec.id)
+                ++count;
+        }
+    }
+    info.set_model_count(count);
+    return info;
+}
+
+void mp::LlmService::remove_provider_sessions(const std::string& provider_id)
+{
+    std::vector<std::string> ids;
+    {
+        std::lock_guard lock{mutex};
+        for (const auto& [id, session] : sessions)
+        {
+            if (session.provider_id == provider_id)
+                ids.push_back(id);
+        }
+    }
+    for (const auto& id : ids)
+        unload_instance(id);
+}
+
+mp::LlmService::RefreshResult mp::LlmService::refresh_provider_models(const LlmProviderRecord& provider)
+{
+    const auto upstream = openai_compat_list_models(provider.base_url, provider.api_key);
+    std::vector<OpenAiCompatModel> filtered;
+    filtered.reserve(upstream.size());
+    for (const auto& model : upstream)
+    {
+        if (llm_provider_id_matches(model.id, provider.include, provider.exclude))
+            filtered.push_back(model);
+    }
+
+    RefreshResult result;
+    std::unordered_map<std::string, std::string> existing_by_upstream; // upstream -> instance_id
+    {
+        std::lock_guard lock{mutex};
+        for (const auto& [id, session] : sessions)
+        {
+            if (session.provider_id != provider.id)
+                continue;
+            const auto key =
+                session.upstream_model_id.empty() ? session.openai_id : session.upstream_model_id;
+            existing_by_upstream[key] = id;
+        }
+
+        std::unordered_set<std::string> keep_upstream;
+        for (const auto& model : filtered)
+        {
+            keep_upstream.insert(model.id);
+            auto it = existing_by_upstream.find(model.id);
+            if (it != existing_by_upstream.end())
+            {
+                auto& session = sessions[it->second];
+                session.openai_id = model.id;
+                session.model_id = model.id;
+                session.upstream_model_id = model.id;
+                session.owned_by =
+                    model.owned_by.empty()
+                        ? (provider.label.empty() ? provider.preset : provider.label)
+                        : model.owned_by;
+                session.backend = openai_compat_backend;
+                session.last_used = std::chrono::steady_clock::now();
+                ++result.kept;
+                continue;
+            }
+
+            // Reject duplicate openai_id owned by another provider/session.
+            bool conflict = false;
+            for (const auto& [other_id, other] : sessions)
+            {
+                if (other.openai_id == model.id && other.provider_id != provider.id)
+                {
+                    conflict = true;
+                    break;
+                }
+            }
+            if (conflict)
+            {
+                mpl::warn(category,
+                          "skipping model '{}' from provider '{}': openai_id already exposed",
+                          model.id,
+                          provider.id);
+                continue;
+            }
+
+            LoadedSession session;
+            session.instance_id = QUuid::createUuid().toString(QUuid::WithoutBraces).toStdString();
+            session.model_id = model.id;
+            session.openai_id = model.id;
+            session.backend = openai_compat_backend;
+            session.provider_id = provider.id;
+            session.upstream_model_id = model.id;
+            session.owned_by = model.owned_by.empty()
+                                   ? (provider.label.empty() ? provider.preset : provider.label)
+                                   : model.owned_by;
+            session.ctx_size = 0;
+            session.max_tokens = 0;
+            sessions[session.instance_id] = std::move(session);
+            ++result.added;
+        }
+
+        std::vector<std::string> to_remove;
+        for (const auto& [upstream_id, instance_id] : existing_by_upstream)
+        {
+            if (!keep_upstream.contains(upstream_id))
+                to_remove.push_back(instance_id);
+        }
+        for (const auto& id : to_remove)
+        {
+            sessions.erase(id);
+            keys.revoke_for_instance(id);
+            ++result.removed;
+        }
+    }
+
+    providers.touch_refresh(provider.id);
+    persist_sessions();
+    return result;
+}
+
+void mp::LlmService::create_llm_provider(
+    const CreateLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<CreateLlmProviderReply, CreateLlmProviderRequest>* server)
+{
+    std::vector<std::string> include;
+    for (const auto& pat : request->include())
+        if (!pat.empty())
+            include.push_back(pat);
+    std::vector<std::string> exclude;
+    for (const auto& pat : request->exclude())
+        if (!pat.empty())
+            exclude.push_back(pat);
+
+    const auto created = providers.create(request->label(),
+                                          request->preset(),
+                                          request->base_url(),
+                                          request->api_key(),
+                                          include,
+                                          exclude);
+
+    RefreshResult refresh;
+    // Discover models immediately so they appear in list_models / /v1/models.
+    refresh = refresh_provider_models(created);
+
+    auto updated = providers.get(created.id).value_or(created);
+    CreateLlmProviderReply reply;
+    *reply.mutable_provider() = provider_info(updated);
+    reply.set_models_added(refresh.added);
+    reply.set_log_line(fmt::format("provider '{}' ready ({} models)",
+                                   updated.label,
+                                   reply.provider().model_count()));
+    server->Write(reply);
+}
+
+void mp::LlmService::list_llm_providers(
+    const ListLlmProvidersRequest*,
+    grpc::ServerReaderWriterInterface<ListLlmProvidersReply, ListLlmProvidersRequest>* server)
+{
+    ListLlmProvidersReply reply;
+    for (const auto& rec : providers.list())
+        *reply.add_providers() = provider_info(rec);
+    server->Write(reply);
+}
+
+void mp::LlmService::update_llm_provider(
+    const UpdateLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<UpdateLlmProviderReply, UpdateLlmProviderRequest>* server)
+{
+    if (request->id().empty())
+        throw std::runtime_error("provider id is required");
+
+    std::vector<std::string> include;
+    for (const auto& pat : request->include())
+        if (!pat.empty())
+            include.push_back(pat);
+    std::vector<std::string> exclude;
+    for (const auto& pat : request->exclude())
+        if (!pat.empty())
+            exclude.push_back(pat);
+
+    auto updated = providers.update(request->id(),
+                                    request->label(),
+                                    request->update_label(),
+                                    request->base_url(),
+                                    request->update_base_url(),
+                                    request->api_key(),
+                                    request->update_api_key(),
+                                    include,
+                                    request->update_include(),
+                                    exclude,
+                                    request->update_exclude());
+    if (!updated)
+        throw std::runtime_error(fmt::format("unknown provider '{}'", request->id()));
+
+    RefreshResult refresh;
+    if (request->refresh() || request->update_include() || request->update_exclude() ||
+        request->update_api_key() || request->update_base_url())
+    {
+        refresh = refresh_provider_models(*updated);
+        updated = providers.get(request->id());
+    }
+
+    UpdateLlmProviderReply reply;
+    *reply.mutable_provider() = provider_info(*updated);
+    reply.set_models_added(refresh.added);
+    server->Write(reply);
+}
+
+void mp::LlmService::delete_llm_provider(
+    const DeleteLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<DeleteLlmProviderReply, DeleteLlmProviderRequest>* server)
+{
+    if (request->id().empty())
+        throw std::runtime_error("provider id is required");
+
+    int removed = 0;
+    {
+        std::lock_guard lock{mutex};
+        std::vector<std::string> ids;
+        for (const auto& [id, session] : sessions)
+        {
+            if (session.provider_id == request->id())
+                ids.push_back(id);
+        }
+        removed = static_cast<int>(ids.size());
+        for (const auto& id : ids)
+        {
+            sessions.erase(id);
+            keys.revoke_for_instance(id);
+        }
+    }
+    if (!providers.remove(request->id()))
+        throw std::runtime_error(fmt::format("unknown provider '{}'", request->id()));
+    persist_sessions();
+
+    DeleteLlmProviderReply reply;
+    reply.set_id(request->id());
+    reply.set_models_removed(removed);
+    server->Write(reply);
+}
+
+void mp::LlmService::refresh_llm_provider(
+    const RefreshLlmProviderRequest* request,
+    grpc::ServerReaderWriterInterface<RefreshLlmProviderReply, RefreshLlmProviderRequest>* server)
+{
+    if (request->id().empty())
+        throw std::runtime_error("provider id is required");
+    auto provider = providers.get(request->id());
+    if (!provider)
+        throw std::runtime_error(fmt::format("unknown provider '{}'", request->id()));
+
+    const auto refresh = refresh_provider_models(*provider);
+    provider = providers.get(request->id());
+
+    RefreshLlmProviderReply reply;
+    *reply.mutable_provider() = provider_info(*provider);
+    reply.set_models_added(refresh.added);
+    reply.set_models_removed(refresh.removed);
+    reply.set_models_kept(refresh.kept);
+    reply.set_log_line(
+        fmt::format("refreshed: +{} -{} ={}", refresh.added, refresh.removed, refresh.kept));
+    server->Write(reply);
+}
+
+void mp::LlmService::resolve_model_route(
+    const ResolveModelRouteRequest* request,
+    grpc::ServerReaderWriterInterface<ResolveModelRouteReply, ResolveModelRouteRequest>* server)
+{
+    if (request->instance_id().empty())
+        throw std::runtime_error("instance_id is required");
+
+    std::lock_guard lock{mutex};
+    auto it = sessions.find(request->instance_id());
+    if (it == sessions.end())
+        throw std::runtime_error(fmt::format("unknown instance '{}'", request->instance_id()));
+
+    const auto& session = it->second;
+    ResolveModelRouteReply reply;
+    reply.set_instance_id(session.instance_id);
+    reply.set_openai_id(session.openai_id);
+    reply.set_max_tokens(session.max_tokens);
+    reply.set_owned_by(session.owned_by.empty() ? "elp" : session.owned_by);
+
+    if (session_is_remote(session))
+    {
+        auto provider = providers.get(session.provider_id);
+        if (!provider)
+            throw std::runtime_error(
+                fmt::format("provider '{}' missing for instance '{}'",
+                            session.provider_id,
+                            session.instance_id));
+        reply.set_kind(openai_compat_backend);
+        reply.set_base_url(provider->base_url);
+        reply.set_upstream_model_id(session.upstream_model_id.empty() ? session.openai_id
+                                                                      : session.upstream_model_id);
+        reply.set_api_key(provider->api_key);
+        reply.set_port(0);
+    }
+    else
+    {
+        reply.set_kind("local");
+        reply.set_port(static_cast<uint32_t>(session.port));
+    }
+    server->Write(reply);
 }

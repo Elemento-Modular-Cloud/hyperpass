@@ -47,6 +47,11 @@ private:
     QString key_instance;
     QString intent;
     QString intent_role;
+    QString provider_preset;
+    QString provider_base_url;
+    QString provider_api_key;
+    QStringList provider_include;
+    QStringList provider_exclude;
     int limit{10};
     int ctx_size{4096};
     int max_tokens{0};

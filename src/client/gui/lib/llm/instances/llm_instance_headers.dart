@@ -76,10 +76,16 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
   TableHeader(
     name: 'BACKEND',
     childBuilder: _l10nHeader((l10n) => l10n.llmTableColumnBackend),
-    width: 100,
+    width: 120,
     minWidth: 72,
     sortKey: (m) => m.backend,
-    cellBuilder: (m) => Text(m.backend, overflow: TextOverflow.ellipsis),
+    cellBuilder: (m) {
+      if (isRemoteLlmModel(m)) {
+        final owner = m.ownedBy.isNotEmpty ? m.ownedBy : 'cloud';
+        return Text('cloud · $owner', overflow: TextOverflow.ellipsis);
+      }
+      return Text(m.backend, overflow: TextOverflow.ellipsis);
+    },
   ),
   TableHeader(
     name: 'STATE',
@@ -95,7 +101,9 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     width: 72,
     minWidth: 56,
     sortKey: (m) => m.port.toString().padLeft(6, '0'),
-    cellBuilder: (m) => Text(m.port > 0 ? '${m.port}' : '—'),
+    cellBuilder: (m) => Text(
+      isRemoteLlmModel(m) || m.port <= 0 ? '—' : '${m.port}',
+    ),
   ),
   TableHeader(
     name: 'MEMORY',
@@ -104,7 +112,9 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     minWidth: 72,
     sortKey: (m) => m.memoryClaimed.toString().padLeft(12, '0'),
     cellBuilder: (m) {
-      if (isPendingLlmLoad(m) || m.memoryClaimed.toInt() <= 0) {
+      if (isRemoteLlmModel(m) ||
+          isPendingLlmLoad(m) ||
+          m.memoryClaimed.toInt() <= 0) {
         return const Text('—');
       }
       final bytes = m.memoryClaimed.toInt();
@@ -118,9 +128,12 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     width: 96,
     minWidth: 72,
     sortKey: (m) => m.ctxSize.toString().padLeft(8, '0'),
-    cellBuilder: (m) => Text(
-      m.ctxSize > 0 ? '${m.ctxSize}' : (isPendingLlmLoad(m) ? '—' : '4096'),
-    ),
+    cellBuilder: (m) {
+      if (isRemoteLlmModel(m)) return const Text('—');
+      return Text(
+        m.ctxSize > 0 ? '${m.ctxSize}' : (isPendingLlmLoad(m) ? '—' : '4096'),
+      );
+    },
   ),
   TableHeader(
     name: 'MAX TOKENS',

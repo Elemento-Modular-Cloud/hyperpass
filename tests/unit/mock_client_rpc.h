@@ -918,5 +918,95 @@ public:
                 PrepareAsyncinstall_llm_backendRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::CreateLlmProviderRequest,
+                                                   multipass::CreateLlmProviderReply>*),
+                create_llm_providerRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CreateLlmProviderRequest,
+                                                        multipass::CreateLlmProviderReply>*),
+                Asynccreate_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::CreateLlmProviderRequest,
+                                                        multipass::CreateLlmProviderReply>*),
+                PrepareAsynccreate_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListLlmProvidersRequest,
+                                                   multipass::ListLlmProvidersReply>*),
+                list_llm_providersRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListLlmProvidersRequest,
+                                                        multipass::ListLlmProvidersReply>*),
+                Asynclist_llm_providersRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListLlmProvidersRequest,
+                                                        multipass::ListLlmProvidersReply>*),
+                PrepareAsynclist_llm_providersRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::UpdateLlmProviderRequest,
+                                                   multipass::UpdateLlmProviderReply>*),
+                update_llm_providerRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::UpdateLlmProviderRequest,
+                                                        multipass::UpdateLlmProviderReply>*),
+                Asyncupdate_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::UpdateLlmProviderRequest,
+                                                        multipass::UpdateLlmProviderReply>*),
+                PrepareAsyncupdate_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::DeleteLlmProviderRequest,
+                                                   multipass::DeleteLlmProviderReply>*),
+                delete_llm_providerRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::DeleteLlmProviderRequest,
+                                                        multipass::DeleteLlmProviderReply>*),
+                Asyncdelete_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::DeleteLlmProviderRequest,
+                                                        multipass::DeleteLlmProviderReply>*),
+                PrepareAsyncdelete_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::RefreshLlmProviderRequest,
+                                                   multipass::RefreshLlmProviderReply>*),
+                refresh_llm_providerRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RefreshLlmProviderRequest,
+                                                        multipass::RefreshLlmProviderReply>*),
+                Asyncrefresh_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::RefreshLlmProviderRequest,
+                                                        multipass::RefreshLlmProviderReply>*),
+                PrepareAsyncrefresh_llm_providerRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ResolveModelRouteRequest,
+                                                   multipass::ResolveModelRouteReply>*),
+                resolve_model_routeRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ResolveModelRouteRequest,
+                                                        multipass::ResolveModelRouteReply>*),
+                Asyncresolve_model_routeRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ResolveModelRouteRequest,
+                                                        multipass::ResolveModelRouteReply>*),
+                PrepareAsyncresolve_model_routeRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
 };
 } // namespace multipass::test

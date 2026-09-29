@@ -113,6 +113,31 @@ public slots:
         const StreamModelLogsRequest* request,
         grpc::ServerReaderWriterInterface<StreamModelLogsReply, StreamModelLogsRequest>* server,
         DaemonRpcContext* context);
+    void create_llm_provider(
+        const CreateLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<CreateLlmProviderReply, CreateLlmProviderRequest>* server,
+        DaemonRpcContext* context);
+    void list_llm_providers(
+        const ListLlmProvidersRequest* request,
+        grpc::ServerReaderWriterInterface<ListLlmProvidersReply, ListLlmProvidersRequest>* server,
+        DaemonRpcContext* context);
+    void update_llm_provider(
+        const UpdateLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<UpdateLlmProviderReply, UpdateLlmProviderRequest>* server,
+        DaemonRpcContext* context);
+    void delete_llm_provider(
+        const DeleteLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<DeleteLlmProviderReply, DeleteLlmProviderRequest>* server,
+        DaemonRpcContext* context);
+    void refresh_llm_provider(
+        const RefreshLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<RefreshLlmProviderReply, RefreshLlmProviderRequest>*
+            server,
+        DaemonRpcContext* context);
+    void resolve_model_route(
+        const ResolveModelRouteRequest* request,
+        grpc::ServerReaderWriterInterface<ResolveModelRouteReply, ResolveModelRouteRequest>* server,
+        DaemonRpcContext* context);
 
 private:
     template <typename Work>

@@ -391,6 +391,21 @@ mp::api::VerifyApiKeyResult mp::api::GrpcBackend::verify_api_key(const std::stri
     return result;
 }
 
+mp::api::ResolveModelRouteResult mp::api::GrpcBackend::resolve_model_route(
+    const std::string& instance_id,
+    std::chrono::seconds deadline)
+{
+    ResolveModelRouteResult result;
+    ResolveModelRouteRequest request;
+    request.set_instance_id(instance_id);
+    result.status = call_streaming_rpc(
+        [this](grpc::ClientContext* ctx) { return rpc_stub->resolve_model_route(ctx); },
+        request,
+        result.reply,
+        deadline);
+    return result;
+}
+
 mp::api::GrpcResult mp::api::GrpcBackend::touch_model(const std::string& instance_id,
                                                       std::chrono::seconds deadline,
                                                       const std::string& method,

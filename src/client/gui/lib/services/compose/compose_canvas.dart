@@ -1237,6 +1237,7 @@ Color _nodeAccent(ComposeNode node, MarketplaceLibrary library) {
       return distroBranding(node.label.isEmpty ? node.image : node.label)
           .accent;
     case ComposeNodeKind.llm:
+      if (node.isCloudLlm) return Brand.info;
       return modelProviderBranding(
         provider: '',
         id: node.modelId,
@@ -1263,6 +1264,9 @@ class _NodeBadge extends StatelessWidget {
           size: 22,
         );
       case ComposeNodeKind.llm:
+        if (node.isCloudLlm) {
+          return Icon(Icons.cloud_outlined, size: 22, color: Brand.info);
+        }
         return ModelProviderBadge(
           branding: modelProviderBranding(
             provider: '',

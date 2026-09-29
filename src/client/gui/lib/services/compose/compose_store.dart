@@ -134,6 +134,71 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     );
   }
 
+  /// Removes a saved topology without changing the open canvas (unless it is
+  /// that composition). Used when recreating a composition on the daemon so a
+  /// leftover local graph cannot resurrect under the same name.
+  void forgetSavedGraph(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    final graphs = _allGraphs();
+    if (!graphs.containsKey(trimmed)) return;
+    graphs.remove(trimmed);
+    saveComposeGraphs(_prefs, graphs);
+    if (state.graph.intentName.trim() == trimmed) {
+      _prefs.setString(composeCurrentIntentPrefsKey, trimmed);
+      state = ComposeEditorState(
+        graph: ComposeGraph(intentName: trimmed),
+        viewEpoch: state.viewEpoch + 1,
+      );
+    }
+  }
+
+  /// Opens [intentName] as a blank canvas, discarding any leftover local graph.
+  void startFreshIntent(String intentName) {
+    final trimmed = intentName.trim();
+    if (trimmed.isEmpty) {
+      newDraft();
+      return;
+    }
+    final graphs = _allGraphs();
+    graphs.remove(trimmed);
+    final graph = ComposeGraph(intentName: trimmed);
+    graphs[trimmed] = graph;
+    saveComposeGraphs(_prefs, graphs);
+    _prefs.setString(composeCurrentIntentPrefsKey, trimmed);
+    state = ComposeEditorState(
+      graph: graph,
+      viewEpoch: state.viewEpoch + 1,
+    );
+  }
+
+  /// Drop local graphs for compositions that no longer exist on the daemon.
+  /// Keeps the open canvas if it is still live; otherwise clears it.
+  void pruneOrphanedGraphs(Iterable<String> liveDaemonNames) {
+    final live = {
+      for (final name in liveDaemonNames)
+        if (name.trim().isNotEmpty) name.trim(),
+    };
+    final graphs = _allGraphs();
+    final orphans = [
+      for (final name in graphs.keys)
+        if (!live.contains(name)) name,
+    ];
+    if (orphans.isEmpty) return;
+    for (final name in orphans) {
+      graphs.remove(name);
+    }
+    saveComposeGraphs(_prefs, graphs);
+    final current = state.graph.intentName.trim();
+    if (current.isNotEmpty && !live.contains(current)) {
+      _prefs.setString(composeCurrentIntentPrefsKey, '');
+      state = ComposeEditorState(
+        graph: const ComposeGraph(intentName: ''),
+        viewEpoch: state.viewEpoch + 1,
+      );
+    }
+  }
+
   void openIntent(String intentName) {
     final graph =
         _allGraphs()[intentName] ?? ComposeGraph(intentName: intentName);
@@ -242,6 +307,7 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
 
   void addLlm({
     required String modelId,
+    ComposeLlmMode llmMode = ComposeLlmMode.standard,
     String label = '',
     String quant = '',
     String runtime = '',
@@ -251,22 +317,62 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     double? y,
   }) {
     final drop = _defaultDrop();
+    final roleSeed = modelId.isNotEmpty
+        ? modelId
+        : (llmMode == ComposeLlmMode.cloud ? 'cloud-llm' : 'llm');
+    final resolvedRuntime = llmMode == ComposeLlmMode.cloud
+        ? 'openai-compat'
+        : (runtime.isEmpty ? composeDefaultRuntime : runtime);
     _addNode(
       ComposeNode(
         id: _newNodeId(),
-        role: suggestComposeRole(modelId, state.graph.nodes.map((n) => n.role)),
-        serviceId: modelId,
+        role: suggestComposeRole(roleSeed, state.graph.nodes.map((n) => n.role)),
+        serviceId: modelId.isNotEmpty ? modelId : roleSeed,
         kind: ComposeNodeKind.llm,
+        llmMode: llmMode,
         modelId: modelId,
-        quant: quant,
-        runtime: runtime.isEmpty ? composeDefaultRuntime : runtime,
-        ctxSize: ctxSize,
-        maxTokens: maxTokens,
-        label: label.isEmpty ? modelId : label,
+        quant: llmMode == ComposeLlmMode.cloud ? '' : quant,
+        runtime: resolvedRuntime,
+        ctxSize: llmMode == ComposeLlmMode.cloud ? 0 : ctxSize,
+        maxTokens: llmMode == ComposeLlmMode.cloud ? 0 : maxTokens,
+        label: label.isEmpty
+            ? (modelId.isNotEmpty
+                ? modelId
+                : (llmMode == ComposeLlmMode.cloud ? 'Cloud LLM' : 'Standard LLM'))
+            : label,
         x: x ?? drop.$1,
         y: y ?? drop.$2,
       ),
     );
+  }
+
+  void setLlmModel(
+    String id, {
+    required String modelId,
+    String? label,
+    String? quant,
+    String? runtime,
+    int? ctxSize,
+    int? maxTokens,
+  }) {
+    final nodes = [
+      for (final node in state.graph.nodes)
+        if (node.id == id)
+          node.copyWith(
+            serviceId: modelId,
+            modelId: modelId,
+            label: label ?? (modelId.isNotEmpty ? modelId : node.label),
+            quant: quant,
+            runtime: runtime,
+            ctxSize: ctxSize,
+            maxTokens: maxTokens,
+          )
+        else
+          node,
+    ];
+    final graph = state.graph.copyWith(nodes: nodes);
+    _persist(graph);
+    state = state.copyWith(graph: graph);
   }
 
   void _addNode(ComposeNode node) {

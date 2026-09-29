@@ -491,6 +491,9 @@ Future<void> showCreateIntentDialog(BuildContext context, WidgetRef ref) async {
                         members: requests.whereType<IntentMemberRequest>(),
                       ),
                     );
+                // Discard any leftover local topology under this name so
+                // opening the canvas cannot resurrect a deleted composition.
+                ref.read(composeEditorProvider.notifier).forgetSavedGraph(name);
                 ref.invalidate(intentsStreamProvider);
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               } catch (e) {

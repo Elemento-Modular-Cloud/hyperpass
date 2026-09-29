@@ -100,6 +100,11 @@ struct VerifyApiKeyResult : GrpcResult
     VerifyApiKeyReply reply;
 };
 
+struct ResolveModelRouteResult : GrpcResult
+{
+    ResolveModelRouteReply reply;
+};
+
 struct LaunchSpec
 {
     std::string instance_name;
@@ -172,6 +177,9 @@ public:
                               std::chrono::seconds deadline = std::chrono::seconds{30});
     VerifyApiKeyResult verify_api_key(const std::string& secret,
                                       std::chrono::seconds deadline = std::chrono::seconds{10});
+    ResolveModelRouteResult resolve_model_route(
+        const std::string& instance_id,
+        std::chrono::seconds deadline = std::chrono::seconds{10});
     GrpcResult touch_model(const std::string& instance_id,
                            std::chrono::seconds deadline = std::chrono::seconds{10},
                            const std::string& method = {},

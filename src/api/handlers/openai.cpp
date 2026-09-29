@@ -29,6 +29,7 @@
 #include <optional>
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -230,6 +231,223 @@ std::string apply_session_max_tokens(std::string body, int32_t cap)
     }
 }
 
+bool request_wants_stream(const json::value& parsed)
+{
+    try
+    {
+        if (!parsed.is_object())
+            return false;
+        const auto& obj = parsed.as_object();
+        if (!obj.contains("stream"))
+            return false;
+        const auto& stream = obj.at("stream");
+        return stream.is_bool() && stream.as_bool();
+    }
+    catch (const std::exception&)
+    {
+        return false;
+    }
+}
+
+std::string rewrite_upstream_model(std::string body, const std::string& upstream_model_id)
+{
+    if (upstream_model_id.empty())
+        return body;
+    try
+    {
+        auto parsed = json::parse(body.empty() ? "{}" : body);
+        if (!parsed.is_object())
+            return body;
+        parsed.as_object()["model"] = upstream_model_id;
+        return json::serialize(parsed);
+    }
+    catch (const std::exception&)
+    {
+        return body;
+    }
+}
+
+struct UpstreamTarget
+{
+    std::string scheme;
+    std::string host;
+    int port{443};
+    std::string post_path;
+};
+
+std::optional<UpstreamTarget> parse_upstream_target(const std::string& base_url,
+                                                    const std::string& request_path)
+{
+    // base_url like https://api.openai.com/v1
+    // request_path like /v1/chat/completions → post /v1/chat/completions on host,
+    // using base path when request is /v1/...
+    std::string url = base_url;
+    while (!url.empty() && url.back() == '/')
+        url.pop_back();
+
+    std::string scheme = "https";
+    std::string rest = url;
+    if (rest.rfind("https://", 0) == 0)
+    {
+        scheme = "https";
+        rest = rest.substr(8);
+    }
+    else if (rest.rfind("http://", 0) == 0)
+    {
+        scheme = "http";
+        rest = rest.substr(7);
+    }
+    else
+        return std::nullopt;
+
+    const auto slash = rest.find('/');
+    std::string hostport = slash == std::string::npos ? rest : rest.substr(0, slash);
+    std::string base_path = slash == std::string::npos ? "" : rest.substr(slash);
+
+    int port = scheme == "https" ? 443 : 80;
+    const auto colon = hostport.find(':');
+    std::string host = hostport;
+    if (colon != std::string::npos)
+    {
+        host = hostport.substr(0, colon);
+        try
+        {
+            port = std::stoi(hostport.substr(colon + 1));
+        }
+        catch (const std::exception&)
+        {
+            return std::nullopt;
+        }
+    }
+    if (host.empty())
+        return std::nullopt;
+
+    // Map /v1/chat/completions → {base_path}/chat/completions
+    std::string suffix = request_path;
+    if (suffix.rfind("/v1/", 0) == 0)
+        suffix = suffix.substr(3); // keep leading slash of remainder via "/chat/..."
+    else if (suffix == "/v1")
+        suffix = "";
+    if (suffix.empty() || suffix.front() != '/')
+        suffix = "/" + suffix;
+
+    UpstreamTarget target;
+    target.scheme = scheme;
+    target.host = host;
+    target.port = port;
+    target.post_path = base_path + suffix;
+    return target;
+}
+
+void forward_response(httplib::Response& res,
+                      int status,
+                      const std::string& body,
+                      const std::string& content_type)
+{
+    res.status = status;
+    res.set_content(body, content_type.empty() ? "application/json" : content_type);
+}
+
+void proxy_with_client(std::shared_ptr<httplib::Client> client,
+                       GrpcBackend& backend,
+                       const httplib::Request& req,
+                       httplib::Response& res,
+                       const std::string& post_path,
+                       const std::string& outbound,
+                       const std::string& instance_id,
+                       bool stream,
+                       const httplib::Headers& headers)
+{
+    client->set_read_timeout(600);
+    client->set_write_timeout(30);
+    client->set_connection_timeout(10);
+
+    if (stream)
+    {
+        // Content provider runs after this handler returns; the Client must
+        // outlive that (shared ownership). Capturing a stack Client by
+        // reference segfaults once streaming starts.
+        auto state = std::make_shared<bool>(false);
+        auto ok = std::make_shared<bool>(true);
+        auto status_code = std::make_shared<int>(200);
+
+        res.set_header("Cache-Control", "no-cache");
+        res.set_header("Connection", "keep-alive");
+        res.set_chunked_content_provider(
+            "text/event-stream",
+            [client,
+             post_path,
+             outbound,
+             headers,
+             state,
+             ok,
+             status_code,
+             &backend,
+             instance_id = instance_id,
+             method = req.method,
+             path = req.path](size_t /*offset*/, httplib::DataSink& sink) {
+                if (*state)
+                    return false;
+                *state = true;
+
+                auto result = client->Post(
+                    post_path,
+                    headers,
+                    outbound,
+                    "application/json",
+                    [&sink](const char* data, size_t len) { return sink.write(data, len); });
+
+                if (!result)
+                {
+                    *ok = false;
+                    *status_code = 502;
+                    backend.touch_model(instance_id, std::chrono::seconds{10}, method, path, 502);
+                    const auto err =
+                        openai_error("api_error", "inference backend unreachable", 502);
+                    sink.write(err.data(), err.size());
+                    sink.done();
+                    return false;
+                }
+                *status_code = result->status;
+                backend.touch_model(instance_id,
+                                    std::chrono::seconds{10},
+                                    method,
+                                    path,
+                                    result->status);
+                if (result->body.size() && result->status >= 400)
+                {
+                    if (!result->body.empty())
+                        sink.write(result->body.data(), result->body.size());
+                }
+                sink.done();
+                return false;
+            });
+        res.status = 200;
+        return;
+    }
+
+    auto result = client->Post(post_path, headers, outbound, "application/json");
+    if (!result)
+    {
+        backend.touch_model(instance_id, std::chrono::seconds{10}, req.method, req.path, 502);
+        mpl::log(mpl::Level::warning, category, "backend proxy failed");
+        res.status = 502;
+        res.set_content(openai_error("api_error", "inference backend unreachable", 502),
+                        "application/json");
+        return;
+    }
+    backend.touch_model(instance_id,
+                        std::chrono::seconds{10},
+                        req.method,
+                        req.path,
+                        result->status);
+    const auto content_type = result->get_header_value("Content-Type");
+    forward_response(res,
+                     result->status,
+                     result->body,
+                     content_type.empty() ? "application/json" : content_type);
+}
+
 void proxy_to_backend(GrpcBackend& backend,
                       const httplib::Request& req,
                       httplib::Response& res,
@@ -308,41 +526,78 @@ void proxy_to_backend(GrpcBackend& backend,
         }
         res.status = 404;
         res.set_content(openai_error("invalid_request_error",
-                                     "The model is not loaded. Load it with elp llm load.",
+                                     "The model is not loaded. Load it with elp llm load, or add a "
+                                     "cloud provider with elp llm provider add.",
                                      404),
                         "application/json");
         return;
     }
 
-    httplib::Client client{"127.0.0.1", static_cast<int>(session->port())};
-    client.set_read_timeout(600);
-    client.set_write_timeout(30);
-    client.set_connection_timeout(5);
-
-    const auto outbound = apply_session_max_tokens(req.body, session->max_tokens());
-    auto result = client.Post(path, outbound, "application/json");
-    if (!result)
+    const auto routed = backend.resolve_model_route(session->instance_id());
+    if (!routed.status.ok())
     {
-        backend.touch_model(session->instance_id(),
-                            std::chrono::seconds{10},
-                            req.method,
-                            path,
-                            502);
-        mpl::log(mpl::Level::warning, category, "backend proxy failed");
-        res.status = 502;
-        res.set_content(openai_error("api_error", "inference backend unreachable", 502),
+        res.status = 503;
+        res.set_content(openai_error("api_error", routed.status.error_message(), 503),
                         "application/json");
         return;
     }
-    backend.touch_model(session->instance_id(),
-                        std::chrono::seconds{10},
-                        req.method,
-                        path,
-                        result->status);
-    const auto content_type = result->get_header_value("Content-Type");
-    res.status = result->status;
-    res.set_content(result->body,
-                    content_type.empty() ? "application/json" : content_type);
+
+    const bool stream = request_wants_stream(parsed);
+    auto outbound = apply_session_max_tokens(req.body, routed.reply.max_tokens());
+
+    if (routed.reply.kind() == "openai-compat" || routed.reply.kind() == "openai_compat")
+    {
+        outbound = rewrite_upstream_model(outbound, routed.reply.upstream_model_id());
+        const auto target = parse_upstream_target(routed.reply.base_url(), path);
+        if (!target)
+        {
+            res.status = 502;
+            res.set_content(openai_error("api_error", "invalid provider base URL", 502),
+                            "application/json");
+            return;
+        }
+        auto client = std::make_shared<httplib::Client>(
+            fmt::format("{}://{}:{}", target->scheme, target->host, target->port));
+        if (target->scheme == "https")
+            client->enable_server_certificate_verification(true);
+        httplib::Headers headers{
+            {"Authorization", fmt::format("Bearer {}", routed.reply.api_key())},
+            {"Accept", stream ? "text/event-stream" : "application/json"},
+        };
+        if (routed.reply.base_url().find("api.anthropic.com") != std::string::npos)
+            headers.emplace("anthropic-version", "2023-06-01");
+
+        proxy_with_client(std::move(client),
+                          backend,
+                          req,
+                          res,
+                          target->post_path,
+                          outbound,
+                          session->instance_id(),
+                          stream,
+                          headers);
+        return;
+    }
+
+    if (routed.reply.port() == 0)
+    {
+        res.status = 502;
+        res.set_content(openai_error("api_error", "local inference backend has no port", 502),
+                        "application/json");
+        return;
+    }
+
+    auto client =
+        std::make_shared<httplib::Client>("127.0.0.1", static_cast<int>(routed.reply.port()));
+    proxy_with_client(std::move(client),
+                      backend,
+                      req,
+                      res,
+                      path,
+                      outbound,
+                      session->instance_id(),
+                      stream,
+                      {});
 }
 } // namespace
 
@@ -368,7 +623,10 @@ void mp::api::register_openai_handlers(httplib::Server& server, GrpcBackend& elp
             json::object item;
             item["id"] = model.openai_id();
             item["object"] = "model";
-            item["owned_by"] = "elp";
+            item["owned_by"] =
+                model.owned_by().empty()
+                    ? (model.backend() == "openai-compat" ? "cloud" : "elp")
+                    : model.owned_by();
             if (model.ctx_size() > 0)
             {
                 item["context_length"] = model.ctx_size();

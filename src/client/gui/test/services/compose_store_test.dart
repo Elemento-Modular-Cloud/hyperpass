@@ -96,6 +96,44 @@ void main() {
     expect(c.read(composeEditorProvider).graph.intentName, 'other');
   });
 
+  test('startFreshIntent discards a leftover topology under the same name',
+      () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    notifier.addLlm(modelId: 'qwen');
+    expect(c.read(composeEditorProvider).graph.nodes, hasLength(2));
+
+    notifier.startFreshIntent('lab');
+    expect(c.read(composeEditorProvider).graph.intentName, 'lab');
+    expect(c.read(composeEditorProvider).graph.nodes, isEmpty);
+    expect(loadComposeGraphs(c.read(sharedPreferencesProvider))['lab']!.nodes,
+        isEmpty);
+  });
+
+  test('forgetSavedGraph clears prefs without requiring the canvas', () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    notifier.openIntent('other');
+    notifier.forgetSavedGraph('lab');
+    expect(loadComposeGraphs(c.read(sharedPreferencesProvider)).containsKey('lab'),
+        isFalse);
+    expect(c.read(composeEditorProvider).graph.intentName, 'other');
+  });
+
+  test('pruneOrphanedGraphs drops local saves missing from the daemon',
+      () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addVm(image: '24.04', label: 'Ubuntu');
+    notifier.openIntent('keep');
+    notifier.addLlm(modelId: 'qwen');
+    notifier.pruneOrphanedGraphs(const ['keep']);
+    expect(notifier.savedIntentNames(), ['keep']);
+    expect(c.read(composeEditorProvider).graph.intentName, 'keep');
+  });
+
   test('compose picker hides leftover local graphs once the daemon list loads',
       () {
     expect(
@@ -164,5 +202,26 @@ void main() {
     expect(updatedLlm.maxTokens, 512);
     expect(updatedLlm.quant, 'Q4_K_M');
     expect(updatedLlm.runtime, 'llamacpp');
+  });
+
+  test('addLlm cloud mode uses openai-compat runtime', () async {
+    final c = await container();
+    final notifier = c.read(composeEditorProvider.notifier);
+    notifier.addLlm(
+      modelId: 'gpt-4o',
+      llmMode: ComposeLlmMode.cloud,
+      label: 'GPT-4o',
+    );
+    final llm = c.read(composeEditorProvider).graph.nodes.single;
+    expect(llm.llmMode, ComposeLlmMode.cloud);
+    expect(llm.runtime, 'openai-compat');
+    expect(llm.modelId, 'gpt-4o');
+    expect(llm.isCloudLlm, isTrue);
+
+    notifier.setLlmModel(llm.id, modelId: 'gpt-4o-mini', label: 'mini');
+    final updated = c.read(composeEditorProvider).graph.nodes.single;
+    expect(updated.modelId, 'gpt-4o-mini');
+    expect(updated.label, 'mini');
+    expect(updated.llmMode, ComposeLlmMode.cloud);
   });
 }

@@ -387,12 +387,139 @@ final catalogModelsProvider = FutureProvider((ref) async {
       );
 });
 
+/// Result of a compose catalog lookup (browse/search + local fallbacks).
+class ComposeCatalogModels {
+  const ComposeCatalogModels({
+    this.models = const [],
+    this.catalogAvailable = true,
+    this.hint = '',
+  });
+
+  final List<ModelSuggestion> models;
+
+  /// False when llmfit is missing / browse failed — typed ids still work.
+  final bool catalogAvailable;
+  final String hint;
+}
+
+/// Full LLM catalog for compose standard blocks (not limited to downloaded models).
+///
+/// [query] is passed to llmfit search so any catalog id can be found; no fit
+/// filter — compose may reference models that are tight on the current host.
+final composeCatalogModelsProvider =
+    FutureProvider.family<ComposeCatalogModels, String>((ref, query) async {
+  final trimmed = query.trim();
+
+  List<ModelSuggestion> cached = const [];
+  if (ref.watch(daemonAvailableProvider)) {
+    final listed = ref.watch(loadedModelsProvider).asData?.value;
+    if (listed != null) {
+      cached = [
+        for (final model in listed.cached)
+          if (trimmed.isEmpty ||
+              model.id.toLowerCase().contains(trimmed.toLowerCase()) ||
+              model.name.toLowerCase().contains(trimmed.toLowerCase()))
+            model,
+      ];
+    }
+  }
+
+  if (!ref.watch(daemonAvailableProvider)) {
+    return ComposeCatalogModels(
+      models: _composeCatalogOffline(trimmed, cached),
+      catalogAvailable: false,
+      hint: 'Daemon offline — type any owner/name id, or pick a suggestion.',
+    );
+  }
+
+  ref.watch(daemonInfoProvider.select((async) {
+    final bytes = async.value?.memoryAvailable.toInt() ?? 0;
+    return bytes >> 30;
+  }));
+  final client = ref.watch(grpcClientProvider);
+  try {
+    final reply = await client.findModels(
+      limit: 200,
+      minFit: '',
+      runtime: '',
+      query: trimmed,
+      includeTooTight: true,
+      recommendOnly: false,
+    );
+    if (reply.models.isNotEmpty) {
+      return ComposeCatalogModels(
+        models: _mergeSuggestions(reply.models, cached),
+      );
+    }
+    final message = reply.replyMessage.trim();
+    final missingLlmfit =
+        message.toLowerCase().contains('llmfit') && message.toLowerCase().contains('install');
+    return ComposeCatalogModels(
+      models: _composeCatalogOffline(trimmed, cached),
+      catalogAvailable: false,
+      hint: missingLlmfit
+          ? 'llmfit is not installed (Models → Backends). Type any Hugging Face owner/name id.'
+          : (message.isNotEmpty
+              ? message
+              : 'Catalog browse unavailable. Type any Hugging Face owner/name id.'),
+    );
+  } catch (error) {
+    return ComposeCatalogModels(
+      models: _composeCatalogOffline(trimmed, cached),
+      catalogAvailable: false,
+      hint: '$error',
+    );
+  }
+});
+
+List<ModelSuggestion> _mergeSuggestions(
+  List<ModelSuggestion> primary,
+  List<ModelSuggestion> extra,
+) {
+  final seen = {for (final model in primary) model.id};
+  return [
+    ...primary,
+    for (final model in extra)
+      if (model.id.isNotEmpty && seen.add(model.id)) model,
+  ];
+}
+
+List<ModelSuggestion> _composeCatalogOffline(
+  String trimmed,
+  List<ModelSuggestion> cached,
+) {
+  final needle = trimmed.toLowerCase();
+  final curated = [
+    for (final pick in kCuratedTopPicks)
+      if (trimmed.isEmpty ||
+          pick.query.toLowerCase().contains(needle) ||
+          pick.displayName.toLowerCase().contains(needle) ||
+          pick.provider.toLowerCase().contains(needle))
+        stubFromCurated(pick),
+  ];
+  final merged = _mergeSuggestions(cached, curated);
+  if (trimmed.isNotEmpty && !merged.any((m) => m.id == trimmed)) {
+    return [ModelSuggestion(id: trimmed, name: trimmed), ...merged];
+  }
+  return merged;
+}
+
 final apiKeysProvider = FutureProvider((ref) async {
   if (!ref.watch(daemonAvailableProvider)) {
     return ListApiKeysReply();
   }
   return ref.watch(grpcClientProvider).listApiKeys();
 });
+
+final llmProvidersProvider = FutureProvider((ref) async {
+  if (!ref.watch(daemonAvailableProvider)) {
+    return ListLlmProvidersReply();
+  }
+  return ref.watch(grpcClientProvider).listLlmProviders();
+});
+
+bool isRemoteLlmModel(LoadedModelInfo model) =>
+    model.backend == 'openai-compat' || model.providerId.isNotEmpty;
 
 enum ModelJobStatus { queued, running, done, error }
 

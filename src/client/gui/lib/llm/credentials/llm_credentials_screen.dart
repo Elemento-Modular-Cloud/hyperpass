@@ -118,10 +118,74 @@ class LlmCredentialsScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _addProvider(BuildContext context, WidgetRef ref) async {
+    final draft = await showDialog<_ProviderDraft>(
+      context: context,
+      barrierColor: Brand.barrier,
+      builder: (ctx) => const _ProviderEditorDialog(),
+    );
+    if (draft == null || !context.mounted) return;
+    try {
+      final created = await ref.read(grpcClientProvider).createLlmProvider(
+            label: draft.label,
+            preset: draft.preset,
+            baseUrl: draft.baseUrl,
+            apiKey: draft.apiKey,
+            include: draft.include,
+            exclude: draft.exclude,
+          );
+      ref.invalidate(llmProvidersProvider);
+      ref.invalidate(loadedModelsProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Connected ${created.provider.label} — '
+            '${created.provider.modelCount} models exposed. '
+            'Prompts to these models leave this machine.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
+  Future<void> _editProviderFilters(
+    BuildContext context,
+    WidgetRef ref,
+    LlmProviderInfo provider,
+  ) async {
+    final draft = await showDialog<_ProviderFilterDraft>(
+      context: context,
+      barrierColor: Brand.barrier,
+      builder: (ctx) => _ProviderFilterDialog(provider: provider),
+    );
+    if (draft == null || !context.mounted) return;
+    try {
+      await ref.read(grpcClientProvider).updateLlmProvider(
+            id: provider.id,
+            include: draft.include,
+            exclude: draft.exclude,
+          );
+      ref.invalidate(llmProvidersProvider);
+      ref.invalidate(loadedModelsProvider);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final keys = ref.watch(apiKeysProvider);
+    final providers = ref.watch(llmProvidersProvider);
     final hfToken = ref.watch(daemonSettingProvider(llmHfTokenSettingKey));
     final instances =
         ref.watch(loadedModelsProvider).asData?.value.models.toList(growable: false) ??
@@ -175,6 +239,80 @@ class LlmCredentialsScreen extends ConsumerWidget {
               subtitle: l10n.llmHfTokenHint,
               child: hfToken.when(
                 data: (value) => _HfTokenField(initialValue: value),
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('$e'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SectionCard(
+              title: 'Cloud providers',
+              subtitle:
+                  'OpenAI-compatible APIs (OpenAI, OpenRouter, Anthropic, custom). '
+                  'Models are auto-discovered and exposed on the local OpenAI gateway. '
+                  'Prompts leave this machine.',
+              trailing: LaunchPadButton.primary(
+                onPressed: () => _addProvider(context, ref),
+                compact: true,
+                child: const Text('Add provider'),
+              ),
+              child: providers.when(
+                data: (reply) {
+                  if (reply.providers.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'No cloud providers yet. Add OpenAI, OpenRouter, or a custom /v1 endpoint.',
+                        style: TextStyle(
+                          color: onSurface.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (var i = 0; i < reply.providers.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 10),
+                        _ProviderCard(
+                          provider: reply.providers[i],
+                          onRefresh: () async {
+                            try {
+                              await ref
+                                  .read(grpcClientProvider)
+                                  .refreshLlmProvider(reply.providers[i].id);
+                              ref.invalidate(llmProvidersProvider);
+                              ref.invalidate(loadedModelsProvider);
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('$e')),
+                              );
+                            }
+                          },
+                          onFilters: () => _editProviderFilters(
+                            context,
+                            ref,
+                            reply.providers[i],
+                          ),
+                          onDelete: () async {
+                            try {
+                              await ref
+                                  .read(grpcClientProvider)
+                                  .deleteLlmProvider(reply.providers[i].id);
+                              ref.invalidate(llmProvidersProvider);
+                              ref.invalidate(loadedModelsProvider);
+                              ref.invalidate(apiKeysProvider);
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('$e')),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ],
+                  );
+                },
                 loading: () => const LinearProgressIndicator(),
                 error: (e, _) => Text('$e'),
               ),
@@ -742,6 +880,326 @@ class _HfTokenFieldState extends ConsumerState<_HfTokenField> {
           onPressed: _dirty ? _save : null,
           compact: true,
           child: Text(AppLocalizations.of(context)!.commonSave),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProviderDraft {
+  const _ProviderDraft({
+    required this.label,
+    required this.preset,
+    required this.baseUrl,
+    required this.apiKey,
+    required this.include,
+    required this.exclude,
+  });
+
+  final String label;
+  final String preset;
+  final String baseUrl;
+  final String apiKey;
+  final List<String> include;
+  final List<String> exclude;
+}
+
+class _ProviderFilterDraft {
+  const _ProviderFilterDraft({
+    required this.include,
+    required this.exclude,
+  });
+
+  final List<String> include;
+  final List<String> exclude;
+}
+
+class _ProviderCard extends StatelessWidget {
+  const _ProviderCard({
+    required this.provider,
+    required this.onRefresh,
+    required this.onFilters,
+    required this.onDelete,
+  });
+
+  final LlmProviderInfo provider;
+  final VoidCallback onRefresh;
+  final VoidCallback onFilters;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: onSurface.withValues(alpha: 0.12)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  provider.label.isEmpty ? provider.preset : provider.label,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontWeight: FontWeight.w600,
+                    color: onSurface,
+                  ),
+                ),
+              ),
+              TextButton(onPressed: onFilters, child: const Text('Filters')),
+              TextButton(onPressed: onRefresh, child: const Text('Refresh')),
+              TextButton(
+                onPressed: onDelete,
+                child: Text(
+                  'Remove',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${provider.preset} · ${provider.modelCount} models · key ${provider.keyPrefix}…',
+            style: TextStyle(
+              fontSize: 12,
+              color: onSurface.withValues(alpha: 0.65),
+            ),
+          ),
+          const SizedBox(height: 2),
+          SelectableText(
+            provider.baseUrl,
+            style: TextStyle(
+              fontSize: 12,
+              color: onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+          if (provider.include.isNotEmpty || provider.exclude.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              [
+                if (provider.include.isNotEmpty)
+                  'include: ${provider.include.join(', ')}',
+                if (provider.exclude.isNotEmpty)
+                  'exclude: ${provider.exclude.join(', ')}',
+              ].join(' · '),
+              style: TextStyle(
+                fontSize: 12,
+                color: onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderEditorDialog extends StatefulWidget {
+  const _ProviderEditorDialog();
+
+  @override
+  State<_ProviderEditorDialog> createState() => _ProviderEditorDialogState();
+}
+
+class _ProviderEditorDialogState extends State<_ProviderEditorDialog> {
+  final _label = TextEditingController();
+  final _baseUrl = TextEditingController();
+  final _apiKey = TextEditingController();
+  final _include = TextEditingController();
+  final _exclude = TextEditingController();
+  String _preset = 'openrouter';
+
+  static const _presets = <String, String>{
+    'openai': 'OpenAI',
+    'openrouter': 'OpenRouter',
+    'anthropic': 'Anthropic (OpenAI compat)',
+    'custom': 'Custom /v1 URL',
+  };
+
+  @override
+  void dispose() {
+    _label.dispose();
+    _baseUrl.dispose();
+    _apiKey.dispose();
+    _include.dispose();
+    _exclude.dispose();
+    super.dispose();
+  }
+
+  List<String> _splitGlobs(String raw) => raw
+      .split(RegExp(r'[\s,]+'))
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add cloud provider'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: _preset,
+                decoration: const InputDecoration(labelText: 'Preset'),
+                items: [
+                  for (final e in _presets.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => setState(() => _preset = v ?? 'custom'),
+              ),
+              TextField(
+                controller: _label,
+                decoration: const InputDecoration(labelText: 'Label'),
+              ),
+              if (_preset == 'custom')
+                TextField(
+                  controller: _baseUrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Base URL',
+                    hintText: 'https://example.com/v1',
+                  ),
+                ),
+              TextField(
+                controller: _apiKey,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'API key'),
+              ),
+              TextField(
+                controller: _include,
+                decoration: const InputDecoration(
+                  labelText: 'Include globs (optional)',
+                  hintText: 'gpt-*, anthropic/*',
+                ),
+              ),
+              TextField(
+                controller: _exclude,
+                decoration: const InputDecoration(
+                  labelText: 'Exclude globs (optional)',
+                  hintText: '*-free',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (_apiKey.text.trim().isEmpty) return;
+            if (_preset == 'custom' && _baseUrl.text.trim().isEmpty) return;
+            Navigator.pop(
+              context,
+              _ProviderDraft(
+                label: _label.text.trim(),
+                preset: _preset,
+                baseUrl: _baseUrl.text.trim(),
+                apiKey: _apiKey.text.trim(),
+                include: _splitGlobs(_include.text),
+                exclude: _splitGlobs(_exclude.text),
+              ),
+            );
+          },
+          child: const Text('Connect'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProviderFilterDialog extends StatefulWidget {
+  const _ProviderFilterDialog({required this.provider});
+
+  final LlmProviderInfo provider;
+
+  @override
+  State<_ProviderFilterDialog> createState() => _ProviderFilterDialogState();
+}
+
+class _ProviderFilterDialogState extends State<_ProviderFilterDialog> {
+  late final TextEditingController _include;
+  late final TextEditingController _exclude;
+
+  @override
+  void initState() {
+    super.initState();
+    _include = TextEditingController(text: widget.provider.include.join(', '));
+    _exclude = TextEditingController(text: widget.provider.exclude.join(', '));
+  }
+
+  @override
+  void dispose() {
+    _include.dispose();
+    _exclude.dispose();
+    super.dispose();
+  }
+
+  List<String> _splitGlobs(String raw) => raw
+      .split(RegExp(r'[\s,]+'))
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Filters · ${widget.provider.label}'),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${widget.provider.modelCount} models currently exposed. '
+              'Include/exclude globs are applied on the next refresh.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.7),
+              ),
+            ),
+            TextField(
+              controller: _include,
+              decoration: const InputDecoration(
+                labelText: 'Include globs',
+                hintText: 'empty = all',
+              ),
+            ),
+            TextField(
+              controller: _exclude,
+              decoration: const InputDecoration(labelText: 'Exclude globs'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _ProviderFilterDraft(
+              include: _splitGlobs(_include.text),
+              exclude: _splitGlobs(_exclude.text),
+            ),
+          ),
+          child: const Text('Apply & refresh'),
         ),
       ],
     );

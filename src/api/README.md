@@ -75,12 +75,29 @@ accepted; use `elp llm key create` and `Authorization: Bearer sk-elp-…`.
 
 | Method | Path | Auth | Notes |
 |--------|------|------|-------|
-| GET | `/v1/models` | `Bearer sk-elp-…` | Loaded models for this key |
-| POST | `/v1/chat/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
-| POST | `/v1/completions` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
-| POST | `/v1/embeddings` | `Bearer sk-elp-…` | Proxied to localhost llama-server |
+| GET | `/v1/models` | `Bearer sk-elp-…` | Loaded local + cloud models for this key |
+| POST | `/v1/chat/completions` | `Bearer sk-elp-…` | Local llama-server or OpenAI-compat upstream |
+| POST | `/v1/completions` | `Bearer sk-elp-…` | Same |
+| POST | `/v1/embeddings` | `Bearer sk-elp-…` | Same |
 
 From a VM: `http://192.168.67.1:11434/v1`. Host: `http://127.0.0.1:11434/v1`.
+
+### Cloud / OpenAI-compat passthrough
+
+Add an upstream provider with auto-discovery:
+
+```bash
+elp llm provider add --preset openrouter --key "$OPENROUTER_API_KEY" --include 'anthropic/*'
+elp llm provider list
+elp llm provider refresh <id>
+```
+
+Presets: `openai`, `openrouter`, `anthropic` (OpenAI-compatible endpoint), or
+`--base-url https://…/v1` for custom. The daemon calls upstream `GET /v1/models`,
+applies include/exclude globs, and exposes matching models beside local ones.
+Guests still authenticate with `sk-elp-` keys; upstream API keys stay on the host
+and never appear in `list` replies. Prompts for `openai-compat` models leave the
+machine.
 
 Matcher extras (no auth): `/healthz`, `/readyz`, `/fingerprint`, `/ca.crt`, `/api/v1/authenticate/cert`.
 Matcher extra (Bearer): `/v1/instances`. Proxy extras: `/healthz`, `/readyz`.

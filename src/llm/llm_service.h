@@ -22,6 +22,7 @@
 #include "llm_load_params.h"
 #include "llmfit_advisor.h"
 #include "model_vault.h"
+#include "provider_store.h"
 
 #include <multipass/path.h>
 #include <multipass/process/process.h>
@@ -68,6 +69,10 @@ struct LoadedSession
     std::unique_ptr<Process> process;
     std::unique_ptr<QThread> runner_thread;
     std::chrono::steady_clock::time_point last_used{std::chrono::steady_clock::now()};
+    // OpenAI-compat passthrough (backend == openai_compat_backend).
+    std::string provider_id;
+    std::string upstream_model_id;
+    std::string owned_by;
 };
 
 class LlmService : public QObject
@@ -123,6 +128,26 @@ public:
     void stream_model_logs(
         const StreamModelLogsRequest* request,
         grpc::ServerReaderWriterInterface<StreamModelLogsReply, StreamModelLogsRequest>* server);
+    void create_llm_provider(
+        const CreateLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<CreateLlmProviderReply, CreateLlmProviderRequest>* server);
+    void list_llm_providers(
+        const ListLlmProvidersRequest* request,
+        grpc::ServerReaderWriterInterface<ListLlmProvidersReply, ListLlmProvidersRequest>* server);
+    void update_llm_provider(
+        const UpdateLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<UpdateLlmProviderReply, UpdateLlmProviderRequest>* server);
+    void delete_llm_provider(
+        const DeleteLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<DeleteLlmProviderReply, DeleteLlmProviderRequest>* server);
+    void refresh_llm_provider(
+        const RefreshLlmProviderRequest* request,
+        grpc::ServerReaderWriterInterface<RefreshLlmProviderReply, RefreshLlmProviderRequest>*
+            server);
+    void resolve_model_route(
+        const ResolveModelRouteRequest* request,
+        grpc::ServerReaderWriterInterface<ResolveModelRouteReply, ResolveModelRouteRequest>*
+            server);
 
     void unload_instance(const std::string& instance_id);
     void unload_all_for_model(const std::string& model_id);
@@ -164,6 +189,7 @@ private:
     void persist_sessions() const;
     QString sessions_file() const;
     bool session_is_live(const LoadedSession& session) const;
+    bool session_is_remote(const LoadedSession& session) const;
     void restore_session(LoadedSession session);
     void reap_dead_sessions();
     void idle_unload_tick();
@@ -176,10 +202,22 @@ private:
     static void stop_process(Process* process);
     static void stop_process_on_thread(Process* process);
 
+    void fill_loaded_model_info(LoadedModelInfo* info, const LoadedSession& session) const;
+    LlmProviderInfo provider_info(const LlmProviderRecord& rec) const;
+    struct RefreshResult
+    {
+        int added{0};
+        int removed{0};
+        int kept{0};
+    };
+    RefreshResult refresh_provider_models(const LlmProviderRecord& provider);
+    void remove_provider_sessions(const std::string& provider_id);
+
     ResourcePool& pool;
     ModelVault vault;
     LlmfitAdvisor advisor;
     ApiKeyStore keys;
+    ProviderStore providers;
     LlmActivityLog activity_log;
     URLDownloader& downloader;
     Path data_directory;

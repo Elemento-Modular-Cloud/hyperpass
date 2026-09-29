@@ -201,15 +201,23 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                                 "STATE");
             for (const auto& model : reply.models())
             {
+                const auto port_s =
+                    model.port() > 0 ? std::to_string(model.port()) : std::string{"-"};
+                const auto ram_s =
+                    model.memory_claimed() > 0
+                        ? mp::MemorySize::from_bytes(
+                              static_cast<long long>(model.memory_claimed()))
+                              .human_readable()
+                        : std::string{"-"};
+                const auto ctx_s =
+                    model.ctx_size() > 0 ? std::to_string(model.ctx_size()) : std::string{"-"};
                 cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>8} {:>10} {}\n",
                                     model.openai_id(),
                                     model.instance_id(),
                                     model.backend(),
-                                    model.port(),
-                                    mp::MemorySize::from_bytes(
-                                        static_cast<long long>(model.memory_claimed()))
-                                        .human_readable(),
-                                    model.ctx_size() > 0 ? model.ctx_size() : 4096,
+                                    port_s,
+                                    ram_s,
+                                    ctx_s,
                                     model.max_tokens() > 0 ? std::to_string(model.max_tokens())
                                                            : "-",
                                     model.state());
@@ -337,6 +345,173 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         return ReturnCode::CommandLineError;
     }
 
+    if (subcommand == "provider")
+    {
+        const auto action = key_id.isEmpty() ? model_id : key_id;
+        if (action == "add")
+        {
+            CreateLlmProviderRequest request;
+            request.set_verbosity_level(verbosity);
+            request.set_label(key_label.toStdString());
+            request.set_preset(provider_preset.toStdString());
+            request.set_base_url(provider_base_url.toStdString());
+            request.set_api_key(provider_api_key.toStdString());
+            request.set_refresh(true);
+            for (const auto& pat : provider_include)
+                request.add_include(pat.toStdString());
+            for (const auto& pat : provider_exclude)
+                request.add_exclude(pat.toStdString());
+            AnimatedSpinner spinner{cout};
+            spinner.start("Connecting provider ");
+            auto on_success = [this, &spinner](CreateLlmProviderReply& reply) -> ReturnCodeVariant {
+                spinner.stop();
+                const auto& p = reply.provider();
+                cout << fmt::format("Provider {} ({}) — {} models exposed\n",
+                                    p.label(),
+                                    p.id(),
+                                    p.model_count());
+                cout << fmt::format("  base_url: {}\n", p.base_url());
+                cout << fmt::format("  key:      {}…\n", p.key_prefix());
+                if (!reply.log_line().empty())
+                    cout << reply.log_line() << "\n";
+                return ReturnCode::Ok;
+            };
+            return dispatch(&RpcMethod::create_llm_provider,
+                            request,
+                            on_success,
+                            [&](grpc::Status& s) {
+                                spinner.stop();
+                                return fail(cerr, s, cmd_name);
+                            });
+        }
+        if (action == "list")
+        {
+            ListLlmProvidersRequest request;
+            request.set_verbosity_level(verbosity);
+            auto on_success = [this](ListLlmProvidersReply& reply) -> ReturnCodeVariant {
+                cout << fmt::format("{:<38} {:<14} {:>6} {}\n", "ID", "PRESET", "MODELS", "LABEL");
+                for (const auto& p : reply.providers())
+                {
+                    cout << fmt::format("{:<38} {:<14} {:>6} {}\n",
+                                        p.id(),
+                                        p.preset(),
+                                        p.model_count(),
+                                        p.label());
+                    cout << fmt::format("  {}\n", p.base_url());
+                }
+                return ReturnCode::Ok;
+            };
+            return dispatch(&RpcMethod::list_llm_providers,
+                            request,
+                            on_success,
+                            [&](grpc::Status& s) { return fail(cerr, s, cmd_name); });
+        }
+        if (action == "update")
+        {
+            if (quant.isEmpty())
+            {
+                cerr << "Usage: elp llm provider update <id> [--label ...] [--base-url ...] "
+                        "[--key ...] [--include ...] [--exclude ...]\n";
+                return ReturnCode::CommandLineError;
+            }
+            UpdateLlmProviderRequest request;
+            request.set_verbosity_level(verbosity);
+            request.set_id(quant.toStdString());
+            if (!key_label.isEmpty())
+            {
+                request.set_label(key_label.toStdString());
+                request.set_update_label(true);
+            }
+            if (!provider_base_url.isEmpty())
+            {
+                request.set_base_url(provider_base_url.toStdString());
+                request.set_update_base_url(true);
+            }
+            if (!provider_api_key.isEmpty())
+            {
+                request.set_api_key(provider_api_key.toStdString());
+                request.set_update_api_key(true);
+            }
+            if (!provider_include.isEmpty())
+            {
+                for (const auto& pat : provider_include)
+                    request.add_include(pat.toStdString());
+                request.set_update_include(true);
+            }
+            if (!provider_exclude.isEmpty())
+            {
+                for (const auto& pat : provider_exclude)
+                    request.add_exclude(pat.toStdString());
+                request.set_update_exclude(true);
+            }
+            request.set_refresh(true);
+            auto on_success = [this](UpdateLlmProviderReply& reply) -> ReturnCodeVariant {
+                cout << fmt::format("Updated {} — {} models\n",
+                                    reply.provider().id(),
+                                    reply.provider().model_count());
+                return ReturnCode::Ok;
+            };
+            return dispatch(&RpcMethod::update_llm_provider,
+                            request,
+                            on_success,
+                            [&](grpc::Status& s) { return fail(cerr, s, cmd_name); });
+        }
+        if (action == "rm" || action == "delete")
+        {
+            if (quant.isEmpty())
+            {
+                cerr << "Usage: elp llm provider rm <id>\n";
+                return ReturnCode::CommandLineError;
+            }
+            DeleteLlmProviderRequest request;
+            request.set_verbosity_level(verbosity);
+            request.set_id(quant.toStdString());
+            auto on_success = [this](DeleteLlmProviderReply& reply) -> ReturnCodeVariant {
+                cout << fmt::format("Removed provider {} ({} models)\n",
+                                    reply.id(),
+                                    reply.models_removed());
+                return ReturnCode::Ok;
+            };
+            return dispatch(&RpcMethod::delete_llm_provider,
+                            request,
+                            on_success,
+                            [&](grpc::Status& s) { return fail(cerr, s, cmd_name); });
+        }
+        if (action == "refresh")
+        {
+            if (quant.isEmpty())
+            {
+                cerr << "Usage: elp llm provider refresh <id>\n";
+                return ReturnCode::CommandLineError;
+            }
+            RefreshLlmProviderRequest request;
+            request.set_verbosity_level(verbosity);
+            request.set_id(quant.toStdString());
+            AnimatedSpinner spinner{cout};
+            spinner.start("Refreshing provider models ");
+            auto on_success = [this, &spinner](RefreshLlmProviderReply& reply) -> ReturnCodeVariant {
+                spinner.stop();
+                cout << fmt::format("Refreshed {}: +{} -{} kept {}\n",
+                                    reply.provider().id(),
+                                    reply.models_added(),
+                                    reply.models_removed(),
+                                    reply.models_kept());
+                return ReturnCode::Ok;
+            };
+            return dispatch(&RpcMethod::refresh_llm_provider,
+                            request,
+                            on_success,
+                            [&](grpc::Status& s) {
+                                spinner.stop();
+                                return fail(cerr, s, cmd_name);
+                            });
+        }
+        cerr << "Usage: elp llm provider add|list|update|rm|refresh\n";
+        cerr << "  add --key SECRET [--preset openai|openrouter|anthropic] [--base-url URL]\n";
+        cerr << "      [--label NAME] [--include GLOB] [--exclude GLOB]\n";
+        return ReturnCode::CommandLineError;
+    }
+
     cerr << "Unknown llm subcommand\n";
     return ReturnCode::CommandLineError;
 }
@@ -354,14 +529,16 @@ QString cmd::Llm::short_help() const
 QString cmd::Llm::description() const
 {
     return QStringLiteral(
-        "Manage local LLM inference behind the OpenAI-compatible /v1 API.\n\n"
-        "Subcommands: find, pull, load, unload, list, cache, delete, key create|list|revoke");
+        "Manage local and cloud LLM inference behind the OpenAI-compatible /v1 API.\n\n"
+        "Subcommands: find, pull, load, unload, list, cache, delete, key create|list|revoke,\n"
+        "             provider add|list|update|rm|refresh");
 }
 
 mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
 {
     parser->addPositionalArgument("subcommand",
-                                  "find | pull | load | unload | list | cache | delete | key",
+                                  "find | pull | load | unload | list | cache | delete | key | "
+                                  "provider",
                                   "<subcommand>");
     parser->addPositionalArgument("args", "Subcommand arguments", "[<args>...]");
     QCommandLineOption use_case_opt{"use-case", "Recommendation use case", "use-case"};
@@ -392,12 +569,23 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     QCommandLineOption moe_opt{"moe-offload", "MoE expert placement: auto, cpu, or off", "mode"};
     QCommandLineOption cpu_moe_opt{"cpu-moe", "Keep MoE expert weights on CPU"};
     QCommandLineOption n_cpu_moe_opt{"n-cpu-moe", "Keep the first N MoE layers on CPU", "n"};
-    QCommandLineOption label_opt{"label", "API key label", "label"};
+    QCommandLineOption label_opt{"label", "API key / provider label", "label"};
     QCommandLineOption instance_opt{"instance", "Bind key to a loaded LLM instance", "instance"};
     QCommandLineOption intent_opt{
         "intent", "Join (or create) this named intent when loading", "intent"};
     QCommandLineOption intent_role_opt{
         "intent-role", "This instance's role within --intent (required if --intent is set)", "role"};
+    QCommandLineOption preset_opt{"preset",
+                                  "Cloud provider preset: openai, openrouter, anthropic",
+                                  "preset"};
+    QCommandLineOption base_url_opt{"base-url", "OpenAI-compatible API base URL", "url"};
+    QCommandLineOption api_key_opt{{"key", "api-key"}, "Upstream provider API key", "secret"};
+    QCommandLineOption include_opt{"include",
+                                   "Only expose model ids matching this glob (repeatable)",
+                                   "glob"};
+    QCommandLineOption exclude_opt{"exclude",
+                                   "Hide model ids matching this glob (repeatable)",
+                                   "glob"};
     parser->addOption(use_case_opt);
     parser->addOption(limit_opt);
     parser->addOption(query_opt);
@@ -424,6 +612,11 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     parser->addOption(instance_opt);
     parser->addOption(intent_opt);
     parser->addOption(intent_role_opt);
+    parser->addOption(preset_opt);
+    parser->addOption(base_url_opt);
+    parser->addOption(api_key_opt);
+    parser->addOption(include_opt);
+    parser->addOption(exclude_opt);
 
     auto status = parser->commandParse(this);
     if (status != ParseCode::Ok)
@@ -432,7 +625,8 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     const auto pos = parser->positionalArguments();
     if (pos.isEmpty())
     {
-        cerr << "Missing subcommand. Try: find, pull, load, unload, list, cache, delete, key\n";
+        cerr << "Missing subcommand. Try: find, pull, load, unload, list, cache, delete, key, "
+                "provider\n";
         return ParseCode::CommandLineError;
     }
     subcommand = pos.at(0);
@@ -440,12 +634,12 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         model_id = pos.at(1);
     if (pos.size() > 2)
         key_id = pos.at(1);
-    if (subcommand == "key")
+    if (subcommand == "key" || subcommand == "provider")
     {
         if (pos.size() > 1)
             key_id = pos.at(1);
         if (pos.size() > 2)
-            quant = pos.at(2); // revoke target
+            quant = pos.at(2); // revoke/update/rm/refresh target id
         model_id = key_id;
     }
     if (parser->isSet(use_case_opt))
@@ -505,6 +699,16 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         intent = parser->value(intent_opt);
     if (parser->isSet(intent_role_opt))
         intent_role = parser->value(intent_role_opt);
+    if (parser->isSet(preset_opt))
+        provider_preset = parser->value(preset_opt);
+    if (parser->isSet(base_url_opt))
+        provider_base_url = parser->value(base_url_opt);
+    if (parser->isSet(api_key_opt))
+        provider_api_key = parser->value(api_key_opt);
+    if (parser->isSet(include_opt))
+        provider_include = parser->values(include_opt);
+    if (parser->isSet(exclude_opt))
+        provider_exclude = parser->values(exclude_opt);
 
     const QStringList needs_id{"pull", "load", "unload", "delete", "rm"};
     if (needs_id.contains(subcommand) && model_id.isEmpty())
@@ -515,6 +719,12 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     if (subcommand == "load" && !intent.isEmpty() && intent_role.isEmpty())
     {
         cerr << "--intent requires --intent-role\n";
+        return ParseCode::CommandLineError;
+    }
+    if (subcommand == "provider" && (key_id == "add" || model_id == "add") &&
+        provider_api_key.isEmpty())
+    {
+        cerr << "provider add requires --key\n";
         return ParseCode::CommandLineError;
     }
     return ParseCode::Ok;

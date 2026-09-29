@@ -62,6 +62,7 @@ add_executable(multipass_cpp_tests
   temp_file.cpp
   test_alias_dict.cpp
   test_api_key_store.cpp
+  test_provider_store.cpp
   test_argparser.cpp
   test_base_availability_zone.cpp
   test_base_availability_zone_manager.cpp

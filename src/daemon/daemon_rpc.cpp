@@ -919,6 +919,84 @@ grpc::Status mp::DaemonRpc::stream_model_logs(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::create_llm_provider(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<CreateLlmProviderReply, CreateLlmProviderRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_create_llm_provider,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::list_llm_providers(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ListLlmProvidersReply, ListLlmProvidersRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_list_llm_providers,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::update_llm_provider(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<UpdateLlmProviderReply, UpdateLlmProviderRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_update_llm_provider,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::delete_llm_provider(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<DeleteLlmProviderReply, DeleteLlmProviderRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_delete_llm_provider,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::refresh_llm_provider(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<RefreshLlmProviderReply, RefreshLlmProviderRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_refresh_llm_provider,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
+grpc::Status mp::DaemonRpc::resolve_model_route(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ResolveModelRouteReply, ResolveModelRouteRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_resolve_model_route,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 template <typename T, typename U, typename OperationSignal>
 grpc::Status
 mp::DaemonRpc::verify_client_and_dispatch_operation(OperationSignal signal,

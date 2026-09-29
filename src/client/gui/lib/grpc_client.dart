@@ -380,6 +380,76 @@ class GrpcClient {
     ).then((r) => r!);
   }
 
+  Future<CreateLlmProviderReply> createLlmProvider({
+    String label = '',
+    String preset = '',
+    String baseUrl = '',
+    required String apiKey,
+    Iterable<String> include = const [],
+    Iterable<String> exclude = const [],
+    bool refresh = true,
+  }) {
+    return doRpc(
+      _client.create_llm_provider,
+      CreateLlmProviderRequest(
+        label: label,
+        preset: preset,
+        baseUrl: baseUrl,
+        apiKey: apiKey,
+        include: include,
+        exclude: exclude,
+        refresh: refresh,
+      ),
+    ).then((r) => r!);
+  }
+
+  Future<ListLlmProvidersReply> listLlmProviders() {
+    return doRpc(_client.list_llm_providers, ListLlmProvidersRequest())
+        .then((r) => r!);
+  }
+
+  Future<UpdateLlmProviderReply> updateLlmProvider({
+    required String id,
+    String? label,
+    String? baseUrl,
+    String? apiKey,
+    Iterable<String>? include,
+    Iterable<String>? exclude,
+    bool refresh = true,
+  }) {
+    return doRpc(
+      _client.update_llm_provider,
+      UpdateLlmProviderRequest(
+        id: id,
+        label: label,
+        updateLabel: label != null,
+        baseUrl: baseUrl,
+        updateBaseUrl: baseUrl != null,
+        apiKey: apiKey,
+        updateApiKey: apiKey != null,
+        include: include,
+        updateInclude: include != null,
+        exclude: exclude,
+        updateExclude: exclude != null,
+        refresh: refresh,
+      ),
+    ).then((r) => r!);
+  }
+
+  Future<DeleteLlmProviderReply> deleteLlmProvider(String id) {
+    return doRpc(
+      _client.delete_llm_provider,
+      DeleteLlmProviderRequest(id: id),
+    ).then((r) => r!);
+  }
+
+  Future<RefreshLlmProviderReply> refreshLlmProvider(String id) {
+    return doRpc(
+      _client.refresh_llm_provider,
+      RefreshLlmProviderRequest(id: id),
+    ).then((r) => r!);
+  }
+
   Stream<StreamModelLogsReply> streamModelLogs(String instanceId) {
     return _client.stream_model_logs(
       Stream.value(StreamModelLogsRequest(instanceId: instanceId)),

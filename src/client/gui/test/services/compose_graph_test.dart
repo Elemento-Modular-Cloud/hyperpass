@@ -838,6 +838,18 @@ requires: {}
       y: 0,
     );
     expect(composeResourceFooter(llm), 'llamacpp · 16384 ctx');
+
+    const cloud = ComposeNode(
+      id: 'cloud',
+      role: 'gpt',
+      serviceId: 'gpt-4o',
+      kind: ComposeNodeKind.llm,
+      llmMode: ComposeLlmMode.cloud,
+      modelId: 'gpt-4o',
+      x: 0,
+      y: 0,
+    );
+    expect(composeResourceFooter(cloud), 'cloud · gpt-4o');
     expect(parseComposeByteSize('5GiB'), 5 * composeGibibyte);
   });
 }

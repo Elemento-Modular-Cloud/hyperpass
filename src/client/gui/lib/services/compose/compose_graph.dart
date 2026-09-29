@@ -16,6 +16,19 @@ enum ComposeNodeKind {
   }
 }
 
+/// Local catalog LLM vs cloud (OpenAI-compat provider) block on the canvas.
+enum ComposeLlmMode {
+  standard,
+  cloud;
+
+  static ComposeLlmMode parse(String? raw) {
+    return switch (raw) {
+      'cloud' => ComposeLlmMode.cloud,
+      _ => ComposeLlmMode.standard,
+    };
+  }
+}
+
 /// One member on the compose canvas (marketplace service, VM image, or LLM).
 class ComposeNode {
   const ComposeNode({
@@ -25,6 +38,7 @@ class ComposeNode {
     required this.x,
     required this.y,
     this.kind = ComposeNodeKind.service,
+    this.llmMode = ComposeLlmMode.standard,
     this.image = '',
     this.modelId = '',
     this.quant = '',
@@ -47,6 +61,9 @@ class ComposeNode {
   /// Catalog id (service), image alias (VM), or model id (LLM).
   final String serviceId;
   final ComposeNodeKind kind;
+
+  /// For [ComposeNodeKind.llm]: catalog (standard) vs provider (cloud) block.
+  final ComposeLlmMode llmMode;
   final String image;
   final String modelId;
   final String quant;
@@ -74,6 +91,9 @@ class ComposeNode {
 
   bool get isService => kind == ComposeNodeKind.service;
 
+  bool get isCloudLlm =>
+      kind == ComposeNodeKind.llm && llmMode == ComposeLlmMode.cloud;
+
   String get displayLabel {
     if (label.isNotEmpty) return label;
     if (kind == ComposeNodeKind.llm && modelId.isNotEmpty) return modelId;
@@ -86,6 +106,7 @@ class ComposeNode {
     String? role,
     String? serviceId,
     ComposeNodeKind? kind,
+    ComposeLlmMode? llmMode,
     String? image,
     String? modelId,
     String? quant,
@@ -106,6 +127,7 @@ class ComposeNode {
       role: role ?? this.role,
       serviceId: serviceId ?? this.serviceId,
       kind: kind ?? this.kind,
+      llmMode: llmMode ?? this.llmMode,
       image: image ?? this.image,
       modelId: modelId ?? this.modelId,
       quant: quant ?? this.quant,
@@ -128,6 +150,7 @@ class ComposeNode {
         'role': role,
         'serviceId': serviceId,
         'kind': kind.name,
+        'llmMode': llmMode.name,
         'image': image,
         'modelId': modelId,
         'quant': quant,
@@ -157,6 +180,7 @@ class ComposeNode {
       role: '${json['role']}',
       serviceId: '${json['serviceId']}',
       kind: ComposeNodeKind.parse(json['kind'] as String?),
+      llmMode: ComposeLlmMode.parse(json['llmMode'] as String?),
       image: '${json['image'] ?? ''}',
       modelId: '${json['modelId'] ?? ''}',
       quant: '${json['quant'] ?? ''}',
@@ -258,6 +282,12 @@ String formatComposeGib(int bytes) {
 
 String composeResourceFooter(ComposeNode node, [MarketplaceService? service]) {
   if (node.kind == ComposeNodeKind.llm) {
+    if (node.isCloudLlm) {
+      return [
+        'cloud',
+        if (node.modelId.isNotEmpty) node.modelId,
+      ].join(' · ');
+    }
     return [
       if (node.quant.isNotEmpty) node.quant,
       composeResolvedRuntime(node),

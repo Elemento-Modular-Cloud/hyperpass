@@ -102,10 +102,10 @@ ComposeDeployHost composeDeployHostFor(Ref ref) {
         ComposeNodeKind.llm => IntentMemberRequest(
             role: node.role,
             modelId: node.modelId,
-            quant: node.quant,
-            runtime: llmRuntime,
-            ctxSize: composeResolvedCtxSize(node),
-            maxTokens: node.maxTokens,
+            quant: node.isCloudLlm ? '' : node.quant,
+            runtime: node.isCloudLlm ? 'openai-compat' : llmRuntime,
+            ctxSize: node.isCloudLlm ? 0 : composeResolvedCtxSize(node),
+            maxTokens: node.isCloudLlm ? 0 : node.maxTokens,
           ),
       };
       await grpc.intentAddMember(

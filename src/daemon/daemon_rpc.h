@@ -243,6 +243,30 @@ signals:
         const StreamModelLogsRequest* request,
         grpc::ServerReaderWriter<StreamModelLogsReply, StreamModelLogsRequest>* server,
         DaemonRpcContext* context);
+    void on_create_llm_provider(
+        const CreateLlmProviderRequest* request,
+        grpc::ServerReaderWriter<CreateLlmProviderReply, CreateLlmProviderRequest>* server,
+        DaemonRpcContext* context);
+    void on_list_llm_providers(
+        const ListLlmProvidersRequest* request,
+        grpc::ServerReaderWriter<ListLlmProvidersReply, ListLlmProvidersRequest>* server,
+        DaemonRpcContext* context);
+    void on_update_llm_provider(
+        const UpdateLlmProviderRequest* request,
+        grpc::ServerReaderWriter<UpdateLlmProviderReply, UpdateLlmProviderRequest>* server,
+        DaemonRpcContext* context);
+    void on_delete_llm_provider(
+        const DeleteLlmProviderRequest* request,
+        grpc::ServerReaderWriter<DeleteLlmProviderReply, DeleteLlmProviderRequest>* server,
+        DaemonRpcContext* context);
+    void on_refresh_llm_provider(
+        const RefreshLlmProviderRequest* request,
+        grpc::ServerReaderWriter<RefreshLlmProviderReply, RefreshLlmProviderRequest>* server,
+        DaemonRpcContext* context);
+    void on_resolve_model_route(
+        const ResolveModelRouteRequest* request,
+        grpc::ServerReaderWriter<ResolveModelRouteReply, ResolveModelRouteRequest>* server,
+        DaemonRpcContext* context);
 
 private:
     template <typename T, typename U, typename OperationSignal>
@@ -410,5 +434,25 @@ protected:
     grpc::Status stream_model_logs(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<StreamModelLogsReply, StreamModelLogsRequest>* server) override;
+    grpc::Status create_llm_provider(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<CreateLlmProviderReply, CreateLlmProviderRequest>* server) override;
+    grpc::Status list_llm_providers(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ListLlmProvidersReply, ListLlmProvidersRequest>* server) override;
+    grpc::Status update_llm_provider(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<UpdateLlmProviderReply, UpdateLlmProviderRequest>* server) override;
+    grpc::Status delete_llm_provider(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<DeleteLlmProviderReply, DeleteLlmProviderRequest>* server) override;
+    grpc::Status refresh_llm_provider(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<RefreshLlmProviderReply, RefreshLlmProviderRequest>* server)
+        override;
+    grpc::Status resolve_model_route(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ResolveModelRouteReply, ResolveModelRouteRequest>* server)
+        override;
 };
 } // namespace multipass
