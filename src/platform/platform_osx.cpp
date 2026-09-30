@@ -42,7 +42,7 @@
 #include "shared/macos/process_factory.h"
 #include "shared/sshfs_server_process_spec.h"
 #include <daemon/default_vm_image_vault.h>
-#include <default_update_prompt.h>
+#include <disabled_update_prompt.h>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -361,7 +361,8 @@ mp::logging::Logger::UPtr mp::platform::make_logger(mp::logging::Level level)
 
 mp::UpdatePrompt::UPtr mp::platform::make_update_prompt()
 {
-    return std::make_unique<DefaultUpdatePrompt>();
+    // Temporarily disabled: still pointed at Canonical Multipass releases.
+    return std::make_unique<DisabledUpdatePrompt>();
 }
 
 bool mp::platform::Platform::link(const char* target, const char* link) const

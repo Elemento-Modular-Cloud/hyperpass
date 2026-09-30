@@ -41,7 +41,7 @@
 #include "shared/windows/wchar_conversion.h"
 #include "shared/windows/wsa_init_wrapper.h"
 #include <daemon/default_vm_image_vault.h>
-#include <default_update_prompt.h>
+#include <disabled_update_prompt.h>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -971,7 +971,8 @@ mp::logging::Logger::UPtr mp::platform::make_logger(mp::logging::Level level)
 
 mp::UpdatePrompt::UPtr mp::platform::make_update_prompt()
 {
-    return std::make_unique<DefaultUpdatePrompt>();
+    // Temporarily disabled: still pointed at Canonical Multipass releases.
+    return std::make_unique<DisabledUpdatePrompt>();
 }
 
 int mp::platform::Platform::chown(const char* path, unsigned int uid, unsigned int gid) const
