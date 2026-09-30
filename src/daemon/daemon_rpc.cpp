@@ -737,6 +737,19 @@ grpc::Status mp::DaemonRpc::find_models(
                                                 server);
 }
 
+grpc::Status mp::DaemonRpc::list_model_files(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<ListModelFilesReply, ListModelFilesRequest>* server)
+{
+    return verify_client_and_dispatch_operation(std::bind(&DaemonRpc::on_list_model_files,
+                                                          this,
+                                                          std::placeholders::_1,
+                                                          std::placeholders::_2,
+                                                          std::placeholders::_3),
+                                                client_cert_from(context),
+                                                server);
+}
+
 grpc::Status mp::DaemonRpc::pull_model(
     grpc::ServerContext* context,
     grpc::ServerReaderWriter<PullModelReply, PullModelRequest>* server)

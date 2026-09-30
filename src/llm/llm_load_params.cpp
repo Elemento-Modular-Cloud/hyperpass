@@ -143,6 +143,13 @@ mp::ResolvedLlmLoad mp::resolve_llm_load(const LoadModelRequest& request, bool g
     if (out.llama.n_cpu_moe >= 0)
         echoed.set_n_cpu_moe(out.llama.n_cpu_moe);
 
+    if (!p.dtype().empty())
+        echoed.set_dtype(p.dtype());
+    if (p.has_gpu_memory_utilization())
+        echoed.set_gpu_memory_utilization(p.gpu_memory_utilization());
+    if (p.has_max_model_len())
+        echoed.set_max_model_len(p.max_model_len());
+
     return out;
 }
 
@@ -202,6 +209,12 @@ QJsonObject mp::llm_load_params_to_json(const LlmLoadParams& params)
         obj["moe_offload"] = QString::fromStdString(params.moe_offload());
     if (params.has_n_cpu_moe())
         obj["n_cpu_moe"] = params.n_cpu_moe();
+    if (!params.dtype().empty())
+        obj["dtype"] = QString::fromStdString(params.dtype());
+    if (params.has_gpu_memory_utilization())
+        obj["gpu_memory_utilization"] = params.gpu_memory_utilization();
+    if (params.has_max_model_len())
+        obj["max_model_len"] = params.max_model_len();
     return obj;
 }
 
@@ -240,5 +253,11 @@ mp::LlmLoadParams mp::llm_load_params_from_json(const QJsonObject& obj)
         params.set_moe_offload(obj.value("moe_offload").toString().toStdString());
     if (obj.contains("n_cpu_moe"))
         params.set_n_cpu_moe(obj.value("n_cpu_moe").toInt());
+    if (obj.contains("dtype"))
+        params.set_dtype(obj.value("dtype").toString().toStdString());
+    if (obj.contains("gpu_memory_utilization"))
+        params.set_gpu_memory_utilization(obj.value("gpu_memory_utilization").toDouble());
+    if (obj.contains("max_model_len"))
+        params.set_max_model_len(obj.value("max_model_len").toInt());
     return params;
 }

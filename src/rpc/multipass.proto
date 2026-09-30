@@ -64,6 +64,7 @@ service Rpc {
     rpc remove_port_forward (stream RemovePortForwardRequest) returns (stream RemovePortForwardReply);
 
     rpc find_models (stream FindModelsRequest) returns (stream FindModelsReply);
+    rpc list_model_files (stream ListModelFilesRequest) returns (stream ListModelFilesReply);
     rpc pull_model (stream PullModelRequest) returns (stream PullModelReply);
     rpc load_model (stream LoadModelRequest) returns (stream LoadModelReply);
     rpc unload_model (stream UnloadModelRequest) returns (stream UnloadModelReply);
@@ -925,6 +926,10 @@ message ModelSuggestion {
     string release_date = 19;
     string category = 20;
     string path = 21;
+    // Artifact format: gguf | mlx | hf | onnx (empty = inferred from runtime).
+    string format = 22;
+    // Runners that can load this suggestion (llamacpp, mlx, vllm, …).
+    repeated string supported_runtimes = 23;
 }
 
 message FindModelsRequest {
@@ -950,6 +955,10 @@ message PullModelRequest {
     string quant = 2;
     int32 verbosity_level = 3;
     string hf_repo = 4;
+    // Artifact format: gguf | mlx | hf (empty = gguf).
+    string format = 5;
+    // Exact GGUF filename when known (skips llmfit file pick).
+    string filename = 6;
 }
 
 message PullModelReply {
@@ -958,6 +967,26 @@ message PullModelReply {
     LaunchProgress launch_progress = 3;
     string model_id = 4;
     string path = 5;
+}
+
+message ModelFileEntry {
+    string filename = 1;
+    string quant = 2;
+}
+
+message ListModelFilesRequest {
+    string model_id = 1;
+    string hf_repo = 2;
+    string quant = 3;
+    int32 verbosity_level = 4;
+}
+
+message ListModelFilesReply {
+    string log_line = 1;
+    string reply_message = 2;
+    string repo = 3;
+    repeated ModelFileEntry files = 4;
+    string mmproj_filename = 5;
 }
 
 // Runtime knobs for llama-server. Empty / unset fields mean "apply daemon defaults".
@@ -979,6 +1008,10 @@ message LlmLoadParams {
     string load_mode = 14;     // "", "auto", "mmap", "mlock", "mmap+mlock"
     string moe_offload = 15;   // "", "auto", "cpu", "off"
     optional int32 n_cpu_moe = 16;
+    // vLLM-oriented knobs (ignored by llama.cpp / MLX).
+    string dtype = 17;                              // "", "auto", "float16", "bfloat16", …
+    optional double gpu_memory_utilization = 18;    // 0–1
+    optional int32 max_model_len = 19;
 }
 
 message LoadModelRequest {

@@ -39,6 +39,19 @@ struct ResolvedGguf
     std::string url;
 };
 
+struct GgufFileEntry
+{
+    std::string filename;
+    std::string quant;
+};
+
+struct GgufFileList
+{
+    std::string repo;
+    std::string mmproj_filename;
+    std::vector<GgufFileEntry> files;
+};
+
 class LlmfitAdvisor
 {
 public:
@@ -66,6 +79,9 @@ public:
     std::optional<ResolvedGguf> resolve(const std::string& model_id,
                                         const std::string& quant,
                                         const std::string& hf_repo = {});
+
+    std::optional<GgufFileList> list_gguf_files(const std::string& model_id,
+                                                const std::string& hf_repo = {});
 
     QString binary_path() const;
     std::string missing_binary_hint() const;

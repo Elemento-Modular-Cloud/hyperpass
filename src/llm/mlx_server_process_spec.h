@@ -25,20 +25,29 @@
 namespace multipass
 {
 
+struct MlxServerOptions
+{
+    QString program;
+    QString model_path;
+    int port{0};
+    /// Directory for huggingface_hub cache (HF_HUB_CACHE). Created if missing.
+    QString hf_cache_dir;
+    QString hf_token;
+};
+
 class MlxServerProcessSpec : public ProcessSpec
 {
 public:
-    MlxServerProcessSpec(QString program, QString model_path, int port);
+    explicit MlxServerProcessSpec(MlxServerOptions options);
 
     QString program() const override;
     QStringList arguments() const override;
+    QProcessEnvironment environment() const override;
     QString apparmor_profile() const override;
     QString identifier() const override;
 
 private:
-    QString program_;
-    QString model_path;
-    int port;
+    MlxServerOptions options_;
 };
 
 } // namespace multipass

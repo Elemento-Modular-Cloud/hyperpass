@@ -23,6 +23,7 @@
 #include "llmfit_advisor.h"
 #include "model_vault.h"
 #include "provider_store.h"
+#include "runners/runner_registry.h"
 
 #include <multipass/path.h>
 #include <multipass/process/process.h>
@@ -88,6 +89,9 @@ public:
                      grpc::ServerReaderWriterInterface<FindModelsReply, FindModelsRequest>* server);
     void pull_model(const PullModelRequest* request,
                     grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server);
+    void list_model_files(
+        const ListModelFilesRequest* request,
+        grpc::ServerReaderWriterInterface<ListModelFilesReply, ListModelFilesRequest>* server);
     void load_model(const LoadModelRequest* request,
                     grpc::ServerReaderWriterInterface<LoadModelReply, LoadModelRequest>* server);
     void load_model_impl(const LoadModelRequest* request,
@@ -159,28 +163,25 @@ public:
     std::optional<LoadedModelInfo> instance_info(const std::string& instance_id) const;
 
 private:
-    enum class BackendKind
-    {
-        llamacpp_cpu,
-        llamacpp_metal,
-        llamacpp_cuda,
-        mlx
-    };
-
-    BackendKind select_backend() const;
-    BackendKind resolve_backend(const LoadModelRequest* request) const;
-    std::string backend_name(BackendKind kind) const;
-    bool backend_uses_gpu(BackendKind kind) const;
     MemorySize estimate_claim(const ModelArtifact& artifact,
                               int ctx_size,
                               const std::string& cache_type_k = {},
                               const std::string& cache_type_v = {}) const;
     int pick_loopback_port() const;
-    bool wait_until_ready(int port) const;
+    bool wait_until_ready(int port,
+                          bool warm_load = false,
+                          const std::string& warm_model_id = {}) const;
+    // Fast GET /v1/models — pid-alive is not enough (wedged mlx_lm accepts TCP then EOF).
+    bool backend_http_reachable(int port, int timeout_ms = 2000) const;
     ModelArtifact ensure_pulled(const std::string& model_id,
                                 const std::string& quant,
                                 const std::string& hf_repo,
-                                const ProgressMonitor& monitor);
+                                const ProgressMonitor& monitor,
+                                const std::string& format = {},
+                                const std::string& filename = {});
+    std::string resolve_hf_repo(const std::string& model_id,
+                                const std::string& quant,
+                                const std::string& hf_repo);
     ResolvedGguf resolve_or_throw(const std::string& model_id,
                                   const std::string& quant,
                                   const std::string& hf_repo = {});
@@ -221,6 +222,7 @@ private:
     LlmActivityLog activity_log;
     URLDownloader& downloader;
     Path data_directory;
+    llm::RunnerRegistry runners;
     std::unordered_map<std::string, LoadedSession> sessions;
     mutable std::mutex mutex;
     QTimer idle_timer;

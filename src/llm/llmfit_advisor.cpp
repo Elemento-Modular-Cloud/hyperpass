@@ -68,6 +68,8 @@ mp::ModelSuggestion suggestion_from_json(const QJsonObject& obj)
     auto runtime = obj.value("runtime").toString().toLower();
     if (runtime.contains("mlx"))
         runtime = "mlx";
+    else if (runtime.contains("vllm"))
+        runtime = "vllm";
     else if (runtime.contains("llama"))
         runtime = "llamacpp";
     s.set_runtime(runtime.toStdString());
@@ -267,7 +269,7 @@ bool looks_like_mlx_only(const mp::ModelSuggestion& model)
     return false;
 }
 
-std::optional<mp::ResolvedGguf> parse_download_list(const QString& text, const QString& quant)
+std::optional<mp::GgufFileList> parse_download_file_list(const QString& text)
 {
     static const QRegularExpression repo_re{
         R"(Available GGUF files in (\S+):|Fetching available files from (\S+))"};
@@ -286,14 +288,43 @@ std::optional<mp::ResolvedGguf> parse_download_list(const QString& text, const Q
     for (auto it = file_re.globalMatch(text); it.hasNext();)
         files << it.next().captured(1);
 
+    const auto usable = mp::usable_gguf_files(files);
+    if (repo.isEmpty() || usable.isEmpty())
+        return std::nullopt;
+
+    mp::GgufFileList listed;
+    listed.repo = repo.toStdString();
+    listed.mmproj_filename = mp::pick_mmproj_file(files).toStdString();
+    for (const auto& file : usable)
+    {
+        mp::GgufFileEntry entry;
+        entry.filename = file.toStdString();
+        entry.quant = mp::infer_quant_from_gguf_filename(file).toStdString();
+        listed.files.push_back(std::move(entry));
+    }
+    return listed;
+}
+
+std::optional<mp::ResolvedGguf> parse_download_list(const QString& text, const QString& quant)
+{
+    auto listed = parse_download_file_list(text);
+    if (!listed)
+        return std::nullopt;
+
+    QStringList files;
+    for (const auto& entry : listed->files)
+        files << QString::fromStdString(entry.filename);
+    if (!listed->mmproj_filename.empty())
+        files << QString::fromStdString(listed->mmproj_filename);
+
     const auto filename = mp::pick_gguf_file(files, quant);
-    if (repo.isEmpty() || filename.isEmpty())
+    if (filename.isEmpty())
         return std::nullopt;
 
     mp::ResolvedGguf resolved;
-    resolved.repo = repo.toStdString();
+    resolved.repo = listed->repo;
     resolved.filename = filename.toStdString();
-    resolved.mmproj_filename = mp::pick_mmproj_file(files).toStdString();
+    resolved.mmproj_filename = listed->mmproj_filename;
     return resolved;
 }
 
@@ -336,6 +367,8 @@ void append_recommend_runtime_filters(QStringList& args, const std::string& runt
         rt = "llamacpp";
     if (rt.contains("mlx"))
         args << "--runtime" << "mlx";
+    else if (rt.contains("vllm"))
+        args << "--runtime" << "vllm";
     else if (!rt.isEmpty())
         args << "--force-runtime" << "llamacpp";
 }
@@ -416,6 +449,8 @@ bool model_matches_runtime(const mp::ModelSuggestion& model, const std::string& 
         rt = "llamacpp";
     if (rt.contains("mlx"))
         return model_rt.contains("mlx");
+    if (rt.contains("vllm"))
+        return model_rt.contains("vllm") || model_rt.contains("hf") || model_rt.contains("transformers");
     if (rt.contains("llama"))
         return model_rt.contains("llama");
     return true;
@@ -830,6 +865,46 @@ std::optional<mp::ResolvedGguf> mp::LlmfitAdvisor::resolve(const std::string& mo
     {
         if (auto resolved = try_list(query))
             return resolved;
+    }
+    return std::nullopt;
+}
+
+std::optional<mp::GgufFileList> mp::LlmfitAdvisor::list_gguf_files(const std::string& model_id,
+                                                                   const std::string& hf_repo)
+{
+    const auto binary = binary_path();
+    if (binary.isEmpty())
+        return std::nullopt;
+
+    std::lock_guard lock{mutex};
+
+    auto try_list = [&](const QString& query) -> std::optional<GgufFileList> {
+        if (query.trimmed().isEmpty())
+            return std::nullopt;
+        try
+        {
+            auto process = mp::platform::make_process(
+                mp::simple_process_spec(binary, QStringList{"--no-dashboard", "download", query, "--list"}));
+            process->execute(60000);
+            const auto text = QString::fromUtf8(process->read_all_standard_output() +
+                                                process->read_all_standard_error());
+            if (text.contains("No GGUF files found"))
+                return std::nullopt;
+            return parse_download_file_list(text);
+        }
+        catch (const std::exception& e)
+        {
+            mpl::warn(category, "llmfit download --list '{}' failed: {}", query, e.what());
+            return std::nullopt;
+        }
+    };
+
+    const auto queries = download_resolution_queries(QString::fromStdString(model_id),
+                                                     QString::fromStdString(hf_repo));
+    for (const auto& query : queries)
+    {
+        if (auto listed = try_list(query))
+            return listed;
     }
     return std::nullopt;
 }

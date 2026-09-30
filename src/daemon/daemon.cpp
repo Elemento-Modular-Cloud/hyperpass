@@ -811,6 +811,10 @@ auto connect_rpc(mp::DaemonRpc& rpc, mp::Daemon& daemon, mp::LlmDispatcher* llm_
     if (llm_dispatcher)
     {
         QObject::connect(&rpc, &mp::DaemonRpc::on_find_models, llm_dispatcher, &mp::LlmDispatcher::find_models);
+        QObject::connect(&rpc,
+                         &mp::DaemonRpc::on_list_model_files,
+                         llm_dispatcher,
+                         &mp::LlmDispatcher::list_model_files);
         QObject::connect(&rpc, &mp::DaemonRpc::on_pull_model, llm_dispatcher, &mp::LlmDispatcher::pull_model);
         QObject::connect(&rpc, &mp::DaemonRpc::on_load_model, llm_dispatcher, &mp::LlmDispatcher::load_model);
         QObject::connect(&rpc, &mp::DaemonRpc::on_unload_model, llm_dispatcher, &mp::LlmDispatcher::unload_model);

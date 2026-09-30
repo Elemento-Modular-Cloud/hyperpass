@@ -24,11 +24,6 @@ import 'providers.dart';
 import 'runner/llm_accelerator.dart';
 import 'runner/llm_runner_providers.dart';
 
-const _inferenceBackendIds = {
-  'llamacpp',
-  if (enableMlxBackend) 'mlx',
-};
-
 /// Sentinel dropdown value for "create a new intent" (mirrors the private
 /// constant of the same name in launch_form.dart/service_deploy.dart — a
 /// leading NUL can never be typed into a text field, so this can't collide
@@ -54,13 +49,22 @@ Future<void> loadLlmModel(
   required String quant,
   String hfRepo = '',
   int? suggestedCtx,
+  String format = '',
+  List<String> supportedRuntimes = const [],
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.of(context);
 
   final backends = await ref.read(llmBackendsProvider.future);
+  final compatible = compatibleInferenceRuntimes(
+    format: format,
+    supportedRuntimes: supportedRuntimes,
+  );
   final ready = backends.backends
-      .where((b) => b.status == 'ready' && _inferenceBackendIds.contains(b.id))
+      .where((b) =>
+          b.status == 'ready' &&
+          inferenceBackendIds.contains(b.id) &&
+          compatible.contains(b.id))
       .toList(growable: false);
 
   if (ready.isEmpty) {
@@ -758,6 +762,7 @@ String _runtimeLabel(AppLocalizations l10n, String id, String name) {
   if (name.isNotEmpty) return name;
   return switch (id) {
     'mlx' => l10n.modelsRuntimeMlx,
+    'vllm' => l10n.modelsRuntimeVllm,
     'llamacpp' => l10n.modelsRuntimeLlama,
     _ => id,
   };

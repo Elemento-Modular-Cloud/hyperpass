@@ -68,6 +68,8 @@ public:
     std::vector<ApiKeyRecord> list() const;
     bool revoke_by_id(const std::string& id);
     bool revoke_by_prefix(const std::string& prefix);
+    // Unbind instance_id from scoped keys. Never deletes the key; an empty
+    // instance list means global access (survives unload / idle timeout).
     void revoke_for_instance(const std::string& instance_id);
     std::optional<ApiKeyRecord> verify(const std::string& secret) const;
 

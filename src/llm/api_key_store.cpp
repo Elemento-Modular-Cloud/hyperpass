@@ -172,33 +172,20 @@ void mp::ApiKeyStore::revoke_for_instance(const std::string& instance_id)
         return;
     std::lock_guard lock{mutex};
     bool changed = false;
-    std::vector<ApiKeyRecord> next;
-    next.reserve(keys.size());
     for (auto& key : keys)
     {
         if (key.instance_ids.empty())
-        {
-            // Global key — keep.
-            next.push_back(std::move(key));
             continue;
-        }
         const auto before = key.instance_ids.size();
         std::erase(key.instance_ids, instance_id);
-        if (key.instance_ids.size() != before)
-            changed = true;
-        if (key.instance_ids.empty())
-        {
-            // Scoped key with no remaining bindings — revoke.
-            changed = true;
+        if (key.instance_ids.size() == before)
             continue;
-        }
-        next.push_back(std::move(key));
+        changed = true;
+        // Keep the key even when no instances remain — empty means global access.
+        // Deleting here made scoped keys vanish on every unload / idle timeout.
     }
     if (changed)
-    {
-        keys = std::move(next);
         save();
-    }
 }
 
 std::optional<mp::ApiKeyRecord> mp::ApiKeyStore::verify(const std::string& secret) const
@@ -250,6 +237,8 @@ void mp::ApiKeyStore::save() const
     QJsonArray array;
     for (const auto& key : keys)
     {
+        if (key.id.empty() || key.sha256_hex.empty())
+            continue;
         QJsonObject obj;
         obj.insert("id", QString::fromStdString(key.id));
         obj.insert("prefix", QString::fromStdString(key.prefix));

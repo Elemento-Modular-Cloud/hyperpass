@@ -54,7 +54,18 @@ inline QString pick_mmproj_file(const QStringList& files)
     return {};
 }
 
-inline QString pick_gguf_file(const QStringList& files, const QString& quant)
+inline QString infer_quant_from_gguf_filename(const QString& filename)
+{
+    static const QRegularExpression re{
+        R"(-((?:IQ|Q|F|BF)\d+(?:_[A-Za-z0-9]+)*)\.gguf$)",
+        QRegularExpression::CaseInsensitiveOption};
+    const auto match = re.match(QFileInfo{filename}.fileName());
+    if (!match.hasMatch())
+        return {};
+    return match.captured(1);
+}
+
+inline QStringList usable_gguf_files(const QStringList& files)
 {
     QStringList usable;
     for (const auto& file : files)
@@ -65,6 +76,12 @@ inline QString pick_gguf_file(const QStringList& files, const QString& quant)
             continue;
         usable << file;
     }
+    return usable;
+}
+
+inline QString pick_gguf_file(const QStringList& files, const QString& quant)
+{
+    const auto usable = usable_gguf_files(files);
     if (usable.isEmpty())
         return {};
 

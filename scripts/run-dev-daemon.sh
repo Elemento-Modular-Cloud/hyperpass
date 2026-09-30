@@ -6,9 +6,21 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 DAEMON="${BUILD_DIR}/bin/elpd"
 ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
-ELP_STORAGE="${ELP_STORAGE:-/tmp/elp-data}"
+ELP_STORAGE="${ELP_STORAGE:-}"
 VERBOSITY="${VERBOSITY:-debug}"
 ACTION=start
+
+# Durable default (not /tmp — API keys, vault, and providers live under $ELP_STORAGE/data).
+if [[ -z "$ELP_STORAGE" ]]; then
+  _invoking_home="${HOME}"
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    _invoking_home="$(eval echo "~${SUDO_USER}")"
+  fi
+  case "$(uname -s)" in
+    Darwin) ELP_STORAGE="${_invoking_home}/Library/Application Support/elp-dev" ;;
+    *) ELP_STORAGE="${_invoking_home}/.local/share/elp-dev" ;;
+  esac
+fi
 
 usage() {
   cat <<EOF
@@ -30,7 +42,9 @@ Options:
 Environment:
   BUILD_DIR                   Build tree (default: ${ROOT}/build)
   ELP_SOCKET                  Unix socket path (default: ${ELP_SOCKET})
-  ELP_STORAGE                 Instance/image storage (default: ${ELP_STORAGE})
+  ELP_STORAGE                 Durable data dir (default: ~/Library/Application Support/elp-dev
+                              on macOS, ~/.local/share/elp-dev on Linux). Holds LLM API keys,
+                              providers, vault models. Do not use /tmp — it is wiped on reboot.
   ELP_DISTRIBUTIONS_URL       Optional catalog JSON path/URL (skips Spacedock)
   ELP_SPACEDOCK_URL           Spacedock base (default https://spacedock.elemento.cloud)
   ELP_SPACEDOCK_TOKEN         Portal JWT for headless elp find
@@ -80,6 +94,14 @@ if [[ ! -x "$DAEMON" ]]; then
 fi
 
 mkdir -p "$ELP_STORAGE"
+
+# One-shot migrate from the old ephemeral default so keys/models/VMs survive.
+_legacy_storage="/tmp/elp-data"
+if [[ "$ELP_STORAGE" != "$_legacy_storage" && ! -e "$ELP_STORAGE/data" && -d "$_legacy_storage/data" ]]; then
+  echo "==> Migrating ELP_STORAGE from ${_legacy_storage} -> ${ELP_STORAGE}"
+  sudo mkdir -p "$ELP_STORAGE"
+  sudo cp -a "${_legacy_storage}/." "$ELP_STORAGE/"
+fi
 
 export ELP_STORAGE
 if [[ -n "${ELP_DISTRIBUTIONS_URL:-}" ]]; then

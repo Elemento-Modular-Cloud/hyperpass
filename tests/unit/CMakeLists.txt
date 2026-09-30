@@ -109,6 +109,11 @@ add_executable(multipass_cpp_tests
   test_json_utils.cpp
   test_llama_server_process_spec.cpp
   test_llm_load_params.cpp
+  test_mlx_repo.cpp
+  test_mlx_server_process_spec.cpp
+  test_model_vault.cpp
+  test_runner_registry.cpp
+  test_vllm_server_process_spec.cpp
   test_log.cpp
   test_log_location.cpp
   test_memory_settings_handler.cpp

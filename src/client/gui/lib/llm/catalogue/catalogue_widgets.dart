@@ -12,6 +12,7 @@ import '../../tooltip.dart';
 import '../../vm_table/table.dart' as vmtable;
 import '../../widgets/card_action_row.dart';
 import '../../widgets/launchpad_button.dart';
+import '../llm_download.dart';
 import '../llm_features.dart';
 import '../llm_load.dart';
 import '../providers.dart';
@@ -61,6 +62,15 @@ class LlmCatalogFilters extends ConsumerWidget {
             onSelected: (_) =>
                 ref.read(catalogFiltersProvider.notifier).setRuntime('mlx'),
           ),
+        ChoiceChip(
+          label:
+              Text(l10n.modelsRuntimeVllm, style: const TextStyle(fontSize: 11)),
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          selected: runtime == 'vllm',
+          onSelected: (_) =>
+              ref.read(catalogFiltersProvider.notifier).setRuntime('vllm'),
+        ),
         const SizedBox(width: 6),
         Text(l10n.modelsFilterFit, style: const TextStyle(fontSize: 11)),
         ChoiceChip(
@@ -310,13 +320,14 @@ class _LlmTopPickCardState extends ConsumerState<LlmTopPickCard> {
                   CardAction(
                     label: l10n.modelsDownload,
                     kind: LaunchPadButtonKind.primary,
-                    onTap: () => ref
-                        .read(modelDownloadQueueProvider.notifier)
-                        .enqueueDownload(
-                          model.id,
-                          model.bestQuant,
-                          hfRepo: modelDownloadRepo(model),
-                        ),
+                    onTap: () => downloadLlmModel(
+                      context,
+                      ref,
+                      modelId: model.id,
+                      quant: model.bestQuant,
+                      hfRepo: modelDownloadRepo(model),
+                      supportedRuntimes: model.supportedRuntimes,
+                    ),
                   ),
                 ],
               ),
@@ -347,6 +358,8 @@ class LlmRecommendedChip extends ConsumerWidget {
             modelId: model.id,
             quant: model.bestQuant,
             hfRepo: modelDownloadRepo(model),
+            format: model.format,
+            supportedRuntimes: model.supportedRuntimes,
             suggestedCtx: suggestedCtxForModel(
               usableContext: model.usableContext.toInt(),
               contextLength: model.contextLength.toInt(),
@@ -530,12 +543,14 @@ class LlmCatalogTable extends ConsumerWidget {
             _CatalogAction(
               label: l10n.modelsDownload,
               color: Brand.primary,
-              onTap: () =>
-                  ref.read(modelDownloadQueueProvider.notifier).enqueueDownload(
-                        m.id,
-                        m.bestQuant,
-                        hfRepo: modelDownloadRepo(m),
-                      ),
+              onTap: () => downloadLlmModel(
+                    context,
+                    ref,
+                    modelId: m.id,
+                    quant: m.bestQuant,
+                    hfRepo: modelDownloadRepo(m),
+                    supportedRuntimes: m.supportedRuntimes,
+                  ),
             ),
             _CatalogAction(
               label: l10n.modelsLoad,
@@ -546,6 +561,8 @@ class LlmCatalogTable extends ConsumerWidget {
                     modelId: m.id,
                     quant: m.bestQuant,
                     hfRepo: modelDownloadRepo(m),
+                    format: m.format,
+                    supportedRuntimes: m.supportedRuntimes,
                     suggestedCtx: suggestedCtxForModel(
                       usableContext: m.usableContext.toInt(),
                       contextLength: m.contextLength.toInt(),

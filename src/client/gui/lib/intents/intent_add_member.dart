@@ -28,11 +28,6 @@ import '../services/service_library.dart';
 import '../widgets/launchpad_button.dart';
 import '../widgets/rounded_search_field.dart';
 
-const _inferenceBackendIds = {
-  'llamacpp',
-  if (enableMlxBackend) 'mlx',
-};
-
 /// Opens a picker of marketplace services, VM images, and downloaded LLMs
 /// to launch as members of [intentName].
 Future<void> showAddMemberDialog(
@@ -457,7 +452,7 @@ class _AddIntentMemberDialogState extends ConsumerState<_AddIntentMemberDialog>
     final ready = [
       for (final backend in backends.backends)
         if (backend.status == 'ready' &&
-            _inferenceBackendIds.contains(backend.id))
+            inferenceBackendIds.contains(backend.id))
           backend.id,
     ];
     if (ready.contains(preferred)) return preferred;

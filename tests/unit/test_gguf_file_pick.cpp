@@ -46,6 +46,20 @@ TEST(TestGgufFilePick, skipsShardedGgufs)
     EXPECT_EQ(mp::pick_gguf_file(files, {}), "model-Q4_K_M.gguf");
 }
 
+TEST(TestGgufFilePick, infersQuantAndListsUsableFiles)
+{
+    const QStringList files{"model-mmproj.gguf",
+                            "model-00001-of-00002.gguf",
+                            "model-Q4_K_M.gguf",
+                            "model-Q8_0.gguf"};
+    const auto usable = mp::usable_gguf_files(files);
+    ASSERT_EQ(usable.size(), 2);
+    EXPECT_EQ(usable[0], "model-Q4_K_M.gguf");
+    EXPECT_EQ(usable[1], "model-Q8_0.gguf");
+    EXPECT_EQ(mp::infer_quant_from_gguf_filename("model-Q4_K_M.gguf"), "Q4_K_M");
+    EXPECT_EQ(mp::infer_quant_from_gguf_filename("model-q8_0.gguf"), "q8_0");
+}
+
 TEST(TestGgufFilePick, detectsProjectorNames)
 {
     EXPECT_TRUE(mp::is_mmproj_gguf("foo-mmproj.gguf"));

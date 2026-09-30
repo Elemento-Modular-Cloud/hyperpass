@@ -1,4 +1,3 @@
-import 'package:basics/basics.dart';
 import 'package:flutter/material.dart' hide Switch;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,7 +8,6 @@ import '../l10n/app_localizations.dart';
 import '../notifications.dart';
 import '../providers.dart';
 import '../switch.dart';
-import '../update_available.dart';
 import 'autostart_notifiers.dart';
 
 final onAppCloseProvider = guiSettingProvider(onAppCloseKey);
@@ -20,7 +18,6 @@ class GeneralSettings extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final update = ref.watch(updateProvider);
     final auth = ref.watch(authProvider);
     final signedInEmail = auth is AuthAuthenticated ? auth.username : null;
     final autostart = ref.watch(autostartProvider).when(
@@ -60,10 +57,6 @@ class GeneralSettings extends ConsumerWidget {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 20),
-        if (update.version.isNotBlank) ...[
-          UpdateAvailable(update),
-          const SizedBox(height: 20),
-        ],
         Switch(
           label: l10n.generalAutostartLabel,
           value: autostart,

@@ -20,11 +20,11 @@
 #include "backend_probe.h"
 #include "binary_locator.h"
 #include "gguf_file_pick.h"
-#include "llama_server_process_spec.h"
 #include "managed_tools.h"
-#include "mlx_server_process_spec.h"
+#include "mlx_repo.h"
 #include "openai_compat_client.h"
 #include "runtime_installer.h"
+#include "runners/model_format.h"
 
 #include <multipass/constants.h>
 #include <multipass/file_ops.h>
@@ -88,12 +88,6 @@ std::string slug(const std::string& model_id)
     return out;
 }
 
-#ifndef Q_OS_MACOS
-bool cuda_present()
-{
-    return !QStandardPaths::findExecutable("nvidia-smi").isEmpty();
-}
-#endif
 } // namespace
 
 mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path data_directory)
@@ -142,7 +136,7 @@ void mp::LlmService::restore_claims()
     for (const auto& proc : mpu::list_processes())
     {
         if (proc.command_line.contains("llama-server") || proc.command_line.contains("llama_server") ||
-            proc.command_line.contains("mlx_lm.server"))
+            proc.command_line.contains("mlx_lm.server") || proc.command_line.contains("vllm"))
         {
             live_cmds[proc.pid] = proc.command_line;
         }
@@ -197,6 +191,18 @@ void mp::LlmService::restore_claims()
         }
         if (!session_is_live(session) && live_cmds.find(session.pid) == live_cmds.end())
             continue;
+        // Pid can stay alive while the HTTP server is wedged (mlx_lm accepts then EOFs).
+        if (session.port > 0 && !backend_http_reachable(session.port))
+        {
+            mpl::warn(category,
+                      "Dropping restored LLM instance '{}' — pid {} port {} not serving HTTP",
+                      session.instance_id,
+                      session.pid,
+                      session.port);
+            if (session.pid > 0)
+                mpu::terminate_pid(session.pid);
+            continue;
+        }
         if (session.pid > 0)
             claimed_pids.insert(session.pid);
         recovered.push_back(std::move(session));
@@ -233,90 +239,21 @@ void mp::LlmService::restore_claims()
                 break;
             }
         }
+        if (session.port > 0 && !backend_http_reachable(session.port))
+        {
+            mpl::warn(category,
+                      "Ignoring orphan inference pid {} — port {} not serving HTTP",
+                      pid,
+                      session.port);
+            mpu::terminate_pid(pid);
+            continue;
+        }
         recovered.push_back(std::move(session));
     }
 
     for (auto& session : recovered)
         restore_session(std::move(session));
     persist_sessions();
-}
-
-mp::LlmService::BackendKind mp::LlmService::select_backend() const
-{
-    QString setting = "auto";
-    try
-    {
-        setting = MP_SETTINGS.get(mp::llm_backend_key).toLower();
-    }
-    catch (const std::exception&)
-    {
-    }
-
-    if (setting == "mlx")
-    {
-        if constexpr (mp::enable_mlx_backend)
-            return BackendKind::mlx;
-        // MLX temporarily hidden: fall through to llama.cpp selection.
-    }
-    if (setting == "cuda")
-        return BackendKind::llamacpp_cuda;
-    if (setting == "llamacpp")
-    {
-#ifdef Q_OS_MACOS
-        return BackendKind::llamacpp_metal;
-#else
-        return cuda_present() ? BackendKind::llamacpp_cuda : BackendKind::llamacpp_cpu;
-#endif
-    }
-
-#ifdef Q_OS_MACOS
-    return BackendKind::llamacpp_metal;
-#else
-    if (cuda_present())
-        return BackendKind::llamacpp_cuda;
-    return BackendKind::llamacpp_cpu;
-#endif
-}
-
-mp::LlmService::BackendKind mp::LlmService::resolve_backend(const LoadModelRequest* request) const
-{
-    const auto& runtime = request->runtime();
-    if (runtime == "mlx")
-    {
-        if constexpr (mp::enable_mlx_backend)
-            return BackendKind::mlx;
-        // Ignore stale MLX requests while the backend is hidden.
-    }
-    if (runtime == "llamacpp")
-    {
-#ifdef Q_OS_MACOS
-        return BackendKind::llamacpp_metal;
-#else
-        return cuda_present() ? BackendKind::llamacpp_cuda : BackendKind::llamacpp_cpu;
-#endif
-    }
-    return select_backend();
-}
-
-std::string mp::LlmService::backend_name(BackendKind kind) const
-{
-    switch (kind)
-    {
-    case BackendKind::mlx:
-        return "mlx";
-    case BackendKind::llamacpp_cuda:
-        return "llamacpp-cuda";
-    case BackendKind::llamacpp_metal:
-        return "llamacpp-metal";
-    case BackendKind::llamacpp_cpu:
-    default:
-        return "llamacpp";
-    }
-}
-
-bool mp::LlmService::backend_uses_gpu(BackendKind kind) const
-{
-    return kind == BackendKind::llamacpp_metal || kind == BackendKind::llamacpp_cuda;
 }
 
 mp::MemorySize mp::LlmService::estimate_claim(const ModelArtifact& artifact,
@@ -342,27 +279,102 @@ int mp::LlmService::pick_loopback_port() const
     return port;
 }
 
-bool mp::LlmService::wait_until_ready(int port) const
+bool mp::LlmService::backend_http_reachable(int port, int timeout_ms) const
+{
+    if (port <= 0)
+        return false;
+    QNetworkAccessManager manager;
+    const QUrl models_url{QStringLiteral("http://127.0.0.1:%1/v1/models").arg(port)};
+    QEventLoop loop;
+    QTimer timeout;
+    timeout.setSingleShot(true);
+    timeout.setInterval(std::max(250, timeout_ms));
+    auto* reply = manager.get(QNetworkRequest{models_url});
+    QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
+    timeout.start();
+    loop.exec();
+    const bool ok = reply->error() == QNetworkReply::NoError &&
+                    reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() > 0;
+    reply->deleteLater();
+    return ok;
+}
+
+bool mp::LlmService::wait_until_ready(int port,
+                                      bool warm_load,
+                                      const std::string& warm_model_id) const
 {
     QNetworkAccessManager manager;
-    const QUrl url{QStringLiteral("http://127.0.0.1:%1/v1/models").arg(port)};
+    bool http_up = false;
     for (int i = 0; i < 60; ++i)
     {
+        if (backend_http_reachable(port, 1000))
+        {
+            http_up = true;
+            break;
+        }
+        QEventLoop pause;
+        QTimer::singleShot(500, &pause, &QEventLoop::quit);
+        pause.exec();
+    }
+    if (!http_up)
+        return false;
+    if (!warm_load)
+        return true;
+
+    // mlx_lm.server binds HTTP before weights finish downloading/loading. Probe with a
+    // tiny completion so "load complete" means the model can actually answer.
+    // IMPORTANT: the OpenAI `model` field must be the real --model id (e.g.
+    // mlx-community/Gemma-2-2B-4bit). A placeholder like "warmup" makes mlx_lm try to
+    // fetch that string as a Hugging Face repo and never becomes ready.
+    const auto model_name =
+        warm_model_id.empty() ? std::string{"default"} : warm_model_id;
+    const QUrl chat_url{QStringLiteral("http://127.0.0.1:%1/v1/chat/completions").arg(port)};
+    QJsonObject body;
+    body.insert("model", QString::fromStdString(model_name));
+    body.insert("max_tokens", 1);
+    // Keep warm-up off the continuous-batching path (same Gemma2 mask bug).
+    body.insert("seed", 1);
+    body.insert("messages",
+                QJsonArray{QJsonObject{{"role", "user"}, {"content", "ping"}}});
+    const auto payload = QJsonDocument{body}.toJson(QJsonDocument::Compact);
+
+    for (int i = 0; i < 60; ++i)
+    {
+        QNetworkRequest request{chat_url};
+        request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         QEventLoop loop;
         QTimer timeout;
         timeout.setSingleShot(true);
-        timeout.setInterval(1000);
-        auto* reply = manager.get(QNetworkRequest{url});
+        // Weights may still be fetching from Hugging Face; allow several minutes per try.
+        timeout.setInterval(180000);
+        auto* reply = manager.post(request, payload);
         QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
         timeout.start();
         loop.exec();
-        const bool ok = reply->error() == QNetworkReply::NoError;
+
+        const auto status =
+            reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        const auto bytes = reply->readAll();
+        const auto err = reply->error();
         reply->deleteLater();
-        if (ok)
-            return true;
+
+        if (err == QNetworkReply::NoError && status >= 200 && status < 300)
+        {
+            const auto doc = QJsonDocument::fromJson(bytes);
+            if (doc.isObject() && doc.object().value("choices").isArray() &&
+                !doc.object().value("choices").toArray().isEmpty())
+                return true;
+        }
+
+        // Connection refused / process gone — do not keep waiting.
+        if (err == QNetworkReply::ConnectionRefusedError ||
+            err == QNetworkReply::RemoteHostClosedError)
+            return false;
+
         QEventLoop pause;
-        QTimer::singleShot(500, &pause, &QEventLoop::quit);
+        QTimer::singleShot(2000, &pause, &QEventLoop::quit);
         pause.exec();
     }
     return false;
@@ -432,12 +444,101 @@ mp::ResolvedGguf mp::LlmService::resolve_or_throw(const std::string& model_id,
         model_id));
 }
 
+std::string mp::LlmService::resolve_hf_repo(const std::string& model_id,
+                                            const std::string& quant,
+                                            const std::string& hf_repo)
+{
+    if (!hf_repo.empty())
+        return hf_repo;
+    if (model_id.find('/') != std::string::npos)
+        return model_id;
+    if (auto resolved = advisor.resolve(model_id, quant, hf_repo))
+    {
+        if (!resolved->repo.empty())
+            return resolved->repo;
+    }
+    throw std::runtime_error(fmt::format(
+        "could not resolve a Hugging Face repo for '{}'. Pass a repo id like org/model.",
+        model_id));
+}
+
 mp::ModelArtifact mp::LlmService::ensure_pulled(const std::string& model_id,
                                                 const std::string& quant,
                                                 const std::string& hf_repo,
-                                                const ProgressMonitor& monitor)
+                                                const ProgressMonitor& monitor,
+                                                const std::string& format,
+                                                const std::string& filename)
 {
-    if (auto existing = vault.find(model_id))
+    const auto fmt = format.empty() ? llm::format_gguf : format;
+
+    if (fmt == llm::format_mlx)
+    {
+        const auto candidates = llm::mlx_repo_candidates(model_id, quant, hf_repo);
+        if (candidates.empty())
+            throw std::runtime_error(fmt::format(
+                "could not resolve an MLX Hugging Face repo for '{}'", model_id));
+
+        std::string last_error;
+        for (const auto& repo : candidates)
+        {
+            try
+            {
+                return vault.pull_remote(model_id, repo, fmt, quant, hf_token(), monitor);
+            }
+            catch (const std::exception& e)
+            {
+                last_error = e.what();
+                mpl::warn(category,
+                          "MLX snapshot '{}' unavailable ({}); trying next candidate",
+                          repo,
+                          e.what());
+            }
+        }
+        throw std::runtime_error(fmt::format(
+            "could not download an MLX snapshot for '{}': {}", model_id, last_error));
+    }
+
+    if (fmt == llm::format_hf)
+    {
+        const auto repo = resolve_hf_repo(model_id, quant, hf_repo);
+        return vault.pull_remote(model_id, repo, fmt, quant, hf_token(), monitor);
+    }
+
+    if (!filename.empty())
+    {
+        const auto effective_quant =
+            quant.empty()
+                ? infer_quant_from_gguf_filename(QString::fromStdString(filename)).toStdString()
+                : quant;
+        if (auto existing = vault.find(model_id, llm::format_gguf, effective_quant))
+        {
+            const auto existing_name =
+                QFileInfo{QString::fromStdString(existing->path)}.fileName();
+            const bool same_file =
+                QString::fromStdString(existing->filename)
+                        .compare(QString::fromStdString(filename), Qt::CaseInsensitive) == 0 ||
+                existing_name.compare(QString::fromStdString(filename), Qt::CaseInsensitive) == 0;
+            if (same_file && !is_mmproj_gguf(existing_name) &&
+                QFileInfo{QString::fromStdString(existing->path)}.exists())
+            {
+                if (existing->mmproj_path.empty())
+                {
+                    if (auto sibling = find_sibling_mmproj(QString::fromStdString(existing->path));
+                        !sibling.isEmpty())
+                        return vault.attach_mmproj(model_id, effective_quant, sibling.toStdString());
+                }
+                return *existing;
+            }
+        }
+
+        const auto repo = hf_repo.empty() ? resolve_hf_repo(model_id, quant, hf_repo) : hf_repo;
+        std::string mmproj;
+        if (auto listed = advisor.list_gguf_files(model_id, repo))
+            mmproj = listed->mmproj_filename;
+        return vault.pull(model_id, repo, filename, effective_quant, hf_token(), monitor, mmproj);
+    }
+
+    if (auto existing = vault.find(model_id, llm::format_gguf, quant))
     {
         const auto path_name =
             QFileInfo{QString::fromStdString(existing->path)}.fileName();
@@ -449,7 +550,7 @@ mp::ModelArtifact mp::LlmService::ensure_pulled(const std::string& model_id,
             {
                 if (auto sibling = find_sibling_mmproj(QString::fromStdString(existing->path));
                     !sibling.isEmpty())
-                    return vault.attach_mmproj(model_id, sibling.toStdString());
+                    return vault.attach_mmproj(model_id, existing->quant, sibling.toStdString());
             }
             return *existing;
         }
@@ -478,14 +579,10 @@ void mp::LlmService::find_models(
     try
     {
         auto runtime = request->runtime();
-        if (!mp::enable_mlx_backend &&
-            QString::fromStdString(runtime).contains("mlx", Qt::CaseInsensitive))
-        {
-            runtime = "llamacpp";
-        }
         if (runtime.empty() && request->recommend_only())
         {
-            runtime = select_backend() == BackendKind::mlx ? "mlx" : "llamacpp";
+            const auto selected = runners.select_default();
+            runtime = selected.runner ? selected.runner->id() : llm::runner_llamacpp;
         }
 #ifdef Q_OS_MACOS
         const bool unified = true;
@@ -510,8 +607,30 @@ void mp::LlmService::find_models(
                                                  request->offset(),
                                                  request->include_too_tight(),
                                                  unified);
-        for (const auto& model : models)
+        for (auto model : models)
+        {
+            if (model.format().empty())
+            {
+                const auto rt = QString::fromStdString(model.runtime()).toLower();
+                if (rt.contains("mlx"))
+                    model.set_format(llm::format_mlx);
+                else if (rt.contains("vllm"))
+                    model.set_format(llm::format_hf);
+                else
+                    model.set_format(llm::format_gguf);
+            }
+            if (model.supported_runtimes_size() == 0)
+            {
+                const auto fmt = model.format();
+                if (fmt == llm::format_mlx)
+                    model.add_supported_runtimes(llm::runner_mlx);
+                else if (fmt == llm::format_hf)
+                    model.add_supported_runtimes(llm::runner_vllm);
+                else
+                    model.add_supported_runtimes(llm::runner_llamacpp);
+            }
             *reply.add_models() = model;
+        }
     }
     catch (const std::exception& e)
     {
@@ -576,7 +695,12 @@ void mp::LlmService::pull_model(
             log_lifecycle(model_id, "info", fmt::format("pull {}% complete", percent));
         return true;
     };
-    const auto art = ensure_pulled(model_id, request->quant(), request->hf_repo(), monitor);
+    const auto art = ensure_pulled(model_id,
+                                   request->quant(),
+                                   request->hf_repo(),
+                                   monitor,
+                                   request->format(),
+                                   request->filename());
     PullModelReply reply;
     reply.set_model_id(art.id);
     reply.set_path(art.path);
@@ -584,6 +708,30 @@ void mp::LlmService::pull_model(
     auto* lp = reply.mutable_launch_progress();
     lp->set_percent_complete("100");
     log_lifecycle(art.id, "info", fmt::format("pull complete: {}", art.path));
+    server->Write(reply);
+}
+
+void mp::LlmService::list_model_files(
+    const ListModelFilesRequest* request,
+    grpc::ServerReaderWriterInterface<ListModelFilesReply, ListModelFilesRequest>* server)
+{
+    ListModelFilesReply reply;
+    const auto listed = advisor.list_gguf_files(request->model_id(), request->hf_repo());
+    if (!listed)
+    {
+        throw std::runtime_error(fmt::format(
+            "could not list GGUF files for '{}'. Pass a repo id like org/model-GGUF.",
+            request->model_id()));
+    }
+    reply.set_repo(listed->repo);
+    reply.set_mmproj_filename(listed->mmproj_filename);
+    for (const auto& file : listed->files)
+    {
+        auto* entry = reply.add_files();
+        entry->set_filename(file.filename);
+        entry->set_quant(file.quant);
+    }
+    reply.set_reply_message(fmt::format("{} GGUF file(s)", listed->files.size()));
     server->Write(reply);
 }
 
@@ -757,9 +905,24 @@ void mp::LlmService::load_model_impl(
             log_lifecycle(instance_id, "info", fmt::format("load {}% complete", percent));
         return true;
     };
-    const auto art = ensure_pulled(model_id, request->quant(), "", monitor);
-    const auto kind = resolve_backend(request);
-    const auto resolved = resolve_llm_load(*request, backend_uses_gpu(kind));
+    const auto art = ensure_pulled(model_id,
+                                   request->quant(),
+                                   "",
+                                   monitor,
+                                   llm::format_for_runner(
+                                       [&] {
+                                           const auto resolved_runner = runners.resolve(request->runtime());
+                                           return resolved_runner.runner ? resolved_runner.runner->id()
+                                                                         : llm::runner_llamacpp;
+                                       }()));
+    log_lifecycle(instance_id,
+                  "info",
+                  fmt::format("using {} artifact at {}", art.format.empty() ? "gguf" : art.format, art.path));
+    const auto resolved_runner = runners.resolve(request->runtime());
+    if (!resolved_runner.runner)
+        throw std::runtime_error("no inference runner available");
+    const auto* runner = resolved_runner.runner;
+    const auto resolved = resolve_llm_load(*request, runner->uses_gpu(resolved_runner.device));
     const auto ctx = resolved.ctx_size;
     const auto max_tokens = resolved.max_tokens;
     const auto claim = estimate_claim(art,
@@ -770,7 +933,7 @@ void mp::LlmService::load_model_impl(
     std::string duplicate_warning;
     {
         const LlmLoadFingerprint incoming{model_id,
-                                          backend_name(kind),
+                                          runner->session_backend_name(resolved_runner.device),
                                           art.path,
                                           ctx,
                                           max_tokens,
@@ -804,7 +967,7 @@ void mp::LlmService::load_model_impl(
     session.instance_id = instance_id;
     session.model_id = model_id;
     session.openai_id = openai_id_for_instance(model_id, instance_id);
-    session.backend = backend_name(kind);
+    session.backend = runner->session_backend_name(resolved_runner.device);
     session.path = art.path;
     session.port = pick_loopback_port();
     session.memory = claim;
@@ -816,48 +979,25 @@ void mp::LlmService::load_model_impl(
 
     try
     {
-        if (kind == BackendKind::mlx)
-        {
-            auto mlx = llm::locate_binary(nullptr, {"mlx_lm.server"});
-            if (mlx.isEmpty())
-                mlx = llm::locate_binary(nullptr, {"python3", "python"});
-            if (mlx.isEmpty())
-                throw std::runtime_error("mlx_lm.server is not on PATH");
-            session.process = platform::make_process(
-                std::make_unique<MlxServerProcessSpec>(mlx, QString::fromStdString(art.path), session.port));
-        }
-        else
-        {
-            const auto tools_root = llm::managed_tools_root(data_directory);
-            const auto llama = llm::locate_binary(mp::llama_server_env_var,
-                                                  {"llama-server", "llama_server"},
-                                                  tools_root,
-                                                  QString::fromUtf8(llm::tool_llama_server));
-            if (llama.isEmpty())
-                throw std::runtime_error(
-                    "llama-server is not installed. Use Models → Backends → Install, "
-                    "or set ELP_LLAMA_SERVER.");
-            QString library_dir;
-            if (llm::is_under_managed_tools(llama, tools_root))
-                library_dir = QFileInfo{llama}.absolutePath();
-            LlamaServerOptions options;
-            apply_resolved_to_options(options, resolved);
-            options.program = llama;
-            options.model_path = QString::fromStdString(art.path);
-            options.openai_id = QString::fromStdString(session.openai_id);
-            options.port = session.port;
-            options.library_dir = library_dir;
-            options.mmproj_path = QString::fromStdString(art.mmproj_path);
-            session.process =
-                platform::make_process(std::make_unique<LlamaServerProcessSpec>(std::move(options)));
-        }
+        llm::RunnerLaunchContext launch;
+        launch.artifact = art;
+        launch.port = session.port;
+        launch.openai_id = session.openai_id;
+        launch.resolved = resolved;
+        launch.data_directory = data_directory;
+        launch.device = resolved_runner.device;
+        launch.hf_token = hf_token();
+        session.process = runner->start(launch);
         session.process->start();
         if (!session.process->wait_for_started(10000))
             throw std::runtime_error("inference backend failed to start");
         session.pid = session.process->process_id();
         // Attach early so boot/load stdout survives readiness wait and dual-writes to disk.
         attach_process_logging(instance_id, session.process.get());
-        if (!wait_until_ready(session.port))
+        if (runner->openai_compat() &&
+            !wait_until_ready(session.port,
+                              runner->id() == llm::runner_mlx,
+                              art.path))
             throw std::runtime_error("inference backend started but did not become ready on 127.0.0.1");
     }
     catch (const std::exception& e)
@@ -1028,8 +1168,37 @@ void mp::LlmService::list_models(
         cached.set_best_quant(art.quant);
         cached.set_hf_repo(art.repo);
         cached.set_filename(art.filename);
-        cached.set_memory_required_gb(static_cast<double>(art.size_bytes) / (1024.0 * 1024.0 * 1024.0));
+        const auto size_gb = static_cast<double>(art.size_bytes) / (1024.0 * 1024.0 * 1024.0);
+        cached.set_memory_required_gb(size_gb);
+        cached.set_disk_size_gb(size_gb);
         cached.set_path(art.path);
+        auto fmt = art.format;
+        if (fmt.empty())
+        {
+            const QString path = QString::fromStdString(art.path);
+            if (path.endsWith(".gguf", Qt::CaseInsensitive))
+                fmt = llm::format_gguf;
+            else if (!path.isEmpty())
+                // Local vault dirs and HF-style repo ids are not GGUF files.
+                // Prefer mlx; explicit format on the artifact wins when set.
+                fmt = llm::format_mlx;
+            else
+                fmt = llm::format_gguf;
+        }
+        cached.set_format(fmt);
+        if (fmt == llm::format_gguf)
+        {
+            const auto inferred = infer_quant_from_gguf_filename(
+                QString::fromStdString(art.filename.empty() ? art.path : art.filename));
+            if (!inferred.isEmpty())
+                cached.set_best_quant(inferred.toStdString());
+        }
+        if (fmt == llm::format_mlx)
+            cached.add_supported_runtimes(llm::runner_mlx);
+        else if (fmt == llm::format_hf)
+            cached.add_supported_runtimes(llm::runner_vllm);
+        else
+            cached.add_supported_runtimes(llm::runner_llamacpp);
         *reply.add_cached() = cached;
     }
     server->Write(reply);
@@ -1039,10 +1208,12 @@ void mp::LlmService::list_llm_backends(
     const ListLlmBackendsRequest*,
     grpc::ServerReaderWriterInterface<ListLlmBackendsReply, ListLlmBackendsRequest>* server)
 {
-    const auto selected = backend_name(select_backend());
+    const auto selected = runners.select_default();
+    const auto selected_id =
+        selected.runner ? selected.runner->session_backend_name(selected.device) : llm::runner_llamacpp;
     ListLlmBackendsReply reply;
-    reply.set_selected_backend(selected);
-    for (const auto& row : llm::probe_backends(selected, llm::managed_tools_root(data_directory)))
+    reply.set_selected_backend(selected_id);
+    for (const auto& row : llm::probe_backends(selected_id, llm::managed_tools_root(data_directory)))
     {
         auto* out = reply.add_backends();
         out->set_id(row.id);
@@ -1934,6 +2105,10 @@ void mp::LlmService::resolve_model_route(
     {
         reply.set_kind("local");
         reply.set_port(static_cast<uint32_t>(session.port));
+        // mlx_lm has no --alias; clients send openai_id but the server expects --model.
+        if (session.backend == llm::runner_mlx ||
+            QString::fromStdString(session.backend).startsWith(QStringLiteral("mlx")))
+            reply.set_upstream_model_id(session.path);
     }
     server->Write(reply);
 }

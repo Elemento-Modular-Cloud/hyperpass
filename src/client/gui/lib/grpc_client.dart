@@ -8,9 +8,8 @@ import 'package:rxdart/rxdart.dart';
 
 import 'logger.dart';
 import 'daemon_source.dart';
-import 'providers.dart';
-import 'update_available.dart';
 
+import 'generated/multipass.pbgrpc.dart';
 export 'generated/multipass.pbgrpc.dart';
 
 typedef Status = InstanceStatus_Status;
@@ -36,21 +35,6 @@ class TaggedVmInfo {
 
 extension on RpcMessage {
   String get repr => '$runtimeType${toProto3Json()}';
-}
-
-void checkForUpdate(RpcMessage message) {
-  final updateInfo = switch (message) {
-    LaunchReply launchReply => launchReply.updateInfo,
-    InfoReply infoReply => infoReply.updateInfo,
-    ListReply listReply => listReply.updateInfo,
-    NetworksReply networksReply => networksReply.updateInfo,
-    StartReply startReply => startReply.updateInfo,
-    RestartReply restartReply => restartReply.updateInfo,
-    VersionReply versionReply => versionReply.updateInfo,
-    _ => UpdateInfo(),
-  };
-
-  providerContainer.read(updateProvider.notifier).set(updateInfo);
 }
 
 void Function(StreamNotification<RpcMessage>) logGrpc(RpcMessage request) {
@@ -95,7 +79,6 @@ class GrpcClient {
     final launchReplyStream = _client.launch(Stream.value(request));
     cancel?.then((_) => launchReplyStream.cancel());
     final launchStream = launchReplyStream
-        .doOnData(checkForUpdate)
         .doOnEach(logGrpc(request))
         .map(Either<LaunchReply, MountReply>.left);
     await for (final launchReply in launchStream) {
@@ -113,12 +96,10 @@ class GrpcClient {
   Future<Rep?> doRpc<Req extends RpcMessage, Rep extends RpcMessage>(
     ResponseStream<Rep> Function(Stream<Req> request) action,
     Req request, {
-    bool checkUpdates = false,
     bool log = true,
   }) {
     if (log) logger.i('Sent ${request.repr}');
     Stream<Rep> replyStream = action(Stream.value(request));
-    if (checkUpdates) replyStream = replyStream.doOnData(checkForUpdate);
     if (log) replyStream = replyStream.doOnEach(logGrpc(request));
     return replyStream.lastOrNull;
   }
@@ -127,7 +108,6 @@ class GrpcClient {
     return doRpc(
       _client.start,
       StartRequest(instanceNames: InstanceNames(instanceName: names)),
-      checkUpdates: true,
     );
   }
 
@@ -149,7 +129,6 @@ class GrpcClient {
     return doRpc(
       _client.restart,
       RestartRequest(instanceNames: InstanceNames(instanceName: names)),
-      checkUpdates: true,
     );
   }
 
@@ -186,7 +165,6 @@ class GrpcClient {
   Future<List<VmInfo>> info([Iterable<String> names = const []]) {
     return doRpc(
       _client.info,
-      checkUpdates: true,
       log: false,
       InfoRequest(
         instanceSnapshotPairs: names.map(
@@ -220,7 +198,6 @@ class GrpcClient {
     return doRpc(
       _client.networks,
       NetworksRequest(),
-      checkUpdates: true,
     ).then((r) => r!.interfaces);
   }
 
@@ -228,7 +205,6 @@ class GrpcClient {
     return doRpc(
       _client.version,
       VersionRequest(),
-      checkUpdates: true,
     ).then((r) => r!.version);
   }
 
@@ -310,10 +286,33 @@ class GrpcClient {
     );
   }
 
-  Stream<PullModelReply> pullModel(String modelId, {String quant = '', String hfRepo = ''}) {
+  Stream<PullModelReply> pullModel(
+    String modelId, {
+    String quant = '',
+    String hfRepo = '',
+    String format = '',
+    String filename = '',
+  }) {
     return _client.pull_model(
-      Stream.value(PullModelRequest(modelId: modelId, quant: quant, hfRepo: hfRepo)),
+      Stream.value(PullModelRequest(
+        modelId: modelId,
+        quant: quant,
+        hfRepo: hfRepo,
+        format: format,
+        filename: filename,
+      )),
     );
+  }
+
+  Future<ListModelFilesReply> listModelFiles(
+    String modelId, {
+    String hfRepo = '',
+    String quant = '',
+  }) {
+    return doRpc(
+      _client.list_model_files,
+      ListModelFilesRequest(modelId: modelId, hfRepo: hfRepo, quant: quant),
+    ).then((r) => r!);
   }
 
   Future<UnloadModelReply> unloadModel(String instanceId) {

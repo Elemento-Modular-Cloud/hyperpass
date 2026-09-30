@@ -28,7 +28,12 @@ add_library(llm STATIC
   model_vault.cpp
   openai_compat_client.cpp
   provider_store.cpp
-  runtime_installer.cpp)
+  runtime_installer.cpp
+  runners/llamacpp_runner.cpp
+  runners/mlx_runner.cpp
+  runners/runner_registry.cpp
+  runners/vllm_runner.cpp
+  vllm_server_process_spec.cpp)
 
 target_include_directories(llm
   PUBLIC

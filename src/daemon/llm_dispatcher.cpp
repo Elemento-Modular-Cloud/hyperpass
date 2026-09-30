@@ -132,6 +132,14 @@ void mp::LlmDispatcher::find_models(
     run_async(context, [this, request, server] { llm_service->find_models(request, server); });
 }
 
+void mp::LlmDispatcher::list_model_files(
+    const ListModelFilesRequest* request,
+    grpc::ServerReaderWriterInterface<ListModelFilesReply, ListModelFilesRequest>* server,
+    DaemonRpcContext* context)
+{
+    run_async(context, [this, request, server] { llm_service->list_model_files(request, server); });
+}
+
 void mp::LlmDispatcher::pull_model(
     const PullModelRequest* request,
     grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server,

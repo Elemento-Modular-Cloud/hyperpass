@@ -54,6 +54,21 @@ void main() {
     expect(params.cacheTypeK, isEmpty);
   });
 
+  test('vllm maps dtype and memory utilization', () {
+    final params = LlmLoadForm(
+      runtime: 'vllm',
+      ctxSize: 8192,
+      dtype: 'bfloat16',
+      gpuMemoryUtilization: 0.85,
+      maxModelLen: 4096,
+    ).toProto();
+    expect(params.ctxSize, 8192);
+    expect(params.dtype, 'bfloat16');
+    expect(params.gpuMemoryUtilization, 0.85);
+    expect(params.maxModelLen, 4096);
+    expect(params.nGpuLayers, isEmpty);
+  });
+
   test('rejects invalid numbers', () {
     expect(LlmLoadForm(ctxSize: 0).isValid, isFalse);
     expect(LlmLoadForm(maxTokens: -1).isValid, isFalse);

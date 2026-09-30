@@ -116,3 +116,36 @@ bool mp::llm::is_under_managed_tools(const QString& binary_path, const QString& 
     const auto canon_root = root.absoluteFilePath();
     return canon_binary.startsWith(canon_root + "/") || canon_binary.startsWith(canon_root + "\\");
 }
+
+bool mp::llm::is_pip_backend(const QString& backend_id)
+{
+    return backend_id == tool_mlx || backend_id == tool_vllm;
+}
+
+QString mp::llm::pip_package_for_backend(const QString& backend_id)
+{
+    if (backend_id == tool_mlx)
+        return QStringLiteral("mlx-lm");
+    if (backend_id == tool_vllm)
+        return QStringLiteral("vllm");
+    return {};
+}
+
+QString mp::llm::managed_venv_dir(const QString& tools_root, const QString& backend_id)
+{
+    if (tools_root.isEmpty() || !is_pip_backend(backend_id))
+        return {};
+    return QDir{tools_root}.filePath(QStringLiteral("venvs/%1").arg(backend_id));
+}
+
+QString mp::llm::managed_venv_python(const QString& tools_root, const QString& backend_id)
+{
+    const auto venv = managed_venv_dir(tools_root, backend_id);
+    if (venv.isEmpty())
+        return {};
+#ifdef Q_OS_WIN
+    return QDir{venv}.filePath(QStringLiteral("Scripts/python.exe"));
+#else
+    return QDir{venv}.filePath(QStringLiteral("bin/python"));
+#endif
+}

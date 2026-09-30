@@ -8,6 +8,7 @@ import '../providers.dart';
 import '../sidebar.dart';
 import 'catalogue/top_picks.dart';
 import 'instances/llm_downloaded_screen.dart';
+import 'llm_download_form.dart';
 import 'llm_features.dart';
 import 'llm_id.dart';
 
@@ -594,11 +595,20 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
   int get activeCount =>
       state.where((j) => j.status == ModelJobStatus.queued || j.status == ModelJobStatus.running).length;
 
-  void enqueueDownload(String modelId, String quant, {String hfRepo = ''}) {
+  void enqueueDownload(
+    String modelId,
+    String quant, {
+    String hfRepo = '',
+    String format = '',
+    String filename = '',
+  }) {
+    final fmt = format.isEmpty ? 'gguf' : format;
+    final quantKey = quant.isEmpty ? filename : quant;
+    final label = quantKey.isEmpty ? modelId : '$modelId ($quantKey)';
     ref.read(downloadManagerProvider.notifier).enqueue(
       kind: DownloadKind.llmModel,
-      label: modelId,
-      dedupKey: 'llm:$modelId',
+      label: label,
+      dedupKey: 'llm:$modelId:$fmt:$quantKey',
       modelId: modelId,
       quant: quant,
       hfRepo: hfRepo,
@@ -609,6 +619,8 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
           modelId,
           quant: quant,
           hfRepo: hfRepo,
+          format: fmt,
+          filename: filename,
         )) {
           if (controller.isCancelled) break;
           final raw = int.tryParse(reply.launchProgress.percentComplete) ?? 0;
@@ -620,6 +632,57 @@ class ModelDownloadQueue extends Notifier<List<ModelDownloadJob>> {
       },
     );
     ref.read(sidebarKeyProvider.notifier).set(LlmDownloadedScreen.sidebarKey);
+  }
+
+  Future<void> enqueueFromForm({
+    required String modelId,
+    required String quant,
+    required String hfRepo,
+    required LlmDownloadForm form,
+  }) async {
+    final client = ref.read(grpcClientProvider);
+    final wantsLlama = form.runtimes.any(isLlamaRuntime);
+    final allGguf =
+        wantsLlama && form.quantMode == LlmDownloadQuantMode.allGguf;
+
+    List<({String quant, String filename})> ggufTargets = [
+      (quant: quant, filename: ''),
+    ];
+    if (allGguf) {
+      final listed = await client.listModelFiles(modelId, hfRepo: hfRepo, quant: quant);
+      if (listed.files.isEmpty) {
+        throw StateError('No GGUF files listed for $modelId');
+      }
+      ggufTargets = [
+        for (final file in listed.files)
+          (
+            quant: file.quant.isEmpty ? quant : file.quant,
+            filename: file.filename,
+          ),
+      ];
+    }
+
+    for (final runtime in form.runtimes) {
+      final format = formatForRuntime(runtime);
+      if (isLlamaRuntime(runtime)) {
+        for (final target in ggufTargets) {
+          enqueueDownload(
+            modelId,
+            target.quant,
+            hfRepo: hfRepo,
+            format: format,
+            filename: target.filename,
+          );
+        }
+      } else {
+        enqueueDownload(
+          modelId,
+          quant,
+          hfRepo: hfRepo,
+          format: format,
+        );
+      }
+    }
   }
 }
 

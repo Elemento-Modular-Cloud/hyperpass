@@ -136,14 +136,31 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
 
     if (mlx_enabled)
     {
+        const auto managed_python = managed_venv_python(managed_tools_dir, tool_mlx);
         const auto mlx_server = locate_binary(nullptr, {"mlx_lm.server"});
-        const auto python = locate_binary(nullptr, {"python3", "python"});
+        const auto path_python = locate_binary(nullptr, {"python3", "python"});
+        const bool mlx_via_managed = python_imports_mlx_lm(managed_python);
         const bool mlx_via_server = binary_ready(mlx_server);
-        const bool mlx_via_python = python_imports_mlx_lm(python);
+        const bool mlx_via_python = python_imports_mlx_lm(path_python);
+        const bool can_install =
+            mlx_platform && (!path_python.isEmpty() || !QStandardPaths::findExecutable("python3").isEmpty() ||
+                             !QStandardPaths::findExecutable("python").isEmpty());
 
         if (mlx_platform)
         {
-            if (mlx_via_server)
+            if (mlx_via_managed)
+            {
+                rows.push_back(make_result("mlx",
+                                           "MLX (mlx_lm)",
+                                           "ready",
+                                           "Managed mlx-lm virtualenv ready",
+                                           managed_python,
+                                           {},
+                                           false,
+                                           mlx_selected,
+                                           true));
+            }
+            else if (mlx_via_server)
             {
                 const auto version = run_version_line(mlx_server, {"--help"});
                 rows.push_back(make_result("mlx",
@@ -153,7 +170,8 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                            mlx_server,
                                            {},
                                            false,
-                                           mlx_selected));
+                                           mlx_selected,
+                                           true));
             }
             else if (mlx_via_python)
             {
@@ -161,32 +179,25 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                            "MLX (mlx_lm)",
                                            "ready",
                                            "Python mlx-lm package available",
-                                           python,
+                                           path_python,
                                            {},
                                            false,
-                                           mlx_selected));
-            }
-            else if (!python.isEmpty())
-            {
-                rows.push_back(make_result("mlx",
-                                           "MLX (mlx_lm)",
-                                           "missing",
-                                           "Python found but mlx-lm is not installed",
-                                           python,
-                                           "pip install mlx-lm",
-                                           false,
-                                           mlx_selected));
+                                           mlx_selected,
+                                           true));
             }
             else
             {
                 rows.push_back(make_result("mlx",
                                            "MLX (mlx_lm)",
                                            "missing",
-                                           "Recommended inference backend on Apple Silicon",
-                                           {},
-                                           "pip install mlx-lm",
+                                           can_install ? "Install mlx-lm into a managed virtualenv"
+                                                       : "Python 3 is required to install mlx-lm",
+                                           path_python,
+                                           can_install ? "Install from Models → Backends"
+                                                       : "Install Python 3, then use Models → Backends",
                                            false,
-                                           mlx_selected));
+                                           mlx_selected,
+                                           can_install));
             }
         }
         else
@@ -247,19 +258,96 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
     }
 #endif
 
+    const bool vllm_selected = selected_inference_id == "vllm";
+#if defined(Q_OS_LINUX)
+    const bool vllm_platform = !QStandardPaths::findExecutable("nvidia-smi").isEmpty();
+#else
+    const bool vllm_platform = false;
+#endif
+    {
+        const auto managed_python = managed_venv_python(managed_tools_dir, tool_vllm);
+        const auto vllm_cli = locate_binary(nullptr, {"vllm"});
+        const auto path_python = locate_binary(nullptr, {"python3", "python"});
+        auto python_imports_vllm = [&](const QString& py) {
+            if (!binary_ready(py))
+                return false;
+            QProcess proc;
+            proc.start(py, {"-c", "import vllm"});
+            return proc.waitForFinished(8000) && proc.exitCode() == 0;
+        };
+        const bool vllm_via_managed = python_imports_vllm(managed_python);
+        const bool can_install =
+            vllm_platform && (!path_python.isEmpty() || !QStandardPaths::findExecutable("python3").isEmpty() ||
+                              !QStandardPaths::findExecutable("python").isEmpty());
+
+        if (!vllm_platform)
+        {
+            rows.push_back(make_result("vllm",
+                                       "vLLM",
+                                       "optional",
+                                       "Linux with NVIDIA GPU only",
+                                       {},
+                                       {},
+                                       false,
+                                       false));
+        }
+        else if (vllm_via_managed)
+        {
+            rows.push_back(make_result("vllm",
+                                       "vLLM",
+                                       "ready",
+                                       "Managed vllm virtualenv ready",
+                                       managed_python,
+                                       {},
+                                       false,
+                                       vllm_selected,
+                                       true));
+        }
+        else if (binary_ready(vllm_cli))
+        {
+            rows.push_back(make_result("vllm",
+                                       "vLLM",
+                                       "ready",
+                                       "vllm CLI found",
+                                       vllm_cli,
+                                       {},
+                                       false,
+                                       vllm_selected,
+                                       true));
+        }
+        else if (python_imports_vllm(path_python))
+        {
+            rows.push_back(make_result("vllm",
+                                       "vLLM",
+                                       "ready",
+                                       "Python vllm package available",
+                                       path_python,
+                                       {},
+                                       false,
+                                       vllm_selected,
+                                       true));
+        }
+        else
+        {
+            rows.push_back(make_result("vllm",
+                                       "vLLM",
+                                       "missing",
+                                       can_install ? "Install vLLM into a managed virtualenv"
+                                                   : "Python 3 is required to install vLLM",
+                                       {},
+                                       can_install ? "Install from Models → Backends"
+                                                   : "Install Python 3, then use Models → Backends",
+                                       false,
+                                       vllm_selected,
+                                       can_install));
+        }
+    }
+
     rows.push_back(make_result("ollama",
                                "Ollama",
                                "optional",
                                "Not integrated with Electros LaunchPad yet",
                                QStandardPaths::findExecutable("ollama"),
-                               {},
-                               false,
-                               false));
-    rows.push_back(make_result("vllm",
-                               "vLLM",
-                               "optional",
-                               "Not integrated with Electros LaunchPad yet",
-                               {},
                                {},
                                false,
                                false));

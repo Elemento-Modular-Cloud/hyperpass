@@ -581,12 +581,24 @@ class _ComposePaletteState extends ConsumerState<_ComposePalette>
     if (!mounted || model == null) return;
     final prefs = ref.read(sharedPreferencesProvider);
     final form = LlmLoadForm.fromJson(readLlmLoadPrefs(prefs, model.id));
+    final backends = ref.read(llmBackendsProvider).asData?.value;
+    final readyIds = {
+      for (final backend in backends?.backends ?? const [])
+        if (backend.status == 'ready' && inferenceBackendIds.contains(backend.id))
+          backend.id,
+    };
+    var runtime = form.runtime;
+    if (model.runtime.isNotEmpty && readyIds.contains(model.runtime)) {
+      runtime = model.runtime;
+    } else if (!readyIds.contains(runtime) && readyIds.isNotEmpty) {
+      runtime = readyIds.first;
+    }
     ref.read(composeEditorProvider.notifier).addLlm(
           modelId: model.id,
           llmMode: ComposeLlmMode.standard,
           label: model.name.isEmpty ? model.id : model.name,
           quant: model.bestQuant,
-          runtime: form.runtime,
+          runtime: runtime,
           ctxSize: suggestedCtxForModel(
                 usableContext: model.usableContext.toInt(),
                 contextLength: model.contextLength.toInt(),
@@ -1068,6 +1080,7 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
     return switch (id) {
       'llamacpp' => l10n.modelsRuntimeLlama,
       'mlx' => l10n.modelsRuntimeMlx,
+      'vllm' => l10n.modelsRuntimeVllm,
       _ => id,
     };
   }
@@ -1137,9 +1150,7 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
     final backends = ref.watch(llmBackendsProvider).asData?.value;
     final ready = {
       for (final backend in backends?.backends ?? const [])
-        if (backend.status == 'ready' &&
-            (backend.id == 'llamacpp' ||
-                (enableMlxBackend && backend.id == 'mlx')))
+        if (backend.status == 'ready' && inferenceBackendIds.contains(backend.id))
           backend.id,
     };
     final runtime = composeResolvedRuntime(node);
@@ -1159,14 +1170,18 @@ class _ComposeInspectorState extends ConsumerState<_ComposeInspector> {
             final prefs = ref.read(sharedPreferencesProvider);
             final form =
                 LlmLoadForm.fromJson(readLlmLoadPrefs(prefs, model.id));
+            var chosenRuntime = form.runtime.isEmpty
+                ? composeResolvedRuntime(node)
+                : form.runtime;
+            if (model.runtime.isNotEmpty && ready.contains(model.runtime)) {
+              chosenRuntime = model.runtime;
+            }
             ref.read(composeEditorProvider.notifier).setLlmModel(
                   node.id,
                   modelId: model.id,
                   label: model.name.isEmpty ? model.id : model.name,
                   quant: model.bestQuant,
-                  runtime: form.runtime.isEmpty
-                      ? composeResolvedRuntime(node)
-                      : form.runtime,
+                  runtime: chosenRuntime,
                   ctxSize: suggestedCtxForModel(
                         usableContext: model.usableContext.toInt(),
                         contextLength: model.contextLength.toInt(),

@@ -111,9 +111,8 @@ constexpr auto llama_server_env_var = "ELP_LLAMA_SERVER";
 constexpr auto llmfit_env_var = "ELP_LLMFIT";
 constexpr auto hf_token_env_var = "HF_TOKEN";
 
-// Temporary: MLX paths stay in the tree but are hidden from probe/UI/load selection.
-// Flip to true (and Dart `enableMlxBackend`) to restore MLX.
-constexpr bool enable_mlx_backend = false;
+// MLX inference on Apple Silicon (paired with Dart `enableMlxBackend`).
+constexpr bool enable_mlx_backend = true;
 
 constexpr auto cloud_init_file_name = "cloud-init-config.iso";
 

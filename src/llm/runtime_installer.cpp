@@ -19,6 +19,7 @@
 
 #include "managed_tools.h"
 
+#include <multipass/constants.h>
 #include <multipass/format.h>
 #include <multipass/logging/log.h>
 
@@ -28,6 +29,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QStandardPaths>
 #include <QSysInfo>
 #include <QTemporaryDir>
 #include <QUrl>
@@ -197,15 +199,25 @@ QString mp::llm::backend_id_to_tool_name(const QString& backend_id)
         return QString::fromUtf8(tool_llmfit);
     if (backend_id == "llamacpp")
         return QString::fromUtf8(tool_llama_server);
+    if (backend_id == tool_mlx)
+        return QString::fromUtf8(tool_mlx);
+    if (backend_id == tool_vllm)
+        return QString::fromUtf8(tool_vllm);
     return {};
 }
 
 mp::llm::RuntimeAsset mp::llm::resolve_runtime_asset(const QString& backend_id)
 {
+    if (is_pip_backend(backend_id))
+        throw std::runtime_error(fmt::format(
+            "backend '{}' is installed via pip into a managed venv, not an archive asset",
+            backend_id.toStdString()));
+
     const auto tool = backend_id_to_tool_name(backend_id);
     if (tool.isEmpty())
-        throw std::runtime_error(fmt::format("unknown backend id '{}'; expected llmfit or llamacpp",
-                                             backend_id.toStdString()));
+        throw std::runtime_error(
+            fmt::format("unknown backend id '{}'; expected llmfit, llamacpp, mlx, or vllm",
+                        backend_id.toStdString()));
 
     RuntimeAsset asset;
     asset.tool_name = tool;
@@ -245,9 +257,74 @@ mp::llm::RuntimeInstaller::RuntimeInstaller(URLDownloader& downloader, Path data
 {
 }
 
+namespace
+{
+bool python_imports_module(const QString& python, const QString& module)
+{
+    if (python.isEmpty() || module.isEmpty())
+        return false;
+    const QFileInfo info{python};
+    if (!info.exists() || !info.isExecutable())
+        return false;
+    QProcess proc;
+    proc.start(python, {"-c", QStringLiteral("import %1").arg(module)});
+    return proc.waitForFinished(15000) && proc.exitCode() == 0;
+}
+
+QString host_python()
+{
+    return QStandardPaths::findExecutable("python3").isEmpty()
+               ? QStandardPaths::findExecutable("python")
+               : QStandardPaths::findExecutable("python3");
+}
+
+void run_python(const QString& python,
+                const QStringList& args,
+                const std::string& what,
+                int timeout_ms = 600000)
+{
+    QProcess proc;
+    proc.setProcessChannelMode(QProcess::MergedChannels);
+    proc.start(python, args);
+    if (!proc.waitForStarted(15000))
+        throw std::runtime_error(fmt::format("failed to start {}: {}", what, python.toStdString()));
+    if (!proc.waitForFinished(timeout_ms) || proc.exitCode() != 0)
+    {
+        throw std::runtime_error(fmt::format("{} failed: {}",
+                                             what,
+                                             QString::fromUtf8(proc.readAll()).trimmed().toStdString()));
+    }
+}
+
+void ensure_pip_backend_supported(const QString& backend_id)
+{
+    if (backend_id == mp::llm::tool_mlx)
+    {
+#ifndef Q_OS_MACOS
+        throw std::runtime_error("MLX can only be installed on macOS");
+#endif
+        if (!mp::enable_mlx_backend)
+            throw std::runtime_error("MLX backend is disabled in this build");
+        return;
+    }
+    if (backend_id == mp::llm::tool_vllm)
+    {
+#ifndef Q_OS_LINUX
+        throw std::runtime_error("vLLM can only be installed on Linux");
+#else
+        return;
+#endif
+    }
+    throw std::runtime_error(fmt::format("not a pip-installable backend '{}'", backend_id.toStdString()));
+}
+} // namespace
+
 QString mp::llm::RuntimeInstaller::install(const QString& backend_id,
                                            const InstallProgressCallback& on_progress)
 {
+    if (is_pip_backend(backend_id))
+        return install_pip_backend(backend_id, on_progress);
+
     const auto asset = resolve_runtime_asset(backend_id);
     const auto names = asset.tool_name == tool_llmfit
                            ? QStringList{QString::fromUtf8(tool_llmfit)}
@@ -261,6 +338,70 @@ QString mp::llm::RuntimeInstaller::install(const QString& backend_id,
         return existing;
     }
     return install_asset(asset, on_progress);
+}
+
+QString mp::llm::RuntimeInstaller::install_pip_backend(const QString& backend_id,
+                                                       const InstallProgressCallback& on_progress)
+{
+    ensure_pip_backend_supported(backend_id);
+
+    auto emit_progress = [&](const char* status, int percent, const QString& path = {},
+                             const std::string& message = {}) {
+        if (on_progress)
+            on_progress(InstallProgress{status, percent, path, message});
+    };
+
+    const auto package = pip_package_for_backend(backend_id);
+    const auto import_name = backend_id == tool_mlx ? QStringLiteral("mlx_lm") : backend_id;
+    const auto tools_root = managed_tools_root(data_directory);
+    QDir{}.mkpath(tools_root);
+
+    const auto venv_dir = managed_venv_dir(tools_root, backend_id);
+    auto venv_python = managed_venv_python(tools_root, backend_id);
+
+    if (python_imports_module(venv_python, import_name))
+    {
+        emit_progress("ready", 100, venv_python, "already installed");
+        return venv_python;
+    }
+
+    const auto system_python = host_python();
+    if (system_python.isEmpty())
+        throw std::runtime_error("python3 is required to install " + package.toStdString());
+
+    if (!QFileInfo{venv_python}.exists())
+    {
+        emit_progress("extracting", 10, {}, fmt::format("creating virtualenv for {}", package.toStdString()));
+        QDir{}.mkpath(QFileInfo{venv_dir}.absolutePath());
+        run_python(system_python, {"-m", "venv", venv_dir}, "python -m venv", 120000);
+        venv_python = managed_venv_python(tools_root, backend_id);
+        if (!QFileInfo{venv_python}.exists())
+            throw std::runtime_error("virtualenv was created but python was not found inside it");
+        ensure_executable(venv_python);
+    }
+
+    emit_progress("downloading", 25, venv_python, "upgrading pip");
+    run_python(venv_python, {"-m", "pip", "install", "--upgrade", "pip"}, "pip upgrade", 300000);
+
+    emit_progress("downloading", 45, venv_python,
+                  fmt::format("installing {}", package.toStdString()));
+    run_python(venv_python,
+               {"-m", "pip", "install", "--upgrade", package},
+               fmt::format("pip install {}", package.toStdString()),
+               900000);
+
+    emit_progress("extracting", 90, venv_python, "verifying import");
+    if (!python_imports_module(venv_python, import_name))
+    {
+        throw std::runtime_error(
+            fmt::format("installed {} but `import {}` failed in the managed venv",
+                        package.toStdString(),
+                        import_name.toStdString()));
+    }
+
+    mpl::info(category, "installed {} into {}", package, venv_dir);
+    emit_progress("ready", 100, venv_python, "installed");
+    return venv_python;
 }
 
 void mp::llm::RuntimeInstaller::verify_archive(const RuntimeAsset& asset, const QString& archive_path)

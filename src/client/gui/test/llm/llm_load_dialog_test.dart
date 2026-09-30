@@ -70,6 +70,18 @@ void main() {
     expect(find.byKey(const Key('llm-load-ctx')), findsOneWidget);
   });
 
+  testWidgets('hides llama advanced controls for vllm', (tester) async {
+    await pumpDialog(
+      tester,
+      initial: LlmLoadForm(runtime: 'vllm', ctxSize: 8192),
+      runtimes: const [(id: 'vllm', name: 'vLLM')],
+    );
+
+    expect(find.byKey(const Key('llm-load-advanced')), findsNothing);
+    expect(find.byKey(const Key('llm-load-gpu')), findsNothing);
+    expect(find.byKey(const Key('llm-load-ctx')), findsOneWidget);
+  });
+
   testWidgets('rejects a zero context size', (tester) async {
     await pumpDialog(tester, initial: LlmLoadForm());
 

@@ -177,6 +177,57 @@ TEST(RuntimeInstaller, unknownBackendThrows)
     EXPECT_THROW(llm::resolve_runtime_asset("ollama"), std::runtime_error);
 }
 
+TEST(RuntimeInstaller, pipBackendsAreNotArchiveAssets)
+{
+    EXPECT_THROW(llm::resolve_runtime_asset("mlx"), std::runtime_error);
+    EXPECT_THROW(llm::resolve_runtime_asset("vllm"), std::runtime_error);
+}
+
+TEST(ManagedTools, pipBackendHelpers)
+{
+    EXPECT_TRUE(llm::is_pip_backend("mlx"));
+    EXPECT_TRUE(llm::is_pip_backend("vllm"));
+    EXPECT_FALSE(llm::is_pip_backend("llamacpp"));
+    EXPECT_EQ(llm::pip_package_for_backend("mlx"), "mlx-lm");
+    EXPECT_EQ(llm::pip_package_for_backend("vllm"), "vllm");
+
+    mpt::TempDir dir;
+    const auto root = llm::managed_tools_root(dir.path());
+    const auto venv = llm::managed_venv_dir(root, "mlx");
+    EXPECT_TRUE(venv.contains("venvs/mlx"));
+    const auto python = llm::managed_venv_python(root, "mlx");
+    EXPECT_TRUE(python.endsWith("/bin/python") || python.endsWith("\\Scripts\\python.exe") ||
+                python.endsWith("/Scripts/python.exe"));
+}
+
+TEST(RuntimeInstaller, pipInstallReportsAlreadyInstalled)
+{
+    mpt::TempDir dir;
+    const auto root = llm::managed_tools_root(dir.path());
+    const auto python = llm::managed_venv_python(root, "mlx");
+    QDir{}.mkpath(QFileInfo{python}.absolutePath());
+    // Fake venv python that succeeds for `import mlx_lm`.
+    write_executable(python,
+                     "#!/bin/sh\n"
+                     "if [ \"$1\" = \"-c\" ]; then\n"
+                     "  echo \"$2\" | grep -q 'import mlx_lm' || exit 1\n"
+                     "  exit 0\n"
+                     "fi\n"
+                     "exit 1\n");
+
+    RecordingDownloader downloader;
+    llm::RuntimeInstaller installer{downloader, dir.path()};
+    std::string last_status;
+    QString path;
+#ifdef Q_OS_MACOS
+    path = installer.install("mlx", [&](const llm::InstallProgress& p) { last_status = p.status; });
+    EXPECT_EQ(last_status, "ready");
+    EXPECT_EQ(QFileInfo{path}.absoluteFilePath(), QFileInfo{python}.absoluteFilePath());
+#else
+    EXPECT_THROW(installer.install("mlx"), std::runtime_error);
+#endif
+}
+
 TEST(RuntimeInstaller, checksumMismatchThrows)
 {
     mpt::TempDir dir;

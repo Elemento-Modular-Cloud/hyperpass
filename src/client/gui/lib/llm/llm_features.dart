@@ -1,3 +1,50 @@
-/// Temporary kill-switch for MLX inference/catalog UI.
-/// Flip to `true` (and `enable_mlx_backend` in constants.h) to restore.
-const enableMlxBackend = false;
+/// Kill-switch for MLX inference/catalog UI (paired with `enable_mlx_backend` in constants.h).
+const enableMlxBackend = true;
+
+/// Inference runners the GUI may deploy (filtered further by probe `ready` status).
+const inferenceBackendIds = {
+  'llamacpp',
+  if (enableMlxBackend) 'mlx',
+  'vllm',
+};
+
+bool isInferenceBackendId(String id) => inferenceBackendIds.contains(id);
+
+bool isLlamaRuntime(String runtime) =>
+    runtime == 'llamacpp' || runtime.startsWith('llamacpp-');
+
+bool isMlxRuntime(String runtime) => runtime == 'mlx';
+
+bool isVllmRuntime(String runtime) => runtime == 'vllm';
+
+/// Vault / pull format for an inference runtime id.
+String formatForRuntime(String runtime) {
+  if (isMlxRuntime(runtime)) return 'mlx';
+  if (isVllmRuntime(runtime)) return 'hf';
+  return 'gguf';
+}
+
+/// Runtimes that can serve a model of [format], optionally constrained by the
+/// catalog/vault [supportedRuntimes] list. MLX weights never map to llama.cpp
+/// and GGUF never maps to MLX.
+Set<String> compatibleInferenceRuntimes({
+  String format = '',
+  Iterable<String> supportedRuntimes = const [],
+}) {
+  final advertised = {
+    for (final id in supportedRuntimes)
+      if (isInferenceBackendId(id)) id,
+  };
+  if (advertised.isNotEmpty) return advertised;
+
+  switch (format.trim().toLowerCase()) {
+    case 'mlx':
+      return {if (enableMlxBackend) 'mlx'};
+    case 'hf':
+      return {'vllm'};
+    case 'gguf':
+      return {'llamacpp'};
+    default:
+      return {...inferenceBackendIds};
+  }
+}

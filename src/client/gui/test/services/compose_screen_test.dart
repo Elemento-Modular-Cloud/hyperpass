@@ -30,6 +30,11 @@ void main() {
       overrides: [
         marketplaceLibraryProvider.overrideWith((ref) => library),
         sharedPreferencesProvider.overrideWithValue(prefs),
+        // Keep the prefs-selected intent alive: an empty daemon list would
+        // prune it as an orphan and clear the canvas mid-test.
+        intentsStreamProvider.overrideWith(
+          (ref) => Stream.value([IntentInfo()..name = 'lab']),
+        ),
       ],
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -217,6 +222,9 @@ void main() {
         overrides: [
           marketplaceLibraryProvider.overrideWith((ref) => library),
           sharedPreferencesProvider.overrideWithValue(prefs),
+          intentsStreamProvider.overrideWith(
+            (ref) => Stream.value([IntentInfo()..name = 'lab']),
+          ),
           cloudInitConfigsProvider.overrideWith(
             (ref) async => [
               CloudInitConfigInfo(

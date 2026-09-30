@@ -37,6 +37,8 @@ struct ModelArtifact
     std::string path;
     std::string mmproj_filename;
     std::string mmproj_path;
+    /// gguf | mlx | hf | onnx — empty in legacy index entries means gguf.
+    std::string format;
     long long size_bytes{0};
     long long last_accessed{0};
 };
@@ -47,7 +49,13 @@ public:
     ModelVault(Path data_directory, URLDownloader& downloader);
 
     std::optional<ModelArtifact> find(const std::string& model_id) const;
+    std::optional<ModelArtifact> find(const std::string& model_id, const std::string& format) const;
+    /// Prefer an exact quant match when non-empty; otherwise newest / preferred quant.
+    std::optional<ModelArtifact> find(const std::string& model_id,
+                                      const std::string& format,
+                                      const std::string& quant) const;
     std::vector<ModelArtifact> list() const;
+    std::vector<ModelArtifact> list_for(const std::string& model_id) const;
     Path models_root() const;
 
     ModelArtifact pull(const std::string& model_id,
@@ -58,10 +66,34 @@ public:
                        const ProgressMonitor& monitor,
                        const std::string& mmproj_filename = {});
 
+    /// Download a full Hugging Face / MLX repo snapshot into the vault (not lazy).
+    ModelArtifact pull_remote(const std::string& model_id,
+                              const std::string& repo,
+                              const std::string& format,
+                              const std::string& quant,
+                              const std::string& hf_token,
+                              const ProgressMonitor& monitor);
+
+    /// Register an HF / MLX model reference without downloading weights.
+    /// Prefer [pull_remote] so load does not block on a Hub fetch.
+    ModelArtifact register_remote(const std::string& model_id,
+                                  const std::string& repo,
+                                  const std::string& format,
+                                  const std::string& quant = {});
+
     bool remove(const std::string& model_id);
+    bool remove(const std::string& model_id, const std::string& format);
+    bool remove(const std::string& model_id, const std::string& format, const std::string& quant);
     void touch(const std::string& model_id);
     void forget_index(const std::string& model_id);
+    void forget_index(const std::string& model_id, const std::string& format);
+    void forget_index(const std::string& model_id,
+                      const std::string& format,
+                      const std::string& quant);
     ModelArtifact attach_mmproj(const std::string& model_id, const std::string& mmproj_path);
+    ModelArtifact attach_mmproj(const std::string& model_id,
+                                const std::string& quant,
+                                const std::string& mmproj_path);
 
     ModelArtifact ensure_mmproj(const std::string& model_id,
                                 const std::string& repo,
@@ -73,6 +105,7 @@ private:
     void load();
     void save() const;
     Path artifact_path(const std::string& repo, const std::string& filename) const;
+    static std::string effective_format(const ModelArtifact& art);
 
     Path root;
     Path index_path;

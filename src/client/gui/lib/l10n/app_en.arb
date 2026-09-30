@@ -399,7 +399,7 @@
     "@llmDownloadedLabel": {
         "description": "Sidebar label for cached GGUF models and active downloads"
     },
-    "llmDownloadedSubtitle": "GGUF files on disk ready to load into Running models.",
+    "llmDownloadedSubtitle": "Cached model artifacts ready to load into Running models.",
     "@llmDownloadedSubtitle": {
         "description": "Subtitle under the Downloaded page title"
     },
@@ -677,6 +677,34 @@
     "@modelsDownload": {
         "description": "Queue a GGUF download without loading it"
     },
+    "modelsDownloadOptionsTitle": "Download options",
+    "@modelsDownloadOptionsTitle": {
+        "description": "Title for the model download options dialog"
+    },
+    "modelsDownloadOptionsBody": "Choose which runtimes to prepare and whether to fetch every GGUF quantization or only the recommended one.",
+    "@modelsDownloadOptionsBody": {
+        "description": "Body text for the model download options dialog"
+    },
+    "modelsDownloadRuntimesLabel": "Runtimes",
+    "@modelsDownloadRuntimesLabel": {
+        "description": "Label above runtime checkboxes in the download dialog"
+    },
+    "modelsDownloadQuantLabel": "GGUF versions",
+    "@modelsDownloadQuantLabel": {
+        "description": "Label above quantization radio buttons in the download dialog"
+    },
+    "modelsDownloadQuantRecommended": "Recommended only",
+    "@modelsDownloadQuantRecommended": {
+        "description": "Download only the recommended GGUF quantization"
+    },
+    "modelsDownloadQuantAll": "All available GGUF quants",
+    "@modelsDownloadQuantAll": {
+        "description": "Download every usable GGUF quantization for llama.cpp"
+    },
+    "modelsDownloadSelectRuntime": "Select at least one runtime.",
+    "@modelsDownloadSelectRuntime": {
+        "description": "Validation error when no runtime is selected for download"
+    },
     "modelsTabCatalog": "Catalog",
     "@modelsTabCatalog": {
         "description": "Models tab: recommendations and search"
@@ -736,6 +764,18 @@
     "modelsDetailPath": "Path",
     "@modelsDetailPath": {
         "description": "Label for on-disk path in downloaded details dialog"
+    },
+    "modelsDetailFormat": "Format",
+    "@modelsDetailFormat": {
+        "description": "Label for artifact format (GGUF, MLX, HF) in downloaded details"
+    },
+    "modelsDetailArtifacts": "Downloaded versions",
+    "@modelsDetailArtifacts": {
+        "description": "Heading above the list of formats/quants for a cached model"
+    },
+    "modelsDeleteCachedMultiBody": "This removes every downloaded version of this model (all formats and quants).",
+    "@modelsDeleteCachedMultiBody": {
+        "description": "Delete confirmation when a cached model has multiple artifacts"
     },
     "modelsPickRuntimeTitle": "Choose runtime",
     "@modelsPickRuntimeTitle": {
@@ -981,6 +1021,10 @@
     "@modelsRuntimeMlx": {
         "description": "MLX runtime filter"
     },
+    "modelsRuntimeVllm": "vLLM",
+    "@modelsRuntimeVllm": {
+        "description": "vLLM runtime filter"
+    },
     "modelsFitPerfect": "Perfect",
     "@modelsFitPerfect": {
         "description": "Perfect fit filter"
@@ -1033,7 +1077,7 @@
     "@modelsDeleteCachedTitle": {
         "description": "Confirmation title when deleting a cached model"
     },
-    "modelsDeleteCachedBody": "This will permanently remove the GGUF file from disk.",
+    "modelsDeleteCachedBody": "This will permanently remove the downloaded model files from disk.",
     "@modelsDeleteCachedBody": {
         "description": "Confirmation body when deleting a cached model"
     },

@@ -28,6 +28,7 @@
 
 #include <optional>
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -267,6 +268,41 @@ std::string rewrite_upstream_model(std::string body, const std::string& upstream
     }
 }
 
+/// mlx_lm continuous batching breaks Gemma2 attention masks under concurrency
+/// (broadcast of (B,1,L,S) vs (B,n_heads,repeats,L,S)). Setting seed forces
+/// the non-batchable sequential path in mlx_lm.server.
+/// Also inject stop sequences so the USER:/ASSISTANT: convert_chat fallback
+/// (used when a base model has no chat template) cannot loop forever.
+std::string sanitize_mlx_request(std::string body)
+{
+    try
+    {
+        auto parsed = json::parse(body.empty() ? "{}" : body);
+        if (!parsed.is_object())
+            return body;
+        auto& obj = parsed.as_object();
+        if (!obj.contains("seed"))
+        {
+            static std::atomic<std::uint64_t> seq{1};
+            obj["seed"] = static_cast<std::int64_t>(seq.fetch_add(1));
+        }
+        if (!obj.contains("stop"))
+        {
+            json::array stops;
+            stops.emplace_back("\nUSER:");
+            stops.emplace_back("USER:");
+            stops.emplace_back("<end_of_turn>");
+            stops.emplace_back("<eos>");
+            obj["stop"] = std::move(stops);
+        }
+        return json::serialize(parsed);
+    }
+    catch (const std::exception&)
+    {
+        return body;
+    }
+}
+
 struct UpstreamTarget
 {
     std::string scheme;
@@ -430,7 +466,8 @@ void proxy_with_client(std::shared_ptr<httplib::Client> client,
     if (!result)
     {
         backend.touch_model(instance_id, std::chrono::seconds{10}, req.method, req.path, 502);
-        mpl::log(mpl::Level::warning, category, "backend proxy failed");
+        const auto err = httplib::to_string(result.error());
+        mpl::warn(category, "backend proxy failed: {}", err);
         res.status = 502;
         res.set_content(openai_error("api_error", "inference backend unreachable", 502),
                         "application/json");
@@ -586,6 +623,19 @@ void proxy_to_backend(GrpcBackend& backend,
                         "application/json");
         return;
     }
+
+    // llama.cpp / vLLM accept our openai_id via --alias / --served-model-name.
+    // mlx_lm.server has no alias: it treats `model` as a Hugging Face repo id, so
+    // rewrite to the vault path (e.g. mlx-community/Gemma-2-2B-4bit).
+    std::string local_upstream = routed.reply.upstream_model_id();
+    const auto backend_name = session->backend();
+    const bool is_mlx =
+        backend_name == "mlx" || backend_name.rfind("mlx", 0) == 0;
+    if (local_upstream.empty() && is_mlx)
+        local_upstream = session->path();
+    outbound = rewrite_upstream_model(outbound, local_upstream);
+    if (is_mlx)
+        outbound = sanitize_mlx_request(std::move(outbound));
 
     auto client =
         std::make_shared<httplib::Client>("127.0.0.1", static_cast<int>(routed.reply.port()));

@@ -19,36 +19,134 @@ import 'catalogue/model_capabilities.dart';
 import 'llm_load.dart';
 import 'providers.dart';
 
+/// One vault row for a model (format + quant), used when grouping multi-downloads.
+class CachedModelArtifact {
+  const CachedModelArtifact(this.model);
+
+  final ModelSuggestion model;
+
+  String get format {
+    final raw = model.format.trim().toLowerCase();
+    if (raw.isNotEmpty) return raw;
+    final path = model.path.trim();
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.gguf')) return 'gguf';
+    final file = model.filename.trim().toLowerCase();
+    if (file.endsWith('.gguf')) return 'gguf';
+    // Local MLX/HF vault snapshots are directories (often absolute) without .gguf.
+    if (path.isNotEmpty) return 'mlx';
+    return 'gguf';
+  }
+
+  String get formatLabel => switch (format) {
+        'mlx' => 'MLX',
+        'hf' => 'HF',
+        'onnx' => 'ONNX',
+        _ => 'GGUF',
+      };
+
+  String get quant {
+    if (format == 'gguf') {
+      final fromName = _ggufQuantFromName(
+        model.filename.isNotEmpty ? model.filename : model.path,
+      );
+      if (fromName.isNotEmpty) return fromName;
+    }
+    return model.bestQuant;
+  }
+
+  String get sizeLabel {
+    final gb = model.diskSizeGb > 0 ? model.diskSizeGb : model.memoryRequiredGb;
+    if (gb <= 0) return '';
+    return '${gb.toStringAsFixed(1)} GiB';
+  }
+
+  String get summary {
+    final parts = <String>[
+      formatLabel,
+      if (quant.isNotEmpty) quant,
+      if (sizeLabel.isNotEmpty) sizeLabel,
+    ];
+    return parts.join(' · ');
+  }
+}
+
+/// Downloaded model card model: one logical id with one or more artifacts.
+class CachedModelGroup {
+  CachedModelGroup({required this.id, required List<ModelSuggestion> artifacts})
+      : artifacts = [
+          for (final model in artifacts) CachedModelArtifact(model),
+        ]..sort((a, b) {
+            final byFormat = a.formatLabel.compareTo(b.formatLabel);
+            if (byFormat != 0) return byFormat;
+            return a.quant.compareTo(b.quant);
+          });
+
+  final String id;
+  final List<CachedModelArtifact> artifacts;
+
+  ModelSuggestion get primary => artifacts.first.model;
+
+  bool get hasMultiple => artifacts.length > 1;
+
+  String get title {
+    final name = primary.name;
+    return name.isEmpty ? id : name;
+  }
+
+  /// Prefer a GGUF artifact for load defaults, else the first entry.
+  ModelSuggestion get loadSeed {
+    for (final art in artifacts) {
+      if (art.format == 'gguf') return art.model;
+    }
+    return primary;
+  }
+}
+
+List<CachedModelGroup> groupCachedModels(Iterable<ModelSuggestion> models) {
+  final byId = <String, List<ModelSuggestion>>{};
+  for (final model in models) {
+    final id = model.id.isEmpty ? model.path : model.id;
+    byId.putIfAbsent(id, () => []).add(model);
+  }
+  final groups = [
+    for (final entry in byId.entries)
+      CachedModelGroup(id: entry.key, artifacts: entry.value),
+  ];
+  groups.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  return groups;
+}
+
+final _ggufQuantRe = RegExp(
+  r'-((?:IQ|Q|F|BF)\d+(?:_[A-Za-z0-9]+)*)\.gguf$',
+  caseSensitive: false,
+);
+
+String _ggufQuantFromName(String name) {
+  final base = name.split('/').last;
+  final match = _ggufQuantRe.firstMatch(base);
+  return match?.group(1) ?? '';
+}
+
 Future<void> showCachedModelDetails(
   BuildContext context,
-  ModelSuggestion model, {
+  CachedModelGroup group, {
   Iterable<ModelSuggestion> hints = const [],
 }) async {
   final l10n = AppLocalizations.of(context)!;
-  final title = model.name.isEmpty ? model.id : model.name;
+  final model = group.primary;
   final rows = <(String, String)>[
     if (model.id.isNotEmpty) (l10n.modelsDetailId, model.id),
     if (model.provider.isNotEmpty) (l10n.modelsDetailProvider, model.provider),
-    if (model.bestQuant.isNotEmpty) (l10n.modelsDetailQuant, model.bestQuant),
-    if (model.filename.isNotEmpty) (l10n.modelsDetailFilename, model.filename),
-    if (model.hfRepo.isNotEmpty) (l10n.modelsDetailHfRepo, model.hfRepo),
     if (model.parameterCount.isNotEmpty)
       (l10n.modelsDetailParams, model.parameterCount),
-    if (model.memoryRequiredGb > 0)
-      (
-        l10n.modelsDetailMemory,
-        '${model.memoryRequiredGb.toStringAsFixed(1)} GiB'
-      ),
-    if (model.diskSizeGb > 0)
-      (l10n.modelsDetailDisk, '${model.diskSizeGb.toStringAsFixed(1)} GiB'),
-    if (model.path.isNotEmpty) (l10n.modelsDetailPath, model.path),
   ];
   final capabilities = capabilitiesForSuggestion(model, hints: hints);
 
   await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(title),
+      title: Text(group.title),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -80,6 +178,66 @@ Future<void> showCachedModelDetails(
                   fontSize: 13,
                 ),
               ),
+              const SizedBox(height: 12),
+            ],
+            Text(
+              l10n.modelsDetailArtifacts,
+              style: TextStyle(
+                fontFamily: Brand.fontFamily,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(ctx)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final art in group.artifacts) ...[
+              Text(
+                art.summary,
+                style: const TextStyle(
+                  fontFamily: Brand.fontFamily,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (art.model.hfRepo.isNotEmpty)
+                CopyableText(
+                  art.model.hfRepo,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontSize: 12,
+                    color: Theme.of(ctx)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.7),
+                  ),
+                ),
+              if (art.model.filename.isNotEmpty)
+                CopyableText(
+                  art.model.filename,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontSize: 12,
+                    color: Theme.of(ctx)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.7),
+                  ),
+                ),
+              if (art.model.path.isNotEmpty && art.model.path != art.model.hfRepo)
+                CopyableText(
+                  art.model.path,
+                  style: TextStyle(
+                    fontFamily: Brand.fontFamily,
+                    fontSize: 12,
+                    color: Theme.of(ctx)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.7),
+                  ),
+                ),
               const SizedBox(height: 12),
             ],
           ],
@@ -170,27 +328,42 @@ class LlmActiveDownloadsTable extends ConsumerWidget {
   }
 }
 
+bool isCachedModelGroupInUse(
+  CachedModelGroup group,
+  Iterable<LoadedModelInfo> loaded, {
+  Iterable<PendingLlmLoad> pendingLoads = const [],
+}) {
+  return group.artifacts.any(
+    (art) => isCachedModelInUse(art.model, loaded, pendingLoads: pendingLoads),
+  );
+}
+
 Future<void> confirmDeleteCachedModel(
   BuildContext context,
   WidgetRef ref,
-  ModelSuggestion model,
+  CachedModelGroup group,
 ) async {
   final loaded = ref.read(loadedModelsProvider).asData?.value.models ??
       const <LoadedModelInfo>[];
   final pendingLoads = ref.read(pendingLlmLoadsProvider);
-  if (isCachedModelInUse(model, loaded, pendingLoads: pendingLoads)) return;
+  if (isCachedModelGroupInUse(group, loaded, pendingLoads: pendingLoads)) {
+    return;
+  }
 
   final l10n = AppLocalizations.of(context)!;
+  final body = group.hasMultiple
+      ? l10n.modelsDeleteCachedMultiBody
+      : l10n.modelsDeleteCachedBody;
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (_) => ConfirmationDialog(
       title: l10n.modelsDeleteCachedTitle,
-      body: Text(l10n.modelsDeleteCachedBody),
+      body: Text(body),
       actionText: l10n.commonDelete,
       onAction: () async {
         Navigator.pop(context);
-        await ref.read(grpcClientProvider).deleteModel(model.id);
+        await ref.read(grpcClientProvider).deleteModel(group.id);
         ref.invalidate(loadedModelsProvider);
       },
       inactionText: l10n.commonCancel,
@@ -206,6 +379,7 @@ class LlmCachedModelsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final groups = groupCachedModels(models);
     return SingleChildScrollView(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -216,16 +390,19 @@ class LlmCachedModelsGrid extends StatelessWidget {
               (constraints.maxWidth - spacing * (nCards - 1)) / nCards;
 
           final rows = <Widget>[];
-          for (var i = 0; i < models.length; i += nCards) {
-            final rowModels = models.skip(i).take(nCards).toList();
+          for (var i = 0; i < groups.length; i += nCards) {
+            final rowGroups = groups.skip(i).take(nCards).toList();
             rows.add(
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (var j = 0; j < rowModels.length; j++) ...[
+                    for (var j = 0; j < rowGroups.length; j++) ...[
                       if (j > 0) const SizedBox(width: spacing),
-                      LlmCachedModelCard(model: rowModels[j], width: cardWidth),
+                      LlmCachedModelCard(
+                        group: rowGroups[j],
+                        width: cardWidth,
+                      ),
                     ],
                   ],
                 ),
@@ -245,12 +422,12 @@ class LlmCachedModelsGrid extends StatelessWidget {
 
 class LlmCachedModelCard extends ConsumerStatefulWidget {
   const LlmCachedModelCard({
-    required this.model,
+    required this.group,
     required this.width,
     super.key,
   });
 
-  final ModelSuggestion model;
+  final CachedModelGroup group;
   final double width;
 
   @override
@@ -265,10 +442,10 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
     final l10n = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
     final onSurface = scheme.onSurface;
-    final model = widget.model;
+    final group = widget.group;
+    final model = group.primary;
+    final loadSeed = group.loadSeed;
     final branding = brandingForSuggestion(model);
-    final title = model.name.isEmpty ? model.id : model.name;
-    final quant = model.bestQuant;
     final topPicks =
         ref.watch(topPicksModelsProvider).asData?.value ?? const [];
     final capabilities = capabilitiesForSuggestion(model, hints: topPicks);
@@ -276,24 +453,18 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
         const <LoadedModelInfo>[];
     final pendingLoads = ref.watch(pendingLlmLoadsProvider);
     final inUse =
-        isCachedModelInUse(model, loaded, pendingLoads: pendingLoads);
-    final loadPending = pendingLoads.any((load) => load.modelId == model.id);
-    final sizeLabel = model.memoryRequiredGb > 0
-        ? '${model.memoryRequiredGb.toStringAsFixed(1)} GiB'
-        : (model.diskSizeGb > 0
-            ? '${model.diskSizeGb.toStringAsFixed(1)} GiB'
-            : '');
-    final meta = [
-      if (branding.displayName.isNotEmpty) branding.displayName,
-      if (quant.isNotEmpty) quant,
-      if (sizeLabel.isNotEmpty) sizeLabel,
-    ].join(' · ');
+        isCachedModelGroupInUse(group, loaded, pendingLoads: pendingLoads);
+    final loadPending = pendingLoads.any((load) => load.modelId == group.id);
+    final brandMeta =
+        branding.displayName.isNotEmpty ? branding.displayName : '';
+    final artifactLines = group.artifacts.map((a) => a.summary).toList();
+    final artifactTooltip = artifactLines.join('\n');
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: SizedBox(
         width: widget.width,
-        height: 220,
+        height: group.hasMultiple ? 248 : 220,
         child: CatalogueSurface(
           borderColor: _hovered ? Brand.primary.withValues(alpha: 0.45) : null,
           borderWidth: _hovered ? 1.5 : 1,
@@ -328,7 +499,7 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        title,
+                        group.title,
                         style: TextStyle(
                           fontFamily: Brand.fontFamily,
                           fontSize: 14,
@@ -339,26 +510,25 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
-                      if (model.path.isNotEmpty)
-                        Tooltip(
-                          message: model.path,
-                          child: Text(
-                            model.path,
-                            style: TextStyle(
-                              fontFamily: Brand.fontFamily,
-                              fontSize: 11,
-                              height: 1.35,
-                              fontWeight: FontWeight.w300,
-                              color: onSurface.withValues(alpha: 0.7),
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                      Tooltip(
+                        message: artifactTooltip,
+                        child: Text(
+                          artifactLines.join('\n'),
+                          style: TextStyle(
+                            fontFamily: Brand.fontFamily,
+                            fontSize: 11,
+                            height: 1.35,
+                            fontWeight: FontWeight.w400,
+                            color: onSurface.withValues(alpha: 0.7),
                           ),
+                          maxLines: group.hasMultiple ? 3 : 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ),
                       const Spacer(),
-                      if (meta.isNotEmpty)
+                      if (brandMeta.isNotEmpty)
                         Text(
-                          meta,
+                          brandMeta,
                           style: TextStyle(
                             fontFamily: Brand.fontFamily,
                             fontSize: 11,
@@ -381,26 +551,31 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                         : () => loadLlmModel(
                               context,
                               ref,
-                              modelId: model.id,
-                              quant: model.bestQuant,
-                              hfRepo: modelDownloadRepo(model),
+                              modelId: loadSeed.id,
+                              quant: loadSeed.bestQuant,
+                              hfRepo: modelDownloadRepo(loadSeed),
+                              format: CachedModelArtifact(loadSeed).format,
+                              supportedRuntimes: loadSeed.supportedRuntimes,
                               suggestedCtx: suggestedCtxForModel(
-                                usableContext: model.usableContext.toInt(),
-                                contextLength: model.contextLength.toInt(),
+                                usableContext: loadSeed.usableContext.toInt(),
+                                contextLength: loadSeed.contextLength.toInt(),
                               ),
                             ),
                   ),
                   CardAction(
                     label: l10n.modelsOpenPath,
-                    onTap: () =>
-                        showCachedModelDetails(context, model, hints: topPicks),
+                    onTap: () => showCachedModelDetails(
+                      context,
+                      group,
+                      hints: topPicks,
+                    ),
                   ),
                   CardAction(
                     label: l10n.commonDelete,
                     kind: LaunchPadButtonKind.destructive,
                     onTap: inUse
                         ? null
-                        : () => confirmDeleteCachedModel(context, ref, model),
+                        : () => confirmDeleteCachedModel(context, ref, group),
                   ),
                 ],
               ),

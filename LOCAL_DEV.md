@@ -114,9 +114,9 @@ Or Ctrl-C in the daemon terminal (shutdown can take a moment during startup or w
 
 ```bash
 REPO="$PWD"   # repo root
-mkdir -p /tmp/elp-data
-
-export ELP_STORAGE=/tmp/elp-data
+# Prefer a durable path — /tmp is wiped on reboot and loses LLM API keys.
+export ELP_STORAGE="${ELP_STORAGE:-$HOME/Library/Application Support/elp-dev}"
+mkdir -p "$ELP_STORAGE"
 # Optional: override Spacedock with a custom catalog file/URL
 # export ELP_DISTRIBUTIONS_URL=/absolute/path/to/distribution-info.json
 # Or point at a local Spacedock gate:

@@ -62,10 +62,13 @@ TEST(ApiKeyStore, instanceBindingAndRevokeForInstance)
 
     store.revoke_for_instance("inst-123");
     auto remaining = store.list();
-    ASSERT_EQ(remaining.size(), 2);
+    // Unbind only — never delete keys (unload / idle timeout used to wipe scoped keys).
+    ASSERT_EQ(remaining.size(), 3);
     EXPECT_EQ(remaining[0].id, global.record.id);
-    EXPECT_EQ(remaining[1].id, multi.record.id);
-    EXPECT_THAT(remaining[1].instance_ids, ElementsAre("inst-456"));
+    EXPECT_EQ(remaining[1].id, scoped.record.id);
+    EXPECT_TRUE(remaining[1].instance_ids.empty()); // last binding removed → global
+    EXPECT_EQ(remaining[2].id, multi.record.id);
+    EXPECT_THAT(remaining[2].instance_ids, ElementsAre("inst-456"));
 }
 
 TEST(ApiKeyStore, updateScopeAndLabel)

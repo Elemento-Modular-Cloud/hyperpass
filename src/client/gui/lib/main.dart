@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
-import 'package:local_notifier/local_notifier.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -49,7 +48,6 @@ import 'settings/hotkey.dart';
 import 'settings/settings.dart';
 import 'sidebar.dart';
 import 'tray_menu.dart';
-import 'update_available.dart';
 import 'vm_details/vm_details.dart';
 import 'vm_table/vm_table_screen.dart';
 import 'window_size.dart';
@@ -58,11 +56,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await setupLogger();
-
-  await localNotifier.setup(
-    appName: Brand.appName,
-    shortcutPolicy: ShortcutPolicy.requireCreate, // Only for Windows
-  );
 
   final sharedPreferences = await SharedPreferences.getInstance();
   await windowManager.ensureInitialized();
@@ -105,7 +98,7 @@ class ElectrosLaunchPadApp extends ConsumerWidget {
     final appearance = ref.watch(appearanceSettingsProvider);
     return MaterialApp(
       theme: buildAppTheme(appearance),
-      home: const UpdateSystemNotificationListener(child: App()),
+      home: const App(),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) {

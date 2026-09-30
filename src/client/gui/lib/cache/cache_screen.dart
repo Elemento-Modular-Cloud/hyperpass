@@ -356,7 +356,21 @@ class _ModelsTable extends ConsumerWidget {
                   icon: const Icon(Icons.delete_outline),
                   onPressed: inUse
                       ? null
-                      : () => confirmDeleteCachedModel(context, ref, model),
+                      : () {
+                          final siblings = models
+                              .where((m) => m.id == model.id)
+                              .toList();
+                          confirmDeleteCachedModel(
+                            context,
+                            ref,
+                            CachedModelGroup(
+                              id: model.id,
+                              artifacts: siblings.isEmpty
+                                  ? [model]
+                                  : siblings,
+                            ),
+                          );
+                        },
                 ),
               );
             },

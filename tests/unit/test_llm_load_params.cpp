@@ -22,6 +22,16 @@
 namespace mp = multipass;
 using namespace testing;
 
+TEST(TestLlmLoadParams, defaultConstructedHasBitsClear)
+{
+    mp::LlmLoadParams params;
+    EXPECT_FALSE(params.has_ctx_size());
+    EXPECT_FALSE(params.has_max_tokens());
+    EXPECT_FALSE(params.has_fit());
+    EXPECT_EQ(params.ctx_size(), 0);
+    EXPECT_EQ(params.max_tokens(), 0);
+}
+
 TEST(TestLlmLoadParams, detectsMoeModelNames)
 {
     EXPECT_TRUE(mp::looks_like_moe_model("Mixtral-8x7B-Instruct"));
@@ -125,6 +135,21 @@ TEST(TestLlmLoadParams, identicalFingerprintsMatch)
     const mp::LlmLoadFingerprint a{"qwen", "llamacpp", "/models/qwen.gguf", 4096, 0, params};
     auto b = a;
     EXPECT_TRUE(mp::llm_loads_identical(a, b));
+}
+
+TEST(TestLlmLoadParams, echoesVllmParams)
+{
+    mp::LoadModelRequest request;
+    request.set_model_id("meta-llama/Llama-3.1-8B");
+    auto* params = request.mutable_params();
+    params->set_ctx_size(8192);
+    params->set_dtype("bfloat16");
+    params->set_gpu_memory_utilization(0.85);
+    params->set_max_model_len(4096);
+    const auto resolved = mp::resolve_llm_load(request, true);
+    EXPECT_EQ(resolved.echoed.dtype(), "bfloat16");
+    EXPECT_DOUBLE_EQ(resolved.echoed.gpu_memory_utilization(), 0.85);
+    EXPECT_EQ(resolved.echoed.max_model_len(), 4096);
 }
 
 TEST(TestLlmLoadParams, fingerprintsDifferOnSettings)

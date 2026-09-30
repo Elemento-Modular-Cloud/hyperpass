@@ -1,4 +1,5 @@
 import '../grpc_client.dart';
+import 'llm_features.dart';
 
 const defaultLlmCtxSize = 8192;
 const defaultLlmMaxTokens = 0;
@@ -22,6 +23,9 @@ class LlmLoadForm {
     this.keepInRam = false,
     this.moeOffload = 'auto',
     this.nCpuMoe,
+    this.dtype = 'auto',
+    this.gpuMemoryUtilization = 0.9,
+    this.maxModelLen = 0,
   });
 
   String runtime;
@@ -42,8 +46,12 @@ class LlmLoadForm {
   bool keepInRam;
   String moeOffload;
   int? nCpuMoe;
+  String dtype;
+  double gpuMemoryUtilization;
+  int maxModelLen;
 
-  bool get isLlama => runtime != 'mlx';
+  bool get isLlama => isLlamaRuntime(runtime);
+  bool get isVllm => isVllmRuntime(runtime);
 
   String get nGpuLayers => switch (gpuOffload) {
         'all' => 'all',
@@ -57,6 +65,18 @@ class LlmLoadForm {
       ctxSize: ctxSize,
       maxTokens: maxTokens,
     );
+    if (isVllm) {
+      if (dtype.isNotEmpty) params.dtype = dtype;
+      if (gpuMemoryUtilization > 0) {
+        params.gpuMemoryUtilization = gpuMemoryUtilization;
+      }
+      if (maxModelLen > 0) {
+        params.maxModelLen = maxModelLen;
+      } else if (ctxSize > 0) {
+        params.maxModelLen = ctxSize;
+      }
+      return params;
+    }
     if (!isLlama) return params;
     params
       ..nGpuLayers = nGpuLayers
@@ -94,6 +114,9 @@ class LlmLoadForm {
         'keep_in_ram': keepInRam,
         'moe_offload': moeOffload,
         if (nCpuMoe != null) 'n_cpu_moe': nCpuMoe,
+        'dtype': dtype,
+        'gpu_memory_utilization': gpuMemoryUtilization,
+        'max_model_len': maxModelLen,
       };
 
   static LlmLoadForm fromJson(Map<String, dynamic>? json, {int? suggestedCtx}) {
@@ -118,6 +141,12 @@ class LlmLoadForm {
     form.keepInRam = json['keep_in_ram'] as bool? ?? form.keepInRam;
     form.moeOffload = json['moe_offload'] as String? ?? form.moeOffload;
     form.nCpuMoe = (json['n_cpu_moe'] as num?)?.toInt();
+    form.dtype = json['dtype'] as String? ?? form.dtype;
+    form.gpuMemoryUtilization =
+        (json['gpu_memory_utilization'] as num?)?.toDouble() ??
+            form.gpuMemoryUtilization;
+    form.maxModelLen =
+        (json['max_model_len'] as num?)?.toInt() ?? form.maxModelLen;
     return form;
   }
 
@@ -131,5 +160,8 @@ class LlmLoadForm {
       batchSize >= 0 &&
       ubatchSize >= 0 &&
       customGpuLayers >= 0 &&
-      (nCpuMoe == null || nCpuMoe! >= 0);
+      (nCpuMoe == null || nCpuMoe! >= 0) &&
+      gpuMemoryUtilization > 0 &&
+      gpuMemoryUtilization <= 1.0 &&
+      maxModelLen >= 0;
 }

@@ -125,7 +125,7 @@ QString llm_backend_interpreter(QString val)
 {
     val = val.toLower();
     if (val.isEmpty() || val == "auto" || val == "llamacpp" || val == "llama.cpp" || val == "cuda" ||
-        (mp::enable_mlx_backend && val == "mlx"))
+        val == "vllm" || (mp::enable_mlx_backend && val == "mlx"))
     {
         if (val == "llama.cpp")
             return "llamacpp";
@@ -139,8 +139,9 @@ QString llm_backend_interpreter(QString val)
     }
     throw mp::InvalidSettingException(mp::llm_backend_key,
                                       val,
-                                      mp::enable_mlx_backend ? "Must be auto, llamacpp, mlx, or cuda"
-                                                             : "Must be auto, llamacpp, or cuda");
+                                      mp::enable_mlx_backend
+                                          ? "Must be auto, llamacpp, mlx, vllm, or cuda"
+                                          : "Must be auto, llamacpp, vllm, or cuda");
 }
 
 QString llm_idle_unload_interpreter(QString val)

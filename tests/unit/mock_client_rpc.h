@@ -708,6 +708,21 @@ public:
                 PrepareAsyncfind_modelsRaw,
                 (grpc::ClientContext * context, grpc::CompletionQueue* cq),
                 (override));
+    MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::ListModelFilesRequest,
+                                                   multipass::ListModelFilesReply>*),
+                list_model_filesRaw,
+                (grpc::ClientContext * context),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListModelFilesRequest,
+                                                        multipass::ListModelFilesReply>*),
+                Asynclist_model_filesRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq, void* tag),
+                (override));
+    MOCK_METHOD((grpc::ClientAsyncReaderWriterInterface<multipass::ListModelFilesRequest,
+                                                        multipass::ListModelFilesReply>*),
+                PrepareAsynclist_model_filesRaw,
+                (grpc::ClientContext * context, grpc::CompletionQueue* cq),
+                (override));
     MOCK_METHOD((grpc::ClientReaderWriterInterface<multipass::PullModelRequest,
                                                    multipass::PullModelReply>*),
                 pull_modelRaw,

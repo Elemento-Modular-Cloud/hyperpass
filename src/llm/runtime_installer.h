@@ -60,6 +60,7 @@ public:
 
 private:
     QString install_asset(const RuntimeAsset& asset, const InstallProgressCallback& on_progress);
+    QString install_pip_backend(const QString& backend_id, const InstallProgressCallback& on_progress);
     void verify_archive(const RuntimeAsset& asset, const QString& archive_path);
     void extract_archive(const QString& archive_path, const QString& dest_dir);
     QString activate_extract(const RuntimeAsset& asset, const QString& staging_dir);

@@ -18,8 +18,6 @@ abstract class MpPlatform {
 
   Map<SingleActivator, Intent> get terminalShortcuts;
 
-  bool get showLocalUpdateNotifications;
-
   bool get showToggleWindow;
 
   String get altKey => 'Alt';

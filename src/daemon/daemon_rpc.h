@@ -198,6 +198,10 @@ signals:
     void on_find_models(const FindModelsRequest* request,
                         grpc::ServerReaderWriter<FindModelsReply, FindModelsRequest>* server,
                         DaemonRpcContext* context);
+    void on_list_model_files(
+        const ListModelFilesRequest* request,
+        grpc::ServerReaderWriter<ListModelFilesReply, ListModelFilesRequest>* server,
+        DaemonRpcContext* context);
     void on_pull_model(const PullModelRequest* request,
                        grpc::ServerReaderWriter<PullModelReply, PullModelRequest>* server,
                        DaemonRpcContext* context);
@@ -392,6 +396,9 @@ protected:
     grpc::Status find_models(
         grpc::ServerContext* context,
         grpc::ServerReaderWriter<FindModelsReply, FindModelsRequest>* server) override;
+    grpc::Status list_model_files(
+        grpc::ServerContext* context,
+        grpc::ServerReaderWriter<ListModelFilesReply, ListModelFilesRequest>* server) override;
     grpc::Status pull_model(grpc::ServerContext* context,
                             grpc::ServerReaderWriter<PullModelReply, PullModelRequest>* server)
         override;

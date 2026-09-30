@@ -17,11 +17,6 @@ import 'compose_store.dart';
 const composeReadyTimeout = Duration(minutes: 20);
 const composeReadyPoll = Duration(seconds: 4);
 
-const _inferenceBackendIds = {
-  'llamacpp',
-  if (enableMlxBackend) 'mlx',
-};
-
 Future<void> ensureComposeIntent({
   required bool daemonAvailable,
   required List<IntentInfo> intents,
@@ -268,7 +263,7 @@ Future<String> _composeLlmRuntime(Ref ref, String preferred) async {
     final ready = [
       for (final backend in backends.backends)
         if (backend.status == 'ready' &&
-            _inferenceBackendIds.contains(backend.id))
+            inferenceBackendIds.contains(backend.id))
           backend.id,
     ];
     if (preferred.isNotEmpty && ready.contains(preferred)) return preferred;

@@ -60,6 +60,10 @@ public slots:
     void find_models(const FindModelsRequest* request,
                      grpc::ServerReaderWriterInterface<FindModelsReply, FindModelsRequest>* server,
                      DaemonRpcContext* context);
+    void list_model_files(
+        const ListModelFilesRequest* request,
+        grpc::ServerReaderWriterInterface<ListModelFilesReply, ListModelFilesRequest>* server,
+        DaemonRpcContext* context);
     void pull_model(const PullModelRequest* request,
                     grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server,
                     DaemonRpcContext* context);
