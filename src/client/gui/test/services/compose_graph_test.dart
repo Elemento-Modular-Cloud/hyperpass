@@ -435,6 +435,62 @@ void main() {
     expect(intentMemberInstanceName('lab', 'qdrant'), 'lab-qdrant');
   });
 
+  test('allocateComposeDeployName reuses free base then suffixes', () {
+    expect(
+      allocateComposeDeployName('lab', isTaken: (_) => false),
+      'lab',
+    );
+    expect(
+      allocateComposeDeployName('lab', isTaken: (n) => n == 'lab'),
+      'lab-2',
+    );
+    expect(
+      allocateComposeDeployName(
+        'lab',
+        isTaken: (n) => n == 'lab' || n == 'lab-2',
+      ),
+      'lab-3',
+    );
+  });
+
+  test('composeNodeNeedsReadyInfo only for producers with service consumers',
+      () {
+    final graph = ComposeGraph(
+      intentName: 'lab',
+      nodes: const [
+        ComposeNode(
+          id: 'a',
+          role: 'qdrant',
+          serviceId: 'qdrant_v1',
+          x: 0,
+          y: 0,
+        ),
+        ComposeNode(
+          id: 'b',
+          role: 'n8n',
+          serviceId: 'n8n_v3',
+          x: 200,
+          y: 0,
+        ),
+        ComposeNode(
+          id: 'vm',
+          role: 'web',
+          serviceId: 'ubuntu',
+          kind: ComposeNodeKind.vm,
+          image: 'ubuntu',
+          x: 0,
+          y: 80,
+        ),
+      ],
+      edges: const [
+        ComposeEdge(from: 'a', to: 'b', contract: 'qdrant'),
+      ],
+    );
+    expect(composeNodeNeedsReadyInfo(graph, graph.nodes[0]), isTrue);
+    expect(composeNodeNeedsReadyInfo(graph, graph.nodes[1]), isFalse);
+    expect(composeNodeNeedsReadyInfo(graph, graph.nodes[2]), isFalse);
+  });
+
   test('vm and llm nodes do not need marketplace specs', () {
     final graph = ComposeGraph(
       intentName: 'lab',

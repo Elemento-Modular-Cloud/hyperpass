@@ -12,6 +12,7 @@ import '../service_library.dart';
 import '../service_status.dart';
 import 'compose_deploy.dart';
 import 'compose_graph.dart';
+import 'compose_store.dart';
 
 const composeReadyTimeout = Duration(minutes: 20);
 const composeReadyPoll = Duration(seconds: 4);
@@ -206,20 +207,41 @@ Future<void> waitForComposeVmRunning({
 }
 
 class ComposeDeployNotifier extends Notifier<ComposeDeployProgress?> {
+  final Set<String> _reservedRunNames = {};
+
   @override
   ComposeDeployProgress? build() => null;
 
-  Future<void> deploy({
+  /// Resolves a free run name for this Deploy (allows multiple copies).
+  String resolveRunName(String base, ComposeDeployHost host) {
+    return allocateComposeDeployName(
+      base,
+      isTaken: (name) =>
+          _reservedRunNames.contains(name) ||
+          host.existingRoles(name).isNotEmpty,
+    );
+  }
+
+  Future<String> deploy({
     required ComposeGraph graph,
     required MarketplaceLibrary library,
   }) async {
+    final base = graph.intentName.trim();
+    final host = composeDeployHostFor(ref);
+    final runName = resolveRunName(base, host);
+    _reservedRunNames.add(runName);
+    final runGraph = graph.copyWith(intentName: runName);
+    if (runName != base) {
+      ref.read(composeEditorProvider.notifier).saveGraphCopy(runGraph);
+    }
     try {
       await deployComposeGraph(
-        graph: graph,
+        graph: runGraph,
         library: library,
-        host: composeDeployHostFor(ref),
+        host: host,
         onProgress: (progress) => state = progress,
       );
+      return runName;
     } on ComposeDeployException catch (error) {
       state = ComposeDeployProgress(
         phases: state?.phases ?? const {},
@@ -229,6 +251,8 @@ class ComposeDeployNotifier extends Notifier<ComposeDeployProgress?> {
         finished: true,
       );
       rethrow;
+    } finally {
+      _reservedRunNames.remove(runName);
     }
   }
 }

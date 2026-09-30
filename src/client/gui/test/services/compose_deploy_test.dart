@@ -75,6 +75,7 @@ void main() {
     final created = <String>[];
     final added = <String>[];
     final bound = <String, String>{};
+    final waited = <String>[];
     Map<String, String>? n8nVariables;
 
     final host = ComposeDeployHost(
@@ -95,6 +96,7 @@ void main() {
         required instanceName,
         required service,
       }) async {
+        waited.add(node.role);
         return ServiceInfoDocument.parse('''
 {
   "api_version": "elemento.service_info/v1",
@@ -117,6 +119,7 @@ void main() {
 
     expect(created, ['lab']);
     expect(added, ['qdrant', 'n8n']);
+    expect(waited, ['qdrant']);
     expect(bound, {
       'lab-qdrant': 'qdrant_v1',
       'lab-n8n': 'n8n_v3',
@@ -145,6 +148,7 @@ void main() {
     );
     final added = <String>[];
     final bound = <String, String>{};
+    var waited = 0;
     final host = ComposeDeployHost(
       intentExists: (_) => true,
       createIntent: (_) async {},
@@ -161,8 +165,10 @@ void main() {
         required node,
         required instanceName,
         required service,
-      }) async =>
-          null,
+      }) async {
+        waited += 1;
+        return null;
+      },
       bindInstance: (name, id) => bound[name] = id,
     );
 
@@ -175,6 +181,7 @@ void main() {
 
     expect(added, ['vm:ubuntu']);
     expect(bound, isEmpty);
+    expect(waited, 0);
   });
 
   test('binds local llm openai output into a service consumer', () async {

@@ -188,20 +188,27 @@ Future<void> deployComposeGraph({
           variables: variables,
         );
       }
-      phases[node.id] = ComposeDeployNodePhase.waiting;
-      emit(
-          role: node.role, message: 'Waiting for ${node.role} to become ready');
-      final info = await host.waitForReady(
-        node: node,
-        instanceName: instanceName,
-        service: service,
-      );
-      if (info != null) producerInfo[node.id] = info;
       if (service != null) {
         host.bindInstance(instanceName, service.id);
       }
+      // Only block on readiness when a later service consumer needs live
+      // service-info for contract binding. Leaf members launch in the
+      // background so Deploy does not lock the UI on boot.
+      if (composeNodeNeedsReadyInfo(graph, node)) {
+        phases[node.id] = ComposeDeployNodePhase.waiting;
+        emit(
+          role: node.role,
+          message: 'Waiting for ${node.role} to become ready',
+        );
+        final info = await host.waitForReady(
+          node: node,
+          instanceName: instanceName,
+          service: service,
+        );
+        if (info != null) producerInfo[node.id] = info;
+      }
       phases[node.id] = ComposeDeployNodePhase.ready;
-      emit(role: node.role, message: '${node.role} is ready');
+      emit(role: node.role, message: '${node.role} launched');
     } catch (error) {
       phases[node.id] = ComposeDeployNodePhase.failed;
       emit(
@@ -214,5 +221,9 @@ Future<void> deployComposeGraph({
     }
   }
 
-  emit(message: 'Composition $intentName is ready', running: false, finished: true);
+  emit(
+    message: 'Composition $intentName launched',
+    running: false,
+    finished: true,
+  );
 }

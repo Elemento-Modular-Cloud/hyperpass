@@ -3593,9 +3593,18 @@
     "@composeDeployAction": {
         "description": "Button that launches the compose graph as a composition"
     },
-    "composeDeploying": "Deploying…",
+    "composeDeploying": "Deploying composition…",
     "@composeDeploying": {
-        "description": "Compose deploy button label while members are launching"
+        "description": "Notification while composition members are launching"
+    },
+    "composeDeployStarted": "Launched composition {name}",
+    "@composeDeployStarted": {
+        "description": "Notification after a composition deploy finishes launching members",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
     },
     "composeNewDraft": "New composition",
     "@composeNewDraft": {

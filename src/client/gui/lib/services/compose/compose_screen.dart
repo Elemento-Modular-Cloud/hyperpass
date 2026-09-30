@@ -21,6 +21,7 @@ import '../../llm/llm_load.dart';
 import '../../llm/llm_load_form.dart';
 import '../../llm/llm_load_prefs.dart';
 import '../../llm/providers.dart';
+import '../../notifications.dart';
 import '../../page_surface.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
@@ -65,7 +66,6 @@ class ComposeScreen extends ConsumerWidget {
       error: (error, _) => Center(child: Text(l10n.servicesLoadError('$error'))),
       data: (library) {
         final issues = validateComposeGraph(editor.graph, library);
-        final deploying = progress?.running == true;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -103,27 +103,22 @@ class ComposeScreen extends ConsumerWidget {
                       runSpacing: 8,
                       children: [
                         LaunchPadButton.secondary(
-                          onPressed: deploying
-                              ? null
-                              : () => showNewComposeIntentDialog(context, ref),
+                          onPressed: () =>
+                              showNewComposeIntentDialog(context, ref),
                           child: Text(l10n.composeNewIntent),
                         ),
                         LaunchPadButton.secondary(
-                          onPressed: deploying || !hasIntent
+                          onPressed: !hasIntent
                               ? null
                               : () => _save(context, ref),
                           child: Text(l10n.composeSave),
                         ),
                         LaunchPadButton.primary(
-                          onPressed: deploying || issues.isNotEmpty
+                          onPressed: issues.isNotEmpty
                               ? null
                               : () =>
                                   _deploy(context, ref, library, editor.graph),
-                          child: Text(
-                            deploying
-                                ? (progress?.message ?? l10n.composeDeploying)
-                                : l10n.composeDeployAction,
-                          ),
+                          child: Text(l10n.composeDeployAction),
                         ),
                       ],
                     ),
@@ -136,6 +131,15 @@ class ComposeScreen extends ConsumerWidget {
               Text(
                 progress!.error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            if (progress?.running == true && progress?.message != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                progress!.message!,
+                style: TextStyle(
+                  color: onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ],
             if (issues.isNotEmpty) ...[
@@ -225,18 +229,22 @@ class ComposeScreen extends ConsumerWidget {
     MarketplaceLibrary library,
     ComposeGraph graph,
   ) async {
-    try {
-      ref.read(composeEditorProvider.notifier).save();
-      await ensureNamedComposeIntent(ref, graph.intentName);
-      await ref.read(composeDeployProvider.notifier).deploy(
-            graph: graph,
-            library: library,
-          );
-      if (!context.mounted) return;
-      ref.read(sidebarKeyProvider.notifier).set(IntentsScreen.sidebarKey);
-    } catch (_) {
-      // Progress already holds the error.
-    }
+    final l10n = AppLocalizations.of(context)!;
+    ref.read(composeEditorProvider.notifier).save();
+    await ensureNamedComposeIntent(ref, graph.intentName);
+    if (!context.mounted) return;
+
+    final op = ref.read(composeDeployProvider.notifier).deploy(
+          graph: graph,
+          library: library,
+        );
+    ref.read(notificationsProvider.notifier).addOperation(
+          op,
+          loading: l10n.composeDeploying,
+          onSuccess: (runName) => l10n.composeDeployStarted(runName),
+          onError: (error) => '$error',
+        );
+    ref.read(sidebarKeyProvider.notifier).set(IntentsScreen.sidebarKey);
   }
 }
 

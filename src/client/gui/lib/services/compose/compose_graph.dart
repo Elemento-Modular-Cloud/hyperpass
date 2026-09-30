@@ -417,6 +417,34 @@ String suggestComposeRole(String serviceId, Iterable<String> taken) {
   return '$base-${taken.length + 1}';
 }
 
+/// Picks a free composition run name so Deploy can launch another copy.
+///
+/// Reuses [base] when it is not [isTaken]; otherwise returns `base-2`,
+/// `base-3`, …
+String allocateComposeDeployName(
+  String base, {
+  required bool Function(String name) isTaken,
+}) {
+  final trimmed = base.trim();
+  if (trimmed.isEmpty) return trimmed;
+  if (!isTaken(trimmed)) return trimmed;
+  for (var i = 2; i < 1000; i++) {
+    final candidate = '$trimmed-$i';
+    if (!isTaken(candidate)) return candidate;
+  }
+  return '$trimmed-${DateTime.now().millisecondsSinceEpoch}';
+}
+
+/// Whether [node] must reach ready so a later consumer can bind contracts.
+bool composeNodeNeedsReadyInfo(ComposeGraph graph, ComposeNode node) {
+  for (final edge in graph.edges) {
+    if (edge.from != node.id) continue;
+    final consumer = graph.nodeById(edge.to);
+    if (consumer != null && consumer.isService) return true;
+  }
+  return false;
+}
+
 /// Instance name the daemon assigns to an intent member.
 String intentMemberInstanceName(String intentName, String role) =>
     '$intentName-$role';

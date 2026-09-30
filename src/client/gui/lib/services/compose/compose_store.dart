@@ -108,6 +108,16 @@ class ComposeEditorNotifier extends Notifier<ComposeEditorState> {
     saveComposeGraphs(_prefs, graphs);
   }
 
+  /// Writes [graph] under its intent name without changing the open canvas.
+  /// Used when Deploy launches a numbered copy of the current composition.
+  void saveGraphCopy(ComposeGraph graph) {
+    final name = graph.intentName.trim();
+    if (name.isEmpty) return;
+    final graphs = _allGraphs();
+    graphs[name] = graph;
+    saveComposeGraphs(_prefs, graphs);
+  }
+
   /// Writes the current graph. No-op until it has an intent name.
   void save() => _persist(state.graph);
 
