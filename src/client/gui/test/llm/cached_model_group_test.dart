@@ -39,6 +39,9 @@ void main() {
       ['GGUF', 'MLX'],
     );
     expect(deepseek.loadSeed.format, 'gguf');
+    expect(deepseek.loadableRuntimes.toSet(), {'llamacpp', 'mlx'});
+    expect(deepseek.seedForRuntime('mlx').format, 'mlx');
+    expect(deepseek.seedForRuntime('llamacpp').format, 'gguf');
     expect(deepseek.artifacts.first.summary, contains('GGUF'));
     expect(deepseek.artifacts.first.summary, contains('Q4_K_M'));
   });
@@ -78,5 +81,24 @@ void main() {
     );
     expect(art.quant, 'Q4_K_M');
     expect(art.summary, 'GGUF · Q4_K_M · 4.4 GiB');
+  });
+
+  test('loadableRuntimes includes vllm for hf safetensors plus llama for gguf', () {
+    final group = CachedModelGroup(
+      id: 'org/model',
+      artifacts: [
+        ModelSuggestion()
+          ..id = 'org/model'
+          ..format = 'gguf'
+          ..bestQuant = 'Q4_K_M'
+          ..path = '/vault/model.gguf',
+        ModelSuggestion()
+          ..id = 'org/model'
+          ..format = 'hf'
+          ..path = '/vault/model-hf',
+      ],
+    );
+    expect(group.loadableRuntimes.toSet(), {'llamacpp', 'vllm'});
+    expect(group.seedForRuntime('vllm').format, 'hf');
   });
 }

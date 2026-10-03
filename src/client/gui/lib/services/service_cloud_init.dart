@@ -47,7 +47,10 @@ String renderServiceCloudInit(
   }
 
   return emitCloudConfig(
-    _ensureGatewayCa(_ensureRootfsGrowth(config), gatewayCaPem),
+    _ensureGatewayCa(
+      _ensureDockerEngine(_ensureRootfsGrowth(config)),
+      gatewayCaPem,
+    ),
   );
 }
 
@@ -93,7 +96,69 @@ Map<String, Object?> _ensureRootfsGrowth(Map<String, Object?> config) {
 }
 
 const _rootfsGrowRuncmd =
-    r"""/bin/sh -c 'set -eux; src=$(readlink -f "$(findmnt -n -o SOURCE /)"); disk="/dev/$(lsblk -no PKNAME "$src")"; part=$(lsblk -no PARTN "$src"); growpart "$disk" "$part" || true; resize2fs "$src" || true; df -h /'""";
+    r"""/bin/sh -c 'set -eux; src=$(readlink -f "$(findmnt -n -o SOURCE /)"); disk="/dev/$(lsblk -no PKNAME "$src")"; part=$(lsblk -no PARTN "$src" | tr -d "[:space:]"); growpart "$disk" "$part" || true; resize2fs "$src" || true; df -h /'""";
+
+/// cloud-init `packages` is all-or-nothing. If apt cannot reach the archive
+/// (common when the guest prefers unreachable IPv6), docker.io never lands
+/// and marketplace runcmd dies with `docker: not found`. Retry here after
+/// packages so a later IPv4 path can still recover.
+const dockerEnsureRuncmd =
+    r"""/bin/sh -c 'set -eux; if command -v docker >/dev/null 2>&1; then exit 0; fi; printf "Acquire::ForceIPv4 \"true\";\n" > /etc/apt/apt.conf.d/99force-ipv4; export DEBIAN_FRONTEND=noninteractive; n=0; until command -v docker >/dev/null 2>&1; do n=$((n+1)); [ "$n" -le 8 ]; apt-get update -o Acquire::ForceIPv4=true || true; apt-get install -y -o Acquire::ForceIPv4=true docker.io docker-compose-v2 || true; command -v docker >/dev/null 2>&1 && break; sleep 15; done; command -v docker'""";
+
+bool _packagesNeedDocker(List<Object?> packages) {
+  return packages.any(
+    (pkg) =>
+        pkg == 'docker.io' ||
+        pkg == 'docker-ce' ||
+        pkg == 'docker-compose-v2',
+  );
+}
+
+Map<String, Object?> _ensureDockerEngine(Map<String, Object?> config) {
+  final packages = _mutableList(config['packages']);
+  if (!_packagesNeedDocker(packages)) return config;
+
+  final result = Map<String, Object?>.of(config);
+  final runcmd = _mutableList(result['runcmd']);
+  if (!_runcmdEnsuresDocker(runcmd)) {
+    var insertAt = 0;
+    for (var i = 0; i < runcmd.length; i++) {
+      final entry = runcmd[i];
+      final text = entry is String
+          ? entry
+          : entry is List
+              ? entry.join(' ')
+              : '';
+      if (text.contains('growpart') && text.contains('resize2fs')) {
+        insertAt = i + 1;
+        break;
+      }
+    }
+    runcmd.insert(insertAt, dockerEnsureRuncmd);
+    result['runcmd'] = runcmd;
+  }
+  return result;
+}
+
+bool _runcmdEnsuresDocker(List<Object?> runcmd) {
+  for (final entry in runcmd) {
+    if (entry is String &&
+        entry.contains('command -v docker') &&
+        entry.contains('docker.io')) {
+      return true;
+    }
+    if (entry is List &&
+        entry.any(
+          (part) =>
+              part is String &&
+              part.contains('command -v docker') &&
+              part.contains('docker.io'),
+        )) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /// Installs the LaunchPad HTTPS CA so guests trust https://192.168.67.1:7777
 /// before marketplace `runcmd` (configure + docker compose) runs.

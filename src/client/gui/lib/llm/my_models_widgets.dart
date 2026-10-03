@@ -16,6 +16,7 @@ import '../widgets/card_action_row.dart';
 import '../widgets/launchpad_button.dart';
 import 'catalogue/model_branding.dart';
 import 'catalogue/model_capabilities.dart';
+import 'llm_features.dart';
 import 'llm_load.dart';
 import 'providers.dart';
 
@@ -25,18 +26,11 @@ class CachedModelArtifact {
 
   final ModelSuggestion model;
 
-  String get format {
-    final raw = model.format.trim().toLowerCase();
-    if (raw.isNotEmpty) return raw;
-    final path = model.path.trim();
-    final lower = path.toLowerCase();
-    if (lower.endsWith('.gguf')) return 'gguf';
-    final file = model.filename.trim().toLowerCase();
-    if (file.endsWith('.gguf')) return 'gguf';
-    // Local MLX/HF vault snapshots are directories (often absolute) without .gguf.
-    if (path.isNotEmpty) return 'mlx';
-    return 'gguf';
-  }
+  String get format => inferVaultFormat(
+        format: model.format,
+        path: model.path,
+        filename: model.filename,
+      );
 
   String get formatLabel => switch (format) {
         'mlx' => 'MLX',
@@ -100,6 +94,30 @@ class CachedModelGroup {
       if (art.format == 'gguf') return art.model;
     }
     return primary;
+  }
+
+  /// Union of runtimes that can actually serve a downloaded artifact.
+  List<String> get loadableRuntimes {
+    final ids = <String>{};
+    for (final art in artifacts) {
+      ids.addAll(compatibleInferenceRuntimes(
+        format: art.format,
+        supportedRuntimes: art.model.supportedRuntimes,
+      ));
+    }
+    return ids.toList(growable: false);
+  }
+
+  /// Weights matching [runtime] (GGUF for llama.cpp, MLX/HF otherwise).
+  ModelSuggestion seedForRuntime(String runtime) {
+    final want = formatForRuntime(runtime);
+    for (final art in artifacts) {
+      if (art.format == want) return art.model;
+    }
+    for (final art in artifacts) {
+      if (art.model.supportedRuntimes.contains(runtime)) return art.model;
+    }
+    return loadSeed;
   }
 }
 
@@ -555,7 +573,10 @@ class _LlmCachedModelCardState extends ConsumerState<LlmCachedModelCard> {
                               quant: loadSeed.bestQuant,
                               hfRepo: modelDownloadRepo(loadSeed),
                               format: CachedModelArtifact(loadSeed).format,
-                              supportedRuntimes: loadSeed.supportedRuntimes,
+                              supportedRuntimes: group.loadableRuntimes,
+                              artifacts: [
+                                for (final art in group.artifacts) art.model,
+                              ],
                               suggestedCtx: suggestedCtxForModel(
                                 usableContext: loadSeed.usableContext.toInt(),
                                 contextLength: loadSeed.contextLength.toInt(),

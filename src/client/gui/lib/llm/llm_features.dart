@@ -24,6 +24,22 @@ String formatForRuntime(String runtime) {
   return 'gguf';
 }
 
+/// Best-effort format when the vault row omitted [format].
+String inferVaultFormat({
+  String format = '',
+  String path = '',
+  String filename = '',
+}) {
+  final raw = format.trim().toLowerCase();
+  if (raw.isNotEmpty) return raw;
+  final p = path.trim();
+  if (p.toLowerCase().endsWith('.gguf')) return 'gguf';
+  if (filename.trim().toLowerCase().endsWith('.gguf')) return 'gguf';
+  // Local MLX/HF snapshots are directories, often absolute, without .gguf.
+  if (p.isNotEmpty) return 'mlx';
+  return 'gguf';
+}
+
 /// Runtimes that can serve a model of [format], optionally constrained by the
 /// catalog/vault [supportedRuntimes] list. MLX weights never map to llama.cpp
 /// and GGUF never maps to MLX.

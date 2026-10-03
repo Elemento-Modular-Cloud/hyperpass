@@ -34,4 +34,27 @@ void main() {
       {'llamacpp'},
     );
   });
+
+  test('union of per-artifact runtimes covers gguf plus safetensors', () {
+    expect(
+      {
+        ...compatibleInferenceRuntimes(format: 'gguf'),
+        ...compatibleInferenceRuntimes(format: 'hf'),
+      },
+      {'llamacpp', 'vllm'},
+    );
+    expect(
+      {
+        ...compatibleInferenceRuntimes(format: 'gguf'),
+        ...compatibleInferenceRuntimes(format: 'mlx'),
+      },
+      {'llamacpp', 'mlx'},
+    );
+  });
+
+  test('inferVaultFormat treats directories as mlx and files as gguf', () {
+    expect(inferVaultFormat(path: '/vault/model.gguf'), 'gguf');
+    expect(inferVaultFormat(path: '/vault/mlx-community_Gemma-2-2B-it-4bit'), 'mlx');
+    expect(inferVaultFormat(format: 'hf', path: '/vault/model'), 'hf');
+  });
 }

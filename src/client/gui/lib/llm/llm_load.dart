@@ -51,15 +51,31 @@ Future<void> loadLlmModel(
   int? suggestedCtx,
   String format = '',
   List<String> supportedRuntimes = const [],
+  List<ModelSuggestion> artifacts = const [],
 }) async {
   final l10n = AppLocalizations.of(context)!;
   final messenger = ScaffoldMessenger.of(context);
 
   final backends = await ref.read(llmBackendsProvider.future);
-  final compatible = compatibleInferenceRuntimes(
-    format: format,
-    supportedRuntimes: supportedRuntimes,
-  );
+  final compatible = <String>{};
+  if (artifacts.isNotEmpty) {
+    for (final art in artifacts) {
+      compatible.addAll(compatibleInferenceRuntimes(
+        format: inferVaultFormat(
+          format: art.format,
+          path: art.path,
+          filename: art.filename,
+        ),
+        supportedRuntimes: art.supportedRuntimes,
+      ));
+    }
+  }
+  if (compatible.isEmpty) {
+    compatible.addAll(compatibleInferenceRuntimes(
+      format: format,
+      supportedRuntimes: supportedRuntimes,
+    ));
+  }
   final ready = backends.backends
       .where((b) =>
           b.status == 'ready' &&
@@ -99,6 +115,14 @@ Future<void> loadLlmModel(
   );
   if (form == null) return;
 
+  var loadQuant = quant;
+  var loadRepo = hfRepo;
+  if (artifacts.isNotEmpty) {
+    final seed = artifactForRuntime(artifacts, form.runtime) ?? artifacts.first;
+    loadQuant = seed.bestQuant;
+    loadRepo = modelDownloadRepo(seed);
+  }
+
   if (!context.mounted) return;
   final intentChoice = await _promptIntentAssignment(context, l10n);
   if (intentChoice == null) return; // cancelled
@@ -117,8 +141,8 @@ Future<void> loadLlmModel(
     _completeLlmLoad(
       pending: pending,
       modelId: modelId,
-      quant: quant,
-      hfRepo: hfRepo,
+      quant: loadQuant,
+      hfRepo: loadRepo,
       form: form,
       intentName: intentChoice.intentName,
       isNewIntent: intentChoice.isNewIntent,
@@ -766,6 +790,26 @@ String _runtimeLabel(AppLocalizations l10n, String id, String name) {
     'llamacpp' => l10n.modelsRuntimeLlama,
     _ => id,
   };
+}
+
+@visibleForTesting
+ModelSuggestion? artifactForRuntime(
+  Iterable<ModelSuggestion> artifacts,
+  String runtime,
+) {
+  final want = formatForRuntime(runtime);
+  for (final art in artifacts) {
+    final fmt = inferVaultFormat(
+      format: art.format,
+      path: art.path,
+      filename: art.filename,
+    );
+    if (fmt == want) return art;
+  }
+  for (final art in artifacts) {
+    if (art.supportedRuntimes.contains(runtime)) return art;
+  }
+  return null;
 }
 
 bool isModelCached(WidgetRef ref, String modelId) {
