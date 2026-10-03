@@ -11,6 +11,7 @@ import '../../widgets/launchpad_button.dart';
 import '../../providers.dart';
 import '../llm_id.dart';
 import '../providers.dart' as llm;
+import 'llm_test_chat.dart';
 
 class LlmDetailsScreen extends ConsumerStatefulWidget {
   final LlmInstanceId id;
@@ -44,7 +45,10 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
 
   void _subscribe() {
     _subscription?.cancel();
-    _subscription = ref.read(grpcClientProvider).streamModelLogs(widget.id.instanceId).listen(
+    _subscription = ref
+        .read(grpcClientProvider)
+        .streamModelLogs(widget.id.instanceId)
+        .listen(
       (reply) {
         if (!reply.hasEntry()) return;
         _appendEntry(reply.entry);
@@ -111,7 +115,8 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
                 Expanded(
                   child: Text(
                     widget.id.displayLabel,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w300),
+                    style: const TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.w300),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -127,49 +132,83 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
                     child: Text(l10n.modelsUnload),
                   ),
                 ] else if (_streamEnded)
-                  Text(l10n.modelsLoadedEmpty, style: const TextStyle(fontSize: 12)),
+                  Text(l10n.modelsLoadedEmpty,
+                      style: const TextStyle(fontSize: 12)),
               ],
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                  borderRadius: BorderRadius.circular(Brand.radius),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(Brand.radius),
-                  child: _hasContent
-                      ? ColoredBox(
-                          color: Brand.terminalTheme.background,
-                          child: RawScrollbar(
-                            controller: _scrollController,
-                            thickness: 9,
-                            child: TerminalView(
-                              _terminal,
-                              readOnly: true,
-                              alwaysShowCursor: false,
-                              padding: const EdgeInsets.all(4),
-                              scrollController: _scrollController,
-                              theme: Brand.terminalTheme,
-                              textStyle: TerminalStyle(
-                                fontFamily: 'UbuntuMono',
-                                fontFamilyFallback: const [
-                                  'NotoColorEmoji',
-                                  'FreeSans',
-                                ],
-                                fontSize:
-                                    ref.watch(sessionTerminalFontSizeProvider),
-                              ),
-                            ),
-                          ),
-                        )
-                      : Center(child: Text(l10n.llmActivityEmpty)),
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final sidebar = showLlmPlaygroundSidebar(constraints);
+                  final chat = LlmTestChat(
+                    instanceId: widget.id.instanceId,
+                    model: modelInfo,
+                    expanded: sidebar,
+                  );
+                  final log = _activityLog(context, l10n);
+                  if (!sidebar) {
+                    return Column(
+                      children: [
+                        Expanded(child: log),
+                        const SizedBox(height: 12),
+                        chat,
+                      ],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: log),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: llmPlaygroundSidebarWidth,
+                        child: chat,
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _activityLog(BuildContext context, AppLocalizations l10n) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: BorderRadius.circular(Brand.radius),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(Brand.radius),
+        child: _hasContent
+            ? ColoredBox(
+                color: Brand.terminalTheme.background,
+                child: RawScrollbar(
+                  controller: _scrollController,
+                  thickness: 9,
+                  child: TerminalView(
+                    _terminal,
+                    readOnly: true,
+                    alwaysShowCursor: false,
+                    padding: const EdgeInsets.all(4),
+                    scrollController: _scrollController,
+                    theme: Brand.terminalTheme,
+                    textStyle: TerminalStyle(
+                      fontFamily: 'UbuntuMono',
+                      fontFamilyFallback: const [
+                        'NotoColorEmoji',
+                        'FreeSans',
+                      ],
+                      fontSize: ref.watch(sessionTerminalFontSizeProvider),
+                    ),
+                  ),
+                ),
+              )
+            : Center(child: Text(l10n.llmActivityEmpty)),
       ),
     );
   }

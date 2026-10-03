@@ -38,7 +38,11 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ModelProviderBadge), findsOneWidget);
-    expect(find.text('nvidia/NVIDIA-Nemotron-3-Nano-4B-FP8'), findsOneWidget);
+    expect(
+      find.text(
+          'nvidia/NVIDIA-Nemotron-3-Nano-4B-FP8'.replaceAll('-', '\u2011')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('API id column is a copyable model name box', (tester) async {
@@ -77,7 +81,7 @@ void main() {
   test('running models table includes an ID header', () {
     expect(
       llmInstanceHeaders.map((h) => h.name),
-      containsAll(['MODEL', 'ID']),
+      containsAll(['MODEL', 'ID', 'INTENT']),
     );
   });
 }

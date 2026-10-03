@@ -47,6 +47,9 @@ void Function(StreamNotification<RpcMessage>) logGrpc(RpcMessage request) {
             info.privKeyBase64 = '*hidden*';
           }
         }
+        if (reply is ResolveModelRouteReply && reply.apiKey.isNotEmpty) {
+          reply.apiKey = '*hidden*';
+        }
         if (reply is LaunchReply) {
           final percent = reply.launchProgress.percentComplete;
           if (!['0', '100', '-1'].contains(percent)) return;
@@ -453,6 +456,13 @@ class GrpcClient {
     return _client.stream_model_logs(
       Stream.value(StreamModelLogsRequest(instanceId: instanceId)),
     );
+  }
+
+  Future<ResolveModelRouteReply> resolveModelRoute(String instanceId) {
+    return doRpc(
+      _client.resolve_model_route,
+      ResolveModelRouteRequest(instanceId: instanceId),
+    ).then((r) => r!);
   }
 
   Future<CacheInfoReply> cacheInfo() {

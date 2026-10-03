@@ -55,6 +55,8 @@ class HeaderSelection extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final columnLabels = {
+      'SHELL': l10n.vmTableColumnShell,
+      'COMPOSITION': l10n.vmTableColumnComposition,
       'STATE': l10n.vmStatState,
       'CPU USAGE': l10n.vmStatCpuUsage,
       'MEMORY USAGE': l10n.vmStatMemoryUsage,

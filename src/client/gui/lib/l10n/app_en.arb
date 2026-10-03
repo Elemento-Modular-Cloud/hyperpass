@@ -459,6 +459,34 @@
     "@llmActivityEmpty": {
         "description": "Empty state in the per-model activity log viewer"
     },
+    "llmPlaygroundTitle": "Try this model",
+    "@llmPlaygroundTitle": {
+        "description": "Heading for the per-instance test chat on the activity monitor"
+    },
+    "llmPlaygroundHint": "Send a prompt…",
+    "@llmPlaygroundHint": {
+        "description": "Placeholder in the per-model test chat input"
+    },
+    "llmPlaygroundSend": "Send",
+    "@llmPlaygroundSend": {
+        "description": "Send button on the per-model test chat"
+    },
+    "llmPlaygroundClear": "Clear",
+    "@llmPlaygroundClear": {
+        "description": "Clear the per-model test chat transcript"
+    },
+    "llmPlaygroundEmpty": "Ask something to test this instance.",
+    "@llmPlaygroundEmpty": {
+        "description": "Empty state in the per-model test chat"
+    },
+    "llmPlaygroundUnavailable": "Load the model to try a prompt.",
+    "@llmPlaygroundUnavailable": {
+        "description": "Disabled test chat when the instance is no longer loaded"
+    },
+    "llmPlaygroundThinking": "Waiting for a reply…",
+    "@llmPlaygroundThinking": {
+        "description": "Status shown while the test chat waits for the first tokens"
+    },
     "llmInstancesEmpty": "No models loaded.",
     "@llmInstancesEmpty": {
         "description": "Empty state on the LLM instances screen"
@@ -2252,6 +2280,10 @@
     "@vmTableColumnName": {
         "description": "Column header label for the instance name column in the VM table"
     },
+    "vmTableColumnComposition": "COMPOSITION",
+    "@vmTableColumnComposition": {
+        "description": "VM instances table column for composition (intent) membership"
+    },
     "vmTableColumnsButton": "Columns",
     "@vmTableColumnsButton": {
         "description": "Label on the button that opens the column show/hide menu"
@@ -2870,6 +2902,10 @@
     "serviceInstancesColumnName": "Name",
     "@serviceInstancesColumnName": {
         "description": "Service instances table column for the instance name"
+    },
+    "serviceInstancesColumnComposition": "Composition",
+    "@serviceInstancesColumnComposition": {
+        "description": "Service instances table column for composition (intent) membership"
     },
     "serviceInstancesColumnService": "Service",
     "@serviceInstancesColumnService": {

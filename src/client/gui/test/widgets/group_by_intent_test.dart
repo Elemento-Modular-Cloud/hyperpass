@@ -15,6 +15,12 @@ void main() {
     expect(intentGroupLabel('web'), 'web');
   });
 
+  test('formats composition column cells', () {
+    expect(compositionColumnLabel(intent: '', role: ''), '—');
+    expect(compositionColumnLabel(intent: 'web', role: ''), 'web');
+    expect(compositionColumnLabel(intent: 'web', role: 'redis'), 'web · redis');
+  });
+
   test('groups items by intent key', () {
     final grouped = groupItemsByIntent(
       [

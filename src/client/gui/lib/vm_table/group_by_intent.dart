@@ -43,6 +43,13 @@ Map<String, List<T>> groupItemsByIntent<T>(
 String intentGroupLabel(String intent) =>
     intent.isEmpty ? 'No composition' : intent;
 
+/// Table cell for composition membership: "name · role", or an em dash.
+String compositionColumnLabel({required String intent, required String role}) {
+  if (intent.isEmpty) return '—';
+  if (role.isEmpty) return intent;
+  return '$intent · $role';
+}
+
 class GroupByIntentSwitch extends ConsumerWidget {
   const GroupByIntentSwitch({super.key});
 

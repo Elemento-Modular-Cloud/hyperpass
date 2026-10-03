@@ -9,6 +9,7 @@ import '../sidebar.dart';
 import '../tooltip.dart';
 import '../vm_details/ip_addresses.dart';
 import '../vm_details/vm_status_icon.dart';
+import '../vm_table/group_by_intent.dart';
 import '../vm_table/search_box.dart';
 import '../vm_table/table.dart';
 import 'service_branding.dart';
@@ -47,6 +48,20 @@ final serviceInstanceHeaders = <TableHeader<TaggedVmInfo>>[
     width: 56,
     minWidth: 48,
     cellBuilder: (info) => ServiceShellLink(info.name),
+  ),
+  TableHeader(
+    name: 'COMPOSITION',
+    childBuilder: _l10nHeader((l10n) => l10n.serviceInstancesColumnComposition),
+    width: 140,
+    minWidth: 100,
+    sortKey: (info) => info.info.intent,
+    cellBuilder: (info) => Text(
+      compositionColumnLabel(
+        intent: info.info.intent,
+        role: info.info.intentRole,
+      ),
+      overflow: TextOverflow.ellipsis,
+    ),
   ),
   TableHeader(
     name: 'SERVICE',

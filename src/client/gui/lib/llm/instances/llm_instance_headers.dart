@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../providers.dart';
 import '../../sidebar.dart';
 import '../../tooltip.dart';
+import '../../vm_table/group_by_intent.dart';
 import '../../vm_table/search_box.dart';
 import '../../vm_table/table.dart';
 import '../catalogue/model_branding.dart';
@@ -69,7 +70,7 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     minWidth: 100,
     sortKey: (m) => m.intent,
     cellBuilder: (m) => Text(
-      m.intent.isEmpty ? '—' : '${m.intent} · ${m.intentRole}',
+      compositionColumnLabel(intent: m.intent, role: m.intentRole),
       overflow: TextOverflow.ellipsis,
     ),
   ),

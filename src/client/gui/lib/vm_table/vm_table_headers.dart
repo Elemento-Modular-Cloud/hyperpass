@@ -17,6 +17,7 @@ import '../vm_details/ip_addresses.dart';
 import '../vm_details/memory_usage.dart';
 import '../vm_details/vm_details.dart';
 import '../vm_details/vm_status_icon.dart';
+import 'group_by_intent.dart';
 import 'search_box.dart';
 import 'table.dart';
 import 'vms.dart';
@@ -51,6 +52,20 @@ final headers = <TableHeader<TaggedVmInfo>>[
     width: 56,
     minWidth: 48,
     cellBuilder: (info) => VmShellLink(info.id),
+  ),
+  TableHeader(
+    name: 'COMPOSITION',
+    childBuilder: _l10nHeader((l10n) => l10n.vmTableColumnComposition),
+    width: 140,
+    minWidth: 100,
+    sortKey: (info) => info.info.intent,
+    cellBuilder: (info) => Text(
+      compositionColumnLabel(
+        intent: info.info.intent,
+        role: info.info.intentRole,
+      ),
+      overflow: TextOverflow.ellipsis,
+    ),
   ),
   TableHeader(
     name: 'STATE',
@@ -198,7 +213,9 @@ class VmNameLink extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     goToVm() {
-      ref.read(vmScreenLocationProvider(id).notifier).set(VmDetailsLocation.details);
+      ref
+          .read(vmScreenLocationProvider(id).notifier)
+          .set(VmDetailsLocation.details);
       ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey);
     }
 
@@ -228,7 +245,9 @@ class VmShellLink extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     goToShell() {
-      ref.read(vmScreenLocationProvider(id).notifier).set(VmDetailsLocation.shells);
+      ref
+          .read(vmScreenLocationProvider(id).notifier)
+          .set(VmDetailsLocation.shells);
       ref.read(sidebarKeyProvider.notifier).set(id.sidebarKey);
     }
 
@@ -270,8 +289,8 @@ class DistroLogo extends StatelessWidget {
     final branding = distroBranding(
       os,
       release: release,
-      isCore: isCore ||
-          distroIsCore(os: os, release: release, aliases: aliases),
+      isCore:
+          isCore || distroIsCore(os: os, release: release, aliases: aliases),
     );
     return DistroLogoBadge(branding: branding, size: size);
   }
