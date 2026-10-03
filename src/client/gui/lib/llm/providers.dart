@@ -162,9 +162,16 @@ final pendingLlmLoadsProvider =
 Future<void> unloadLlmInstances(Iterable<String> instanceIds) async {
   // Use the app-wide container so post-await updates stay safe after the
   // running-models list rebuilds / unmounts the widget that started unload.
+  final loaded =
+      providerContainer.read(loadedModelsProvider).asData?.value.models;
+  final remote = {
+    if (loaded != null)
+      for (final model in loaded)
+        if (isRemoteLlmModel(model)) model.instanceId,
+  };
   final ids = [
     for (final id in instanceIds)
-      if (id.isNotEmpty) id,
+      if (id.isNotEmpty && !remote.contains(id)) id,
   ];
   if (ids.isEmpty) return;
 
@@ -197,6 +204,7 @@ Future<void> unloadLlmInstance(String instanceId) async {
 }
 
 final loadedLlmIdsProvider = Provider<List<LlmInstanceId>>((ref) {
+  ref.watch(cloudLlmHydrationProvider);
   final loaded = ref.watch(loadedModelsProvider);
   final pending = ref.watch(pendingLlmUnloadsProvider);
   return loaded.when(
@@ -217,6 +225,7 @@ bool isCachedModelInUse(
 }) {
   if (pendingLoads.any((load) => load.modelId == model.id)) return true;
   for (final instance in loaded) {
+    if (isRemoteLlmModel(instance)) continue;
     if (instance.modelId == model.id) return true;
     if (model.path.isNotEmpty &&
         instance.path.isNotEmpty &&
@@ -519,8 +528,66 @@ final llmProvidersProvider = FutureProvider((ref) async {
   return ref.watch(grpcClientProvider).listLlmProviders();
 });
 
+List<String> cloudProviderIdsNeedingHydration(
+  Iterable<LlmProviderInfo> providers, {
+  Set<String> alreadyAttempted = const {},
+}) =>
+    [
+      for (final provider in providers)
+        if (provider.id.isNotEmpty &&
+            provider.modelCount <= 0 &&
+            !alreadyAttempted.contains(provider.id))
+          provider.id,
+    ];
+
+/// Re-discovers cloud models for configured providers that currently expose none.
+/// Unload used to drop those sessions from disk; they stay configured otherwise.
+class CloudLlmHydration extends Notifier<Set<String>> {
+  @override
+  Set<String> build() {
+    ref.listen(llmProvidersProvider, (_, next) {
+      next.whenData(_hydrate);
+    });
+    ref.read(llmProvidersProvider).whenData(_hydrate);
+    return const {};
+  }
+
+  Future<void> _hydrate(ListLlmProvidersReply reply) async {
+    final pending = cloudProviderIdsNeedingHydration(
+      reply.providers,
+      alreadyAttempted: state,
+    );
+    if (pending.isEmpty) return;
+    state = {...state, ...pending};
+    final client = ref.read(grpcClientProvider);
+    var did = false;
+    for (final id in pending) {
+      try {
+        await client.refreshLlmProvider(id);
+        did = true;
+      } catch (_) {}
+    }
+    if (did) {
+      ref.invalidate(loadedModelsProvider);
+      ref.invalidate(llmProvidersProvider);
+    }
+  }
+}
+
+final cloudLlmHydrationProvider =
+    NotifierProvider<CloudLlmHydration, Set<String>>(CloudLlmHydration.new);
+
 bool isRemoteLlmModel(LoadedModelInfo model) =>
     model.backend == 'openai-compat' || model.providerId.isNotEmpty;
+
+/// Cloud sessions stay listed while the provider is configured.
+bool canUnloadLlmModel(LoadedModelInfo model) =>
+    !isPendingLlmLoad(model) && !isRemoteLlmModel(model);
+
+List<String> unloadableLlmInstanceIds(Iterable<LoadedModelInfo> models) => [
+      for (final model in models)
+        if (canUnloadLlmModel(model) && model.instanceId.isNotEmpty) model.instanceId,
+    ];
 
 enum ModelJobStatus { queued, running, done, error }
 

@@ -212,6 +212,7 @@ private:
         int kept{0};
     };
     RefreshResult refresh_provider_models(const LlmProviderRecord& provider);
+    void restore_provider_models();
     void remove_provider_sessions(const std::string& provider_id);
 
     ResourcePool& pool;

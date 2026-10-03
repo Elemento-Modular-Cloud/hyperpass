@@ -84,4 +84,26 @@ void main() {
       containsAll(['MODEL', 'ID', 'INTENT']),
     );
   });
+
+  testWidgets('cloud rows cannot be selected for unload', (tester) async {
+    final model = LoadedModelInfo()
+      ..instanceId = 'cloud-1'
+      ..backend = 'openai-compat'
+      ..providerId = 'prov-1'
+      ..openaiId = 'openrouter/free';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: SelectLlmCheckbox(model)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+    expect(checkbox.onChanged, isNull);
+  });
 }

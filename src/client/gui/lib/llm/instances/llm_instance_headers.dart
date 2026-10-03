@@ -32,7 +32,7 @@ final llmInstanceHeaders = <TableHeader<LoadedModelInfo>>[
     width: 50,
     minWidth: 50,
     cellBuilder: (m) => SelectLlmCheckbox(
-      m.instanceId,
+      m,
       key: ValueKey(m.instanceId),
     ),
   ),
@@ -167,7 +167,7 @@ class SelectAllLlmCheckbox extends ConsumerWidget {
             ?.value
             .models
             .where((m) => !pending.contains(m.instanceId))
-            .where((m) => !isPendingLlmLoad(m))
+            .where(canUnloadLlmModel)
             .where((m) {
               if (search.isEmpty) return true;
               final q = search.toLowerCase();
@@ -196,24 +196,24 @@ class SelectAllLlmCheckbox extends ConsumerWidget {
 }
 
 class SelectLlmCheckbox extends ConsumerWidget {
-  const SelectLlmCheckbox(this.instanceId, {super.key});
+  const SelectLlmCheckbox(this.model, {super.key});
 
-  final String instanceId;
+  final LoadedModelInfo model;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (instanceId.startsWith(pendingLlmLoadIdPrefix)) {
+    if (!canUnloadLlmModel(model)) {
       return const Center(child: Checkbox(value: false, onChanged: null));
     }
     final selected = ref.watch(
-      selectedLlmInstancesProvider.select((s) => s.contains(instanceId)),
+      selectedLlmInstancesProvider.select((s) => s.contains(model.instanceId)),
     );
     return Center(
       child: Checkbox(
         value: selected,
         onChanged: (checked) => ref
             .read(selectedLlmInstancesProvider.notifier)
-            .toggle(instanceId, checked!),
+            .toggle(model.instanceId, checked!),
       ),
     );
   }

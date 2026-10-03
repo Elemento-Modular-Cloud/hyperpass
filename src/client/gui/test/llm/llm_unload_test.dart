@@ -16,4 +16,20 @@ void main() {
     container.read(pendingLlmUnloadsProvider.notifier).addAll(['a', 'b', '']);
     expect(container.read(pendingLlmUnloadsProvider), {'a', 'b'});
   });
+
+  test('empty cloud providers are hydrated once', () {
+    final providers = [
+      LlmProviderInfo()
+        ..id = 'or'
+        ..modelCount = 0,
+      LlmProviderInfo()
+        ..id = 'openai'
+        ..modelCount = 12,
+    ];
+    expect(cloudProviderIdsNeedingHydration(providers), ['or']);
+    expect(
+      cloudProviderIdsNeedingHydration(providers, alreadyAttempted: {'or'}),
+      isEmpty,
+    );
+  });
 }

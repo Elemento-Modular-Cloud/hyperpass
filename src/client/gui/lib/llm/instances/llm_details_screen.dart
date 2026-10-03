@@ -85,7 +85,12 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
   }
 
   Future<void> _unload() async {
-    await llm.unloadLlmInstance(widget.id.instanceId);
+    try {
+      await llm.unloadLlmInstance(widget.id.instanceId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   @override
@@ -114,23 +119,34 @@ class _LlmDetailsScreenState extends ConsumerState<LlmDetailsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    widget.id.displayLabel,
+                    widget.id.displayLabel.isNotEmpty
+                        ? widget.id.displayLabel
+                        : (modelInfo?.openaiId.isNotEmpty == true
+                            ? modelInfo!.openaiId
+                            : widget.id.instanceId),
                     style: const TextStyle(
                         fontSize: 24, fontWeight: FontWeight.w300),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (modelInfo != null) ...[
-                  Text(
-                    '${modelInfo.backend} · ${modelInfo.state} · 127.0.0.1:${modelInfo.port}',
-                    style: const TextStyle(fontSize: 12),
+                  Flexible(
+                    child: Text(
+                      llm.isRemoteLlmModel(modelInfo)
+                          ? '${modelInfo.backend} · ${modelInfo.state}'
+                          : '${modelInfo.backend} · ${modelInfo.state} · 127.0.0.1:${modelInfo.port}',
+                      style: const TextStyle(fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  LaunchPadButton.secondary(
-                    onPressed: _unload,
-                    compact: true,
-                    child: Text(l10n.modelsUnload),
-                  ),
+                  if (llm.canUnloadLlmModel(modelInfo))
+                    LaunchPadButton.secondary(
+                      onPressed: _unload,
+                      compact: true,
+                      child: Text(l10n.modelsUnload),
+                    ),
                 ] else if (_streamEnded)
                   Text(l10n.modelsLoadedEmpty,
                       style: const TextStyle(fontSize: 12)),

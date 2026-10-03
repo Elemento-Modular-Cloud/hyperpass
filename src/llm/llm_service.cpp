@@ -88,6 +88,15 @@ std::string slug(const std::string& model_id)
     return out;
 }
 
+bool session_matches_model(const mp::LoadedSession& session, const std::string& model_id)
+{
+    return session.model_id == model_id || session.openai_id == model_id ||
+           session.upstream_model_id == model_id || session.instance_id == model_id;
+}
+
+constexpr auto cloud_unload_error =
+    "cloud models cannot be unloaded while the provider is configured";
+
 } // namespace
 
 mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path data_directory)
@@ -104,6 +113,7 @@ mp::LlmService::LlmService(ResourcePool& pool, URLDownloader& downloader, Path d
     QObject::connect(&idle_timer, &QTimer::timeout, this, [this] { idle_unload_tick(); });
     idle_timer.start();
     restore_claims();
+    QTimer::singleShot(0, this, [this] { restore_provider_models(); });
 }
 
 mp::LlmService::~LlmService()
@@ -254,6 +264,30 @@ void mp::LlmService::restore_claims()
     for (auto& session : recovered)
         restore_session(std::move(session));
     persist_sessions();
+}
+
+void mp::LlmService::restore_provider_models()
+{
+    for (const auto& rec : providers.list())
+    {
+        try
+        {
+            const auto result = refresh_provider_models(rec);
+            mpl::info(category,
+                      "Restored cloud provider '{}' (+{} kept {} removed {})",
+                      rec.label.empty() ? rec.id : rec.label,
+                      result.added,
+                      result.kept,
+                      result.removed);
+        }
+        catch (const std::exception& e)
+        {
+            mpl::warn(category,
+                      "failed to restore cloud provider '{}': {}",
+                      rec.label.empty() ? rec.id : rec.label,
+                      e.what());
+        }
+    }
 }
 
 mp::MemorySize mp::LlmService::estimate_claim(const ModelArtifact& artifact,
@@ -1102,7 +1136,9 @@ void mp::LlmService::unload_all_for_model(const std::string& model_id)
         std::lock_guard lock{mutex};
         for (const auto& [id, session] : sessions)
         {
-            if (session.model_id == model_id)
+            if (session_is_remote(session))
+                continue;
+            if (session_matches_model(session, model_id))
                 instances.push_back(id);
         }
     }
@@ -1115,9 +1151,37 @@ void mp::LlmService::unload_model(
     grpc::ServerReaderWriterInterface<UnloadModelReply, UnloadModelRequest>* server)
 {
     if (!request->instance_id().empty())
+    {
+        {
+            std::lock_guard lock{mutex};
+            auto it = sessions.find(request->instance_id());
+            if (it != sessions.end() && session_is_remote(it->second))
+                throw std::runtime_error(cloud_unload_error);
+        }
         unload_instance(request->instance_id());
+    }
     else if (!request->model_id().empty())
+    {
+        bool remote_only = false;
+        {
+            std::lock_guard lock{mutex};
+            bool remote_match = false;
+            bool local_match = false;
+            for (const auto& [id, session] : sessions)
+            {
+                if (!session_matches_model(session, request->model_id()))
+                    continue;
+                if (session_is_remote(session))
+                    remote_match = true;
+                else
+                    local_match = true;
+            }
+            remote_only = remote_match && !local_match;
+        }
+        if (remote_only)
+            throw std::runtime_error(cloud_unload_error);
         unload_all_for_model(request->model_id());
+    }
 
     UnloadModelReply reply;
     reply.set_model_id(request->model_id());

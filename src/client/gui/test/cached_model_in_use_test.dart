@@ -27,6 +27,20 @@ void main() {
     expect(isCachedModelInUse(model, loaded), isFalse);
   });
 
+  test('cloud sessions do not block deleting a local download', () {
+    final model = ModelSuggestion()
+      ..id = 'openrouter/free'
+      ..path = '/vault/unrelated.gguf';
+    final loaded = [
+      LoadedModelInfo()
+        ..modelId = 'openrouter/free'
+        ..openaiId = 'openrouter/free'
+        ..backend = 'openai-compat'
+        ..providerId = 'prov-1',
+    ];
+    expect(isCachedModelInUse(model, loaded), isFalse);
+  });
+
   test('path match still counts as in use', () {
     final model = ModelSuggestion()
       ..id = 'alias'
@@ -65,5 +79,27 @@ void main() {
       isCachedModelInUse(model, const [], pendingLoads: [pending]),
       isTrue,
     );
+  });
+
+  test('cloud models cannot be unloaded from the LLM list', () {
+    final cloud = LoadedModelInfo()
+      ..instanceId = 'cloud-1'
+      ..backend = 'openai-compat'
+      ..providerId = 'prov-1';
+    final local = LoadedModelInfo()
+      ..instanceId = 'local-1'
+      ..backend = 'llamacpp'
+      ..modelId = 'Gemma-2-2B';
+    const pending = PendingLlmLoad(
+      id: 'pending-load-1',
+      modelId: 'Gemma-2-9B',
+      runtime: 'llamacpp',
+      ctxSize: 8192,
+      maxTokens: 0,
+    );
+    expect(canUnloadLlmModel(cloud), isFalse);
+    expect(canUnloadLlmModel(local), isTrue);
+    expect(canUnloadLlmModel(pending.placeholder), isFalse);
+    expect(unloadableLlmInstanceIds([cloud, local, pending.placeholder]), ['local-1']);
   });
 }

@@ -150,10 +150,7 @@ class _LlmInstancesBody extends ConsumerWidget {
                     nameOf: (m) => m.instanceId,
                     occupancyOf: occupancyOfLlm,
                     groupSelectAll: (group) => _GroupSelectAllLlmCheckbox(
-                      ids: group
-                          .where((m) => !isPendingLlmLoad(m))
-                          .map((m) => m.instanceId)
-                          .toList(),
+                      ids: unloadableLlmInstanceIds(group),
                     ),
                   )
                 : vmtable.Table<LoadedModelInfo>(

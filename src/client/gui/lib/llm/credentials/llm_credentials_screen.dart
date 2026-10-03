@@ -951,14 +951,21 @@ class _ProviderCard extends StatelessWidget {
                   ),
                 ),
               ),
-              TextButton(onPressed: onFilters, child: const Text('Filters')),
-              TextButton(onPressed: onRefresh, child: const Text('Refresh')),
-              TextButton(
-                onPressed: onDelete,
-                child: Text(
-                  'Remove',
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
+              Wrap(
+                alignment: WrapAlignment.end,
+                children: [
+                  TextButton(onPressed: onFilters, child: const Text('Filters')),
+                  TextButton(onPressed: onRefresh, child: const Text('Refresh')),
+                  TextButton(
+                    onPressed: onDelete,
+                    child: Text(
+                      'Remove',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
