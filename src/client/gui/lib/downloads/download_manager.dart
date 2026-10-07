@@ -11,6 +11,10 @@ enum DownloadStatus { queued, running, done, error, cancelled }
 
 typedef DownloadExecutor = Future<void> Function(DownloadController controller);
 
+/// Cap concurrent transfers so we saturate the link without opening unbounded
+/// HTTP/HF streams (rate limits, disk thrash). TCP shares the pipe across jobs.
+const maxConcurrentDownloads = 8;
+
 class DownloadJob {
   const DownloadJob({
     required this.id,
@@ -96,6 +100,7 @@ class _PendingDownload {
 class DownloadManager extends Notifier<List<DownloadJob>> {
   Future<void>? _pump;
   final _pending = <String, _PendingDownload>{};
+  final _inflight = <String, Future<void>>{};
 
   @override
   List<DownloadJob> build() => const [];
@@ -169,7 +174,7 @@ class DownloadManager extends Notifier<List<DownloadJob>> {
       if (!j.isActive) return j;
       return j.copyWith(status: DownloadStatus.cancelled);
     });
-    // Queued jobs never enter [_run], so finish them here.
+    // Queued jobs never enter [_executeJob], so finish them here.
     if (job?.status == DownloadStatus.queued) {
       if (pending != null && !pending.doneCompleter.isCompleted) {
         pending.doneCompleter.complete();
@@ -185,54 +190,72 @@ class DownloadManager extends Notifier<List<DownloadJob>> {
     ];
   }
 
+  void _launchAvailable() {
+    final slots = maxConcurrentDownloads - _inflight.length;
+    if (slots <= 0) return;
+    final queued = state
+        .where((j) => j.status == DownloadStatus.queued)
+        .take(slots)
+        .toList();
+    for (final job in queued) {
+      if (_inflight.containsKey(job.id)) continue;
+      final future = _executeJob(job.id);
+      _inflight[job.id] = future;
+      unawaited(future.whenComplete(() => _inflight.remove(job.id)));
+    }
+  }
+
+  Future<void> _executeJob(String id) async {
+    final pending = _pending[id];
+    if (pending == null) {
+      _patch(id, (j) => j.copyWith(status: DownloadStatus.error));
+      return;
+    }
+    _patch(id, (j) => j.copyWith(status: DownloadStatus.running));
+    try {
+      await pending.execute(
+        DownloadController(
+          (percent) => _patch(id, (j) => j.copyWith(percent: percent)),
+          (path) => _patch(id, (j) => j.copyWith(path: path)),
+          () => pending.cancelCompleter.isCompleted,
+          pending.cancelCompleter.future,
+        ),
+      );
+      final current = state.firstWhere((j) => j.id == id);
+      if (current.status != DownloadStatus.cancelled) {
+        _patch(
+          id,
+          (j) => j.copyWith(status: DownloadStatus.done, percent: 100),
+        );
+      }
+      if (!pending.doneCompleter.isCompleted) {
+        pending.doneCompleter.complete();
+      }
+    } catch (e) {
+      _patch(
+        id,
+        (j) => j.copyWith(status: DownloadStatus.error, error: '$e'),
+      );
+      if (!pending.doneCompleter.isCompleted) {
+        pending.doneCompleter.completeError(e);
+      }
+    } finally {
+      _pending.remove(id);
+    }
+  }
+
   Future<void> _run() async {
     try {
       while (true) {
-        final pendingJobs =
-            state.where((j) => j.status == DownloadStatus.queued).toList();
-        if (pendingJobs.isEmpty) return;
-        final job = pendingJobs.first;
-        final pending = _pending[job.id];
-        if (pending == null) {
-          _patch(job.id, (j) => j.copyWith(status: DownloadStatus.error));
-          continue;
-        }
-        _patch(job.id, (j) => j.copyWith(status: DownloadStatus.running));
-        try {
-          await pending.execute(
-            DownloadController(
-              (percent) => _patch(job.id, (j) => j.copyWith(percent: percent)),
-              (path) => _patch(job.id, (j) => j.copyWith(path: path)),
-              () => pending.cancelCompleter.isCompleted,
-              pending.cancelCompleter.future,
-            ),
-          );
-          final current = state.firstWhere((j) => j.id == job.id);
-          if (current.status != DownloadStatus.cancelled) {
-            _patch(
-              job.id,
-              (j) => j.copyWith(status: DownloadStatus.done, percent: 100),
-            );
-          }
-          if (!pending.doneCompleter.isCompleted) {
-            pending.doneCompleter.complete();
-          }
-        } catch (e) {
-          _patch(
-            job.id,
-            (j) => j.copyWith(status: DownloadStatus.error, error: '$e'),
-          );
-          if (!pending.doneCompleter.isCompleted) {
-            pending.doneCompleter.completeError(e);
-          }
-        } finally {
-          _pending.remove(job.id);
-        }
+        _launchAvailable();
+        if (_inflight.isEmpty) return;
+        await Future.any(_inflight.values);
       }
     } finally {
       _pump = null;
-      if (state.any((j) => j.status == DownloadStatus.queued)) {
-        _pump = _run();
+      if (state.any((j) => j.status == DownloadStatus.queued) ||
+          _inflight.isNotEmpty) {
+        _pump ??= _run();
       }
     }
   }

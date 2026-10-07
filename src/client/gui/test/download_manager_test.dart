@@ -6,11 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('runs queued downloads one at a time', () async {
+  test('runs queued downloads in parallel', () async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
     final firstGate = Completer<void>();
+    final secondGate = Completer<void>();
     final secondStarted = Completer<void>();
     final mgr = container.read(downloadManagerProvider.notifier);
 
@@ -26,20 +27,72 @@ void main() {
       dedupKey: 'b',
       execute: (_) async {
         secondStarted.complete();
+        await secondGate.future;
       },
     );
 
-    await Future<void>.delayed(Duration.zero);
-    var jobs = container.read(downloadManagerProvider);
+    await secondStarted.future;
+    final jobs = container.read(downloadManagerProvider);
     expect(jobs, hasLength(2));
     expect(jobs[0].status, DownloadStatus.running);
-    expect(jobs[1].status, DownloadStatus.queued);
+    expect(jobs[1].status, DownloadStatus.running);
 
     firstGate.complete();
-    await secondStarted.future;
+    secondGate.complete();
+    await Future<void>.delayed(Duration.zero);
+    final done = container.read(downloadManagerProvider);
+    expect(done[0].status, DownloadStatus.done);
+    expect(done[1].status, DownloadStatus.done);
+  });
+
+  test('caps concurrency and drains the queue', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final mgr = container.read(downloadManagerProvider.notifier);
+
+    final gates = List.generate(maxConcurrentDownloads + 1, (_) => Completer<void>());
+    final started = List.generate(maxConcurrentDownloads + 1, (_) => Completer<void>());
+
+    for (var i = 0; i < gates.length; i++) {
+      final index = i;
+      mgr.enqueue(
+        kind: DownloadKind.llmModel,
+        label: 'm$index',
+        dedupKey: 'm$index',
+        execute: (_) async {
+          started[index].complete();
+          await gates[index].future;
+        },
+      );
+    }
+
+    await Future.wait(started.take(maxConcurrentDownloads).map((c) => c.future));
+    await Future<void>.delayed(Duration.zero);
+
+    var jobs = container.read(downloadManagerProvider);
+    expect(
+      jobs.where((j) => j.status == DownloadStatus.running),
+      hasLength(maxConcurrentDownloads),
+    );
+    expect(
+      jobs.where((j) => j.status == DownloadStatus.queued),
+      hasLength(1),
+    );
+    expect(started.last.isCompleted, isFalse);
+
+    for (final gate in gates.take(maxConcurrentDownloads)) {
+      gate.complete();
+    }
+    await started.last.future;
     jobs = container.read(downloadManagerProvider);
-    expect(jobs[0].status, DownloadStatus.done);
-    expect(jobs[1].status, DownloadStatus.running);
+    expect(jobs.last.status, DownloadStatus.running);
+
+    gates.last.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(downloadManagerProvider).every((j) => j.status == DownloadStatus.done),
+      isTrue,
+    );
   });
 
   test('dedupes an already queued or running job', () async {
@@ -96,30 +149,41 @@ void main() {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final mgr = container.read(downloadManagerProvider.notifier);
-    final gate = Completer<void>();
-    var secondRan = false;
+    final gates = List.generate(maxConcurrentDownloads, (_) => Completer<void>());
+    var overflowRan = false;
 
-    mgr.enqueue(
-      kind: DownloadKind.vmImage,
-      label: 'A',
-      dedupKey: 'a',
-      execute: (_) => gate.future,
-    );
+    for (var i = 0; i < maxConcurrentDownloads; i++) {
+      final index = i;
+      mgr.enqueue(
+        kind: DownloadKind.vmImage,
+        label: 'A$index',
+        dedupKey: 'a$index',
+        execute: (_) => gates[index].future,
+      );
+    }
     final queuedId = mgr.enqueue(
       kind: DownloadKind.vmImage,
-      label: 'B',
-      dedupKey: 'b',
+      label: 'overflow',
+      dedupKey: 'overflow',
       execute: (_) async {
-        secondRan = true;
+        overflowRan = true;
       },
     );
 
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(downloadManagerProvider).last.status,
+      DownloadStatus.queued,
+    );
+
     mgr.cancel(queuedId);
-    gate.complete();
+    for (final gate in gates) {
+      gate.complete();
+    }
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
-    expect(secondRan, isFalse);
+    expect(overflowRan, isFalse);
     final jobs = container.read(downloadManagerProvider);
-    expect(jobs[1].status, DownloadStatus.cancelled);
+    expect(jobs.last.status, DownloadStatus.cancelled);
   });
 }
