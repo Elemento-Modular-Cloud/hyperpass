@@ -27,8 +27,53 @@ class LlmCatalogFilters extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final runtime =
+    final backendsAsync = ref.watch(llmBackendsProvider);
+    final backends = backendsAsync.asData?.value.backends ?? const [];
+    final probeLoaded = backendsAsync.hasValue;
+    final ready = readyInferenceRuntimeIds(
+      backends.map((b) => (id: b.id, status: b.status)),
+    );
+    var runtime =
         (!enableMlxBackend && filters.runtime == 'mlx') ? '' : filters.runtime;
+    if (probeLoaded &&
+        runtime.isNotEmpty &&
+        !ready.contains(runtime)) {
+      // Selected backend was uninstalled / not ready — fall back to Any.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (ref.read(catalogFiltersProvider).runtime == runtime) {
+          ref.read(catalogFiltersProvider.notifier).setRuntime('');
+        }
+      });
+      runtime = '';
+    }
+
+    Widget runtimeChip({
+      required String id,
+      required String label,
+    }) {
+      final isReady = !probeLoaded || ready.contains(id);
+      final chip = ChoiceChip(
+        label: Text(label, style: const TextStyle(fontSize: 11)),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        selected: runtime == id,
+        onSelected: isReady
+            ? (_) => ref.read(catalogFiltersProvider.notifier).setRuntime(id)
+            : null,
+      );
+      if (isReady) return chip;
+      final hint = backends
+          .where((b) => b.id == id)
+          .map((b) => b.installHint.trim())
+          .firstWhere((h) => h.isNotEmpty, orElse: () => '');
+      return Tooltip(
+        message: hint.isEmpty
+            ? 'Install $label from Models → Backends to filter the catalog.'
+            : hint,
+        child: chip,
+      );
+    }
+
     return Wrap(
       spacing: 6,
       runSpacing: 4,
@@ -43,34 +88,10 @@ class LlmCatalogFilters extends ConsumerWidget {
           onSelected: (_) =>
               ref.read(catalogFiltersProvider.notifier).setRuntime(''),
         ),
-        ChoiceChip(
-          label:
-              Text(l10n.modelsRuntimeLlama, style: const TextStyle(fontSize: 11)),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          selected: runtime == 'llamacpp',
-          onSelected: (_) =>
-              ref.read(catalogFiltersProvider.notifier).setRuntime('llamacpp'),
-        ),
+        runtimeChip(id: 'llamacpp', label: l10n.modelsRuntimeLlama),
         if (enableMlxBackend)
-          ChoiceChip(
-            label:
-                Text(l10n.modelsRuntimeMlx, style: const TextStyle(fontSize: 11)),
-            visualDensity: VisualDensity.compact,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            selected: runtime == 'mlx',
-            onSelected: (_) =>
-                ref.read(catalogFiltersProvider.notifier).setRuntime('mlx'),
-          ),
-        ChoiceChip(
-          label:
-              Text(l10n.modelsRuntimeVllm, style: const TextStyle(fontSize: 11)),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          selected: runtime == 'vllm',
-          onSelected: (_) =>
-              ref.read(catalogFiltersProvider.notifier).setRuntime('vllm'),
-        ),
+          runtimeChip(id: 'mlx', label: l10n.modelsRuntimeMlx),
+        runtimeChip(id: 'vllm', label: l10n.modelsRuntimeVllm),
         const SizedBox(width: 6),
         Text(l10n.modelsFilterFit, style: const TextStyle(fontSize: 11)),
         ChoiceChip(

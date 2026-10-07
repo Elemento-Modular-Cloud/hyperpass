@@ -11,4 +11,18 @@ void main() {
     expect(isVllmRuntime('vllm'), isTrue);
     expect(isMlxRuntime('mlx'), isTrue);
   });
+
+  test('readyInferenceRuntimeIds keeps only probe-ready inference backends', () {
+    final ready = readyInferenceRuntimeIds([
+      (id: 'llmfit', status: 'ready'),
+      (id: 'llamacpp', status: 'ready'),
+      (id: 'vllm', status: 'missing'),
+      (id: 'llamacpp-cuda', status: 'ready'),
+      (id: 'mlx', status: 'ready'),
+    ]);
+    expect(ready, {'llamacpp', 'mlx'});
+    expect(ready, isNot(contains('vllm')));
+    expect(ready, isNot(contains('llmfit')));
+    expect(ready, isNot(contains('llamacpp-cuda')));
+  });
 }

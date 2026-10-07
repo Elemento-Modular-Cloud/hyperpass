@@ -10,6 +10,17 @@ const inferenceBackendIds = {
 
 bool isInferenceBackendId(String id) => inferenceBackendIds.contains(id);
 
+/// Probe rows that can actually serve catalog downloads / loads.
+Set<String> readyInferenceRuntimeIds(
+  Iterable<({String id, String status})> backends,
+) {
+  return {
+    for (final backend in backends)
+      if (backend.status == 'ready' && isInferenceBackendId(backend.id))
+        backend.id,
+  };
+}
+
 bool isLlamaRuntime(String runtime) =>
     runtime == 'llamacpp' || runtime.startsWith('llamacpp-');
 

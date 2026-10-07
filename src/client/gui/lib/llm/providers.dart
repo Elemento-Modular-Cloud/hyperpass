@@ -371,6 +371,8 @@ final recommendedModelsProvider = FutureProvider((ref) async {
     return FindModelsReply();
   }
   final filters = ref.watch(catalogFiltersProvider);
+  // Ready backends gate daemon find_models; refresh when probe changes.
+  ref.watch(llmBackendsProvider);
   ref.watch(daemonInfoProvider.select((async) {
     final bytes = async.value?.memoryAvailable.toInt() ?? 0;
     return bytes >> 30;
@@ -395,6 +397,7 @@ final topPicksModelsProvider = FutureProvider<List<ModelSuggestion>>((ref) async
     final bytes = async.value?.memoryAvailable.toInt() ?? 0;
     return bytes >> 30;
   }));
+  ref.watch(llmBackendsProvider);
 
   final client = ref.watch(grpcClientProvider);
   final runtime = effectiveCatalogRuntime(
@@ -442,6 +445,7 @@ final catalogModelsProvider = FutureProvider((ref) async {
   final minFit = ref.watch(catalogFiltersProvider.select((f) => f.minFit));
   final runtime = ref.watch(catalogFiltersProvider.select((f) => f.runtime));
   final query = ref.watch(debouncedCatalogQueryProvider);
+  ref.watch(llmBackendsProvider);
   ref.watch(daemonInfoProvider.select((async) {
     final bytes = async.value?.memoryAvailable.toInt() ?? 0;
     return bytes >> 30;

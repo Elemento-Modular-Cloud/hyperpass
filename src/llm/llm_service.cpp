@@ -75,6 +75,87 @@ namespace
 {
 constexpr auto category = "llm";
 
+bool is_inference_runner_id(const std::string& id)
+{
+    return id == mp::llm::runner_llamacpp || id == mp::llm::runner_vllm ||
+           (mp::enable_mlx_backend && id == mp::llm::runner_mlx);
+}
+
+std::unordered_set<std::string> ready_inference_runtimes(const QString& managed_tools_dir)
+{
+    std::unordered_set<std::string> ready;
+    for (const auto& row : mp::llm::probe_backends({}, managed_tools_dir))
+    {
+        if (row.status == "ready" && is_inference_runner_id(row.id))
+            ready.insert(row.id);
+    }
+    return ready;
+}
+
+std::vector<std::string> ordered_ready_runtimes(const std::unordered_set<std::string>& ready)
+{
+    std::vector<std::string> ordered;
+    for (const auto* id :
+         {mp::llm::runner_llamacpp, mp::llm::runner_vllm, mp::llm::runner_mlx})
+    {
+        if (ready.contains(id))
+            ordered.emplace_back(id);
+    }
+    return ordered;
+}
+
+bool model_supported_by_ready(const mp::ModelSuggestion& model,
+                              const std::unordered_set<std::string>& ready)
+{
+    if (ready.empty())
+        return false;
+    if (model.supported_runtimes_size() == 0)
+        return true;
+    for (const auto& runtime : model.supported_runtimes())
+    {
+        if (ready.contains(runtime))
+            return true;
+    }
+    return false;
+}
+
+void stamp_catalog_model_runtimes(mp::ModelSuggestion& model)
+{
+    if (model.format().empty())
+    {
+        const auto rt = QString::fromStdString(model.runtime()).toLower();
+        if (rt.contains("mlx"))
+            model.set_format(mp::llm::format_mlx);
+        else if (rt.contains("vllm") || rt.contains("hf") || rt.contains("transformers"))
+            model.set_format(mp::llm::format_hf);
+        else
+            model.set_format(mp::llm::format_gguf);
+    }
+    if (model.supported_runtimes_size() == 0)
+    {
+        const auto fmt = model.format();
+        if (fmt == mp::llm::format_mlx)
+            model.add_supported_runtimes(mp::llm::runner_mlx);
+        else if (fmt == mp::llm::format_hf)
+            model.add_supported_runtimes(mp::llm::runner_vllm);
+        else
+            model.add_supported_runtimes(mp::llm::runner_llamacpp);
+    }
+}
+
+void append_unique_models(std::vector<mp::ModelSuggestion>& into,
+                          std::vector<mp::ModelSuggestion> batch,
+                          std::unordered_set<std::string>& seen_ids)
+{
+    for (auto& model : batch)
+    {
+        const auto id = model.id();
+        if (id.empty() || !seen_ids.insert(id).second)
+            continue;
+        into.push_back(std::move(model));
+    }
+}
+
 std::string slug(const std::string& model_id)
 {
     std::string out;
@@ -613,57 +694,76 @@ void mp::LlmService::find_models(
     FindModelsReply reply;
     try
     {
+        const auto tools_root = llm::managed_tools_root(data_directory);
+        const auto ready = ready_inference_runtimes(tools_root);
         auto runtime = request->runtime();
-        if (runtime.empty() && request->recommend_only())
+        if (!mp::enable_mlx_backend && runtime == llm::runner_mlx)
+            runtime.clear();
+
+        if (ready.empty())
         {
-            const auto selected = runners.select_default();
-            runtime = selected.runner ? selected.runner->id() : llm::runner_llamacpp;
+            reply.set_reply_message(
+                "No inference backend is ready. Install llama.cpp or vLLM from Models → Backends.");
+            server->Write(reply);
+            return;
         }
+        if (!runtime.empty() && !ready.contains(runtime))
+        {
+            reply.set_reply_message(fmt::format(
+                "{} backend is not ready. Install it from Models → Backends, then refresh the catalog.",
+                runtime));
+            server->Write(reply);
+            return;
+        }
+
 #ifdef Q_OS_MACOS
         const bool unified = true;
 #else
         const bool unified = false;
 #endif
-        const auto models = request->recommend_only()
-                                ? advisor.recommend(pool.memory_available(),
-                                                    pool.host_cpus(),
-                                                    runtime,
-                                                    request->use_case(),
-                                                    request->min_fit(),
-                                                    request->limit(),
-                                                    unified)
-                                : advisor.browse(pool.memory_available(),
-                                                 pool.host_cpus(),
-                                                 runtime,
-                                                 request->use_case(),
-                                                 request->min_fit(),
-                                                 request->query(),
-                                                 request->limit(),
-                                                 request->offset(),
-                                                 request->include_too_tight(),
-                                                 unified);
+        const auto limit = request->limit();
+        std::vector<ModelSuggestion> models;
+        if (request->recommend_only())
+        {
+            // Catalog "Any" must ask llmfit per ready backend so Top Picks reflect
+            // what Launchpad can actually serve — not only the default runner.
+            const auto runtimes =
+                runtime.empty() ? ordered_ready_runtimes(ready) : std::vector<std::string>{runtime};
+            std::unordered_set<std::string> seen_ids;
+            for (const auto& rt : runtimes)
+            {
+                append_unique_models(models,
+                                     advisor.recommend(pool.memory_available(),
+                                                       pool.host_cpus(),
+                                                       rt,
+                                                       request->use_case(),
+                                                       request->min_fit(),
+                                                       limit,
+                                                       unified),
+                                     seen_ids);
+            }
+            if (limit > 0 && static_cast<int>(models.size()) > limit)
+                models.resize(static_cast<size_t>(limit));
+        }
+        else
+        {
+            models = advisor.browse(pool.memory_available(),
+                                    pool.host_cpus(),
+                                    runtime,
+                                    request->use_case(),
+                                    request->min_fit(),
+                                    request->query(),
+                                    limit,
+                                    request->offset(),
+                                    request->include_too_tight(),
+                                    unified);
+        }
+
         for (auto model : models)
         {
-            if (model.format().empty())
-            {
-                const auto rt = QString::fromStdString(model.runtime()).toLower();
-                if (rt.contains("mlx"))
-                    model.set_format(llm::format_mlx);
-                else if (rt.contains("vllm"))
-                    model.set_format(llm::format_hf);
-                else
-                    model.set_format(llm::format_gguf);
-            }
-            if (model.supported_runtimes_size() == 0)
-            {
-                const auto fmt = model.format();
-                if (fmt == llm::format_mlx)
-                    model.add_supported_runtimes(llm::runner_mlx);
-                else if (fmt == llm::format_hf)
-                    model.add_supported_runtimes(llm::runner_vllm);
-                else
-                    model.add_supported_runtimes(llm::runner_llamacpp);
-            }
+            stamp_catalog_model_runtimes(model);
+            if (!model_supported_by_ready(model, ready))
+                continue;
             *reply.add_models() = model;
         }
     }
