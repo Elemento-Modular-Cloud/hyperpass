@@ -107,9 +107,11 @@ endforeach(plugin)
 # By default, "installing" just makes a relocatable bundle in the build
 # directory.
 set(BUILD_BUNDLE_DIR "${PROJECT_BINARY_DIR}/bundle")
-if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
-endif()
+# Always force the bundle dir. CMake 4.x (e.g. the cmake snap) may leave
+# CMAKE_INSTALL_PREFIX at /usr/local without setting
+# CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT, which makes `ninja install`
+# try to write to /usr/local and fail with Permission denied.
+set(CMAKE_INSTALL_PREFIX "${BUILD_BUNDLE_DIR}" CACHE PATH "..." FORCE)
 
 # Start with a clean build bundle directory every time.
 install(CODE "

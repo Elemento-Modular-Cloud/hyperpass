@@ -48,14 +48,14 @@ struct VMSpecs
     std::string zone;
     // Marketplace service template id (e.g. caddy_ca_v1). Stored outside QEMU
     // metadata so backend metadata refreshes cannot wipe it.
-    std::string service_id;
+    std::string service_id{};
     // The image alias/cloud-init this instance was originally launched with
     // (as given to LaunchRequest, not the resolved local VMImage/YAML::Node
     // this becomes once prepared) — otherwise discarded after launch, but
     // needed to redefine the same instance elsewhere (migration).
-    std::string image;
-    std::string cloud_init_user_data;
-    std::string remote_name;
+    std::string image{};
+    std::string cloud_init_user_data{};
+    std::string remote_name{};
 
     friend inline bool operator==(const VMSpecs& a, const VMSpecs& b) = default;
 };

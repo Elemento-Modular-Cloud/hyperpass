@@ -183,6 +183,25 @@ TEST(RuntimeInstaller, pipBackendsAreNotArchiveAssets)
     EXPECT_THROW(llm::resolve_runtime_asset("vllm"), std::runtime_error);
 }
 
+TEST(RuntimeInstaller, splitInstallLogChunkHandlesPartialLines)
+{
+    std::string carry;
+    auto lines = llm::split_install_log_chunk(carry, "hello\nwor");
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0], "hello");
+    EXPECT_EQ(carry, "wor");
+
+    lines = llm::split_install_log_chunk(carry, "ld\r\nnext");
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0], "world");
+    EXPECT_EQ(carry, "next");
+
+    lines = llm::split_install_log_chunk(carry, "", true);
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0], "next");
+    EXPECT_TRUE(carry.empty());
+}
+
 TEST(ManagedTools, pipBackendHelpers)
 {
     EXPECT_TRUE(llm::is_pip_backend("mlx"));

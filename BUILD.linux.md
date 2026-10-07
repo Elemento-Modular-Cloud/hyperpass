@@ -71,6 +71,41 @@ sudo snap install rustup --classic
 ```
 rustup default stable
 ```
+
+### Extra packages not covered by `mk-build-deps`
+
+`debian/control` / `mk-build-deps` does not currently pull these in. They were
+required when building on **Ubuntu 24.04 aarch64** (e.g. Lenovo ThinkStation PGX):
+
+```
+# CMake: Ubuntu 24.04 apt ships 3.28.x; Hyperpass needs >= 3.29
+sudo snap install cmake --classic
+# Prefer snap cmake over /usr/bin/cmake (otherwise PATH order keeps 3.28):
+export PATH="/snap/bin:$PATH"
+
+# Platform mDNS (src/platform → avahi-client.pc)
+sudo apt install -y libavahi-client-dev
+
+# Flutter GUI / flutter_secure_storage_linux (libsecret-1.pc)
+sudo apt install -y libsecret-1-dev
+```
+
+If the clone has no usable git tags, pass an explicit version to CMake (or create
+an annotated `*-dev` tag). Example with the build script:
+
+```
+./scripts/build-linux.sh -- -DMULTIPASS_VERSION=1.17.0-dev.0+g$(git rev-parse --short=8 HEAD)
+```
+
+If the Flutter GUI install fails with `Permission denied` writing to
+`/usr/local/elp_gui`, wipe the Flutter Linux build tree and rebuild (CMake 4.x
+can leave a bad install prefix cached):
+
+```
+rm -rf build/bin/linux
+./scripts/build-linux.sh --build-only
+```
+
 ## Building
 
 After installing dependencies (above), you can use the convenience script:

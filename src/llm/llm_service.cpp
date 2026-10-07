@@ -63,6 +63,7 @@
 #include <condition_variable>
 #include <deque>
 #include <future>
+#include <memory>
 #include <stdexcept>
 #include <unordered_set>
 
@@ -1299,17 +1300,76 @@ void mp::LlmService::install_llm_backend(
 {
     const auto backend_id = QString::fromStdString(request->backend_id());
     llm::RuntimeInstaller installer{downloader, data_directory};
-    auto on_progress = [server, backend_id](const llm::InstallProgress& progress) {
+
+    // Coalesce chatty process log lines (~10 writes/s) while flushing status/percent
+    // changes immediately.
+    struct ProgressStreamState
+    {
+        std::string pending_log;
+        std::string last_status;
+        int last_percent{-1};
+        QString last_path;
+        std::string last_message;
+        std::chrono::steady_clock::time_point last_log_flush{};
+    };
+    auto stream = std::make_shared<ProgressStreamState>();
+
+    auto write_reply = [server, backend_id](const ProgressStreamState& s, std::string log_line) {
         InstallLlmBackendReply reply;
         reply.set_backend_id(backend_id.toStdString());
-        reply.set_status(progress.status);
-        reply.set_progress_percent(progress.percent);
-        reply.set_binary_path(progress.binary_path.toStdString());
-        if (!progress.message.empty())
-            reply.set_reply_message(progress.message);
+        reply.set_status(s.last_status);
+        reply.set_progress_percent(s.last_percent < 0 ? 0 : s.last_percent);
+        reply.set_binary_path(s.last_path.toStdString());
+        if (!s.last_message.empty())
+            reply.set_reply_message(s.last_message);
+        if (!log_line.empty())
+            reply.set_log_line(std::move(log_line));
         server->Write(reply);
     };
+
+    auto on_progress = [stream, write_reply](const llm::InstallProgress& progress) {
+        const bool status_changed = progress.status != stream->last_status ||
+                                    progress.percent != stream->last_percent ||
+                                    progress.binary_path != stream->last_path ||
+                                    (!progress.message.empty() && progress.message != stream->last_message);
+
+        if (!progress.status.empty())
+            stream->last_status = progress.status;
+        stream->last_percent = progress.percent;
+        if (!progress.binary_path.isEmpty())
+            stream->last_path = progress.binary_path;
+        if (!progress.message.empty())
+            stream->last_message = progress.message;
+
+        if (!progress.log_line.empty())
+        {
+            if (!stream->pending_log.empty())
+                stream->pending_log.push_back('\n');
+            stream->pending_log.append(progress.log_line);
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const bool log_due = !stream->pending_log.empty() &&
+                             (stream->last_log_flush.time_since_epoch().count() == 0 ||
+                              now - stream->last_log_flush >= std::chrono::milliseconds{100});
+
+        if (status_changed || log_due)
+        {
+            std::string log;
+            if (log_due)
+            {
+                log = std::move(stream->pending_log);
+                stream->pending_log.clear();
+                stream->last_log_flush = now;
+            }
+            write_reply(*stream, std::move(log));
+        }
+    };
+
     const auto path = installer.install(backend_id, on_progress);
+    if (!stream->pending_log.empty())
+        write_reply(*stream, std::move(stream->pending_log));
+
     InstallLlmBackendReply reply;
     reply.set_backend_id(backend_id.toStdString());
     reply.set_status("ready");

@@ -24,6 +24,8 @@
 
 #include <functional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace multipass::llm
 {
@@ -44,12 +46,19 @@ struct InstallProgress
     int percent{0};
     QString binary_path;
     std::string message;
+    std::string log_line; // streaming process output (may contain multiple lines)
 };
 
 using InstallProgressCallback = std::function<void(const InstallProgress&)>;
 
 RuntimeAsset resolve_runtime_asset(const QString& backend_id);
 QString backend_id_to_tool_name(const QString& backend_id);
+
+/// Split a process output chunk into complete lines; incomplete trailing data
+/// stays in `carry` until a newline arrives (or `flush` is true).
+std::vector<std::string> split_install_log_chunk(std::string& carry,
+                                                 std::string_view chunk,
+                                                 bool flush = false);
 
 class RuntimeInstaller
 {

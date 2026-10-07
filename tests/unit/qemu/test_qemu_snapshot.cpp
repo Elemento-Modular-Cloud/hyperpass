@@ -135,6 +135,10 @@ struct TestQemuSnapshot : public Test
             metadata,
             0,
             zone,
+            {}, // service_id
+            {}, // image
+            {}, // cloud_init_user_data
+            {}, // remote_name
         };
     }();
 };

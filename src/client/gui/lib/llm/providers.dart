@@ -47,17 +47,55 @@ final llmBackendsProvider = FutureProvider((ref) async {
   return ref.watch(grpcClientProvider).listLlmBackends();
 });
 
-class LlmBackendInstalls extends Notifier<Map<String, int>> {
-  @override
-  Map<String, int> build() {
-    return {
-      for (final job in ref.watch(downloadManagerProvider))
-        if (job.kind == DownloadKind.llmRuntime && job.isActive)
-          job.modelId: job.percent,
-    };
+class LlmBackendInstallUi {
+  const LlmBackendInstallUi({
+    this.percent = 0,
+    this.lines = const [],
+    this.message = '',
+  });
+
+  final int percent;
+  final List<String> lines;
+  final String message;
+
+  static const maxLogLines = 200;
+
+  LlmBackendInstallUi copyWith({
+    int? percent,
+    List<String>? lines,
+    String? message,
+  }) {
+    return LlmBackendInstallUi(
+      percent: percent ?? this.percent,
+      lines: lines ?? this.lines,
+      message: message ?? this.message,
+    );
   }
 
+  /// Append process log text (possibly multi-line), retaining at most [maxLogLines].
+  static List<String> appendLogLines(List<String> existing, String chunk) {
+    if (chunk.isEmpty) return existing;
+    final next = List<String>.of(existing);
+    for (final line in chunk.split('\n')) {
+      if (line.isEmpty) continue;
+      next.add(line);
+    }
+    if (next.length > maxLogLines) {
+      return next.sublist(next.length - maxLogLines);
+    }
+    return next;
+  }
+}
+
+class LlmBackendInstalls extends Notifier<Map<String, LlmBackendInstallUi>> {
+  @override
+  Map<String, LlmBackendInstallUi> build() => const {};
+
   Future<void> install(String backendId) async {
+    state = {
+      ...state,
+      backendId: const LlmBackendInstallUi(),
+    };
     ref.read(downloadManagerProvider.notifier).enqueue(
       kind: DownloadKind.llmRuntime,
       label: backendId,
@@ -65,19 +103,40 @@ class LlmBackendInstalls extends Notifier<Map<String, int>> {
       modelId: backendId,
       execute: (controller) async {
         final client = ref.read(grpcClientProvider);
-        await for (final reply in client.installLlmBackend(backendId)) {
-          if (controller.isCancelled) break;
-          controller.setPercent(reply.progressPercent);
-          if (reply.status == 'ready' || reply.status == 'error') break;
+        try {
+          await for (final reply in client.installLlmBackend(backendId)) {
+            if (controller.isCancelled) break;
+            controller.setPercent(reply.progressPercent);
+            final prev = state[backendId] ?? const LlmBackendInstallUi();
+            final lines = reply.logLine.isEmpty
+                ? prev.lines
+                : LlmBackendInstallUi.appendLogLines(prev.lines, reply.logLine);
+            state = {
+              ...state,
+              backendId: LlmBackendInstallUi(
+                percent: reply.progressPercent,
+                lines: lines,
+                message: reply.replyMessage.isNotEmpty
+                    ? reply.replyMessage
+                    : prev.message,
+              ),
+            };
+            if (reply.status == 'ready' || reply.status == 'error') break;
+          }
+        } finally {
+          final next = Map<String, LlmBackendInstallUi>.of(state)
+            ..remove(backendId);
+          state = next;
+          ref.invalidate(llmBackendsProvider);
         }
-        ref.invalidate(llmBackendsProvider);
       },
     );
   }
 }
 
 final llmBackendInstallsProvider =
-    NotifierProvider<LlmBackendInstalls, Map<String, int>>(LlmBackendInstalls.new);
+    NotifierProvider<LlmBackendInstalls, Map<String, LlmBackendInstallUi>>(
+        LlmBackendInstalls.new);
 
 /// Instance IDs whose unload RPC has been sent but is not yet reflected in
 /// [loadedModelsProvider]. The Running table and sidebar badge filter these

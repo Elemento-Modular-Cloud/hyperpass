@@ -1245,6 +1245,10 @@ TEST_F(QemuBackend, createsQemuSnapshotsFromSpecs)
         {},
         0,
         "zone1",
+        {}, // service_id
+        {}, // image
+        {}, // cloud_init_user_data
+        {}, // remote_name
     };
     auto snapshot = machine.make_specific_snapshot(snapshot_name,
                                                    snapshot_comment,

@@ -35,8 +35,11 @@
 #include <QUrl>
 
 #include <algorithm>
+#include <chrono>
 #include <stdexcept>
+#include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace mp = multipass;
 namespace mpl = multipass::logging;
@@ -278,21 +281,69 @@ QString host_python()
                : QStandardPaths::findExecutable("python3");
 }
 
+using LineCallback = std::function<void(std::string_view line)>;
+
+void emit_complete_lines(std::string& carry,
+                         const QByteArray& chunk,
+                         const LineCallback& on_line,
+                         bool flush)
+{
+    if (!on_line)
+        return;
+    for (const auto& line :
+         mp::llm::split_install_log_chunk(carry, std::string_view{chunk.constData(), static_cast<size_t>(chunk.size())}, flush))
+    {
+        if (!line.empty())
+            on_line(line);
+    }
+}
+
 void run_python(const QString& python,
                 const QStringList& args,
                 const std::string& what,
-                int timeout_ms = 600000)
+                int timeout_ms = 600000,
+                const LineCallback& on_line = {})
 {
     QProcess proc;
     proc.setProcessChannelMode(QProcess::MergedChannels);
     proc.start(python, args);
     if (!proc.waitForStarted(15000))
         throw std::runtime_error(fmt::format("failed to start {}: {}", what, python.toStdString()));
-    if (!proc.waitForFinished(timeout_ms) || proc.exitCode() != 0)
+
+    std::string carry;
+    std::string captured;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds{timeout_ms};
+    while (proc.state() != QProcess::NotRunning)
     {
-        throw std::runtime_error(fmt::format("{} failed: {}",
-                                             what,
-                                             QString::fromUtf8(proc.readAll()).trimmed().toStdString()));
+        if (std::chrono::steady_clock::now() > deadline)
+        {
+            proc.kill();
+            proc.waitForFinished(5000);
+            throw std::runtime_error(fmt::format("{} timed out after {}ms", what, timeout_ms));
+        }
+        if (proc.waitForReadyRead(200))
+        {
+            const auto chunk = proc.readAll();
+            captured.append(chunk.constData(), static_cast<size_t>(chunk.size()));
+            if (captured.size() > 256 * 1024)
+                captured.erase(0, captured.size() - 128 * 1024);
+            emit_complete_lines(carry, chunk, on_line, false);
+        }
+    }
+    const auto rest = proc.readAll();
+    if (!rest.isEmpty())
+    {
+        captured.append(rest.constData(), static_cast<size_t>(rest.size()));
+        emit_complete_lines(carry, rest, on_line, false);
+    }
+    emit_complete_lines(carry, {}, on_line, true);
+
+    if (proc.exitCode() != 0)
+    {
+        auto detail = QString::fromStdString(captured).trimmed().toStdString();
+        if (detail.empty())
+            detail = fmt::format("exit code {}", proc.exitCode());
+        throw std::runtime_error(fmt::format("{} failed: {}", what, detail));
     }
 }
 
@@ -319,6 +370,36 @@ void ensure_pip_backend_supported(const QString& backend_id)
 }
 } // namespace
 
+std::vector<std::string> mp::llm::split_install_log_chunk(std::string& carry,
+                                                          std::string_view chunk,
+                                                          bool flush)
+{
+    carry.append(chunk);
+    std::vector<std::string> lines;
+    std::string::size_type start = 0;
+    while (true)
+    {
+        const auto pos = carry.find('\n', start);
+        if (pos == std::string::npos)
+            break;
+        auto line = carry.substr(start, pos - start);
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        lines.push_back(std::move(line));
+        start = pos + 1;
+    }
+    if (start > 0)
+        carry.erase(0, start);
+    if (flush && !carry.empty())
+    {
+        if (!carry.empty() && carry.back() == '\r')
+            carry.pop_back();
+        lines.push_back(std::move(carry));
+        carry.clear();
+    }
+    return lines;
+}
+
 QString mp::llm::RuntimeInstaller::install(const QString& backend_id,
                                            const InstallProgressCallback& on_progress)
 {
@@ -334,7 +415,7 @@ QString mp::llm::RuntimeInstaller::install(const QString& backend_id,
     if (!existing.isEmpty())
     {
         if (on_progress)
-            on_progress(InstallProgress{"ready", 100, existing, "already installed"});
+            on_progress(InstallProgress{"ready", 100, existing, "already installed", {}});
         return existing;
     }
     return install_asset(asset, on_progress);
@@ -346,9 +427,9 @@ QString mp::llm::RuntimeInstaller::install_pip_backend(const QString& backend_id
     ensure_pip_backend_supported(backend_id);
 
     auto emit_progress = [&](const char* status, int percent, const QString& path = {},
-                             const std::string& message = {}) {
+                             const std::string& message = {}, const std::string& log_line = {}) {
         if (on_progress)
-            on_progress(InstallProgress{status, percent, path, message});
+            on_progress(InstallProgress{status, percent, path, message, log_line});
     };
 
     const auto package = pip_package_for_backend(backend_id);
@@ -369,11 +450,22 @@ QString mp::llm::RuntimeInstaller::install_pip_backend(const QString& backend_id
     if (system_python.isEmpty())
         throw std::runtime_error("python3 is required to install " + package.toStdString());
 
+    auto make_line_cb = [&](const char* status, int percent, const QString& path,
+                            const std::string& message) {
+        return [=, &emit_progress](std::string_view line) {
+            emit_progress(status, percent, path, message, std::string{line});
+        };
+    };
+
     if (!QFileInfo{venv_python}.exists())
     {
         emit_progress("extracting", 10, {}, fmt::format("creating virtualenv for {}", package.toStdString()));
         QDir{}.mkpath(QFileInfo{venv_dir}.absolutePath());
-        run_python(system_python, {"-m", "venv", venv_dir}, "python -m venv", 120000);
+        run_python(system_python,
+                   {"-m", "venv", venv_dir},
+                   "python -m venv",
+                   120000,
+                   make_line_cb("extracting", 10, {}, "creating virtualenv"));
         venv_python = managed_venv_python(tools_root, backend_id);
         if (!QFileInfo{venv_python}.exists())
             throw std::runtime_error("virtualenv was created but python was not found inside it");
@@ -381,14 +473,19 @@ QString mp::llm::RuntimeInstaller::install_pip_backend(const QString& backend_id
     }
 
     emit_progress("downloading", 25, venv_python, "upgrading pip");
-    run_python(venv_python, {"-m", "pip", "install", "--upgrade", "pip"}, "pip upgrade", 300000);
+    run_python(venv_python,
+               {"-m", "pip", "install", "--upgrade", "pip"},
+               "pip upgrade",
+               300000,
+               make_line_cb("downloading", 25, venv_python, "upgrading pip"));
 
-    emit_progress("downloading", 45, venv_python,
-                  fmt::format("installing {}", package.toStdString()));
+    const auto install_msg = fmt::format("installing {}", package.toStdString());
+    emit_progress("downloading", 45, venv_python, install_msg);
     run_python(venv_python,
                {"-m", "pip", "install", "--upgrade", package},
                fmt::format("pip install {}", package.toStdString()),
-               900000);
+               900000,
+               make_line_cb("downloading", 45, venv_python, install_msg));
 
     emit_progress("extracting", 90, venv_python, "verifying import");
     if (!python_imports_module(venv_python, import_name))
@@ -502,7 +599,7 @@ QString mp::llm::RuntimeInstaller::install_asset(const RuntimeAsset& asset,
     auto emit_progress = [&](const char* status, int percent, const QString& path = {},
                              const std::string& message = {}) {
         if (on_progress)
-            on_progress(InstallProgress{status, percent, path, message});
+            on_progress(InstallProgress{status, percent, path, message, {}});
     };
 
     emit_progress("downloading", 0, {}, fmt::format("downloading {}", asset.archive_name.toStdString()));

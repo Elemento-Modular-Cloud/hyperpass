@@ -97,7 +97,7 @@ class LlmSetupScreen extends ConsumerWidget {
                         for (final backend in cards)
                           _BackendInstallCard(
                             backend: backend,
-                            progressPercent: installs[backend.id],
+                            install: installs[backend.id],
                           ),
                       ];
                       if (wide) {
@@ -133,13 +133,13 @@ class LlmSetupScreen extends ConsumerWidget {
 class _BackendInstallCard extends ConsumerWidget {
   const _BackendInstallCard({
     required this.backend,
-    this.progressPercent,
+    this.install,
   });
 
   final LlmBackendInfo backend;
-  final int? progressPercent;
+  final LlmBackendInstallUi? install;
 
-  bool get _installing => progressPercent != null;
+  bool get _installing => install != null;
   bool get _ready => backend.status == 'ready';
   bool get _canInstall =>
       backend.installable && !_ready && !_installing;
@@ -150,6 +150,7 @@ class _BackendInstallCard extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final onSurface = scheme.onSurface;
     final title = backend.name.isEmpty ? backend.id : backend.name;
+    final progressPercent = install?.percent ?? 0;
     final statusLabel = _installing
         ? l10n.llmSetupInstalling
         : _ready
@@ -165,6 +166,7 @@ class _BackendInstallCard extends ConsumerWidget {
       if (backend.detail.isNotEmpty) backend.detail,
       if (backend.binaryPath.isNotEmpty) backend.binaryPath,
       if (!_ready && backend.installHint.isNotEmpty) backend.installHint,
+      if (_installing && (install?.message.isNotEmpty ?? false)) install!.message,
     ].join('\n');
 
     return CatalogueSurface(
@@ -242,19 +244,23 @@ class _BackendInstallCard extends ConsumerWidget {
           if (_installing) ...[
             const SizedBox(height: 16),
             LinearProgressIndicator(
-              value: (progressPercent ?? 0) > 0
-                  ? (progressPercent!.clamp(0, 100) / 100.0)
+              value: progressPercent > 0
+                  ? (progressPercent.clamp(0, 100) / 100.0)
                   : null,
             ),
             const SizedBox(height: 6),
             Text(
-              '${(progressPercent ?? 0).clamp(0, 100)}%',
+              '${progressPercent.clamp(0, 100)}%',
               style: TextStyle(
                 fontFamily: Brand.fontFamily,
                 fontSize: 11,
                 color: onSurface.withValues(alpha: 0.65),
               ),
             ),
+            if (install!.lines.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _InstallLogPane(lines: install!.lines),
+            ],
           ],
           const SizedBox(height: 18),
           Align(
@@ -289,5 +295,64 @@ class _BackendInstallCard extends ConsumerWidget {
       'llamacpp' => l10n.llmSetupLlamacppBlurb,
       _ => l10n.modelsBackendsHint,
     };
+  }
+}
+
+class _InstallLogPane extends StatefulWidget {
+  const _InstallLogPane({required this.lines});
+
+  final List<String> lines;
+
+  @override
+  State<_InstallLogPane> createState() => _InstallLogPaneState();
+}
+
+class _InstallLogPaneState extends State<_InstallLogPane> {
+  final _controller = ScrollController();
+
+  @override
+  void didUpdateWidget(covariant _InstallLogPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.lines.length != oldWidget.lines.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_controller.hasClients) return;
+        _controller.jumpTo(_controller.position.maxScrollExtent);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Container(
+      height: 140,
+      decoration: BoxDecoration(
+        color: onSurface.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: onSurface.withValues(alpha: 0.08)),
+      ),
+      child: ListView.builder(
+        controller: _controller,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        itemCount: widget.lines.length,
+        itemBuilder: (context, index) {
+          return SelectableText(
+            widget.lines[index],
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              height: 1.35,
+              color: onSurface.withValues(alpha: 0.75),
+            ),
+          );
+        },
+      ),
+    );
   }
 }

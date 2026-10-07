@@ -839,6 +839,10 @@ TEST_F(BaseVM, restoresSnapshots)
         metadata,
         0,
         "zone1",
+        {}, // service_id
+        {}, // image
+        {}, // cloud_init_user_data
+        {}, // remote_name
     };
 
     const auto* snapshot_name = "shoot";
@@ -1307,6 +1311,10 @@ TEST_F(BaseVM, rollsbackFailedRestore)
         {},
         0,
         "zone1",
+        {}, // service_id
+        {}, // image
+        {}, // cloud_init_user_data
+        {}, // remote_name
     };
 
     vm.take_snapshot(original_specs, "", "");
