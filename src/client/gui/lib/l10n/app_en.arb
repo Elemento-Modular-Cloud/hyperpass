@@ -237,6 +237,10 @@
     "@llmSetupLlamacppBlurb": {
         "description": "Short description on the llama.cpp installer card"
     },
+    "llmSetupLlamacppCudaBlurb": "NVIDIA CUDA build of llama-server plus runtime libraries. Install this on GPU hosts so GGUF loads use --n-gpu-layers on the GPU (the CPU package alone stays on CPU).",
+    "@llmSetupLlamacppCudaBlurb": {
+        "description": "Short description on the llama.cpp CUDA installer card"
+    },
     "sidebarRunnerLabel": "Runner",
     "@sidebarRunnerLabel": {
         "description": "Sidebar label for the LLM inference runner and accelerators"

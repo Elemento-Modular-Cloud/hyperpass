@@ -41,12 +41,14 @@ Leave this running. Stock Multipass continues to use `/var/run/multipass_socket`
 
 The script sets `ELP_STORAGE`, `ELP_SPACEDOCK_URL`, and `--address` for you. It also auto-exports `ELP_LLMFIT` and `ELP_LLAMA_SERVER` when those binaries are on your PATH. Override with environment variables if needed (see `./scripts/run-dev-daemon.sh --help`).
 
-**Models / LLM:** The daemon can also **auto-install** pinned `llmfit` and `llama-server` into `$ELP_STORAGE/data/llm/tools/` via the GUI (**Models → Backends → Install**). Env overrides still win over managed installs and PATH.
+**Models / LLM:** The daemon can also **auto-install** pinned `llmfit` and `llama-server` into `$ELP_STORAGE/data/llm/tools/` via the GUI (**Models → Setup → Install**). Env overrides still win over managed installs and PATH.
+
+On **Linux + NVIDIA**, install **llama.cpp (CUDA)** from Setup as well. The default `llamacpp` package is CPU-only; the CUDA installer pulls the ggml `ubuntu-cuda-*` build plus `cudart` libs into `llama-server-cuda/`. Loads then prefer that binary so `--n-gpu-layers` actually runs on the GPU.
 
 If **Load** fails with `llama-server is not installed`, either use **Install** in the GUI, or install yourself and point the daemon at it:
 
 ```bash
-export ELP_LLAMA_SERVER="$(command -v llama-server)"
+export ELP_LLAMA_SERVER="$(command -v llama-server)"   # must be a CUDA build for GPU
 ./scripts/run-dev-daemon.sh --stop
 ./scripts/run-dev-daemon.sh
 ```

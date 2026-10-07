@@ -32,12 +32,16 @@ namespace multipass::llm
 
 struct RuntimeAsset
 {
-    QString tool_name; // llmfit | llama-server
+    QString tool_name; // llmfit | llama-server | llama-server-cuda
     QString version;
     QString url;
     QString sha256_hex;      // empty → fetch .sha256 sidecar (llmfit) or fail
     bool sha256_from_sidecar{false};
     QString archive_name;
+    // Optional companion archive (e.g. cudart libs) merged into the same version dir.
+    QString companion_url;
+    QString companion_archive_name;
+    QString companion_sha256_hex;
 };
 
 struct InstallProgress

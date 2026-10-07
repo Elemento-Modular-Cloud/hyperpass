@@ -73,14 +73,11 @@ std::string llm::LlamaCppRunner::session_backend_name(RunnerDevice device) const
 std::unique_ptr<mp::Process> llm::LlamaCppRunner::start(const RunnerLaunchContext& ctx) const
 {
     const auto tools_root = managed_tools_root(ctx.data_directory);
-    const auto llama = locate_binary(mp::llama_server_env_var,
-                                     {"llama-server", "llama_server"},
-                                     tools_root,
-                                     QString::fromUtf8(tool_llama_server));
+    const auto llama = locate_llama_server(tools_root);
     if (llama.isEmpty())
         throw std::runtime_error(
-            "llama-server is not installed. Use Models → Backends → Install, "
-            "or set ELP_LLAMA_SERVER.");
+            "llama-server is not installed. Use Models → Setup to install "
+            "llama.cpp (CUDA on NVIDIA hosts) or set ELP_LLAMA_SERVER.");
 
     QString library_dir;
     if (is_under_managed_tools(llama, tools_root))

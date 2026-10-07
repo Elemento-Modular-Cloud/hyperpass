@@ -7,7 +7,7 @@ BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 PROXY_BIN="${BUILD_DIR}/bin/elp-llm-proxy"
 ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
 # OpenAI /v1 on Ollama's default port. Bind localhost + VM gateway.
-ELP_LLM_PROXY_LISTEN="${ELP_LLM_PROXY_LISTEN:-127.0.0.1,192.168.67.1:11434}"
+ELP_LLM_PROXY_LISTEN="${ELP_LLM_PROXY_LISTEN:-127.0.0.1,192.168.67.1,10.98.0.1:11434}"
 VERBOSITY="${VERBOSITY:-info}"
 ACTION=start
 WAIT_GATEWAY_SECS="${WAIT_GATEWAY_SECS:-30}"

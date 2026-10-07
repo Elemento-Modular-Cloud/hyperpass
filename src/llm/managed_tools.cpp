@@ -30,6 +30,8 @@ QString pinned_version_for(const QString& tool_name)
         return QString::fromUtf8(mp::llm::pinned_llmfit_version);
     if (tool_name == mp::llm::tool_llama_server)
         return QString::fromUtf8(mp::llm::pinned_llama_build);
+    if (tool_name == mp::llm::tool_llama_server_cuda)
+        return QString::fromUtf8(mp::llm::pinned_llama_cuda_build);
     return {};
 }
 

@@ -28,11 +28,17 @@ namespace multipass::llm
 // Pinned managed-tool releases. Bump deliberately when upgrading.
 constexpr auto pinned_llmfit_version = "v1.1.14";
 constexpr auto pinned_llama_build = "b10819";
+// CUDA builds ship later than the CPU pin; b10819 has no ubuntu-cuda assets.
+constexpr auto pinned_llama_cuda_build = "b11062";
 
 constexpr auto tool_llmfit = "llmfit";
 constexpr auto tool_llama_server = "llama-server";
+constexpr auto tool_llama_server_cuda = "llama-server-cuda";
 constexpr auto tool_mlx = "mlx";
 constexpr auto tool_vllm = "vllm";
+
+/// Installable backend id for the CUDA llama.cpp archive (Models → Setup).
+constexpr auto backend_llamacpp_cuda = "llamacpp-cuda";
 
 QString managed_tools_root(const Path& data_directory);
 QString managed_version_dir(const QString& tools_root, const QString& tool_name);

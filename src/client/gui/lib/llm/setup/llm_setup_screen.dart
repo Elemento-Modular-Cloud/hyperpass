@@ -14,7 +14,7 @@ class LlmSetupScreen extends ConsumerWidget {
 
   const LlmSetupScreen({super.key});
 
-  static const _primaryBackendIds = ['llmfit', 'llamacpp'];
+  static const _primaryBackendIds = ['llmfit', 'llamacpp', 'llamacpp-cuda'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -293,6 +293,7 @@ class _BackendInstallCard extends ConsumerWidget {
     return switch (id) {
       'llmfit' => l10n.llmSetupLlmfitBlurb,
       'llamacpp' => l10n.llmSetupLlamacppBlurb,
+      'llamacpp-cuda' => l10n.llmSetupLlamacppCudaBlurb,
       _ => l10n.modelsBackendsHint,
     };
   }

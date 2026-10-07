@@ -29,4 +29,7 @@ QString locate_binary(const char* env_var,
                       const QString& managed_tools_dir = {},
                       const QString& managed_tool_name = {});
 
+/// Prefer managed CUDA llama-server when NVIDIA is present, else CPU managed / PATH.
+QString locate_llama_server(const QString& managed_tools_dir = {});
+
 } // namespace multipass::llm

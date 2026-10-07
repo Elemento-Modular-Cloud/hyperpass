@@ -172,6 +172,23 @@ TEST(RuntimeInstaller, resolveLlamacppAssetUrl)
     EXPECT_FALSE(asset.sha256_from_sidecar);
 }
 
+TEST(RuntimeInstaller, resolveLlamacppCudaAssetUrl)
+{
+#if defined(Q_OS_LINUX)
+    const auto asset = llm::resolve_runtime_asset(llm::backend_llamacpp_cuda);
+    EXPECT_EQ(asset.tool_name, llm::tool_llama_server_cuda);
+    EXPECT_TRUE(asset.url.contains("ggml-org/llama.cpp/releases/download"));
+    EXPECT_TRUE(asset.url.contains(llm::pinned_llama_cuda_build));
+    EXPECT_TRUE(asset.url.contains("ubuntu-cuda-"));
+    EXPECT_EQ(asset.sha256_hex.size(), 64);
+    EXPECT_FALSE(asset.companion_url.isEmpty());
+    EXPECT_TRUE(asset.companion_archive_name.startsWith("cudart-llama-"));
+    EXPECT_EQ(asset.companion_sha256_hex.size(), 64);
+#else
+    EXPECT_THROW(llm::resolve_runtime_asset(llm::backend_llamacpp_cuda), std::runtime_error);
+#endif
+}
+
 TEST(RuntimeInstaller, unknownBackendThrows)
 {
     EXPECT_THROW(llm::resolve_runtime_asset("ollama"), std::runtime_error);

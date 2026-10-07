@@ -213,17 +213,27 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
         }
     }
 
-    const auto llama = locate_binary(mp::llama_server_env_var,
-                                     {"llama-server", "llama_server"},
-                                     managed_tools_dir,
-                                     QString::fromUtf8(tool_llama_server));
+    const auto llama = locate_llama_server(managed_tools_dir);
+    const auto llama_cuda_managed =
+        find_in_managed(managed_tools_dir,
+                        QString::fromUtf8(tool_llama_server_cuda),
+                        {QString::fromUtf8(tool_llama_server), "llama_server"});
+    const bool using_cuda_build =
+        !llama.isEmpty() && !llama_cuda_managed.isEmpty() &&
+        (llama == llama_cuda_managed ||
+         llama.contains(QStringLiteral("/%1/").arg(QString::fromUtf8(tool_llama_server_cuda))) ||
+         llama.contains(QStringLiteral("\\%1\\").arg(QString::fromUtf8(tool_llama_server_cuda))));
+
     if (binary_ready(llama))
     {
         const auto version = run_version_line(llama);
+        auto detail = version.isEmpty() ? std::string{"llama-server found"} : version.toStdString();
+        if (using_cuda_build)
+            detail += " (CUDA build)";
         rows.push_back(make_result("llamacpp",
                                    "llama.cpp (llama-server)",
                                    "ready",
-                                   version.isEmpty() ? "llama-server found" : version.toStdString(),
+                                   detail,
                                    llama,
                                    {},
                                    !mlx_platform || !mlx_selected,
@@ -238,7 +248,7 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
                                    mlx_selected ? "Fallback CPU/GPU inference backend"
                                                 : "Primary inference backend on this platform",
                                    {},
-                                   "Install from Models → Backends, or set ELP_LLAMA_SERVER",
+                                   "Install from Models → Setup, or set ELP_LLAMA_SERVER",
                                    !mlx_platform || !mlx_selected,
                                    llamacpp_selected,
                                    true));
@@ -247,10 +257,26 @@ std::vector<mp::llm::BackendProbeResult> mp::llm::probe_backends(const std::stri
 #ifndef Q_OS_MACOS
     if (!QStandardPaths::findExecutable("nvidia-smi").isEmpty())
     {
+        const bool cuda_llama_ready = binary_ready(llama_cuda_managed);
+        rows.push_back(make_result(
+            backend_llamacpp_cuda,
+            "llama.cpp (CUDA)",
+            cuda_llama_ready ? "ready" : "missing",
+            cuda_llama_ready ? "Managed CUDA llama-server ready"
+                             : "GPU-enabled llama-server (required for --n-gpu-layers on NVIDIA)",
+            cuda_llama_ready ? llama_cuda_managed : QString{},
+            cuda_llama_ready ? std::string{}
+                             : "Install from Models → Setup (downloads CUDA build + cudart)",
+            false,
+            selected_inference_id == "llamacpp-cuda" || using_cuda_build,
+            true));
+
         rows.push_back(make_result("cuda",
                                    "NVIDIA CUDA",
                                    "ready",
-                                   "nvidia-smi detected; llama-server may use GPU layers",
+                                   cuda_llama_ready
+                                       ? "nvidia-smi detected; CUDA llama-server installed"
+                                       : "nvidia-smi detected; install llama.cpp (CUDA) for GPU layers",
                                    QStandardPaths::findExecutable("nvidia-smi"),
                                    {},
                                    false,

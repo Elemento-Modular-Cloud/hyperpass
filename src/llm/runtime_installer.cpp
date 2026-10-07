@@ -25,6 +25,7 @@
 
 #include <QCryptographicHash>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcess>
@@ -79,6 +80,17 @@ QString llama_platform_token()
     return arch == "arm64" ? "win-cpu-arm64" : "win-cpu-x64";
 #else
     return arch == "arm64" ? "ubuntu-arm64" : "ubuntu-x64";
+#endif
+}
+
+// Official ggml CUDA Ubuntu tokens for pinned_llama_cuda_build (CUDA 13.3).
+QString llama_cuda_platform_token()
+{
+#if defined(Q_OS_LINUX)
+    return host_cpu_arch() == "arm64" ? "ubuntu-cuda-13.3-arm64" : "ubuntu-cuda-13.3-x64";
+#else
+    throw std::runtime_error(
+        "llama.cpp CUDA managed install is only available on Linux with NVIDIA GPU");
 #endif
 }
 
@@ -194,6 +206,45 @@ QString llama_sha256_for(const QString& platform_token)
                                              platform_token.toStdString()));
     return it->second;
 }
+
+// Pinned digests for b11062 CUDA (+ cudart) Ubuntu assets.
+QString llama_cuda_sha256_for(const QString& platform_token)
+{
+    static const std::unordered_map<std::string, QString> digests{
+        {"ubuntu-cuda-13.3-arm64", "6acf8c0ed26e3798d7a1d0d16dbbd7f029a351d625680f83afc21b51e39dccd1"},
+        {"ubuntu-cuda-13.3-x64", "a8edcf92dce7577a891473c95b1f3a9f1dbf9a77e092e07d9e80f24efe9553c1"},
+        {"cudart-ubuntu-cuda-13.3-arm64",
+         "6d581e3bb5d1e70ea5dca4e41bd6f65483a3f61c1fd27ae49568f8cfd381b4a3"},
+        {"cudart-ubuntu-cuda-13.3-x64",
+         "97225747b60f12607d5cfd4b1219d8146c2184a790fa8b08b69e01347816c4b8"},
+    };
+    const auto it = digests.find(platform_token.toStdString());
+    if (it == digests.end())
+        throw std::runtime_error(fmt::format("no pinned sha256 for llama.cpp CUDA platform '{}'",
+                                             platform_token.toStdString()));
+    return it->second;
+}
+
+void copy_shared_libs_into(const QString& src_root, const QString& dest_dir)
+{
+    QDir{}.mkpath(dest_dir);
+    QDirIterator it{src_root,
+                    QDir::Files,
+                    QDirIterator::Subdirectories};
+    while (it.hasNext())
+    {
+        it.next();
+        const auto name = it.fileName();
+        if (!(name.contains(".so") || name.endsWith(".dylib", Qt::CaseInsensitive) ||
+              name.endsWith(".dll", Qt::CaseInsensitive)))
+            continue;
+        const auto target = QDir{dest_dir}.filePath(name);
+        QFile::remove(target);
+        if (!QFile::copy(it.filePath(), target))
+            throw std::runtime_error(
+                fmt::format("failed to install companion library '{}'", name.toStdString()));
+    }
+}
 } // namespace
 
 QString mp::llm::backend_id_to_tool_name(const QString& backend_id)
@@ -202,6 +253,8 @@ QString mp::llm::backend_id_to_tool_name(const QString& backend_id)
         return QString::fromUtf8(tool_llmfit);
     if (backend_id == "llamacpp")
         return QString::fromUtf8(tool_llama_server);
+    if (backend_id == backend_llamacpp_cuda)
+        return QString::fromUtf8(tool_llama_server_cuda);
     if (backend_id == tool_mlx)
         return QString::fromUtf8(tool_mlx);
     if (backend_id == tool_vllm)
@@ -219,7 +272,7 @@ mp::llm::RuntimeAsset mp::llm::resolve_runtime_asset(const QString& backend_id)
     const auto tool = backend_id_to_tool_name(backend_id);
     if (tool.isEmpty())
         throw std::runtime_error(
-            fmt::format("unknown backend id '{}'; expected llmfit, llamacpp, mlx, or vllm",
+            fmt::format("unknown backend id '{}'; expected llmfit, llamacpp, llamacpp-cuda, mlx, or vllm",
                         backend_id.toStdString()));
 
     RuntimeAsset asset;
@@ -241,6 +294,31 @@ mp::llm::RuntimeAsset mp::llm::resolve_runtime_asset(const QString& backend_id)
                         .arg(version, asset.archive_name);
         asset.sha256_from_sidecar = true;
         return asset;
+    }
+
+    if (tool == tool_llama_server_cuda)
+    {
+#if !defined(Q_OS_LINUX)
+        throw std::runtime_error(
+            "llama.cpp CUDA managed install is only available on Linux with NVIDIA GPU");
+#else
+        const auto build = QString::fromUtf8(pinned_llama_cuda_build);
+        const auto platform = llama_cuda_platform_token();
+        asset.version = build;
+        asset.archive_name = QStringLiteral("llama-%1-bin-%2.tar.gz").arg(build, platform);
+        asset.url = QStringLiteral("https://github.com/ggml-org/llama.cpp/releases/download/%1/%2")
+                        .arg(build, asset.archive_name);
+        asset.sha256_hex = llama_cuda_sha256_for(platform);
+        asset.sha256_from_sidecar = false;
+        asset.companion_archive_name =
+            QStringLiteral("cudart-llama-%1-bin-%2.tar.gz").arg(build, platform);
+        asset.companion_url =
+            QStringLiteral("https://github.com/ggml-org/llama.cpp/releases/download/%1/%2")
+                .arg(build, asset.companion_archive_name);
+        asset.companion_sha256_hex =
+            llama_cuda_sha256_for(QStringLiteral("cudart-%1").arg(platform));
+        return asset;
+#endif
     }
 
     const auto build = QString::fromUtf8(pinned_llama_build);
@@ -405,6 +483,13 @@ QString mp::llm::RuntimeInstaller::install(const QString& backend_id,
 {
     if (is_pip_backend(backend_id))
         return install_pip_backend(backend_id, on_progress);
+
+    if (backend_id == backend_llamacpp_cuda &&
+        QStandardPaths::findExecutable("nvidia-smi").isEmpty())
+    {
+        throw std::runtime_error(
+            "llama.cpp CUDA install requires NVIDIA drivers (nvidia-smi not found)");
+    }
 
     const auto asset = resolve_runtime_asset(backend_id);
     const auto names = asset.tool_name == tool_llmfit
@@ -624,6 +709,35 @@ QString mp::llm::RuntimeInstaller::install_asset(const RuntimeAsset& asset,
 
     emit_progress("extracting", 98, {}, "activating install");
     const auto binary = activate_extract(asset, extract_dir);
+
+    if (!asset.companion_url.isEmpty())
+    {
+        emit_progress("downloading", 50, binary, "downloading CUDA runtime libraries");
+        const auto companion_path = QDir{tmp.path()}.filePath(asset.companion_archive_name);
+        auto companion_monitor = [&](int, int percent) {
+            emit_progress("downloading", 50 + std::max(0, std::min(percent, 100)) * 40 / 100, binary,
+                          "downloading CUDA runtime libraries");
+            return true;
+        };
+        downloader.download_to(QUrl{asset.companion_url}, companion_path, -1, 0, companion_monitor);
+
+        RuntimeAsset companion_check;
+        companion_check.archive_name = asset.companion_archive_name;
+        companion_check.sha256_hex = asset.companion_sha256_hex;
+        companion_check.sha256_from_sidecar = false;
+        emit_progress("downloading", 92, binary, "verifying CUDA runtime checksum");
+        verify_archive(companion_check, companion_path);
+
+        emit_progress("extracting", 95, binary, "extracting CUDA runtime libraries");
+        const auto companion_extract = QDir{tmp.path()}.filePath("cudart-extract");
+        extract_archive(companion_path, companion_extract);
+
+        const auto version_dir =
+            managed_version_dir(managed_tools_root(data_directory), asset.tool_name);
+        const auto lib_dir = QFileInfo{binary}.absolutePath();
+        copy_shared_libs_into(companion_extract, lib_dir.isEmpty() ? version_dir : lib_dir);
+    }
+
     mpl::info(category, "installed {} at {}", asset.tool_name, binary);
     emit_progress("ready", 100, binary, "installed");
     return binary;
