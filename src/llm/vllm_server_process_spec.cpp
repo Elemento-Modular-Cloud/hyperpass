@@ -18,8 +18,18 @@
 #include "vllm_server_process_spec.h"
 
 #include <QDir>
+#include <QSysInfo>
 
 namespace mp = multipass;
+
+namespace
+{
+bool is_aarch64_host()
+{
+    const auto arch = QSysInfo::currentCpuArchitecture().toLower();
+    return arch.contains(QLatin1String("arm64")) || arch.contains(QLatin1String("aarch64"));
+}
+} // namespace
 
 mp::VllmServerProcessSpec::VllmServerProcessSpec(VllmServerOptions options)
     : options_{std::move(options)}
@@ -52,13 +62,17 @@ QStringList mp::VllmServerProcessSpec::arguments() const
 
     if (!options_.openai_id.isEmpty())
         args << "--served-model-name" << options_.openai_id;
-    if (!options_.dtype.isEmpty())
+    if (!options_.dtype.isEmpty() && options_.dtype != QLatin1String("auto"))
         args << "--dtype" << options_.dtype;
     if (options_.gpu_memory_utilization > 0.0)
         args << "--gpu-memory-utilization"
              << QString::number(options_.gpu_memory_utilization, 'f', 2);
     if (options_.max_model_len > 0)
         args << "--max-model-len" << QString::number(options_.max_model_len);
+    // CUDA graphs / compile paths are still flaky on GB10-class aarch64; eager
+    // mode avoids EngineCore dying during AsyncMPClient startup.
+    if (is_aarch64_host())
+        args << "--enforce-eager";
 
     return args;
 }
@@ -78,6 +92,11 @@ QProcessEnvironment mp::VllmServerProcessSpec::environment() const
     }
     if (!options_.hf_token.isEmpty())
         env.insert("HF_TOKEN", options_.hf_token);
+    // CUDA was often already touched in the parent; force spawn for EngineCore.
+    env.insert("VLLM_WORKER_MULTIPROC_METHOD", "spawn");
+    // otel wrappers clutter failure toasts and are unused in LaunchPad.
+    env.insert("OTEL_SDK_DISABLED", "true");
+    env.insert("VLLM_NO_USAGE_STATS", "1");
     return env;
 }
 

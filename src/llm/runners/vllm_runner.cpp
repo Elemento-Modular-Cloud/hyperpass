@@ -56,8 +56,15 @@ std::pair<QString, QString> resolve_vllm_launch(const mp::Path& data_directory)
 {
     const auto tools_root = llm::managed_tools_root(data_directory);
     const auto managed_python = llm::managed_venv_python(tools_root, llm::tool_vllm);
+    // Prefer the venv's `vllm` CLI (`vllm serve …`) over `python -m …` — matches
+    // upstream entrypoints and avoids stale module paths across vLLM releases.
     if (python_imports_vllm(managed_python))
+    {
+        const QFileInfo venv_cli{QFileInfo{managed_python}.dir().filePath(QStringLiteral("vllm"))};
+        if (venv_cli.exists() && venv_cli.isExecutable())
+            return {venv_cli.absoluteFilePath(), QStringLiteral("cli")};
         return {managed_python, QStringLiteral("python")};
+    }
 
     auto program = llm::locate_binary(nullptr, {"vllm"});
     if (!program.isEmpty())

@@ -416,21 +416,108 @@ bool mp::LlmService::backend_http_reachable(int port, int timeout_ms) const
     return ok;
 }
 
+std::string mp::LlmService::recent_backend_log_snippet(const std::string& instance_id,
+                                                       std::size_t max_lines) const
+{
+    if (instance_id.empty() || max_lines == 0)
+        return {};
+    const auto entries = activity_log.snapshot(instance_id);
+
+    auto is_noise = [](const QString& msg) {
+        if (msg.contains(QLatin1String("otel.py")) && msg.contains(QLatin1String("sync_wrapper")))
+            return true;
+        if (msg.contains(QRegularExpression{QStringLiteral(R"(^\^+$)")}))
+            return true;
+        if (msg.startsWith(QLatin1String("return func(")) ||
+            msg.startsWith(QLatin1String("return AsyncMPClient")) ||
+            msg.startsWith(QLatin1String("return SyncMPClient")))
+            return true;
+        return false;
+    };
+    auto score = [](const QString& msg) {
+        const auto lower = msg.toLower();
+        int s = 1;
+        if (lower.contains(QLatin1String("valueerror")) ||
+            lower.contains(QLatin1String("runtimeerror")) ||
+            lower.contains(QLatin1String("oserror")) ||
+            lower.contains(QLatin1String("cuda")) ||
+            lower.contains(QLatin1String("out of memory")) ||
+            lower.contains(QLatin1String("oom")))
+            s += 8;
+        if (lower.contains(QLatin1String("engine core")) ||
+            lower.contains(QLatin1String("kv cache")) ||
+            lower.contains(QLatin1String("max_model_len")) ||
+            lower.contains(QLatin1String("gpu_memory")) ||
+            lower.contains(QLatin1String("architecture")) ||
+            lower.contains(QLatin1String("does not recognize")))
+            s += 10;
+        if (lower.contains(QLatin1String("error")) || lower.contains(QLatin1String("exception")) ||
+            lower.contains(QLatin1String("traceback")) || lower.contains(QLatin1String("failed")))
+            s += 4;
+        if (msg.startsWith(QLatin1String("File \"")) || msg.contains(QLatin1String("^^^^")))
+            s -= 4;
+        return s;
+    };
+
+    struct Scored
+    {
+        int score{0};
+        std::size_t order{0};
+        std::string text;
+    };
+    std::vector<Scored> scored;
+    std::size_t order = 0;
+    for (const auto& entry : entries)
+    {
+        if (entry.source() != "process" && entry.level() != "error" && entry.level() != "warning")
+            continue;
+        const auto msg = QString::fromStdString(entry.message()).trimmed();
+        if (msg.isEmpty() || is_noise(msg))
+            continue;
+        scored.push_back(Scored{score(msg), order++, msg.toStdString()});
+    }
+    if (scored.empty())
+        return {};
+
+    std::stable_sort(scored.begin(), scored.end(), [](const Scored& a, const Scored& b) {
+        if (a.score != b.score)
+            return a.score > b.score;
+        return a.order > b.order; // prefer later lines among equals
+    });
+
+    const auto take = std::min(max_lines, scored.size());
+    std::vector<Scored> picked(scored.begin(), scored.begin() + static_cast<std::ptrdiff_t>(take));
+    std::sort(picked.begin(), picked.end(), [](const Scored& a, const Scored& b) {
+        return a.order < b.order;
+    });
+
+    std::vector<std::string> lines;
+    lines.reserve(picked.size());
+    for (const auto& row : picked)
+        lines.push_back(row.text);
+    return fmt::format("\n--- backend log ---\n{}", fmt::join(lines, "\n"));
+}
+
 bool mp::LlmService::wait_until_ready(int port,
                                       bool warm_load,
-                                      const std::string& warm_model_id) const
+                                      const std::string& warm_model_id,
+                                      Process* process,
+                                      int http_timeout_sec) const
 {
     QNetworkAccessManager manager;
     bool http_up = false;
-    for (int i = 0; i < 60; ++i)
+    const auto deadline_sec = std::max(1, http_timeout_sec);
+    for (int i = 0; i < deadline_sec; ++i)
     {
+        if (process && !process->running())
+            return false;
         if (backend_http_reachable(port, 1000))
         {
             http_up = true;
             break;
         }
         QEventLoop pause;
-        QTimer::singleShot(500, &pause, &QEventLoop::quit);
+        QTimer::singleShot(1000, &pause, &QEventLoop::quit);
         pause.exec();
     }
     if (!http_up)
@@ -457,6 +544,9 @@ bool mp::LlmService::wait_until_ready(int port,
 
     for (int i = 0; i < 60; ++i)
     {
+        if (process && !process->running())
+            return false;
+
         QNetworkRequest request{chat_url};
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
         QEventLoop loop;
@@ -494,6 +584,54 @@ bool mp::LlmService::wait_until_ready(int port,
         pause.exec();
     }
     return false;
+}
+
+void mp::LlmService::ensure_backend_ready(Process* process,
+                                          int port,
+                                          const std::string& instance_id,
+                                          const std::string& runner_id,
+                                          bool warm_load,
+                                          const std::string& warm_model_id)
+{
+    // vLLM imports CUDA + loads HF weights before binding HTTP; 30s was far too short
+    // and made the process look like it "appeared then disappeared" when we killed it.
+    int http_timeout_sec = 180;
+    if (runner_id == llm::runner_vllm)
+        http_timeout_sec = 900;
+    else if (runner_id == llm::runner_mlx)
+        http_timeout_sec = 600;
+
+    log_lifecycle(instance_id,
+                  "info",
+                  fmt::format("waiting up to {}s for {} on 127.0.0.1:{}",
+                              http_timeout_sec,
+                              runner_id,
+                              port));
+
+    const bool ready =
+        wait_until_ready(port, warm_load, warm_model_id, process, http_timeout_sec);
+    if (ready)
+        return;
+
+    const auto snippet = recent_backend_log_snippet(instance_id);
+    if (process && !process->running())
+    {
+        auto detail = process->process_state().failure_message().toStdString();
+        if (detail.empty())
+            detail = process->error_string().toStdString();
+        if (detail.empty())
+            detail = "process exited";
+        throw std::runtime_error(fmt::format("{} exited before becoming ready: {}{}",
+                                             runner_id,
+                                             detail,
+                                             snippet));
+    }
+    throw std::runtime_error(
+        fmt::format("{} started but did not become ready on 127.0.0.1:{} within {}s{}",
+                    runner_id,
+                    port,
+                    http_timeout_sec,
+                    snippet));
 }
 
 std::string mp::LlmService::hf_token() const
@@ -1129,11 +1267,13 @@ void mp::LlmService::load_model_impl(
         session.pid = session.process->process_id();
         // Attach early so boot/load stdout survives readiness wait and dual-writes to disk.
         attach_process_logging(instance_id, session.process.get());
-        if (runner->openai_compat() &&
-            !wait_until_ready(session.port,
-                              runner->id() == llm::runner_mlx,
-                              art.path))
-            throw std::runtime_error("inference backend started but did not become ready on 127.0.0.1");
+        if (runner->openai_compat())
+            ensure_backend_ready(session.process.get(),
+                                 session.port,
+                                 instance_id,
+                                 runner->id(),
+                                 runner->id() == llm::runner_mlx,
+                                 art.path);
     }
     catch (const std::exception& e)
     {

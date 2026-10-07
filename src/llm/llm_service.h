@@ -170,7 +170,19 @@ private:
     int pick_loopback_port() const;
     bool wait_until_ready(int port,
                           bool warm_load = false,
-                          const std::string& warm_model_id = {}) const;
+                          const std::string& warm_model_id = {},
+                          Process* process = nullptr,
+                          int http_timeout_sec = 60) const;
+    /// Wait for OpenAI-compat HTTP (and optional warm completion). Throws with
+    /// process stderr when the backend exits early; uses a longer budget for vLLM.
+    void ensure_backend_ready(Process* process,
+                              int port,
+                              const std::string& instance_id,
+                              const std::string& runner_id,
+                              bool warm_load,
+                              const std::string& warm_model_id);
+    std::string recent_backend_log_snippet(const std::string& instance_id,
+                                           std::size_t max_lines = 16) const;
     // Fast GET /v1/models — pid-alive is not enough (wedged mlx_lm accepts TCP then EOF).
     bool backend_http_reachable(int port, int timeout_ms = 2000) const;
     ModelArtifact ensure_pulled(const std::string& model_id,

@@ -572,6 +572,18 @@ QString mp::llm::RuntimeInstaller::install_pip_backend(const QString& backend_id
                900000,
                make_line_cb("downloading", 45, venv_python, install_msg));
 
+    // New HF architectures (e.g. Qwen3.5) land in Transformers before a matching
+    // vLLM pin; keep Transformers current so managed vLLM can load fresh checkpoints.
+    if (backend_id == tool_vllm)
+    {
+        emit_progress("downloading", 70, venv_python, "upgrading transformers");
+        run_python(venv_python,
+                   {"-m", "pip", "install", "--upgrade", "transformers"},
+                   "pip install --upgrade transformers",
+                   600000,
+                   make_line_cb("downloading", 70, venv_python, "upgrading transformers"));
+    }
+
     emit_progress("extracting", 90, venv_python, "verifying import");
     if (!python_imports_module(venv_python, import_name))
     {
