@@ -288,8 +288,10 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                 if (!reply.instance_id().empty())
                     cout << fmt::format("instance: {} ({})\n", reply.openai_id(), reply.instance_id());
                 cout << fmt::format("secret: {}\n", reply.secret());
-                cout << "Use OPENAI_BASE_URL=http://127.0.0.1:11434/v1 (host) or "
-                        "http://192.168.67.1:11434/v1 (from a VM) and OPENAI_API_KEY=<secret>\n";
+                cout << fmt::format(
+                    "Use OPENAI_BASE_URL=http://127.0.0.1:11434/v1 (host) or "
+                    "http://{}:11434/v1 (from a VM) and OPENAI_API_KEY=<secret>\n",
+                    mp::default_api_vm_gateway);
                 return ReturnCode::Ok;
             };
             return dispatch(&RpcMethod::create_api_key,

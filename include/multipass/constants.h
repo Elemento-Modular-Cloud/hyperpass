@@ -69,12 +69,19 @@ constexpr auto multipass_address_env_var = "ELP_MULTIPASS_ADDRESS";
 constexpr auto api_name = "elp-api";
 constexpr auto llm_proxy_name = "elp-llm-proxy";
 // Temporary: sit on matcher VM port (7777). Service/Meson canonical is 7781.
-// Bind loopback for host clients and the Electros LaunchPad vmnet gateway so guests on
-// 192.168.67.0/24 can reach https://192.168.67.1:7777 — not all interfaces.
+// Bind loopback + the platform VM gateway (not 0.0.0.0). macOS vmnet uses
+// 192.168.67.0/24; Linux/Windows QEMU NAT uses 10.98.0.0/24 (see
+// Platform::get_preferred_subnet).
+#if defined(__APPLE__)
 constexpr auto default_api_vm_gateway = "192.168.67.1";
 constexpr auto default_api_listen = "127.0.0.1,192.168.67.1:7777";
 // OpenAI /v1 usage (sk-elp-). Port matches Ollama's default; HTTP, not native Ollama /api.
 constexpr auto default_llm_proxy_listen = "127.0.0.1,192.168.67.1:11434";
+#else
+constexpr auto default_api_vm_gateway = "10.98.0.1";
+constexpr auto default_api_listen = "127.0.0.1,10.98.0.1:7777";
+constexpr auto default_llm_proxy_listen = "127.0.0.1,10.98.0.1:11434";
+#endif
 constexpr auto instance_source_elp = "elp";
 constexpr auto instance_source_multipass = "multipass";
 

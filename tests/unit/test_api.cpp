@@ -107,17 +107,29 @@ TEST(ApiAuth, matcherStillRequiresBearerOnInferencePaths)
 
 TEST(ApiConfig, defaultListenAddressIsLocalhostAndVmGateway)
 {
+#if defined(__APPLE__)
     EXPECT_EQ(mp::default_api_vm_gateway, "192.168.67.1");
     EXPECT_EQ(mp::default_api_listen, "127.0.0.1,192.168.67.1:7777");
+#else
+    EXPECT_EQ(mp::default_api_vm_gateway, "10.98.0.1");
+    EXPECT_EQ(mp::default_api_listen, "127.0.0.1,10.98.0.1:7777");
+#endif
 }
 
 TEST(ApiConfig, defaultLlmProxyListenIsLocalhostAndVmGatewayOnOllamaPort)
 {
-    EXPECT_EQ(mp::default_llm_proxy_listen, "127.0.0.1,192.168.67.1:11434");
+#if defined(__APPLE__)
+    constexpr auto expected_listen = "127.0.0.1,192.168.67.1:11434";
+    constexpr auto expected_gateway = "192.168.67.1";
+#else
+    constexpr auto expected_listen = "127.0.0.1,10.98.0.1:11434";
+    constexpr auto expected_gateway = "10.98.0.1";
+#endif
+    EXPECT_EQ(mp::default_llm_proxy_listen, expected_listen);
     const auto endpoint = api::parse_listen_endpoint(mp::default_llm_proxy_listen);
     ASSERT_EQ(endpoint.hosts.size(), 2);
     EXPECT_EQ(endpoint.hosts[0], "127.0.0.1");
-    EXPECT_EQ(endpoint.hosts[1], "192.168.67.1");
+    EXPECT_EQ(endpoint.hosts[1], expected_gateway);
     EXPECT_EQ(endpoint.port, 11434);
 }
 

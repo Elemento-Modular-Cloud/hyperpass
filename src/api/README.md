@@ -7,7 +7,8 @@ Two REST sidecars over `elpd` mTLS gRPC, both enabled by `ELP_ENABLE_API=ON`:
 | `elp-api` | HTTPS `:7777` | Spot matcher + LLM **allocation** (`/api/v1.0/models*`) |
 | `elp-llm-proxy` | HTTP `:11434` | OpenAI **usage** (`/v1/*`, `sk-elp-` keys) |
 
-Both bind localhost and the Electros LaunchPad VM gateway (`192.168.67.1`).
+Both bind localhost and the Electros LaunchPad VM gateway (`192.168.67.1` on
+macOS, `10.98.0.1` on Linux/Windows).
 
 ## Build
 
@@ -80,7 +81,8 @@ accepted; use `elp llm key create` and `Authorization: Bearer sk-elp-…`.
 | POST | `/v1/completions` | `Bearer sk-elp-…` | Same |
 | POST | `/v1/embeddings` | `Bearer sk-elp-…` | Same |
 
-From a VM: `http://192.168.67.1:11434/v1`. Host: `http://127.0.0.1:11434/v1`.
+From a VM: `http://192.168.67.1:11434/v1` (macOS) or `http://10.98.0.1:11434/v1`
+(Linux/Windows). Host: `http://127.0.0.1:11434/v1`.
 
 ### Cloud / OpenAI-compat passthrough
 
@@ -133,8 +135,8 @@ Options:
 
 | Flag / env | Meaning |
 |------------|---------|
-| `--listen` / `ELP_API_LISTEN` | Matcher endpoints (default `127.0.0.1,192.168.67.1:7777`) |
-| `--listen` / `ELP_LLM_PROXY_LISTEN` | LLM proxy (default `127.0.0.1,192.168.67.1:11434`) |
+| `--listen` / `ELP_API_LISTEN` | Matcher endpoints (default `127.0.0.1,<vm-gateway>:7777`) |
+| `--listen` / `ELP_LLM_PROXY_LISTEN` | LLM proxy (default `127.0.0.1,<vm-gateway>:11434`) |
 | `--http` | Matcher: opt out of TLS (debug only; breaks Electros fingerprinting). Proxy: default. |
 | `--cert` / `ELP_API_CERT` | Existing certificate PEM (HTTPS is default) |
 | `--key` / `ELP_API_KEY` | Matching private key PEM |

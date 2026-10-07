@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 class LlmInstanceId {
   final String instanceId;
   final String modelId;
@@ -30,8 +32,10 @@ LlmInstanceId? parseSidebarLlmKey(String key) {
 /// OpenAI-compatible gateway as seen from the host (`elp-llm-proxy`).
 const openaiBaseUrl = 'http://127.0.0.1:11434/v1';
 
-/// Same gateway as seen from an Electros LaunchPad VM on the 192.168.67.0/24 network.
-/// The proxy binds 127.0.0.1 and 192.168.67.1; VMs use this URL.
-const openaiVmBaseUrl = 'http://192.168.67.1:11434/v1';
+/// Same gateway as seen from an Electros LaunchPad VM.
+/// macOS vmnet: 192.168.67.1; Linux/Windows QEMU NAT: 10.98.0.1.
+String get openaiVmBaseUrl => Platform.isMacOS
+    ? 'http://192.168.67.1:11434/v1'
+    : 'http://10.98.0.1:11434/v1';
 
 const llmHfTokenSettingKey = 'local.llm.hf-token';

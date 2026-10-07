@@ -6,8 +6,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 PROXY_BIN="${BUILD_DIR}/bin/elp-llm-proxy"
 ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
-# OpenAI /v1 on Ollama's default port. Bind localhost + VM gateway.
-ELP_LLM_PROXY_LISTEN="${ELP_LLM_PROXY_LISTEN:-127.0.0.1,192.168.67.1,10.98.0.1:11434}"
+# OpenAI /v1 on Ollama's default port. Bind localhost + platform VM gateway.
+case "$(uname -s)" in
+  Darwin) ELP_VM_GATEWAY="${ELP_VM_GATEWAY:-192.168.67.1}" ;;
+  *)      ELP_VM_GATEWAY="${ELP_VM_GATEWAY:-10.98.0.1}" ;;
+esac
+ELP_LLM_PROXY_LISTEN="${ELP_LLM_PROXY_LISTEN:-127.0.0.1,${ELP_VM_GATEWAY}:11434}"
 VERBOSITY="${VERBOSITY:-info}"
 ACTION=start
 WAIT_GATEWAY_SECS="${WAIT_GATEWAY_SECS:-30}"

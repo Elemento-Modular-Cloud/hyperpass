@@ -7,8 +7,12 @@ BUILD_DIR="${BUILD_DIR:-${ROOT}/build}"
 API_BIN="${BUILD_DIR}/bin/elp-api"
 ELP_SOCKET="${ELP_SOCKET:-/tmp/elp.socket}"
 # Temporary: matcher VM port. Service/Meson canonical is 7781.
-# Bind localhost + VM gateway (not 0.0.0.0) so guests reach https://192.168.67.1:7777.
-ELP_API_LISTEN="${ELP_API_LISTEN:-127.0.0.1,192.168.67.1:7777}"
+# Bind localhost + platform VM gateway (not 0.0.0.0).
+case "$(uname -s)" in
+  Darwin) ELP_VM_GATEWAY="${ELP_VM_GATEWAY:-192.168.67.1}" ;;
+  *)      ELP_VM_GATEWAY="${ELP_VM_GATEWAY:-10.98.0.1}" ;;
+esac
+ELP_API_LISTEN="${ELP_API_LISTEN:-127.0.0.1,${ELP_VM_GATEWAY}:7777}"
 ELP_API_TOKEN="${ELP_API_TOKEN:-}"
 INSECURE=0
 HTTP=0
