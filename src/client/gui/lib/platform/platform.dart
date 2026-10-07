@@ -32,7 +32,8 @@ abstract class MpPlatform {
   /// Collapsed sidebar width.
   double get sidebarCollapsedWidth => 60;
 
-  /// Windows needs in-app caption buttons when the native title bar is hidden.
+  /// Windows/Linux need in-app caption buttons when the native title bar is hidden.
+  /// macOS keeps traffic lights under [TitleBarStyle.hidden].
   bool get showWindowCaptionButtons => false;
 }
 

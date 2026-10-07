@@ -60,6 +60,11 @@ class LinuxPlatform extends MpPlatform {
   String? get homeDirectory => Platform.environment['SNAP'] == null
       ? Platform.environment['HOME']
       : Platform.environment['SNAP_REAL_HOME'];
+
+  /// Native GTK/SSD chrome is hidden via [TitleBarStyle.hidden]; draw in-app
+  /// caption buttons the same way Windows does.
+  @override
+  bool get showWindowCaptionButtons => true;
 }
 
 class LinuxAutostartNotifier extends AutostartNotifier {
