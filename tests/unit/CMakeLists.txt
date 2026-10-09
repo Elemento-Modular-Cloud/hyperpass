@@ -113,6 +113,7 @@ add_executable(multipass_cpp_tests
   test_mlx_server_process_spec.cpp
   test_model_vault.cpp
   test_runner_registry.cpp
+  test_vllm_memory_budget.cpp
   test_vllm_server_process_spec.cpp
   test_log.cpp
   test_log_location.cpp

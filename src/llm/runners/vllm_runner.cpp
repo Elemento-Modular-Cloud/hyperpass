@@ -19,6 +19,7 @@
 
 #include "../binary_locator.h"
 #include "../managed_tools.h"
+#include "../vllm_memory_budget.h"
 #include "../vllm_server_process_spec.h"
 
 #include <multipass/platform.h>
@@ -27,7 +28,6 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QStandardPaths>
-#include <QSysInfo>
 
 #include <stdexcept>
 
@@ -135,20 +135,20 @@ std::unique_ptr<mp::Process> llm::VllmRunner::start(const RunnerLaunchContext& c
     const auto& p = ctx.resolved.echoed;
     if (!p.dtype().empty())
         options.dtype = QString::fromStdString(p.dtype());
-    // GB10 / unified-memory hosts often have ~10% of "GPU" RAM held by the
-    // desktop stack; vLLM's default (~0.9) then fails the free-memory check.
-    const auto arch = QSysInfo::currentCpuArchitecture().toLower();
-    const bool unified_mem_host =
-        arch.contains(QLatin1String("arm64")) || arch.contains(QLatin1String("aarch64"));
-    const double safe_default = unified_mem_host ? 0.80 : 0.90;
-    if (p.has_gpu_memory_utilization() && p.gpu_memory_utilization() > 0)
-        options.gpu_memory_utilization = p.gpu_memory_utilization();
-    else
-        options.gpu_memory_utilization = safe_default;
     if (p.has_max_model_len() && p.max_model_len() > 0)
         options.max_model_len = p.max_model_len();
     else if (ctx.resolved.ctx_size > 0)
         options.max_model_len = ctx.resolved.ctx_size;
+
+    // Explicit util wins; otherwise model-fit from weights + KV for max_model_len.
+    if (p.has_gpu_memory_utilization() && p.gpu_memory_utilization() > 0)
+        options.gpu_memory_utilization = p.gpu_memory_utilization();
+    else
+        options.gpu_memory_utilization =
+            estimate_vllm_gpu_memory_utilization(ctx.artifact.size_bytes,
+                                                 options.max_model_len > 0 ? options.max_model_len
+                                                                          : ctx.resolved.ctx_size,
+                                                 probe_gpu_total_bytes());
 
     return platform::make_process(std::make_unique<VllmServerProcessSpec>(std::move(options)));
 }

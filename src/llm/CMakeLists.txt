@@ -33,6 +33,7 @@ add_library(llm STATIC
   runners/mlx_runner.cpp
   runners/runner_registry.cpp
   runners/vllm_runner.cpp
+  vllm_memory_budget.cpp
   vllm_server_process_spec.cpp)
 
 target_include_directories(llm

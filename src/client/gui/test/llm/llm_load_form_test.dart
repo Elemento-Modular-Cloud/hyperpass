@@ -69,9 +69,20 @@ void main() {
     expect(params.nGpuLayers, isEmpty);
   });
 
+  test('vllm default util is auto and omitted from proto', () {
+    final form = LlmLoadForm(runtime: 'vllm', ctxSize: 8192);
+    expect(form.gpuMemoryUtilization, 0);
+    expect(form.isValid, isTrue);
+    final params = form.toProto();
+    expect(params.hasGpuMemoryUtilization(), isFalse);
+    expect(params.maxModelLen, 8192);
+  });
+
   test('rejects invalid numbers', () {
     expect(LlmLoadForm(ctxSize: 0).isValid, isFalse);
     expect(LlmLoadForm(maxTokens: -1).isValid, isFalse);
+    expect(LlmLoadForm(gpuMemoryUtilization: -0.1).isValid, isFalse);
+    expect(LlmLoadForm(gpuMemoryUtilization: 1.1).isValid, isFalse);
     expect(LlmLoadForm().isValid, isTrue);
   });
 

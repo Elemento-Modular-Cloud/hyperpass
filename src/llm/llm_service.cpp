@@ -25,6 +25,7 @@
 #include "openai_compat_client.h"
 #include "runtime_installer.h"
 #include "runners/model_format.h"
+#include "vllm_memory_budget.h"
 
 #include <multipass/constants.h>
 #include <multipass/file_ops.h>
@@ -1387,13 +1388,36 @@ void mp::LlmService::load_model_impl(
     log_lifecycle(instance_id,
                   "info",
                   fmt::format("using {} artifact at {}", art.format.empty() ? "gguf" : art.format, art.path));
-    const auto resolved = resolve_llm_load(*request, runner->uses_gpu(resolved_runner.device));
+    auto resolved = resolve_llm_load(*request, runner->uses_gpu(resolved_runner.device));
     const auto ctx = resolved.ctx_size;
     const auto max_tokens = resolved.max_tokens;
-    const auto claim = estimate_claim(art,
-                                      ctx,
-                                      resolved.llama.cache_type_k.toStdString(),
-                                      resolved.llama.cache_type_v.toStdString());
+    const auto max_model_len = [&] {
+        if (resolved.echoed.has_max_model_len() && resolved.echoed.max_model_len() > 0)
+            return resolved.echoed.max_model_len();
+        return ctx;
+    }();
+
+    MemorySize claim;
+    if (runner->id() == llm::runner_vllm)
+    {
+        // Auto model-fit util when unset so each 1:1 process budgets this model only.
+        if (!resolved.echoed.has_gpu_memory_utilization() ||
+            resolved.echoed.gpu_memory_utilization() <= 0)
+        {
+            resolved.echoed.set_gpu_memory_utilization(
+                estimate_vllm_gpu_memory_utilization(art.size_bytes,
+                                                     max_model_len,
+                                                     probe_gpu_total_bytes()));
+        }
+        claim = MemorySize::from_bytes(vllm_budget_bytes(art.size_bytes, max_model_len));
+    }
+    else
+    {
+        claim = estimate_claim(art,
+                               ctx,
+                               resolved.llama.cache_type_k.toStdString(),
+                               resolved.llama.cache_type_v.toStdString());
+    }
 
     std::string duplicate_warning;
     {

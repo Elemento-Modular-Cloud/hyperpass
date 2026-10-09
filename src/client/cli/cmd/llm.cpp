@@ -1459,9 +1459,10 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     QCommandLineOption dtype_opt{"dtype",
                                  "vLLM dtype: auto, float16, bfloat16, …",
                                  "dtype"};
-    QCommandLineOption gpu_mem_opt{"gpu-memory-utilization",
-                                   "vLLM GPU memory fraction (0–1; try 0.80 on GB10)",
-                                   "frac"};
+    QCommandLineOption gpu_mem_opt{
+        "gpu-memory-utilization",
+        "vLLM GPU memory fraction (0–1); default is model-fit auto from weights + context",
+        "frac"};
     QCommandLineOption max_model_len_opt{"max-model-len",
                                         "vLLM max sequence length (defaults to --ctx)",
                                         "n"};

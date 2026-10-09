@@ -24,9 +24,8 @@ class LlmLoadForm {
     this.moeOffload = 'auto',
     this.nCpuMoe,
     this.dtype = 'auto',
-    // Keep headroom on unified-memory GPUs (e.g. GB10); 0.9 often fails the
-    // vLLM free-memory check when the desktop already holds ~10% of RAM.
-    this.gpuMemoryUtilization = 0.80,
+    // 0 = auto: daemon sizes --gpu-memory-utilization to this model's weights + KV.
+    this.gpuMemoryUtilization = 0,
     this.maxModelLen = 0,
   });
 
@@ -163,7 +162,7 @@ class LlmLoadForm {
       ubatchSize >= 0 &&
       customGpuLayers >= 0 &&
       (nCpuMoe == null || nCpuMoe! >= 0) &&
-      gpuMemoryUtilization > 0 &&
+      gpuMemoryUtilization >= 0 &&
       gpuMemoryUtilization <= 1.0 &&
       maxModelLen >= 0;
 }
