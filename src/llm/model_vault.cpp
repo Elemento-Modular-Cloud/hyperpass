@@ -19,6 +19,8 @@
 #include "gguf_file_pick.h"
 #include "runners/model_format.h"
 
+#include <multipass/exceptions/aborted_download_exception.h>
+#include <multipass/exceptions/download_exception.h>
 #include <multipass/file_ops.h>
 #include <multipass/format.h>
 #include <multipass/logging/log.h>
@@ -33,6 +35,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QThread>
 #include <QUrl>
 #include <QUrlQuery>
 
@@ -153,6 +156,17 @@ std::string mp::ModelVault::effective_format(const ModelArtifact& art)
     if (!art.format.empty())
         return art.format;
     return llm::format_gguf;
+}
+
+bool mp::ModelVault::is_ready(const ModelArtifact& art)
+{
+    if (art.path.empty())
+        return false;
+    const auto fmt = effective_format(art);
+    if (fmt == llm::format_hf || fmt == llm::format_mlx)
+        return looks_like_local_hub_snapshot(QString::fromStdString(art.path));
+    const QFileInfo info{QString::fromStdString(art.path)};
+    return info.exists() && info.isFile() && info.size() > 0;
 }
 
 mp::ModelVault::ModelVault(Path data_directory, URLDownloader& downloader)
@@ -409,10 +423,39 @@ mp::ModelArtifact mp::ModelVault::pull_remote(const std::string& model_id,
                 return monitor(0, overall);
             };
 
-            if (QFileInfo{dest}.exists())
-                QFile::remove(dest);
-
-            downloader.download_to(url, dest, file.size > 0 ? file.size : -1, 0, file_monitor);
+            // HF CDN stalls / rate limits abort the inactivity timer; retry
+            // per-file so a 28-shard pull does not die on the first blip.
+            constexpr int max_attempts = 5;
+            for (int attempt = 1;; ++attempt)
+            {
+                if (QFileInfo{dest}.exists())
+                    QFile::remove(dest);
+                try
+                {
+                    downloader.download_to(url,
+                                           dest,
+                                           file.size > 0 ? file.size : -1,
+                                           0,
+                                           file_monitor);
+                    break;
+                }
+                catch (const mp::AbortedDownloadException&)
+                {
+                    throw;
+                }
+                catch (const mp::DownloadException& e)
+                {
+                    if (attempt >= max_attempts)
+                        throw;
+                    mpl::warn("llm",
+                              "download {} failed (attempt {}/{}): {} — retrying",
+                              file.path,
+                              attempt,
+                              max_attempts,
+                              e.what());
+                    QThread::msleep(static_cast<unsigned long>(1000 * attempt));
+                }
+            }
             completed_bytes += file_weight;
 
             if (monitor &&

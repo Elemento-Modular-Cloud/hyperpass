@@ -20,18 +20,59 @@
 #include "common_cli.h"
 
 #include <multipass/cli/argparser.h>
+#include <multipass/cli/cli_style.h>
 #include <multipass/constants.h>
 #include <multipass/format.h>
 #include <multipass/memory_size.h>
 
+#include <QJsonArray>
+#include <QJsonObject>
+
 namespace mp = multipass;
 namespace cmd = multipass::cmd;
+namespace style = multipass::cli_style;
 
 namespace
 {
 mp::ReturnCodeVariant fail(std::ostream& cerr, grpc::Status& status, const std::string& name)
 {
+    if (style::json_enabled())
+    {
+        QJsonObject err;
+        err.insert("ok", false);
+        err.insert("error", QString::fromStdString(status.error_message()));
+        err.insert("command", QString::fromStdString(name));
+        style::print_json(cerr, err);
+        return mp::ReturnCode::CommandFail;
+    }
     return cmd::standard_failure_handler_for(name, cerr, status);
+}
+
+std::string format_or_dash(const mp::ModelSuggestion& model)
+{
+    return model.format().empty() ? "-" : model.format();
+}
+
+std::string backends_cell(const mp::ModelSuggestion& model)
+{
+    if (model.supported_runtimes_size() == 0)
+        return "-";
+    std::string joined;
+    for (int i = 0; i < model.supported_runtimes_size(); ++i)
+    {
+        if (i)
+            joined += ", ";
+        joined += model.supported_runtimes(i);
+    }
+    return joined;
+}
+
+QJsonArray backends_json(const mp::ModelSuggestion& model)
+{
+    QJsonArray arr;
+    for (const auto& runtime : model.supported_runtimes())
+        arr.push_back(QString::fromStdString(runtime));
+    return arr;
 }
 } // namespace
 
@@ -43,6 +84,7 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
 
     const auto verbosity = parser->verbosityLevel();
     const auto cmd_name = name();
+    const bool as_json = parser->jsonOutput() || style::json_enabled();
 
     if (subcommand == "find")
     {
@@ -54,26 +96,44 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         request.set_recommend_only(recommend_only);
         if (!recommend_only)
             request.set_include_too_tight(true);
-        auto on_success = [this](FindModelsReply& reply) -> ReturnCodeVariant {
+        auto on_success = [this, as_json](FindModelsReply& reply) -> ReturnCodeVariant {
+            if (as_json)
+            {
+                QJsonArray models;
+                for (const auto& model : reply.models())
+                {
+                    QJsonObject o;
+                    o.insert("id", QString::fromStdString(model.id()));
+                    o.insert("name", QString::fromStdString(model.name()));
+                    o.insert("fit", QString::fromStdString(model.fit_level()));
+                    o.insert("quant", QString::fromStdString(model.best_quant()));
+                    o.insert("ram_gb", model.memory_required_gb());
+                    o.insert("score", model.score());
+                    o.insert("runtime", QString::fromStdString(model.runtime()));
+                    models.push_back(o);
+                }
+                QJsonObject root;
+                root.insert("models", models);
+                if (!reply.reply_message().empty())
+                    root.insert("message", QString::fromStdString(reply.reply_message()));
+                style::print_json(cout, root);
+                return ReturnCode::Ok;
+            }
             if (!reply.reply_message().empty())
-                cerr << reply.reply_message() << "\n";
-            cout << fmt::format("{:<28} {:<10} {:<10} {:>8} {:>8} {}\n",
-                                "MODEL",
-                                "FIT",
-                                "QUANT",
-                                "RAM_GB",
-                                "SCORE",
-                                "RUNTIME");
+                style::print_warn(cerr, reply.reply_message());
+            style::Table table;
+            table.columns = {{"MODEL"}, {"FIT"}, {"QUANT"}, {"RAM_GB", 0, true},
+                             {"SCORE", 0, true}, {"RUNTIME"}};
             for (const auto& model : reply.models())
             {
-                cout << fmt::format("{:<28} {:<10} {:<10} {:>8.1f} {:>8.1f} {}\n",
-                                    model.name(),
-                                    model.fit_level(),
-                                    model.best_quant(),
-                                    model.memory_required_gb(),
-                                    model.score(),
-                                    model.runtime());
+                table.rows.push_back({model.name(),
+                                      style::paint_status(model.fit_level()),
+                                      model.best_quant(),
+                                      fmt::format("{:.1f}", model.memory_required_gb()),
+                                      fmt::format("{:.1f}", model.score()),
+                                      model.runtime()});
             }
+            style::print_table(cout, table);
             return ReturnCode::Ok;
         };
         return dispatch(&RpcMethod::find_models,
@@ -88,11 +148,36 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         request.set_verbosity_level(verbosity);
         request.set_model_id(model_id.toStdString());
         request.set_quant(quant.toStdString());
+        // Map --runtime to vault format so vLLM/MLX pulls fetch HF snapshots.
+        if (runtime == "vllm")
+            request.set_format("hf");
+        else if (runtime == "mlx")
+            request.set_format("mlx");
+        else if (runtime == "llamacpp")
+            request.set_format("gguf");
+        request.set_background(!pull_wait);
         AnimatedSpinner spinner{cout};
-        spinner.start("Downloading model ");
-        auto on_success = [this, &spinner](PullModelReply& reply) -> ReturnCodeVariant {
+        if (!as_json)
+            spinner.start(pull_wait ? "Downloading model " : "Starting download ");
+        auto on_success = [this, &spinner, as_json](PullModelReply& reply) -> ReturnCodeVariant {
             spinner.stop();
-            cout << fmt::format("Pulled {} -> {}\n", reply.model_id(), reply.path());
+            if (as_json)
+            {
+                QJsonObject o;
+                o.insert("model_id", QString::fromStdString(reply.model_id()));
+                o.insert("path", QString::fromStdString(reply.path()));
+                o.insert("message", QString::fromStdString(reply.reply_message()));
+                o.insert("background", reply.path().empty());
+                style::print_json(cout, o);
+                return ReturnCode::Ok;
+            }
+            if (!reply.path().empty())
+                style::print_ok(cout,
+                                fmt::format("Pulled {} → {}", reply.model_id(), reply.path()));
+            else if (!reply.reply_message().empty())
+                style::print_info(cout, reply.reply_message());
+            else
+                style::print_ok(cout, fmt::format("Pull accepted for {}", reply.model_id()));
             return ReturnCode::Ok;
         };
         auto streaming = [&spinner](const PullModelReply& reply, auto*) {
@@ -126,6 +211,8 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         request.set_quant(quant.toStdString());
         request.set_ctx_size(ctx_size);
         request.set_max_tokens(max_tokens);
+        if (!runtime.isEmpty())
+            request.set_runtime(runtime.toStdString());
         *request.mutable_params() = load_params;
         if (load_params.has_ctx_size())
             request.set_ctx_size(load_params.ctx_size());
@@ -137,19 +224,34 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
             request.set_intent_role(intent_role.toStdString());
         }
         AnimatedSpinner spinner{cout};
-        spinner.start("Loading model ");
-        auto on_success = [this, &spinner](LoadModelReply& reply) -> ReturnCodeVariant {
+        if (!as_json)
+            spinner.start("Loading model ");
+        auto on_success = [this, &spinner, as_json](LoadModelReply& reply) -> ReturnCodeVariant {
             spinner.stop();
+            const auto claimed =
+                mp::MemorySize::from_bytes(static_cast<long long>(reply.memory_claimed()))
+                    .human_readable();
+            if (as_json)
+            {
+                QJsonObject o;
+                o.insert("model_id", QString::fromStdString(reply.model_id()));
+                o.insert("openai_id", QString::fromStdString(reply.openai_id()));
+                o.insert("instance_id", QString::fromStdString(reply.instance_id()));
+                o.insert("port", static_cast<int>(reply.port()));
+                o.insert("memory_claimed", QString::fromStdString(claimed));
+                o.insert("message", QString::fromStdString(reply.reply_message()));
+                style::print_json(cout, o);
+                return ReturnCode::Ok;
+            }
             if (!reply.reply_message().empty())
-                cerr << reply.reply_message() << "\n";
-            cout << fmt::format("Loaded {} as {} on 127.0.0.1:{} (instance {}, claimed {})\n",
-                                reply.model_id(),
-                                reply.openai_id(),
-                                reply.port(),
-                                reply.instance_id(),
-                                mp::MemorySize::from_bytes(
-                                    static_cast<long long>(reply.memory_claimed()))
-                                    .human_readable());
+                style::print_warn(cerr, reply.reply_message());
+            style::print_ok(cout,
+                            fmt::format("Loaded {} as {} on 127.0.0.1:{} (instance {}, claimed {})",
+                                        reply.model_id(),
+                                        reply.openai_id(),
+                                        reply.port(),
+                                        reply.instance_id(),
+                                        claimed));
             return ReturnCode::Ok;
         };
         auto streaming = [&spinner](const LoadModelReply& reply, auto*) {
@@ -175,8 +277,16 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         UnloadModelRequest request;
         request.set_verbosity_level(verbosity);
         request.set_model_id(model_id.toStdString());
-        auto on_success = [this](UnloadModelReply& reply) -> ReturnCodeVariant {
-            cout << fmt::format("Unloaded {}\n", reply.model_id());
+        auto on_success = [this, as_json](UnloadModelReply& reply) -> ReturnCodeVariant {
+            if (as_json)
+            {
+                QJsonObject o;
+                o.insert("model_id", QString::fromStdString(reply.model_id()));
+                o.insert("unloaded", true);
+                style::print_json(cout, o);
+            }
+            else
+                style::print_ok(cout, fmt::format("Unloaded {}", reply.model_id()));
             return ReturnCode::Ok;
         };
         return dispatch(&RpcMethod::unload_model,
@@ -189,16 +299,51 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
     {
         ListModelsRequest request;
         request.set_verbosity_level(verbosity);
-        auto on_success = [this](ListModelsReply& reply) -> ReturnCodeVariant {
-            cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>8} {:>10} {}\n",
-                                "MODEL",
-                                "INSTANCE",
-                                "BACKEND",
-                                "PORT",
-                                "RAM",
-                                "CTX",
-                                "MAX_TOK",
-                                "STATE");
+        auto on_success = [this, as_json](ListModelsReply& reply) -> ReturnCodeVariant {
+            if (as_json)
+            {
+                QJsonArray loaded;
+                for (const auto& model : reply.models())
+                {
+                    QJsonObject o;
+                    o.insert("openai_id", QString::fromStdString(model.openai_id()));
+                    o.insert("instance_id", QString::fromStdString(model.instance_id()));
+                    o.insert("backend", QString::fromStdString(model.backend()));
+                    o.insert("port", static_cast<int>(model.port()));
+                    o.insert("memory_claimed", static_cast<double>(model.memory_claimed()));
+                    o.insert("ctx_size", model.ctx_size());
+                    o.insert("max_tokens", model.max_tokens());
+                    o.insert("state", QString::fromStdString(model.state()));
+                    loaded.push_back(o);
+                }
+                QJsonArray cached;
+                for (const auto& model : reply.cached())
+                {
+                    QJsonObject o;
+                    o.insert("id", QString::fromStdString(model.id()));
+                    o.insert("filename", QString::fromStdString(model.filename()));
+                    o.insert("format", QString::fromStdString(model.format()));
+                    o.insert("backends", backends_json(model));
+                    o.insert("disk_gb", model.disk_size_gb());
+                    o.insert("cache_state", QString::fromStdString(model.cache_state()));
+                    o.insert("download_percent", model.download_percent());
+                    cached.push_back(o);
+                }
+                QJsonObject root;
+                root.insert("loaded", loaded);
+                root.insert("cached", cached);
+                style::print_json(cout, root);
+                return ReturnCode::Ok;
+            }
+            style::Table table;
+            table.columns = {{"MODEL"},
+                             {"INSTANCE"},
+                             {"BACKEND"},
+                             {"PORT", 0, true},
+                             {"RAM", 0, true},
+                             {"CTX", 0, true},
+                             {"MAX_TOK", 0, true},
+                             {"STATE"}};
             for (const auto& model : reply.models())
             {
                 const auto port_s =
@@ -211,22 +356,36 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
                         : std::string{"-"};
                 const auto ctx_s =
                     model.ctx_size() > 0 ? std::to_string(model.ctx_size()) : std::string{"-"};
-                cout << fmt::format("{:<28} {:<36} {:<12} {:>6} {:>10} {:>8} {:>10} {}\n",
-                                    model.openai_id(),
-                                    model.instance_id(),
-                                    model.backend(),
-                                    port_s,
-                                    ram_s,
-                                    ctx_s,
-                                    model.max_tokens() > 0 ? std::to_string(model.max_tokens())
-                                                           : "-",
-                                    model.state());
+                table.rows.push_back({model.openai_id(),
+                                      model.instance_id(),
+                                      model.backend(),
+                                      port_s,
+                                      ram_s,
+                                      ctx_s,
+                                      model.max_tokens() > 0 ? std::to_string(model.max_tokens())
+                                                             : "-",
+                                      style::paint_status(model.state())});
             }
+            style::print_table(cout, table);
             if (reply.cached_size() > 0)
             {
-                cout << "\nCached on disk\n";
+                cout << "\n" << style::paint(style::Tone::bold, "Cached on disk") << "\n";
+                style::Table cache_table;
+                cache_table.columns = {{"MODEL"}, {"FORMAT"}, {"BACKENDS"}, {"STATE"}};
                 for (const auto& model : reply.cached())
-                    cout << fmt::format("  {}  {}\n", model.id(), model.filename());
+                {
+                    std::string state;
+                    if (model.cache_state() == "downloading")
+                        state = style::paint_status("downloading") +
+                                fmt::format(" {}%", model.download_percent());
+                    else if (model.cache_state() == "failed")
+                        state = style::paint_status("failed");
+                    else
+                        state = style::paint_status("ready");
+                    cache_table.rows.push_back(
+                        {model.id(), format_or_dash(model), backends_cell(model), state});
+                }
+                style::print_table(cout, cache_table);
             }
             return ReturnCode::Ok;
         };
@@ -240,12 +399,67 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
     {
         ListModelsRequest request;
         request.set_verbosity_level(verbosity);
-        auto on_success = [this](ListModelsReply& reply) -> ReturnCodeVariant {
+        auto on_success = [this, as_json](ListModelsReply& reply) -> ReturnCodeVariant {
+            if (as_json)
+            {
+                QJsonArray cached;
+                for (const auto& model : reply.cached())
+                {
+                    QJsonObject o;
+                    o.insert("id", QString::fromStdString(model.id()));
+                    o.insert("filename", QString::fromStdString(model.filename()));
+                    o.insert("format", QString::fromStdString(model.format()));
+                    o.insert("backends", backends_json(model));
+                    o.insert("disk_gb", model.memory_required_gb());
+                    o.insert("cache_state",
+                             QString::fromStdString(model.cache_state().empty() ? "ready"
+                                                                               : model.cache_state()));
+                    o.insert("download_percent", model.download_percent());
+                    cached.push_back(o);
+                }
+                QJsonObject root;
+                root.insert("cached", cached);
+                style::print_json(cout, root);
+                return ReturnCode::Ok;
+            }
+            if (reply.cached_size() == 0)
+            {
+                style::print_info(cout, "No cached models (and no active pulls).");
+                return ReturnCode::Ok;
+            }
+            style::Table table;
+            table.columns = {
+                {"MODEL"}, {"FORMAT"}, {"BACKENDS"}, {"DETAIL"}, {"SIZE", 0, true}, {"STATE"}};
             for (const auto& model : reply.cached())
-                cout << fmt::format("{}  {}  {:.2f} GiB\n",
-                                    model.id(),
-                                    model.filename(),
-                                    model.memory_required_gb());
+            {
+                if (model.cache_state() == "downloading")
+                {
+                    table.rows.push_back({model.id(),
+                                          format_or_dash(model),
+                                          backends_cell(model),
+                                          fmt::format("{}%", model.download_percent()),
+                                          "-",
+                                          style::paint_status("downloading")});
+                    continue;
+                }
+                if (model.cache_state() == "failed")
+                {
+                    table.rows.push_back({model.id(),
+                                          format_or_dash(model),
+                                          backends_cell(model),
+                                          model.filename(),
+                                          "-",
+                                          style::paint_status("failed")});
+                    continue;
+                }
+                table.rows.push_back({model.id(),
+                                      format_or_dash(model),
+                                      backends_cell(model),
+                                      model.filename(),
+                                      fmt::format("{:.2f} GiB", model.memory_required_gb()),
+                                      style::paint_status("ready")});
+            }
+            style::print_table(cout, table);
             return ReturnCode::Ok;
         };
         return dispatch(&RpcMethod::list_models,
@@ -259,11 +473,19 @@ mp::ReturnCodeVariant cmd::Llm::run(mp::ArgParser* parser)
         DeleteModelRequest request;
         request.set_verbosity_level(verbosity);
         request.set_model_id(model_id.toStdString());
-        auto on_success = [this](DeleteModelReply& reply) -> ReturnCodeVariant {
-            cout << fmt::format("Deleted {} (freed {})\n",
-                                reply.model_id(),
-                                mp::MemorySize::from_bytes(static_cast<long long>(reply.freed_bytes()))
-                                    .human_readable());
+        auto on_success = [this, as_json](DeleteModelReply& reply) -> ReturnCodeVariant {
+            const auto freed =
+                mp::MemorySize::from_bytes(static_cast<long long>(reply.freed_bytes()))
+                    .human_readable();
+            if (as_json)
+            {
+                QJsonObject o;
+                o.insert("model_id", QString::fromStdString(reply.model_id()));
+                o.insert("freed", QString::fromStdString(freed));
+                style::print_json(cout, o);
+            }
+            else
+                style::print_ok(cout, fmt::format("Deleted {} (freed {})", reply.model_id(), freed));
             return ReturnCode::Ok;
         };
         return dispatch(&RpcMethod::delete_model,
@@ -533,7 +755,9 @@ QString cmd::Llm::description() const
     return QStringLiteral(
         "Manage local and cloud LLM inference behind the OpenAI-compatible /v1 API.\n\n"
         "Subcommands: find, pull, load, unload, list, cache, delete, key create|list|revoke,\n"
-        "             provider add|list|update|rm|refresh");
+        "             provider add|list|update|rm|refresh\n"
+        "Pull downloads in the background by default (use --wait to block). "
+        "Load only starts models that are already in the cache.");
 }
 
 mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
@@ -571,6 +795,20 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     QCommandLineOption moe_opt{"moe-offload", "MoE expert placement: auto, cpu, or off", "mode"};
     QCommandLineOption cpu_moe_opt{"cpu-moe", "Keep MoE expert weights on CPU"};
     QCommandLineOption n_cpu_moe_opt{"n-cpu-moe", "Keep the first N MoE layers on CPU", "n"};
+    QCommandLineOption runtime_opt{"runtime",
+                                   "Inference runtime: llamacpp, vllm, or mlx",
+                                   "runtime"};
+    QCommandLineOption wait_opt{"wait",
+                                "For pull: block until download finishes (default: background)"};
+    QCommandLineOption dtype_opt{"dtype",
+                                 "vLLM dtype: auto, float16, bfloat16, …",
+                                 "dtype"};
+    QCommandLineOption gpu_mem_opt{"gpu-memory-utilization",
+                                   "vLLM GPU memory fraction (0–1; try 0.80 on GB10)",
+                                   "frac"};
+    QCommandLineOption max_model_len_opt{"max-model-len",
+                                        "vLLM max sequence length (defaults to --ctx)",
+                                        "n"};
     QCommandLineOption label_opt{"label", "API key / provider label", "label"};
     QCommandLineOption instance_opt{"instance", "Bind key to a loaded LLM instance", "instance"};
     QCommandLineOption intent_opt{
@@ -610,6 +848,11 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
     parser->addOption(moe_opt);
     parser->addOption(cpu_moe_opt);
     parser->addOption(n_cpu_moe_opt);
+    parser->addOption(runtime_opt);
+    parser->addOption(wait_opt);
+    parser->addOption(dtype_opt);
+    parser->addOption(gpu_mem_opt);
+    parser->addOption(max_model_len_opt);
     parser->addOption(label_opt);
     parser->addOption(instance_opt);
     parser->addOption(intent_opt);
@@ -693,6 +936,24 @@ mp::ParseCode cmd::Llm::parse_args(mp::ArgParser* parser)
         load_params.set_moe_offload("cpu");
     if (parser->isSet(n_cpu_moe_opt))
         load_params.set_n_cpu_moe(parser->value(n_cpu_moe_opt).toInt());
+    if (parser->isSet(runtime_opt))
+        runtime = parser->value(runtime_opt).trimmed().toLower();
+    pull_wait = parser->isSet(wait_opt);
+    if (parser->isSet(dtype_opt))
+        load_params.set_dtype(parser->value(dtype_opt).toStdString());
+    if (parser->isSet(gpu_mem_opt))
+    {
+        bool ok = false;
+        const auto frac = parser->value(gpu_mem_opt).toDouble(&ok);
+        if (!ok || frac <= 0.0 || frac > 1.0)
+        {
+            cerr << "--gpu-memory-utilization must be a number in (0, 1]\n";
+            return ParseCode::CommandLineError;
+        }
+        load_params.set_gpu_memory_utilization(frac);
+    }
+    if (parser->isSet(max_model_len_opt))
+        load_params.set_max_model_len(parser->value(max_model_len_opt).toInt());
     if (parser->isSet(label_opt))
         key_label = parser->value(label_opt);
     if (parser->isSet(instance_opt))

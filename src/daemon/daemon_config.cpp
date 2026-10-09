@@ -135,7 +135,10 @@ std::unique_ptr<const mp::DaemonConfig> mp::DaemonConfigBuilder::build()
     }
 
     if (url_downloader == nullptr)
-        url_downloader = std::make_unique<URLDownloader>(cache_directory, std::chrono::seconds{10});
+        // Inactivity timeout (resets on each readyRead). 10s was fine for small
+        // image metadata but aborts Hugging Face safetensor shards whose CDN
+        // redirect / TTFB / mid-transfer stalls often exceed that (LLM vault).
+        url_downloader = std::make_unique<URLDownloader>(cache_directory, std::chrono::minutes{10});
     if (az_manager == nullptr)
         az_manager = std::make_unique<BaseAvailabilityZoneManager>(data_directory.toStdString());
     if (factory == nullptr)

@@ -49,6 +49,10 @@ public:
     QProcessEnvironment environment() const override;
     QString apparmor_profile() const override;
     QString identifier() const override;
+    bool isolate_process_group() const override
+    {
+        return true;
+    }
 
 private:
     VllmServerOptions options_;

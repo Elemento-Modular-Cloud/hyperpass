@@ -49,6 +49,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QSysInfo>
 #include <QTcpServer>
@@ -65,6 +66,7 @@
 #include <future>
 #include <memory>
 #include <stdexcept>
+#include <thread>
 #include <unordered_set>
 
 namespace mp = multipass;
@@ -227,10 +229,14 @@ void mp::LlmService::restore_claims()
     std::unordered_map<qint64, QString> live_cmds;
     for (const auto& proc : mpu::list_processes())
     {
-        if (proc.command_line.contains("llama-server") || proc.command_line.contains("llama_server") ||
-            proc.command_line.contains("mlx_lm.server") || proc.command_line.contains("vllm"))
+        // Match serve entrypoints only — not VLLM::EngineCore workers / helpers.
+        const auto& cmd = proc.command_line;
+        const bool vllm_serve = cmd.contains("vllm serve") ||
+                                (cmd.contains("/vllm") && cmd.contains(" serve "));
+        if (cmd.contains("llama-server") || cmd.contains("llama_server") ||
+            cmd.contains("mlx_lm.server") || vllm_serve)
         {
-            live_cmds[proc.pid] = proc.command_line;
+            live_cmds[proc.pid] = cmd;
         }
     }
 
@@ -315,7 +321,17 @@ void mp::LlmService::restore_claims()
         session.max_tokens = mpu::cli_flag_value(cmdline, {"--n-predict"}).toInt();
         if (session.max_tokens < 0)
             session.max_tokens = 0;
-        session.backend = cmdline.contains("mlx_lm") ? "mlx" : "llamacpp";
+        if (cmdline.contains("mlx_lm"))
+            session.backend = "mlx";
+        else if (cmdline.contains("vllm"))
+        {
+            session.backend = "vllm";
+            if (session.openai_id.empty())
+                session.openai_id =
+                    mpu::cli_flag_value(cmdline, {"--served-model-name"}).toStdString();
+        }
+        else
+            session.backend = "llamacpp";
         if (session.openai_id.empty())
             session.openai_id = fmt::format("recovered-{}", pid);
         session.instance_id = session.openai_id;
@@ -525,11 +541,12 @@ bool mp::LlmService::wait_until_ready(int port,
     if (!warm_load)
         return true;
 
-    // mlx_lm.server binds HTTP before weights finish downloading/loading. Probe with a
-    // tiny completion so "load complete" means the model can actually answer.
-    // IMPORTANT: the OpenAI `model` field must be the real --model id (e.g.
-    // mlx-community/Gemma-2-2B-4bit). A placeholder like "warmup" makes mlx_lm try to
-    // fetch that string as a Hugging Face repo and never becomes ready.
+    // mlx_lm / vLLM can bind HTTP before the model can actually answer. Probe with a
+    // tiny completion so "load complete" means the first real request will not stall
+    // on cold FlashInfer/Triton JIT (vLLM) or late weight fetch (mlx).
+    // IMPORTANT: the OpenAI `model` field must be the served id (vLLM --served-model-name
+    // / mlx --model path). A placeholder like "warmup" makes mlx_lm try to fetch that
+    // string as a Hugging Face repo and never becomes ready.
     const auto model_name =
         warm_model_id.empty() ? std::string{"default"} : warm_model_id;
     const QUrl chat_url{QStringLiteral("http://127.0.0.1:%1/v1/chat/completions").arg(port)};
@@ -542,7 +559,10 @@ bool mp::LlmService::wait_until_ready(int port,
                 QJsonArray{QJsonObject{{"role", "user"}, {"content", "ping"}}});
     const auto payload = QJsonDocument{body}.toJson(QJsonDocument::Compact);
 
-    for (int i = 0; i < 60; ++i)
+    // First-use FlashInfer JIT can take several minutes; keep a generous per-try budget.
+    constexpr int warm_tries = 30;
+    constexpr int warm_try_timeout_ms = 600000; // 10 minutes
+    for (int i = 0; i < warm_tries; ++i)
     {
         if (process && !process->running())
             return false;
@@ -552,8 +572,7 @@ bool mp::LlmService::wait_until_ready(int port,
         QEventLoop loop;
         QTimer timeout;
         timeout.setSingleShot(true);
-        // Weights may still be fetching from Hugging Face; allow several minutes per try.
-        timeout.setInterval(180000);
+        timeout.setInterval(warm_try_timeout_ms);
         auto* reply = manager.post(request, payload);
         QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
         QObject::connect(&timeout, &QTimer::timeout, &loop, &QEventLoop::quit);
@@ -607,11 +626,24 @@ void mp::LlmService::ensure_backend_ready(Process* process,
                               http_timeout_sec,
                               runner_id,
                               port));
+    if (warm_load)
+    {
+        log_lifecycle(instance_id,
+                      "info",
+                      runner_id == llm::runner_vllm
+                          ? "warming vLLM with a tiny completion (first-use CUDA/JIT "
+                            "compile may take several minutes)…"
+                          : "warming model with a tiny completion…");
+    }
 
     const bool ready =
         wait_until_ready(port, warm_load, warm_model_id, process, http_timeout_sec);
     if (ready)
+    {
+        if (warm_load)
+            log_lifecycle(instance_id, "info", "warm completion succeeded; model is ready");
         return;
+    }
 
     const auto snippet = recent_backend_log_snippet(instance_id);
     if (process && !process->running())
@@ -825,6 +857,120 @@ mp::ModelArtifact mp::LlmService::ensure_pulled(const std::string& model_id,
                       resolved.mmproj_filename);
 }
 
+mp::ModelArtifact mp::LlmService::require_cached(const std::string& model_id,
+                                                 const std::string& quant,
+                                                 const std::string& format) const
+{
+    const auto fmt = format.empty() ? llm::format_gguf : format;
+    auto fail = [&]() -> ModelArtifact {
+        throw std::runtime_error(fmt::format(
+            "model '{}' is not downloaded yet (format {}). Run: elp llm pull {}{}",
+            model_id,
+            fmt,
+            model_id,
+            fmt == llm::format_hf   ? " --runtime vllm"
+            : fmt == llm::format_mlx ? " --runtime mlx"
+                                     : ""));
+    };
+
+    if (fmt == llm::format_hf || fmt == llm::format_mlx)
+    {
+        if (auto art = vault.find(model_id, fmt, quant); art && ModelVault::is_ready(*art))
+            return *art;
+        if (quant.empty())
+        {
+            if (auto art = vault.find(model_id, fmt); art && ModelVault::is_ready(*art))
+                return *art;
+        }
+        return fail();
+    }
+
+    if (auto art = vault.find(model_id, llm::format_gguf, quant); art && ModelVault::is_ready(*art))
+    {
+        const auto path_name = QFileInfo{QString::fromStdString(art->path)}.fileName();
+        if (is_mmproj_gguf(QString::fromStdString(art->filename)) || is_mmproj_gguf(path_name))
+            return fail();
+        return *art;
+    }
+    return fail();
+}
+
+std::shared_ptr<mp::LlmService::PullJob> mp::LlmService::start_or_join_pull(
+    const std::string& model_id,
+    const std::string& quant,
+    const std::string& hf_repo,
+    const std::string& format,
+    const std::string& filename)
+{
+    const auto key = fmt::format("{}|{}|{}|{}", model_id, format, quant, filename);
+    std::shared_ptr<PullJob> job;
+    {
+        std::lock_guard lock{pull_jobs_mutex};
+        if (auto it = pull_jobs.find(key); it != pull_jobs.end())
+        {
+            if (!it->second->done.load())
+                return it->second;
+            if (!it->second->failed.load())
+                return it->second; // completed successfully; caller will see vault ready
+            pull_jobs.erase(it);   // allow retry after failure
+        }
+        job = std::make_shared<PullJob>();
+        job->model_id = model_id;
+        job->format = format.empty() ? llm::format_gguf : format;
+        job->message = "pulling";
+        pull_jobs[key] = job;
+    }
+
+    // QThread (not std::thread): QNetworkAccessManager + QEventLoop need Qt
+    // thread affinity; client disconnect must not cancel multi-GiB HF pulls.
+    auto* thread = QThread::create([this, job, key, model_id, quant, hf_repo, format, filename]() {
+        int last_logged_pct = -1;
+        try
+        {
+            auto monitor = [job, &last_logged_pct, this, model_id](int, int percent) {
+                const auto pct = std::clamp(percent, 0, 100);
+                job->percent.store(pct);
+                if (pct >= last_logged_pct + 5 || pct == 100)
+                {
+                    last_logged_pct = pct;
+                    log_lifecycle(model_id, "info", fmt::format("pull {}% complete", pct));
+                }
+                return true;
+            };
+            log_lifecycle(model_id, "info", "pull started");
+            const auto art = ensure_pulled(model_id, quant, hf_repo, monitor, format, filename);
+            {
+                std::lock_guard lock{job->mu};
+                job->path = art.path;
+                job->message = "downloaded";
+            }
+            job->percent.store(100);
+            job->done.store(true);
+            log_lifecycle(model_id, "info", fmt::format("pull complete: {}", art.path));
+        }
+        catch (const std::exception& e)
+        {
+            {
+                std::lock_guard lock{job->mu};
+                job->error = e.what();
+                job->message = "failed";
+            }
+            job->failed.store(true);
+            job->done.store(true);
+            log_lifecycle(model_id, "error", fmt::format("pull failed: {}", e.what()));
+        }
+        QThread::msleep(100);
+        std::lock_guard lock{pull_jobs_mutex};
+        if (auto it = pull_jobs.find(key); it != pull_jobs.end() && it->second == job &&
+                                           job->done.load() && job->failed.load())
+            pull_jobs.erase(it);
+    });
+    QObject::connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
+
+    return job;
+}
+
 void mp::LlmService::find_models(
     const FindModelsRequest* request,
     grpc::ServerReaderWriterInterface<FindModelsReply, FindModelsRequest>* server)
@@ -925,6 +1071,7 @@ void mp::LlmService::attach_process_logging(const std::string& instance_id, Proc
     if (!process)
         return;
 
+    // activity_log is mutex-protected; callbacks may run on the runner thread.
     auto ingest = [this, instance_id](const QByteArray& chunk, const char* level) {
         for (const auto& line : QString::fromUtf8(chunk).split('\n', Qt::SkipEmptyParts))
         {
@@ -938,15 +1085,18 @@ void mp::LlmService::attach_process_logging(const std::string& instance_id, Proc
     ingest(process->read_all_standard_output(), "info");
     ingest(process->read_all_standard_error(), "warn");
 
+    // Context must be `process` (runner-thread affinity). Connecting to `this`
+    // (daemon thread) queued read_all_* on the wrong thread and could SIGSEGV
+    // when a backend flooded stderr on crash (e.g. vLLM EngineCore failure).
     QObject::connect(process,
                      &Process::ready_read_standard_output,
-                     this,
+                     process,
                      [process, ingest]() {
                          ingest(process->read_all_standard_output(), "info");
                      });
     QObject::connect(process,
                      &Process::ready_read_standard_error,
-                     this,
+                     process,
                      [process, ingest]() {
                          ingest(process->read_all_standard_error(), "warn");
                      });
@@ -957,30 +1107,87 @@ void mp::LlmService::pull_model(
     grpc::ServerReaderWriterInterface<PullModelReply, PullModelRequest>* server)
 {
     const auto model_id = request->model_id();
-    log_lifecycle(model_id, "info", "pull started");
-    auto monitor = [server, this, model_id](int, int percent) {
-        PullModelReply progress;
-        auto* lp = progress.mutable_launch_progress();
+    const auto format = request->format();
+    const auto quant = request->quant();
+
+    // Already on disk — nothing to do.
+    try
+    {
+        const auto art = require_cached(model_id, quant, format);
+        PullModelReply reply;
+        reply.set_model_id(art.id);
+        reply.set_path(art.path);
+        reply.set_reply_message("already downloaded");
+        auto* lp = reply.mutable_launch_progress();
         lp->set_type(LaunchProgress::IMAGE);
-        lp->set_percent_complete(std::to_string(percent));
-        server->Write(progress);
-        if (percent > 0 && percent % 25 == 0)
-            log_lifecycle(model_id, "info", fmt::format("pull {}% complete", percent));
-        return true;
-    };
-    const auto art = ensure_pulled(model_id,
-                                   request->quant(),
-                                   request->hf_repo(),
-                                   monitor,
-                                   request->format(),
-                                   request->filename());
+        lp->set_percent_complete("100");
+        server->Write(reply);
+        return;
+    }
+    catch (const std::exception&)
+    {
+        // Need a real pull.
+    }
+
+    auto job = start_or_join_pull(model_id,
+                                  quant,
+                                  request->hf_repo(),
+                                  format,
+                                  request->filename());
+
+    if (request->background())
+    {
+        PullModelReply reply;
+        reply.set_model_id(model_id);
+        reply.set_reply_message(
+            "pull started in background; `elp llm cache` shows download % until ready");
+        auto* lp = reply.mutable_launch_progress();
+        lp->set_type(LaunchProgress::IMAGE);
+        lp->set_percent_complete(std::to_string(job->percent.load()));
+        server->Write(reply);
+        return;
+    }
+
+    // Stream progress until the background worker finishes.
+    int last_pct = -1;
+    while (!job->done.load())
+    {
+        const auto pct = job->percent.load();
+        if (pct != last_pct)
+        {
+            last_pct = pct;
+            PullModelReply progress;
+            progress.set_model_id(model_id);
+            auto* lp = progress.mutable_launch_progress();
+            lp->set_type(LaunchProgress::IMAGE);
+            lp->set_percent_complete(std::to_string(pct));
+            if (pct > 0 && pct % 25 == 0)
+                progress.set_reply_message(fmt::format("pull {}% complete", pct));
+            server->Write(progress);
+        }
+        QThread::msleep(400);
+    }
+
+    if (job->failed.load())
+    {
+        std::string err;
+        {
+            std::lock_guard lock{job->mu};
+            err = job->error.empty() ? "pull failed" : job->error;
+        }
+        throw std::runtime_error(err);
+    }
+
     PullModelReply reply;
-    reply.set_model_id(art.id);
-    reply.set_path(art.path);
+    reply.set_model_id(model_id);
+    {
+        std::lock_guard lock{job->mu};
+        reply.set_path(job->path);
+    }
     reply.set_reply_message("downloaded");
     auto* lp = reply.mutable_launch_progress();
+    lp->set_type(LaunchProgress::IMAGE);
     lp->set_percent_complete("100");
-    log_lifecycle(art.id, "info", fmt::format("pull complete: {}", art.path));
     server->Write(reply);
 }
 
@@ -1169,32 +1376,17 @@ void mp::LlmService::load_model_impl(
     const auto instance_id = mp::utils::make_uuid();
     log_lifecycle(instance_id, "info", fmt::format("load started for {}", model_id));
 
-    auto monitor = [server, this, instance_id](int, int percent) {
-        LoadModelReply progress;
-        auto* lp = progress.mutable_launch_progress();
-        lp->set_percent_complete(std::to_string(percent));
-        server->Write(progress);
-        if (percent > 0 && percent % 25 == 0)
-            log_lifecycle(instance_id, "info", fmt::format("load {}% complete", percent));
-        return true;
-    };
-    const auto art = ensure_pulled(model_id,
-                                   request->quant(),
-                                   "",
-                                   monitor,
-                                   llm::format_for_runner(
-                                       [&] {
-                                           const auto resolved_runner = runners.resolve(request->runtime());
-                                           return resolved_runner.runner ? resolved_runner.runner->id()
-                                                                         : llm::runner_llamacpp;
-                                       }()));
-    log_lifecycle(instance_id,
-                  "info",
-                  fmt::format("using {} artifact at {}", art.format.empty() ? "gguf" : art.format, art.path));
     const auto resolved_runner = runners.resolve(request->runtime());
     if (!resolved_runner.runner)
         throw std::runtime_error("no inference runner available");
     const auto* runner = resolved_runner.runner;
+    // Load never downloads — pull first (`elp llm pull`), then load.
+    const auto art = require_cached(model_id,
+                                    request->quant(),
+                                    llm::format_for_runner(runner->id()));
+    log_lifecycle(instance_id,
+                  "info",
+                  fmt::format("using {} artifact at {}", art.format.empty() ? "gguf" : art.format, art.path));
     const auto resolved = resolve_llm_load(*request, runner->uses_gpu(resolved_runner.device));
     const auto ctx = resolved.ctx_size;
     const auto max_tokens = resolved.max_tokens;
@@ -1268,12 +1460,21 @@ void mp::LlmService::load_model_impl(
         // Attach early so boot/load stdout survives readiness wait and dual-writes to disk.
         attach_process_logging(instance_id, session.process.get());
         if (runner->openai_compat())
+        {
+            // Warm mlx (late weight fetch) and vLLM (FlashInfer/Triton first-use JIT)
+            // so "loaded" means the first user request will not stall on compile.
+            const bool warm = runner->id() == llm::runner_mlx ||
+                              runner->id() == llm::runner_vllm;
+            // vLLM clients must use --served-model-name; mlx expects the --model path.
+            const auto warm_model = runner->id() == llm::runner_vllm ? session.openai_id
+                                                                    : art.path;
             ensure_backend_ready(session.process.get(),
                                  session.port,
                                  instance_id,
                                  runner->id(),
-                                 runner->id() == llm::runner_mlx,
-                                 art.path);
+                                 warm,
+                                 warm_model);
+        }
     }
     catch (const std::exception& e)
     {
@@ -1483,10 +1684,9 @@ void mp::LlmService::list_models(
             const QString path = QString::fromStdString(art.path);
             if (path.endsWith(".gguf", Qt::CaseInsensitive))
                 fmt = llm::format_gguf;
-            else if (!path.isEmpty())
-                // Local vault dirs and HF-style repo ids are not GGUF files.
-                // Prefer mlx; explicit format on the artifact wins when set.
-                fmt = llm::format_mlx;
+            else if (QFileInfo{path}.isDir())
+                // Hub snapshots default to HF weights; MLX entries set format explicitly.
+                fmt = llm::format_hf;
             else
                 fmt = llm::format_gguf;
         }
@@ -1498,13 +1698,37 @@ void mp::LlmService::list_models(
             if (!inferred.isEmpty())
                 cached.set_best_quant(inferred.toStdString());
         }
-        if (fmt == llm::format_mlx)
-            cached.add_supported_runtimes(llm::runner_mlx);
-        else if (fmt == llm::format_hf)
-            cached.add_supported_runtimes(llm::runner_vllm);
-        else
-            cached.add_supported_runtimes(llm::runner_llamacpp);
+        stamp_catalog_model_runtimes(cached);
+        cached.set_cache_state("ready");
         *reply.add_cached() = cached;
+    }
+
+    // In-progress / recently-failed background pulls (not yet in the vault index).
+    {
+        std::lock_guard pull_lock{pull_jobs_mutex};
+        for (const auto& [_, job] : pull_jobs)
+        {
+            if (!job || (job->done.load() && !job->failed.load()))
+                continue; // successful jobs appear via vault.list()
+            ModelSuggestion row;
+            row.set_id(job->model_id);
+            row.set_name(job->model_id);
+            row.set_format(job->format.empty() ? llm::format_gguf : job->format);
+            stamp_catalog_model_runtimes(row);
+            if (job->failed.load())
+            {
+                row.set_cache_state("failed");
+                std::lock_guard job_lock{job->mu};
+                row.set_filename(job->error);
+            }
+            else
+            {
+                row.set_cache_state("downloading");
+                row.set_download_percent(job->percent.load());
+                row.set_filename(fmt::format("downloading {}%", job->percent.load()));
+            }
+            *reply.add_cached() = row;
+        }
     }
     server->Write(reply);
 }

@@ -41,6 +41,15 @@ public:
     virtual QString apparmor_profile() const = 0;
     const QString apparmor_profile_name() const;
     virtual QString identifier() const;
+
+    /// When true, the child calls setsid() after fork so it (and its own
+    /// grandchildren) form a new session/process group. Required for backends
+    /// like vLLM whose EngineCore teardown uses killpg and would otherwise
+    /// take down elpd.
+    virtual bool isolate_process_group() const
+    {
+        return false;
+    }
 };
 
 } // namespace multipass

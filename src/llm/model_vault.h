@@ -57,6 +57,8 @@ public:
     std::vector<ModelArtifact> list() const;
     std::vector<ModelArtifact> list_for(const std::string& model_id) const;
     Path models_root() const;
+    /// True when weights are on disk and ready to load (rejects register_remote stubs).
+    static bool is_ready(const ModelArtifact& art);
 
     ModelArtifact pull(const std::string& model_id,
                        const std::string& repo,

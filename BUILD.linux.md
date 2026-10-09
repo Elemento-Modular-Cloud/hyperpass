@@ -88,6 +88,9 @@ sudo apt install -y libavahi-client-dev
 
 # Flutter GUI / flutter_secure_storage_linux (libsecret-1.pc)
 sudo apt install -y libsecret-1-dev
+
+# vLLM (managed pip venv): Triton JIT needs Python.h when compiling cuda_utils
+sudo apt install -y python3-dev
 ```
 
 If the clone has no usable git tags, pass an explicit version to CMake (or create

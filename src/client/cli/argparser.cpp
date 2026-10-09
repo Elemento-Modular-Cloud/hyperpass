@@ -16,12 +16,19 @@
  */
 
 #include <multipass/cli/argparser.h>
+#include <multipass/cli/cli_style.h>
 #include <multipass/format.h>
 
 #include <QFileInfo>
 #include <QRegularExpression>
 
 #include <algorithm>
+
+#ifndef MULTIPASS_PLATFORM_WINDOWS
+#include <unistd.h>
+#else
+#include <io.h>
+#endif
 
 /*
  * ArgParser - a wrapping of a QCommandLineParser where the concept of a "command"
@@ -129,9 +136,13 @@ mp::ParseCode mp::ArgParser::parse(const std::optional<mp::AliasDict>& aliases)
         "Maximum verbosity is obtained with 4 (or more) v's, i.e. -vvvv.");
     QCommandLineOption version_option({"V", "version"}, "Show version details");
     version_option.setFlags(QCommandLineOption::HiddenFromHelp);
+    QCommandLineOption json_option{"json", "Emit machine-readable JSON instead of a table/TUI"};
+    QCommandLineOption no_color_option{"no-color", "Disable ANSI colors even on a TTY"};
     parser.addOption(help_option);
     parser.addOption(verbose_option);
     parser.addOption(version_option);
+    parser.addOption(json_option);
+    parser.addOption(no_color_option);
 
     // Register "command" as the first positional argument, will need to be removed from all help
     // text later
@@ -146,6 +157,14 @@ mp::ParseCode mp::ArgParser::parse(const std::optional<mp::AliasDict>& aliases)
     }
 
     help_requested = parser.isSet(help_option);
+    json_output = parser.isSet(json_option) || arguments.contains(QStringLiteral("--json"));
+    no_color = parser.isSet(no_color_option) || arguments.contains(QStringLiteral("--no-color"));
+#ifndef MULTIPASS_PLATFORM_WINDOWS
+    const bool cout_tty = ::isatty(STDOUT_FILENO) != 0;
+#else
+    const bool cout_tty = _isatty(_fileno(stdout)) != 0;
+#endif
+    cli_style::configure(json_output, no_color, cout_tty);
 
     if (parser.positionalArguments().isEmpty() && !parser.isSet(version_option))
     {

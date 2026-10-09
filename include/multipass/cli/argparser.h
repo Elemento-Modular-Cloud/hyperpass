@@ -72,6 +72,17 @@ public:
     void setVerbosityLevel(int verbosity);
     int verbosityLevel() const;
 
+    /// Global --json: machine-readable output for commands that support it.
+    bool jsonOutput() const
+    {
+        return json_output;
+    }
+    /// Global --no-color: disable ANSI styling even on a TTY.
+    bool noColor() const
+    {
+        return no_color;
+    }
+
     bool containsArgument(const QString& argument) const;
     QStringList allArguments() const
     {
@@ -97,6 +108,8 @@ private:
 
     bool help_requested;
     int verbosity_level{0};
+    bool json_output{false};
+    bool no_color{false};
 
     std::ostream& cout;
     std::ostream& cerr;

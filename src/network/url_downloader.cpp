@@ -325,6 +325,8 @@ void mp::URLDownloader::download_to(const QUrl& url,
 
     auto on_error = [&file]() { file.remove(); };
 
+    // No disk-cache fallback: a canceled/stalled network GET for multi-GiB HF
+    // shards must not be masked as "Error opening …" from an empty cache.
     ::download(manager.get(),
                timeout,
                url,
@@ -333,7 +335,8 @@ void mp::URLDownloader::download_to(const QUrl& url,
                on_error,
                abort_download,
                QNetworkRequest::CacheLoadControl::PreferNetwork,
-               extra_headers);
+               extra_headers,
+               /*allow_cache_fallback=*/false);
 }
 
 QByteArray mp::URLDownloader::download(const QUrl& url)

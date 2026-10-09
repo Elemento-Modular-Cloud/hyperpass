@@ -930,6 +930,10 @@ message ModelSuggestion {
     string format = 22;
     // Runners that can load this suggestion (llamacpp, mlx, vllm, …).
     repeated string supported_runtimes = 23;
+    // Vault row state for list/cache: "" / ready | downloading | failed.
+    string cache_state = 24;
+    // 0–100 while cache_state == downloading.
+    int32 download_percent = 25;
 }
 
 message FindModelsRequest {
@@ -959,6 +963,10 @@ message PullModelRequest {
     string format = 5;
     // Exact GGUF filename when known (skips llmfit file pick).
     string filename = 6;
+    // When true, accept the pull and return immediately; the daemon continues
+    // downloading in the background. When false (default), stream progress
+    // until the pull finishes (GUI / API).
+    bool background = 7;
 }
 
 message PullModelReply {

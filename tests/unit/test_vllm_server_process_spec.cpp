@@ -19,6 +19,8 @@
 
 #include "vllm_server_process_spec.h"
 
+#include <QSysInfo>
+
 namespace mp = multipass;
 using namespace testing;
 
@@ -37,6 +39,19 @@ mp::VllmServerOptions base_options()
     options.max_model_len = 4096;
     return options;
 }
+
+bool host_is_aarch64()
+{
+    const auto arch = QSysInfo::currentCpuArchitecture().toLower();
+    return arch.contains("arm64") || arch.contains("aarch64");
+}
+
+QStringList with_optional_eager(QStringList args)
+{
+    if (host_is_aarch64())
+        args << "--enforce-eager";
+    return args;
+}
 } // namespace
 
 TEST(TestVllmServerProcessSpec, cliServeBindsLoopback)
@@ -44,21 +59,22 @@ TEST(TestVllmServerProcessSpec, cliServeBindsLoopback)
     const mp::VllmServerProcessSpec spec{base_options()};
     EXPECT_EQ(spec.program(), "vllm");
     EXPECT_EQ(spec.identifier(), "vllm-18080");
+    EXPECT_TRUE(spec.isolate_process_group());
     EXPECT_EQ(spec.arguments(),
-              QStringList({"serve",
-                           "meta-llama/Llama-3.1-8B",
-                           "--host",
-                           "127.0.0.1",
-                           "--port",
-                           "18080",
-                           "--served-model-name",
-                           "llama-3.1-8b",
-                           "--dtype",
-                           "bfloat16",
-                           "--gpu-memory-utilization",
-                           "0.85",
-                           "--max-model-len",
-                           "4096"}));
+              with_optional_eager(QStringList({"serve",
+                                               "meta-llama/Llama-3.1-8B",
+                                               "--host",
+                                               "127.0.0.1",
+                                               "--port",
+                                               "18080",
+                                               "--served-model-name",
+                                               "llama-3.1-8b",
+                                               "--dtype",
+                                               "bfloat16",
+                                               "--gpu-memory-utilization",
+                                               "0.85",
+                                               "--max-model-len",
+                                               "4096"})));
 }
 
 TEST(TestVllmServerProcessSpec, pythonModuleLaunchMode)
@@ -73,17 +89,17 @@ TEST(TestVllmServerProcessSpec, pythonModuleLaunchMode)
 
     const mp::VllmServerProcessSpec spec{options};
     EXPECT_EQ(spec.arguments(),
-              QStringList({"-m",
-                           "vllm.entrypoints.openai.api_server",
-                           "--host",
-                           "127.0.0.1",
-                           "--port",
-                           "18080",
-                           "--model",
-                           "meta-llama/Llama-3.1-8B"}));
+              with_optional_eager(QStringList({"-m",
+                                               "vllm.entrypoints.openai.api_server",
+                                               "--host",
+                                               "127.0.0.1",
+                                               "--port",
+                                               "18080",
+                                               "--model",
+                                               "meta-llama/Llama-3.1-8B"})));
 }
 
-TEST(TestVllmServerProcessSpec, environmentSetsHfCacheAndToken)
+TEST(TestVllmServerProcessSpec, environmentSetsHfCacheTokenAndMultiprocGuard)
 {
     auto options = base_options();
     options.hf_cache_dir = "/tmp/elp-hf-cache";
@@ -92,4 +108,6 @@ TEST(TestVllmServerProcessSpec, environmentSetsHfCacheAndToken)
     const auto env = spec.environment();
     EXPECT_EQ(env.value("HF_HUB_CACHE"), "/tmp/elp-hf-cache");
     EXPECT_EQ(env.value("HF_TOKEN"), "hf_test_token");
+    EXPECT_EQ(env.value("VLLM_WORKER_MULTIPROC_METHOD"), "spawn");
+    EXPECT_EQ(env.value("OTEL_SDK_DISABLED"), "true");
 }

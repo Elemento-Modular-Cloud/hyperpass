@@ -35,11 +35,13 @@
 #include <QThread>
 #include <QTimer>
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -175,6 +177,8 @@ private:
                           int http_timeout_sec = 60) const;
     /// Wait for OpenAI-compat HTTP (and optional warm completion). Throws with
     /// process stderr when the backend exits early; uses a longer budget for vLLM.
+    /// Warm completion is used for mlx and vLLM so first-use JIT/weight fetch happens
+    /// during load rather than on the first user request.
     void ensure_backend_ready(Process* process,
                               int port,
                               const std::string& instance_id,
@@ -191,9 +195,30 @@ private:
                                 const ProgressMonitor& monitor,
                                 const std::string& format = {},
                                 const std::string& filename = {});
+    /// Resolve a vault artifact that is already on disk. Never downloads.
+    ModelArtifact require_cached(const std::string& model_id,
+                                 const std::string& quant,
+                                 const std::string& format = {}) const;
     std::string resolve_hf_repo(const std::string& model_id,
                                 const std::string& quant,
                                 const std::string& hf_repo);
+    struct PullJob
+    {
+        std::string model_id;
+        std::string format;
+        std::atomic<int> percent{0};
+        std::atomic<bool> done{false};
+        std::atomic<bool> failed{false};
+        std::mutex mu;
+        std::string path;
+        std::string error;
+        std::string message;
+    };
+    std::shared_ptr<PullJob> start_or_join_pull(const std::string& model_id,
+                                                const std::string& quant,
+                                                const std::string& hf_repo,
+                                                const std::string& format,
+                                                const std::string& filename);
     ResolvedGguf resolve_or_throw(const std::string& model_id,
                                   const std::string& quant,
                                   const std::string& hf_repo = {});
@@ -238,6 +263,8 @@ private:
     llm::RunnerRegistry runners;
     std::unordered_map<std::string, LoadedSession> sessions;
     mutable std::mutex mutex;
+    std::unordered_map<std::string, std::shared_ptr<PullJob>> pull_jobs;
+    std::mutex pull_jobs_mutex;
     QTimer idle_timer;
 };
 

@@ -80,6 +80,9 @@ private:
     void run_and_wait_until_finished(const int timeout);
     qint64 pid = 0;
     qint64 stderr_logged_bytes = 0;
+    // Cached before start — setup_child_process runs post-fork and must not
+    // call virtual methods or allocate (see AppArmoredProcess notes).
+    bool isolate_process_group_ = false;
 };
 
 } // namespace multipass

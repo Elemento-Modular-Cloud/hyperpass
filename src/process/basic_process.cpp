@@ -19,6 +19,10 @@
 #include <multipass/logging/log.h>
 #include <multipass/process/basic_process.h>
 
+#ifndef MULTIPASS_PLATFORM_WINDOWS
+#include <unistd.h>
+#endif
+
 namespace mp = multipass;
 namespace mpl = multipass::logging;
 
@@ -40,7 +44,9 @@ mp::BasicProcess::CustomQProcess::CustomQProcess(BasicProcess* p) : QProcess{p}
 }
 
 mp::BasicProcess::BasicProcess(std::shared_ptr<mp::ProcessSpec> spec)
-    : process_spec{spec}, process{this}
+    : process_spec{spec},
+      process{this},
+      isolate_process_group_{spec && spec->isolate_process_group()}
 {
     connect(&process, &QProcess::started, this, &mp::BasicProcess::handle_started);
     connect(&process,
@@ -230,6 +236,12 @@ mp::ProcessState mp::BasicProcess::execute(const int timeout)
 
 void mp::BasicProcess::setup_child_process()
 {
+#ifndef MULTIPASS_PLATFORM_WINDOWS
+    // async-signal-safe only (runs between fork and exec). Do not call virtuals
+    // or allocate — use the bool cached in the constructor.
+    if (isolate_process_group_)
+        ::setsid();
+#endif
 }
 
 void mp::BasicProcess::handle_started()

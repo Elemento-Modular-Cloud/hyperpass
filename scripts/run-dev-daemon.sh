@@ -65,6 +65,12 @@ stop_dev_daemon() {
     sudo pkill -9 -f "$DAEMON" 2>/dev/null || true
   fi
   sudo pkill -9 -f "unix:${ELP_SOCKET}" 2>/dev/null || true
+  # Orphaned dnsmasq survives elpd death and blocks the next start
+  # ("failed to create listening socket for 10.98.x.1: Address already in use").
+  if [[ -n "${ELP_STORAGE:-}" ]]; then
+    sudo pkill -9 -f "dnsmasq.*${ELP_STORAGE}/data/network/" 2>/dev/null || true
+  fi
+  sudo pkill -9 -f "dnsmasq.*--domain=elp" 2>/dev/null || true
   if [[ -e "$ELP_SOCKET" ]]; then
     sudo rm -f "$ELP_SOCKET"
   fi
@@ -175,6 +181,9 @@ echo "                 ./scripts/run-dev-gui.sh"
 echo
 echo "    Stop:        Ctrl-C, or: $(basename "$0") --stop"
 echo
+
+# Clear a previous crashed daemon's leftovers before binding the socket / DNS.
+stop_dev_daemon
 
 if [[ $EUID -eq 0 ]]; then
   exec "$DAEMON" \

@@ -20,6 +20,8 @@
 #include "animated_spinner.h"
 
 #include <multipass/cli/argparser.h>
+
+#include <multipass/cli/argparser.h>
 #include <multipass/cli/format_utils.h>
 #include <multipass/constants.h>
 #include <multipass/exceptions/cmd_exceptions.h>
@@ -103,7 +105,11 @@ mp::ParseCode cmd::handle_format_option(const mp::ArgParser* parser,
                                         mp::Formatter** chosen_formatter,
                                         std::ostream& cerr)
 {
-    *chosen_formatter = mp::format::formatter_for(parser->value(format_option_name).toStdString());
+    // Global --json wins over per-command --format.
+    const auto format = parser->jsonOutput()
+                            ? std::string{"json"}
+                            : parser->value(format_option_name).toStdString();
+    *chosen_formatter = mp::format::formatter_for(format);
 
     if (*chosen_formatter == nullptr)
     {

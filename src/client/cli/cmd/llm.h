@@ -50,6 +50,7 @@ private:
     QString provider_preset;
     QString provider_base_url;
     QString provider_api_key;
+    QString runtime; // llamacpp | vllm | mlx (empty → daemon default)
     QStringList provider_include;
     QStringList provider_exclude;
     int limit{10};
@@ -57,5 +58,6 @@ private:
     int max_tokens{0};
     multipass::LlmLoadParams load_params;
     bool recommend_only{false};
+    bool pull_wait{false}; // block until pull finishes (default: background)
 };
 } // namespace multipass::cmd

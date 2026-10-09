@@ -16,6 +16,7 @@
  */
 
 #include <multipass/cli/alias_dict.h>
+#include <multipass/cli/cli_style.h>
 #include <multipass/cli/client_common.h>
 #include <multipass/cli/format_utils.h>
 #include <multipass/cli/table_formatter.h>
@@ -144,7 +145,7 @@ void generate_instance_details(Dest&& dest, const mp::DetailedInfoItem& item)
     fmt::format_to(dest,
                    "{:<16}{}\n",
                    "State:",
-                   mp::format::status_string_for(item.instance_status()));
+                   mp::cli_style::paint_status(mp::format::status_string_for(item.instance_status())));
     fmt::format_to(dest,
                    "{:<16}{}\n",
                    "Zone:",
@@ -265,9 +266,9 @@ std::string generate_instances_list(const mp::InstancesList& instance_list)
     const std::string::size_type ip_column_width = 17;
     [[maybe_unused]] const std::string::size_type image_column_width = 20;
 
-    constexpr auto row_format = "{:<{}}{:<{}}{:<{}}{:<{}}{:<}\n";
+    constexpr auto row_format = "{:<{}}{}{:<{}}{:<{}}{:<}\n";
     fmt::format_to(std::back_inserter(buf),
-                   row_format,
+                   "{:<{}}{:<{}}{:<{}}{:<{}}{:<}\n",
                    name_col_header,
                    name_column_width,
                    "State",
@@ -281,14 +282,16 @@ std::string generate_instances_list(const mp::InstancesList& instance_list)
     for (const auto& instance : mp::format::sorted(instance_list.instances()))
     {
         int ipv4_size = instance.ipv4_size();
+        const auto state_cell = mp::cli_style::paint_status_cell(
+            mp::format::status_string_for(instance.instance_status()),
+            static_cast<int>(state_column_width));
 
         fmt::format_to(
             std::back_inserter(buf),
             row_format,
             instance.name(),
             name_column_width,
-            mp::format::status_string_for(instance.instance_status()),
-            state_column_width,
+            state_cell,
             ipv4_size ? instance.ipv4(0) : "--",
             ip_column_width,
             instance.current_release().empty()
@@ -305,10 +308,9 @@ std::string generate_instances_list(const mp::InstancesList& instance_list)
                            row_format,
                            "",
                            name_column_width,
-                           "",
-                           state_column_width,
+                           std::string(state_column_width, ' '),
                            instance.ipv4(i),
-                           instance.ipv4(i).size(),
+                           ip_column_width,
                            "",
                            0,
                            "");

@@ -59,6 +59,7 @@ add_library(commands STATIC
 target_link_libraries(commands
   client_common
   client_platform
+  formatter
   sftp_client
   ssh_client
   rpc
