@@ -19,40 +19,22 @@
 #include "cmd/alias.h"
 #include "cmd/aliases.h"
 #include "cmd/authenticate.h"
-#include "cmd/clone.h"
-#include "cmd/delete.h"
 #include "cmd/disable_zones.h"
 #include "cmd/enable_zones.h"
-#include "cmd/exec.h"
-#include "cmd/find.h"
 #include "cmd/get.h"
 #include "cmd/help.h"
-#include "cmd/info.h"
 #include "cmd/intent.h"
-#include "cmd/launch.h"
-#include "cmd/list.h"
 #include "cmd/llm.h"
-#include "cmd/migrate.h"
-#include "cmd/mount.h"
 #include "cmd/networks.h"
 #include "cmd/port_forward.h"
 #include "cmd/prefer.h"
-#include "cmd/purge.h"
-#include "cmd/recover.h"
 #include "cmd/remote_settings_handler.h"
-#include "cmd/restart.h"
-#include "cmd/restore.h"
 #include "cmd/resources.h"
+#include "cmd/services.h"
 #include "cmd/set.h"
-#include "cmd/shell.h"
-#include "cmd/snapshot.h"
-#include "cmd/start.h"
-#include "cmd/stop.h"
-#include "cmd/suspend.h"
-#include "cmd/transfer.h"
-#include "cmd/umount.h"
 #include "cmd/unalias.h"
 #include "cmd/version.h"
+#include "cmd/vm.h"
 #include "cmd/wait_ready.h"
 #include "cmd/zones.h"
 
@@ -94,37 +76,19 @@ mp::Client::Client(ClientConfig& config)
     add_command<cmd::Alias>(aliases);
     add_command<cmd::Aliases>(aliases);
     add_command<cmd::Authenticate>();
-    add_command<cmd::Launch>(aliases);
-    add_command<cmd::Purge>(aliases);
-    add_command<cmd::Exec>(aliases);
-    add_command<cmd::Find>();
     add_command<cmd::Get>();
     add_command<cmd::Help>();
-    add_command<cmd::Info>();
-    add_command<cmd::List>();
+    add_command<cmd::Intent>();
     add_command<cmd::Llm>();
     add_command<cmd::Networks>();
     add_command<cmd::PortForward>();
-    add_command<cmd::Mount>();
     add_command<cmd::Prefer>(aliases);
-    add_command<cmd::Recover>();
-    add_command<cmd::Restore>();
     add_command<cmd::Resources>();
+    add_command<cmd::Services>();
     add_command<cmd::Set>();
-    add_command<cmd::Shell>();
-    add_command<cmd::Snapshot>();
-    add_command<cmd::Start>();
-    add_command<cmd::Stop>();
-    add_command<cmd::Suspend>();
-    add_command<cmd::Transfer>();
     add_command<cmd::Unalias>(aliases);
-    add_command<cmd::Restart>();
-    add_command<cmd::Delete>(aliases);
-    add_command<cmd::Umount>();
     add_command<cmd::Version>();
-    add_command<cmd::Clone>();
-    add_command<cmd::Intent>();
-    add_command<cmd::Migrate>();
+    add_command<cmd::Vm>(aliases);
     add_command<cmd::WaitReady>();
     add_command<cmd::DisableZones>();
     add_command<cmd::EnableZones>();
@@ -145,9 +109,12 @@ void mp::Client::sort_commands()
 
 mp::ReturnCodeVariant mp::Client::run(const QStringList& arguments)
 {
-    QString description("Create, control and connect to cloud instances.\n\n"
-                        "This is a command line utility for multipass, a\n"
-                        "service that manages cloud instances.");
+    QString description(
+        QStringLiteral(
+            "Create, control and connect to VMs, LLMs, and services.\n\n"
+            "Workload groups: `%1 vm`, `%1 llm`, `%1 services`.\n"
+            "Shared: settings (`get`/`set`), networks, zones, intents, aliases.")
+            .arg(QLatin1String(mp::client_name)));
 
     ArgParser parser(arguments, commands, term->cout(), term->cerr());
     parser.setApplicationDescription(description);

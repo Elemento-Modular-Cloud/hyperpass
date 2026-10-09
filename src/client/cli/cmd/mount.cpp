@@ -143,7 +143,7 @@ mp::ParseCode cmd::Mount::parse_args(mp::ArgParser* parser)
     QCommandLineOption mount_type_option(
         {"t", "type"},
         "Specify the type of mount to use.\n"
-        "Classic mounts use technology built into Multipass.\n"
+        "Classic mounts use technology built into elp.\n"
         "Native mounts use hypervisor and/or platform specific mounts.\n"
         "Valid types are: \'classic\' (default) and \'native\'",
         "type",

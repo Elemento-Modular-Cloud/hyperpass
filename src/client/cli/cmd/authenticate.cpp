@@ -61,16 +61,16 @@ QString cmd::Authenticate::short_help() const
 
 QString cmd::Authenticate::description() const
 {
-    return QStringLiteral("Authenticate with the Multipass service.\n"
+    return QStringLiteral("Authenticate with the elp service.\n"
                           "A system administrator should provide you with a passphrase\n"
-                          "to allow use of the Multipass service.");
+                          "to allow use of the elp service.");
 }
 
 mp::ParseCode cmd::Authenticate::parse_args(mp::ArgParser* parser)
 {
     parser->addPositionalArgument(
         "passphrase",
-        "Passphrase to register with the Multipass service. If omitted, a prompt will be "
+        "Passphrase to register with the elp service. If omitted, a prompt will be "
         "displayed for entering the passphrase.",
         "[<passphrase>]");
 

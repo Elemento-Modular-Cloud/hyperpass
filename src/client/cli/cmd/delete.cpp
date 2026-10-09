@@ -190,10 +190,12 @@ std::string multipass::cmd::Delete::generate_snapshot_purge_msg() const
 
     if (!instance_args.empty())
         return fmt::format(
-            "{}:\n\n\tmultipass delete --purge {}\n\nYou can use a separate command to delete "
-            "instances without purging them:\n\n\tmultipass delete {}\n",
+            "{}:\n\n\t{} vm delete --purge {}\n\nYou can use a separate command to delete "
+            "instances without purging them:\n\n\t{} vm delete {}\n",
             no_purge_base_error_msg,
+            mp::client_name,
             snapshot_args,
+            mp::client_name,
             instance_args);
     else
         return fmt::format("{}.\n", no_purge_base_error_msg);

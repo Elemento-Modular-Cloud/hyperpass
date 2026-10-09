@@ -47,6 +47,8 @@ mp::ReturnCodeVariant cmd::List::run(mp::ArgParser* parser)
     };
 
     request.set_verbosity_level(parser->verbosityLevel());
+    // Daemon filters before IPv4 probes so service VMs do not slow Compute list.
+    request.set_instance_kind("vm");
     return dispatch_with_deadline(&RpcMethod::list, request, on_success, on_failure, mp::quick_rpc_deadline);
 }
 

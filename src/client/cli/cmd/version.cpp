@@ -63,7 +63,7 @@ QString cmd::Version::short_help() const
 
 QString cmd::Version::description() const
 {
-    return QStringLiteral("Display version information about the multipass command\n"
+    return QStringLiteral("Display version information about the elp command\n"
                           "and daemon.");
 }
 

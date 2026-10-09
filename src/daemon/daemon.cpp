@@ -2175,6 +2175,13 @@ try
 
     auto fetch_instance = [this, request, &response, &deleted](VirtualMachine& vm) {
         const auto& name = vm.get_name();
+        const auto sid = service_id_from_specs(vm_instance_specs[name]);
+        const auto kind = request->instance_kind();
+        if (kind == "vm" && !sid.empty())
+            return grpc::Status::OK;
+        if (kind == "service" && sid.empty())
+            return grpc::Status::OK;
+
         auto present_state = vm.current_state();
         auto entry = response.mutable_instance_list()->add_instances();
         entry->set_name(name);
@@ -2206,20 +2213,15 @@ try
         entry->set_current_release(current_release);
         entry->set_os(os);
 
-        if (const auto sid = service_id_from_specs(vm_instance_specs[name]); !sid.empty())
+        if (!sid.empty())
             entry->set_service_id(sid);
 
+        // List only needs the management/DHCP address. get_all_ipv4() SSHes into the
+        // guest and dominates list latency; extra addresses remain available via info.
         if (request->request_ipv4() && MP_UTILS.is_running(present_state))
         {
-            auto management_ip = vm.management_ipv4();
-            auto all_ipv4 = vm.get_all_ipv4();
-
-            if (management_ip)
+            if (auto management_ip = vm.management_ipv4())
                 entry->add_ipv4(management_ip->as_string());
-
-            for (const auto& extra_ipv4 : all_ipv4)
-                if (extra_ipv4 != management_ip)
-                    entry->add_ipv4(extra_ipv4.as_string());
         }
 
         return grpc::Status::OK;

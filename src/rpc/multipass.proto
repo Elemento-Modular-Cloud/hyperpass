@@ -310,6 +310,10 @@ message ListRequest {
     int32 verbosity_level = 1;
     bool snapshots = 2;
     bool request_ipv4 = 3;
+    // When set, filter instances by presence of service_id before expensive
+    // per-instance work (IPv4 probes). Empty = no filter (legacy).
+    // "vm" = exclude service deployments; "service" = only service deployments.
+    string instance_kind = 4;
 }
 
 message ListVMInstance {

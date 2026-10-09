@@ -85,10 +85,10 @@ bool mp::BridgePrompter::bridge_prompt(const std::vector<std::string>& nets_need
     assert(nets_need_bridging.size()); // precondition
 
     static constexpr auto plural =
-        "Multipass needs to create {} to connect to {}.\nThis will temporarily disrupt "
+        "elp needs to create {} to connect to {}.\nThis will temporarily disrupt "
         "connectivity on those interfaces.\n\nDo you want to continue (yes/no)? ";
     static constexpr auto singular =
-        "Multipass needs to create a {} to connect to {}.\nThis will temporarily disrupt "
+        "elp needs to create a {} to connect to {}.\nThis will temporarily disrupt "
         "connectivity on that interface.\n\nDo you want to continue (yes/no)? ";
     static constexpr auto nodes = on_windows() ? "switches" : "bridges";
     static constexpr auto node = on_windows() ? "switch" : "bridge";

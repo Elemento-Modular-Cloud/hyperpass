@@ -241,7 +241,7 @@ mp::ParseCode cmd::Launch::parse_args(mp::ArgParser* parser)
         "\"key=value,key=value\" format, with the following keys available:\n"
         "  name: the network to connect to (required), use the networks command for a "
         "list of possible values, or use 'bridged' to use the interface configured via "
-        "`multipass set local.bridged-network`.\n"
+        "`elp set local.bridged-network`.\n"
         "  mode: auto|manual (default: auto)\n"
         "  mac: hardware address (default: random).\n"
         "You can also use a shortcut of \"<name>\" to mean \"name=<name>\".",
@@ -433,7 +433,7 @@ mp::ParseCode cmd::Launch::parse_args(mp::ArgParser* parser)
         catch (const YAML::BadFile& e)
         {
             auto err_detail =
-                fmt::format("{}\n{}", e.what(), "Please ensure that Multipass can read it.");
+                fmt::format("{}\n{}", e.what(), "Please ensure that elp can read it.");
             fmt::println(cerr, err_msg_template, err_detail);
             return ParseCode::CommandLineError;
         }
@@ -537,7 +537,7 @@ mp::ReturnCodeVariant cmd::Launch::request_launch(const ArgParser* parser)
                                 ? QString::fromLocal8Bit(mpu::snap_real_home_dir())
                                 : MP_STDPATHS.writableLocation(StandardPaths::HomeLocation);
             auto full_path_str =
-                home_dir + "/multipass/" + QString::fromStdString(workspace_to_be_created);
+                home_dir + "/elp/" + QString::fromStdString(workspace_to_be_created);
 
             QDir full_path(full_path_str);
             if (full_path.exists())

@@ -43,6 +43,7 @@ add_library(commands STATIC
   restart.cpp
   restore.cpp
   resources.cpp
+  services.cpp
   set.cpp
   shell.cpp
   snapshot.cpp
@@ -53,8 +54,11 @@ add_library(commands STATIC
   umount.cpp
   unalias.cpp
   version.cpp
+  vm.cpp
   wait_ready.cpp
   zones.cpp)
+
+target_include_directories(commands PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 target_link_libraries(commands
   client_common
@@ -62,6 +66,7 @@ target_link_libraries(commands
   formatter
   sftp_client
   ssh_client
+  ssh_common
   rpc
   settings
   Qt6::Core

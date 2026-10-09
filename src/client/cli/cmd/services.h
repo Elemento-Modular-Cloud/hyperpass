@@ -18,13 +18,14 @@
 #pragma once
 
 #include <multipass/cli/command.h>
-#include <multipass/rpc/multipass.grpc.pb.h>
 
 #include <QString>
 
+#include <functional>
+
 namespace multipass::cmd
 {
-class Llm final : public Command
+class Services final : public Command
 {
 public:
     using Command::Command;
@@ -36,33 +37,13 @@ public:
 
 private:
     ParseCode parse_args(ArgParser* parser);
-    ReturnCodeVariant run_chat(int verbosity);
+    ReturnCodeVariant run_list(ArgParser* parser);
+    ReturnCodeVariant run_healthcheck(ArgParser* parser);
+    ReturnCodeVariant run_info(ArgParser* parser);
+    ReturnCodeVariant with_guest(ArgParser* parser,
+                                 const std::function<ReturnCodeVariant(const SSHInfo&)>& body);
 
     QString subcommand;
-    QString model_id;
-    QString quant;
-    QString use_case;
-    QString query;
-    QString key_label;
-    QString key_id;
-    QString key_instance;
-    QString intent;
-    QString intent_role;
-    QString provider_preset;
-    QString provider_base_url;
-    QString provider_api_key;
-    QString runtime; // llamacpp | vllm | mlx (empty → daemon default)
-    QString chat_message;   // one-shot prompt for `llm chat -m`
-    QString chat_system;    // optional system prompt
-    QStringList provider_include;
-    QStringList provider_exclude;
-    int limit{10};
-    int ctx_size{4096};
-    int max_tokens{0};
-    multipass::LlmLoadParams load_params;
-    bool recommend_only{false};
-    bool pull_wait{false}; // block until pull finishes (default: background)
-    bool chat_use_proxy{false};
-    bool chat_no_stream{false};
+    QString instance_name;
 };
 } // namespace multipass::cmd

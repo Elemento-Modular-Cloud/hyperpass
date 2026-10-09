@@ -17,6 +17,7 @@
 
 #include <multipass/cli/argparser.h>
 #include <multipass/cli/cli_style.h>
+#include <multipass/constants.h>
 #include <multipass/format.h>
 
 #include <QFileInfo>
@@ -117,12 +118,13 @@ mp::ArgParser::ArgParser(const QStringList& arguments,
 
 mp::ParseCode mp::ArgParser::prepare_alias_execution(const QString& alias)
 {
-    chosen_command = findCommand("exec");
+    chosen_command = findCommand("vm");
 
     auto pos = arguments.indexOf(alias);
-    arguments.replace(pos, "exec");
-    arguments.insert(pos + 1, QString::fromStdString(execute_alias->instance));
-    arguments.insert(pos + 2, QString::fromStdString(execute_alias->command));
+    arguments.replace(pos, "vm");
+    arguments.insert(pos + 1, "exec");
+    arguments.insert(pos + 2, QString::fromStdString(execute_alias->instance));
+    arguments.insert(pos + 3, QString::fromStdString(execute_alias->command));
 
     return mp::ParseCode::Ok;
 }
@@ -202,8 +204,8 @@ mp::ParseCode mp::ArgParser::parse(const std::optional<mp::AliasDict>& aliases)
     }
 
     // Fall through
-    cout << "Error: Unknown command or alias '" << qUtf8Printable(requested_command)
-         << "' (try \"multipass help\" or \"multipass aliases\")\n";
+    cout << "Error: Unknown command or alias '" << qUtf8Printable(requested_command) << "' (try \""
+         << mp::client_name << " help\" or \"" << mp::client_name << " aliases\")\n";
     return ParseCode::CommandLineError;
 }
 

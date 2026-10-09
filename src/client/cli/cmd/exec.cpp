@@ -130,10 +130,11 @@ mp::ReturnCodeVariant cmd::Exec::run(mp::ArgParser* parser)
             return standard_failure_handler_for(name(), cerr, status);
 
         if (status.error_code() == grpc::StatusCode::ABORTED)
-            return run_cmd_and_retry({mp::client_name, "start", QString::fromStdString(instance_name)},
-                                     parser,
-                                     cout,
-                                     cerr);
+            return run_cmd_and_retry(
+                {mp::client_name, "start", QString::fromStdString(instance_name)},
+                parser,
+                cout,
+                cerr);
         else
             return standard_failure_handler_for(name(), cerr, status);
     };
@@ -236,9 +237,10 @@ mp::ParseCode cmd::Exec::parse_args(mp::ArgParser* parser)
         {
             bool is_alias = parser->executeAlias() != std::nullopt;
             cerr << fmt::format("\nOptions to the {} should come after \"--\", like "
-                                "this:\nmultipass {} <arguments>\n",
+                                "this:\n{} {} <arguments>\n",
                                 is_alias ? "alias" : "inner command",
-                                is_alias ? "<alias> --" : "exec <instance> -- <command>");
+                                mp::client_name,
+                                is_alias ? "<alias> --" : "vm exec <instance> -- <command>");
         }
         return status;
     }

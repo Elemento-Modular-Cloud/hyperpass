@@ -19,6 +19,7 @@
 
 #include <multipass/callable_traits.h>
 #include <multipass/cli/return_codes.h>
+#include <multipass/constants.h>
 #include <multipass/format.h>
 #include <multipass/reply_concepts.h>
 #include <multipass/utils.h>
@@ -149,7 +150,7 @@ ReturnCodeVariant dispatch_rpc_stream(Rpc::StubInterface* stub,
             {
                 grpc::Status denied_status{
                     grpc::StatusCode::PERMISSION_DENIED,
-                    "multipass socket access denied",
+                    "elp socket access denied",
                     fmt::format("Please check that you have read/write permissions to '{}'",
                                 socket_address)};
                 return handle_failure(denied_status);
@@ -158,8 +159,9 @@ ReturnCodeVariant dispatch_rpc_stream(Rpc::StubInterface* stub,
 
         grpc::Status access_error_status{
             grpc::StatusCode::NOT_FOUND,
-            "cannot connect to the multipass socket",
-            fmt::format("Please ensure multipassd is running and '{}' is accessible",
+            "cannot connect to the elp socket",
+            fmt::format("Please ensure {} is running and '{}' is accessible",
+                        multipass::daemon_name,
                         socket_address)};
 
         return handle_failure(access_error_status);

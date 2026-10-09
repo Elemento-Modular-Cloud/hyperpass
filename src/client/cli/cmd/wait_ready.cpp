@@ -48,7 +48,7 @@ mp::ReturnCodeVariant cmd::WaitReady::run(mp::ArgParser* parser)
         timer = cmd::make_timer(parser->value("timeout").toInt(),
                                 &spinner,
                                 cerr,
-                                "Timed out waiting for the Multipass daemon to be ready.");
+                                "Timed out waiting for the elpd daemon to be ready.");
         timer->start();
     }
 
@@ -97,13 +97,13 @@ std::string cmd::WaitReady::name() const
 
 QString cmd::WaitReady::short_help() const
 {
-    return QStringLiteral("Wait for the Multipass daemon to be ready");
+    return QStringLiteral("Wait for the elpd daemon to be ready");
 }
 
 QString cmd::WaitReady::description() const
 {
     return QStringLiteral(
-        "Wait for the Multipass daemon to be ready. This command will block until the\n"
+        "Wait for the elpd daemon to be ready. This command will block until the\n"
         "daemon has initialized, fetched up-to-date image information, and is ready to\n"
         "accept requests. Its main use is to prevent failures caused by incomplete\n"
         "initialization in batch operations. An optional timeout aborts the command if\n"

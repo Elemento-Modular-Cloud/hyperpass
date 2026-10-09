@@ -236,7 +236,7 @@ std::string mp::CSVFormatter::format(const VersionReply& reply,
 {
     fmt::memory_buffer buf;
 
-    fmt::format_to(std::back_inserter(buf), "Multipass,Multipassd,Title,Description,URL\n");
+    fmt::format_to(std::back_inserter(buf), "elp,elpd,Title,Description,URL\n");
 
     fmt::format_to(std::back_inserter(buf),
                    "{},{},{},{},{}\n",

@@ -57,6 +57,7 @@
 #include <chrono>
 #include <initializer_list>
 #include <thread>
+#include <unordered_set>
 #include <utility>
 
 namespace mp = multipass;
@@ -269,13 +270,27 @@ struct Client : public Test
                      preventing them from being saturated inadvertently */
     }
 
+    /// Prefix classic Multipass verbs with `vm` so tests match `elp vm <cmd>`.
+    static std::vector<std::string> with_vm_prefix(std::vector<std::string> command)
+    {
+        static const std::unordered_set<std::string> vm_verbs{
+            "launch",  "start",    "stop",     "restart", "suspend",  "delete",
+            "purge",   "recover",  "list",     "ls",      "info",     "shell",
+            "sh",      "connect",  "exec",     "find",    "clone",    "snapshot",
+            "restore", "mount",    "umount",   "unmount", "transfer", "copy-files",
+            "migrate"};
+        if (!command.empty() && vm_verbs.contains(command.front()) && command.front() != "vm")
+            command.insert(command.begin(), "vm");
+        return command;
+    }
+
     int setup_client_and_run(const std::vector<std::string>& command, mp::Terminal& term)
     {
         mp::ClientConfig client_config{server_address, get_client_cert_provider(), &term};
         mp::Client client{client_config};
-        QStringList args = QStringList() << "multipass_cpp_test";
+        QStringList args = QStringList() << "elp_cpp_test";
 
-        for (const auto& arg : command)
+        for (const auto& arg : with_vm_prefix(command))
         {
             args << QString::fromStdString(arg);
         }
@@ -1855,8 +1870,7 @@ TEST_F(Client, execCmdNoDoubleDashUnknownOptionFailsPrintSuggestedCommand)
                 Eq(mp::ReturnCode::CommandLineError));
     EXPECT_THAT(cerr_stream.str(),
                 HasSubstr("Options to the inner command should come after \"--\", like "
-                          "this:\nmultipass exec <instance> -- "
-                          "<command> <arguments>\n"));
+                          "this:\nelp vm exec <instance> -- <command> <arguments>\n"));
 }
 
 TEST_F(Client, execCmdDoubleDashUnknownOptionFailsDoesNotPrintSuggestedCommand)
@@ -1867,8 +1881,7 @@ TEST_F(Client, execCmdDoubleDashUnknownOptionFailsDoesNotPrintSuggestedCommand)
         Eq(mp::ReturnCode::CommandLineError));
     EXPECT_THAT(cerr_stream.str(),
                 Not(HasSubstr("Options to the inner command should come after \"--\", like "
-                              "this:\nmultipass exec <instance> -- "
-                              "<command> <arguments>\n")));
+                              "this:\nelp vm exec <instance> -- <command> <arguments>\n")));
 }
 
 TEST_F(Client, execCmdNoDoubleDashNoUnknownOptionFailsDoesNotPrintSuggestedCommand)
@@ -1878,8 +1891,7 @@ TEST_F(Client, execCmdNoDoubleDashNoUnknownOptionFailsDoesNotPrintSuggestedComma
                 Eq(mp::ReturnCode::Ok));
     EXPECT_THAT(cerr_stream.str(),
                 Not(HasSubstr("Options to the inner command should come after \"--\", like "
-                              "this:\nmultipass exec <instance> -- "
-                              "<command> <arguments>\n")));
+                              "this:\nelp vm exec <instance> -- <command> <arguments>\n")));
 }
 
 TEST_F(Client, execCmdStartsInstanceIfStoppedOrSuspended)
@@ -2102,7 +2114,7 @@ TEST_F(Client, execFailsOnArgumentClash)
 // help cli tests
 TEST_F(Client, helpCmdOkWithValidSingleArg)
 {
-    EXPECT_THAT(send_command({"help", "launch"}), Eq(mp::ReturnCode::Ok));
+    EXPECT_THAT(send_command({"help", "vm"}), Eq(mp::ReturnCode::Ok));
 }
 
 TEST_F(Client, helpCmdOkNoArgs)
@@ -3814,14 +3826,14 @@ TEST_F(Client, commandHelpIsDifferentThanGeneralHelp)
 
 TEST_F(Client, helpCmdLaunchSameLaunchCmdHelp)
 {
-    std::stringstream help_cmd_launch;
-    send_command({"help", "launch"}, help_cmd_launch);
+    std::stringstream help_cmd_vm;
+    send_command({"help", "vm"}, help_cmd_vm);
 
-    std::stringstream launch_cmd_help;
-    send_command({"launch", "-h"}, launch_cmd_help);
+    std::stringstream vm_cmd_help;
+    send_command({"vm", "-h"}, vm_cmd_help);
 
-    EXPECT_THAT(help_cmd_launch.str(), Ne(""));
-    EXPECT_THAT(help_cmd_launch.str(), Eq(launch_cmd_help.str()));
+    EXPECT_THAT(help_cmd_vm.str(), Ne(""));
+    EXPECT_THAT(help_cmd_vm.str(), Eq(vm_cmd_help.str()));
 }
 
 // clone cli tests
