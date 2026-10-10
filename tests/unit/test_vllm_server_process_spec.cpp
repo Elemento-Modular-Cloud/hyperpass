@@ -52,6 +52,13 @@ QStringList with_optional_eager(QStringList args)
         args << "--enforce-eager";
     return args;
 }
+
+QStringList with_tool_calling(QStringList args, const QString& parser = QStringLiteral("llama3_json"))
+{
+    args = with_optional_eager(std::move(args));
+    args << "--enable-auto-tool-choice" << "--tool-call-parser" << parser;
+    return args;
+}
 } // namespace
 
 TEST(TestVllmServerProcessSpec, cliServeBindsLoopback)
@@ -61,20 +68,20 @@ TEST(TestVllmServerProcessSpec, cliServeBindsLoopback)
     EXPECT_EQ(spec.identifier(), "vllm-18080");
     EXPECT_TRUE(spec.isolate_process_group());
     EXPECT_EQ(spec.arguments(),
-              with_optional_eager(QStringList({"serve",
-                                               "meta-llama/Llama-3.1-8B",
-                                               "--host",
-                                               "127.0.0.1",
-                                               "--port",
-                                               "18080",
-                                               "--served-model-name",
-                                               "llama-3.1-8b",
-                                               "--dtype",
-                                               "bfloat16",
-                                               "--gpu-memory-utilization",
-                                               "0.85",
-                                               "--max-model-len",
-                                               "4096"})));
+              with_tool_calling(QStringList({"serve",
+                                             "meta-llama/Llama-3.1-8B",
+                                             "--host",
+                                             "127.0.0.1",
+                                             "--port",
+                                             "18080",
+                                             "--served-model-name",
+                                             "llama-3.1-8b",
+                                             "--dtype",
+                                             "bfloat16",
+                                             "--gpu-memory-utilization",
+                                             "0.85",
+                                             "--max-model-len",
+                                             "4096"})));
 }
 
 TEST(TestVllmServerProcessSpec, pythonModuleLaunchMode)
@@ -89,14 +96,33 @@ TEST(TestVllmServerProcessSpec, pythonModuleLaunchMode)
 
     const mp::VllmServerProcessSpec spec{options};
     EXPECT_EQ(spec.arguments(),
-              with_optional_eager(QStringList({"-m",
-                                               "vllm.entrypoints.openai.api_server",
-                                               "--host",
-                                               "127.0.0.1",
-                                               "--port",
-                                               "18080",
-                                               "--model",
-                                               "meta-llama/Llama-3.1-8B"})));
+              with_tool_calling(QStringList({"-m",
+                                             "vllm.entrypoints.openai.api_server",
+                                             "--host",
+                                             "127.0.0.1",
+                                             "--port",
+                                             "18080",
+                                             "--model",
+                                             "meta-llama/Llama-3.1-8B"})));
+}
+
+TEST(TestVllmServerProcessSpec, qwenModelSelectsHermesToolParser)
+{
+    auto options = base_options();
+    options.model = "Qwen/Qwen2.5-VL-7B-Instruct-AWQ";
+    options.dtype.clear();
+    options.gpu_memory_utilization = 0;
+    options.max_model_len = 0;
+    options.openai_id.clear();
+    const mp::VllmServerProcessSpec spec{options};
+    EXPECT_EQ(spec.arguments(),
+              with_tool_calling(QStringList({"serve",
+                                             "Qwen/Qwen2.5-VL-7B-Instruct-AWQ",
+                                             "--host",
+                                             "127.0.0.1",
+                                             "--port",
+                                             "18080"}),
+                                QStringLiteral("hermes")));
 }
 
 TEST(TestVllmServerProcessSpec, environmentSetsHfCacheTokenAndMultiprocGuard)

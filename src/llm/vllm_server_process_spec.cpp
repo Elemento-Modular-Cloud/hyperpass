@@ -29,6 +29,23 @@ bool is_aarch64_host()
     const auto arch = QSysInfo::currentCpuArchitecture().toLower();
     return arch.contains(QLatin1String("arm64")) || arch.contains(QLatin1String("aarch64"));
 }
+
+/// Open WebUI Native function-calling sends tool_choice=auto; vLLM rejects that
+/// unless --enable-auto-tool-choice and a matching --tool-call-parser are set.
+QString tool_call_parser_for_model(const QString& model)
+{
+    const auto id = model.toLower();
+    if (id.contains(QLatin1String("mistral")) || id.contains(QLatin1String("mixtral")) ||
+        id.contains(QLatin1String("ministral")))
+        return QStringLiteral("mistral");
+    if (id.contains(QLatin1String("llama-3")) || id.contains(QLatin1String("llama3")) ||
+        id.contains(QLatin1String("meta-llama")))
+        return QStringLiteral("llama3_json");
+    if (id.contains(QLatin1String("qwen3")))
+        return QStringLiteral("hermes");
+    // Qwen2.x, Hermes, and most chat templates that emit <tool_call> JSON.
+    return QStringLiteral("hermes");
+}
 } // namespace
 
 mp::VllmServerProcessSpec::VllmServerProcessSpec(VllmServerOptions options)
@@ -73,6 +90,9 @@ QStringList mp::VllmServerProcessSpec::arguments() const
     // mode avoids EngineCore dying during AsyncMPClient startup.
     if (is_aarch64_host())
         args << "--enforce-eager";
+
+    args << "--enable-auto-tool-choice"
+         << "--tool-call-parser" << tool_call_parser_for_model(options_.model);
 
     return args;
 }

@@ -72,7 +72,8 @@ TEST(TestLlamaServerProcessSpec, argumentsBindLoopbackWithSingleSlot)
                                  "--n-gpu-layers",
                                  "99",
                                  "--parallel",
-                                 "1"}));
+                                 "1",
+                                 "--jinja"}));
 }
 
 TEST(TestLlamaServerProcessSpec, argumentsIncludeMmprojWhenProvided)

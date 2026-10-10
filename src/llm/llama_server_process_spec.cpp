@@ -53,6 +53,8 @@ QStringList mp::LlamaServerProcessSpec::arguments() const
         args << "--n-predict" << QString::number(o.max_tokens);
     if (o.threads_batch > 0)
         args << "--threads-batch" << QString::number(o.threads_batch);
+    // Required for OpenAI-style tool calls (Open WebUI Native function calling).
+    args << "--jinja";
     return args;
 }
 
