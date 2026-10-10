@@ -84,9 +84,12 @@ class LlmPlaygroundException implements Exception {
   String toString() => message;
 }
 
-int playgroundMaxTokens(int sessionMaxTokens, {int cap = 512}) {
-  if (sessionMaxTokens > 0 && sessionMaxTokens < cap) return sessionMaxTokens;
-  return cap;
+/// Session max_tokens for the playground request body, or null to omit
+/// (backend unlimited / n_predict=-1). Never invent a tiny default like 512 —
+/// that silently truncates long answers in Test chat.
+int? playgroundMaxTokens(int sessionMaxTokens) {
+  if (sessionMaxTokens > 0) return sessionMaxTokens;
+  return null;
 }
 
 String? openaiErrorMessage(Object? decoded) {
@@ -101,21 +104,25 @@ String? openaiErrorMessage(Object? decoded) {
   return null;
 }
 
+String? _nonEmptyString(Object? value) {
+  if (value is String && value.isNotEmpty) return value;
+  return null;
+}
+
+/// Visible text from a chat choice. Prefers `content`, then reasoning fields
+/// used by Qwen/llama.cpp thinking models (`reasoning_content` / `reasoning`).
 String? chatContentFromChoice(Object? choice) {
   if (choice is! Map) return null;
-  final message = choice['message'];
-  if (message is Map) {
-    final content = message['content'];
-    if (content is String && content.isNotEmpty) return content;
+  for (final key in const ['message', 'delta']) {
+    final block = choice[key];
+    if (block is! Map) continue;
+    final content = _nonEmptyString(block['content']);
+    if (content != null) return content;
+    final reasoning = _nonEmptyString(block['reasoning_content']) ??
+        _nonEmptyString(block['reasoning']);
+    if (reasoning != null) return reasoning;
   }
-  final delta = choice['delta'];
-  if (delta is Map) {
-    final content = delta['content'];
-    if (content is String && content.isNotEmpty) return content;
-  }
-  final text = choice['text'];
-  if (text is String && text.isNotEmpty) return text;
-  return null;
+  return _nonEmptyString(choice['text']);
 }
 
 String chatContentFromCompletionJson(String body) {
@@ -161,8 +168,9 @@ Map<String, dynamic> playgroundRequestBody({
     'model': target.model,
     'messages': [for (final turn in messages) turn.toJson()],
     'stream': stream,
-    'max_tokens': playgroundMaxTokens(target.maxTokens),
   };
+  final maxTokens = playgroundMaxTokens(target.maxTokens);
+  if (maxTokens != null) body['max_tokens'] = maxTokens;
   if (target.mlx) {
     body['seed'] = 1;
     body['stop'] = ['\nUSER:', 'USER:', '<end_of_turn>', '<eos>'];

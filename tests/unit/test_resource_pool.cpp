@@ -99,6 +99,25 @@ TEST(ResourcePool, forceClaimIgnoresCapacity)
     EXPECT_EQ(pool.memory_claimed(), mp::MemorySize{"8G"});
 }
 
+TEST(ResourcePool, updateClaimReplacesMemoryWithoutDroppingClaim)
+{
+    mp::ResourcePool pool{mp::MemorySize{"32G"}, 4};
+    pool.set_memory_reserve(mp::MemorySize{"0B"});
+    ASSERT_TRUE(pool.try_claim("m1", mp::WorkloadKind::llm, mp::MemorySize{"8G"}, 0).accepted);
+    pool.update_claim("m1", mp::MemorySize{"12G"});
+    EXPECT_TRUE(pool.has_claim("m1"));
+    EXPECT_EQ(pool.memory_claimed(), mp::MemorySize{"12G"});
+    EXPECT_EQ(pool.memory_available(), mp::MemorySize{"20G"});
+}
+
+TEST(ResourcePool, updateClaimNoopsWhenMissing)
+{
+    mp::ResourcePool pool{mp::MemorySize{"8G"}, 2};
+    pool.update_claim("ghost", mp::MemorySize{"4G"});
+    EXPECT_FALSE(pool.has_claim("ghost"));
+    EXPECT_EQ(pool.memory_claimed(), mp::MemorySize{"0B"});
+}
+
 TEST(ResourcePool, checkAdmitDoesNotMutateClaims)
 {
     mp::ResourcePool pool{mp::MemorySize{"8G"}, 4};

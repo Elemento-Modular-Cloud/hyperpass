@@ -36,6 +36,7 @@
 #include <fstream>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <system_error>
 
 #ifdef __APPLE__
@@ -303,6 +304,29 @@ long long mp::platform::Platform::get_available_ram() const
         static_cast<long long>(stats.free_count) + static_cast<long long>(stats.inactive_count);
     return free_pages * static_cast<long long>(page_size);
 #else
+    // Prefer MemAvailable: reclaimable cache counts as free for new allocations.
+    // sysconf(_SC_AVPHYS_PAGES) tracks MemFree-ish pages and under-reports badly
+    // when LLMs pin most of RAM via CUDA/UMA while the page cache is still large.
+    {
+        std::ifstream meminfo{"/proc/meminfo"};
+        std::string line;
+        while (std::getline(meminfo, line))
+        {
+            constexpr auto prefix = "MemAvailable:";
+            if (line.compare(0, std::char_traits<char>::length(prefix), prefix) != 0)
+                continue;
+            try
+            {
+                const auto kib = std::stoll(line.substr(std::char_traits<char>::length(prefix)));
+                if (kib > 0)
+                    return kib * 1024LL;
+            }
+            catch (const std::exception&)
+            {
+            }
+            break;
+        }
+    }
     return static_cast<long long>(sysconf(_SC_AVPHYS_PAGES)) * sysconf(_SC_PAGESIZE);
 #endif
 }

@@ -113,6 +113,23 @@ std::string llm::VllmRunner::session_backend_name(RunnerDevice) const
     return runner_vllm;
 }
 
+long long llm::VllmRunner::estimate_claim_bytes(const RunnerLaunchContext& ctx) const
+{
+    const auto& p = ctx.resolved.echoed;
+    const auto max_model_len = [&] {
+        if (p.has_max_model_len() && p.max_model_len() > 0)
+            return p.max_model_len();
+        return ctx.resolved.ctx_size;
+    }();
+    const auto gpu_total = probe_gpu_total_bytes();
+    double util = 0.0;
+    if (p.has_gpu_memory_utilization() && p.gpu_memory_utilization() > 0)
+        util = p.gpu_memory_utilization();
+    else
+        util = estimate_vllm_gpu_memory_utilization(ctx.artifact.size_bytes, max_model_len, gpu_total);
+    return vllm_claim_bytes(util, gpu_total, ctx.artifact.size_bytes, max_model_len);
+}
+
 std::unique_ptr<mp::Process> llm::VllmRunner::start(const RunnerLaunchContext& ctx) const
 {
     if (!available_on_platform())

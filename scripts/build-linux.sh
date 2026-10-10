@@ -33,9 +33,54 @@ Options:
   -h, --help          Show this help
 
 Environment:
-  BUILD_DIR, BUILD_TYPE, JOBS, CMAKE_ARGS
+  BUILD_DIR, BUILD_TYPE, JOBS, CMAKE_ARGS, CMAKE
   VCPKG_FORCE_SYSTEM_BINARIES is set automatically on non-x86_64 hosts.
+  CMAKE, if set, must be CMake >= 3.29 (Ubuntu 24.04 apt is 3.28.x).
 EOF
+}
+
+# Hyperpass requires CMake >= 3.29. Ubuntu 24.04 apt still ships 3.28.x; prefer
+# snap cmake (/snap/bin) or an explicit CMAKE= override when PATH would pick apt.
+MIN_CMAKE_VERSION="3.29"
+
+cmake_version() {
+  local bin="$1"
+  "${bin}" --version 2>/dev/null | awk 'NR==1 {print $3; exit}'
+}
+
+version_ge() {
+  # True if $1 >= $2 (dotted numeric versions).
+  printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1 | grep -qx "$2"
+}
+
+resolve_cmake() {
+  local candidates=()
+  if [[ -n "${CMAKE:-}" ]]; then
+    candidates+=("${CMAKE}")
+  fi
+  if command -v cmake >/dev/null 2>&1; then
+    candidates+=("$(command -v cmake)")
+  fi
+  # Snap classic cmake is the documented Ubuntu 24.04 workaround (BUILD.linux.md).
+  if [[ -x /snap/bin/cmake ]]; then
+    candidates+=("/snap/bin/cmake")
+  fi
+
+  local seen=""
+  local cand ver
+  for cand in "${candidates[@]}"; do
+    [[ -n "${cand}" && -x "${cand}" ]] || continue
+    case " ${seen} " in
+      *" ${cand} "*) continue ;;
+    esac
+    seen+=" ${cand}"
+    ver="$(cmake_version "${cand}")"
+    if [[ -n "${ver}" ]] && version_ge "${ver}" "${MIN_CMAKE_VERSION}"; then
+      echo "${cand}"
+      return 0
+    fi
+  done
+  return 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -72,6 +117,18 @@ case "${arch}" in
     ;;
 esac
 
+if ! CMAKE_BIN="$(resolve_cmake)"; then
+  echo "error: CMake >= ${MIN_CMAKE_VERSION} is required (see BUILD.linux.md)." >&2
+  if command -v cmake >/dev/null 2>&1; then
+    echo "       Found $(command -v cmake) ($(cmake_version "$(command -v cmake)"))." >&2
+  fi
+  echo "       On Ubuntu 24.04:" >&2
+  echo "         sudo snap install cmake --classic" >&2
+  echo "         # or: CMAKE=/snap/bin/cmake ./scripts/build-linux.sh" >&2
+  exit 1
+fi
+echo "==> Using CMake ${CMAKE_BIN} ($(cmake_version "${CMAKE_BIN}"))"
+
 if command -v ninja >/dev/null 2>&1 && [[ ${#GENERATOR[@]} -eq 0 ]]; then
   GENERATOR=(-GNinja)
 fi
@@ -87,7 +144,7 @@ if [[ "${DO_CONFIGURE}" -eq 1 ]]; then
   "${ROOT}/scripts/bootstrap-vcpkg.sh"
   echo "==> Configuring (${BUILD_TYPE}) in ${BUILD_DIR}"
   # Bash 3.2 treats empty "${arr[@]}" as unbound under set -u.
-  cmake -S "${ROOT}" -B "${BUILD_DIR}" \
+  "${CMAKE_BIN}" -S "${ROOT}" -B "${BUILD_DIR}" \
     ${GENERATOR[@]+"${GENERATOR[@]}"} \
     -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
     ${EXTRA_CMAKE_ARGS[@]+"${EXTRA_CMAKE_ARGS[@]}"}
@@ -95,7 +152,7 @@ fi
 
 if [[ "${DO_BUILD}" -eq 1 ]]; then
   echo "==> Building (jobs=${JOBS})"
-  cmake --build "${BUILD_DIR}" --parallel "${JOBS}"
+  "${CMAKE_BIN}" --build "${BUILD_DIR}" --parallel "${JOBS}"
 fi
 
 if [[ "${DO_TEST}" -eq 1 ]]; then
@@ -109,7 +166,7 @@ fi
 
 if [[ "${DO_PACKAGE}" -eq 1 ]]; then
   echo "==> Packaging"
-  cmake --build "${BUILD_DIR}" --target package --parallel "${JOBS}"
+  "${CMAKE_BIN}" --build "${BUILD_DIR}" --target package --parallel "${JOBS}"
 fi
 
 echo "==> Done"

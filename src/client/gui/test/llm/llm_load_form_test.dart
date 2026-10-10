@@ -78,6 +78,19 @@ void main() {
     expect(params.maxModelLen, 8192);
   });
 
+  test('stale pref util 0.9 is ignored so GUI stays on auto', () {
+    final form = LlmLoadForm.fromJson({
+      'runtime': 'vllm',
+      'ctx_size': 8192,
+      'gpu_memory_utilization': 0.9,
+      'dtype': 'bfloat16',
+    });
+    expect(form.gpuMemoryUtilization, 0);
+    expect(form.dtype, 'bfloat16');
+    expect(form.toJson().containsKey('gpu_memory_utilization'), isFalse);
+    expect(form.toProto().hasGpuMemoryUtilization(), isFalse);
+  });
+
   test('rejects invalid numbers', () {
     expect(LlmLoadForm(ctxSize: 0).isValid, isFalse);
     expect(LlmLoadForm(maxTokens: -1).isValid, isFalse);
@@ -99,5 +112,19 @@ void main() {
     expect(stored, isNotNull);
     expect(LlmLoadForm.fromJson(stored).ctxSize, 12288);
     expect(LlmLoadForm.fromJson(stored).gpuOffload, 'all');
+  });
+
+  test('writeLlmLoadPrefs strips legacy gpu_memory_utilization', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await writeLlmLoadPrefs(prefs, 'Llama-3.1-8B', {
+      'runtime': 'vllm',
+      'ctx_size': 8192,
+      'gpu_memory_utilization': 0.9,
+    });
+    final stored = readLlmLoadPrefs(prefs, 'Llama-3.1-8B');
+    expect(stored, isNotNull);
+    expect(stored!.containsKey('gpu_memory_utilization'), isFalse);
+    expect(stored['ctx_size'], 8192);
   });
 }

@@ -24,6 +24,8 @@
 #include "mlx_repo.h"
 #include "openai_compat_client.h"
 #include "runtime_installer.h"
+#include "llm_memory_claim.h"
+#include "process_memory_probe.h"
 #include "runners/model_format.h"
 #include "vllm_memory_budget.h"
 
@@ -62,6 +64,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <cstdlib>
 #include <condition_variable>
 #include <deque>
 #include <future>
@@ -344,7 +347,8 @@ void mp::LlmService::restore_claims()
             if (art.path == session.path)
             {
                 session.model_id = art.id;
-                session.memory = MemorySize::from_bytes(art.size_bytes);
+                if (session.memory.in_bytes() <= 0)
+                    session.memory = MemorySize::from_bytes(art.size_bytes);
                 break;
             }
         }
@@ -357,6 +361,10 @@ void mp::LlmService::restore_claims()
             mpu::terminate_pid(pid);
             continue;
         }
+        if (const auto measured = probe_session_memory_bytes(pid); measured > 0)
+            session.memory = MemorySize::from_bytes(measured);
+        else if (session.memory.in_bytes() <= 0)
+            session.memory = MemorySize{"512M"};
         recovered.push_back(std::move(session));
     }
 
@@ -394,12 +402,12 @@ mp::MemorySize mp::LlmService::estimate_claim(const ModelArtifact& artifact,
                                               const std::string& cache_type_k,
                                               const std::string& cache_type_v) const
 {
-    const auto file_bytes = std::max(0LL, artifact.size_bytes);
-    const auto scale = kv_cache_byte_scale(cache_type_k, cache_type_v);
-    const auto kv = static_cast<long long>(
-        static_cast<double>(std::max(ctx_size, 2048)) * 2.0 * 1024.0 * 1024.0 / 8.0 * scale);
-    const auto overhead = 512LL * 1024 * 1024;
-    return MemorySize::from_bytes(file_bytes + kv + overhead);
+    return MemorySize::from_bytes(estimate_llama_claim_bytes(artifact.size_bytes,
+                                                             ctx_size,
+                                                             1,
+                                                             cache_type_k,
+                                                             cache_type_v,
+                                                             artifact.path));
 }
 
 int mp::LlmService::pick_loopback_port() const
@@ -1397,27 +1405,23 @@ void mp::LlmService::load_model_impl(
         return ctx;
     }();
 
-    MemorySize claim;
-    if (runner->id() == llm::runner_vllm)
+    // Stamp auto util onto echoed params before claim+start so admit matches launch.
+    if (runner->id() == llm::runner_vllm &&
+        (!resolved.echoed.has_gpu_memory_utilization() ||
+         resolved.echoed.gpu_memory_utilization() <= 0))
     {
-        // Auto model-fit util when unset so each 1:1 process budgets this model only.
-        if (!resolved.echoed.has_gpu_memory_utilization() ||
-            resolved.echoed.gpu_memory_utilization() <= 0)
-        {
-            resolved.echoed.set_gpu_memory_utilization(
-                estimate_vllm_gpu_memory_utilization(art.size_bytes,
-                                                     max_model_len,
-                                                     probe_gpu_total_bytes()));
-        }
-        claim = MemorySize::from_bytes(vllm_budget_bytes(art.size_bytes, max_model_len));
+        resolved.echoed.set_gpu_memory_utilization(
+            estimate_vllm_gpu_memory_utilization(art.size_bytes,
+                                                 max_model_len,
+                                                 probe_gpu_total_bytes()));
     }
-    else
-    {
-        claim = estimate_claim(art,
-                               ctx,
-                               resolved.llama.cache_type_k.toStdString(),
-                               resolved.llama.cache_type_v.toStdString());
-    }
+
+    llm::RunnerLaunchContext claim_ctx;
+    claim_ctx.artifact = art;
+    claim_ctx.resolved = resolved;
+    claim_ctx.data_directory = data_directory;
+    claim_ctx.device = resolved_runner.device;
+    const auto claim = MemorySize::from_bytes(runner->estimate_claim_bytes(claim_ctx));
 
     std::string duplicate_warning;
     {
@@ -1498,6 +1502,23 @@ void mp::LlmService::load_model_impl(
                                  runner->id(),
                                  warm,
                                  warm_model);
+        }
+
+        // One-shot reconcile: admit estimate → measured GPU/host reservation.
+        if (const auto measured = probe_session_memory_bytes(session.pid); measured > 0)
+        {
+            constexpr long long reconcile_slack = 256LL * 1024 * 1024;
+            const auto admitted = session.memory.in_bytes();
+            if (std::llabs(measured - admitted) > reconcile_slack)
+            {
+                pool.update_claim(instance_id, MemorySize::from_bytes(measured));
+                session.memory = MemorySize::from_bytes(measured);
+                log_lifecycle(instance_id,
+                              "info",
+                              fmt::format("memory claim reconciled {} → {}",
+                                          MemorySize::from_bytes(admitted).human_readable(),
+                                          session.memory.human_readable()));
+            }
         }
     }
     catch (const std::exception& e)
@@ -2351,6 +2372,11 @@ void mp::LlmService::restore_session(LoadedSession session)
         std::lock_guard lock{mutex};
         sessions[id] = std::move(session);
         return;
+    }
+    if (session.pid > 0)
+    {
+        if (const auto measured = probe_session_memory_bytes(session.pid); measured > 0)
+            session.memory = MemorySize::from_bytes(measured);
     }
     const auto claim = session.memory.in_bytes() > 0 ? session.memory : MemorySize{"512M"};
     pool.force_claim(id, WorkloadKind::llm, claim, 0);

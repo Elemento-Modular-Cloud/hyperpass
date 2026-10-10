@@ -197,6 +197,15 @@ void mp::ResourcePool::force_claim(const std::string& name,
     try_claim_locked(name, kind, memory, cpus, true);
 }
 
+void mp::ResourcePool::update_claim(const std::string& name, MemorySize memory)
+{
+    std::lock_guard lock{mutex};
+    auto it = claims_.find(name);
+    if (it == claims_.end())
+        return;
+    it->second.memory = memory;
+}
+
 void mp::ResourcePool::release(const std::string& name)
 {
     std::lock_guard lock{mutex};

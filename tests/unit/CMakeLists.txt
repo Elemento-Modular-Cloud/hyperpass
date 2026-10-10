@@ -101,6 +101,7 @@ add_executable(multipass_cpp_tests
   test_format_utils.cpp
   test_global_settings_handlers.cpp
   test_gguf_file_pick.cpp
+  test_gguf_kv_geometry.cpp
   test_id_mappings.cpp
   test_image_vault.cpp
   test_image_vault_utils.cpp
@@ -109,9 +110,11 @@ add_executable(multipass_cpp_tests
   test_json_utils.cpp
   test_llama_server_process_spec.cpp
   test_llm_load_params.cpp
+  test_llm_memory_claim.cpp
   test_mlx_repo.cpp
   test_mlx_server_process_spec.cpp
   test_model_vault.cpp
+  test_process_memory_probe.cpp
   test_runner_registry.cpp
   test_vllm_memory_budget.cpp
   test_vllm_server_process_spec.cpp

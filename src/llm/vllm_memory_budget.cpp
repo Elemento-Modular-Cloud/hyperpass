@@ -109,6 +109,19 @@ double mp::estimate_vllm_gpu_memory_utilization(long long size_bytes,
     return std::round(clamped * 100.0) / 100.0;
 }
 
+long long mp::vllm_claim_bytes(double gpu_memory_utilization,
+                               long long gpu_total_bytes,
+                               long long size_bytes,
+                               int max_model_len)
+{
+    if (gpu_total_bytes > 0 && gpu_memory_utilization > 0.0)
+    {
+        const auto util = std::clamp(gpu_memory_utilization, vllm_util_floor, 1.0);
+        return static_cast<long long>(util * static_cast<double>(gpu_total_bytes));
+    }
+    return vllm_budget_bytes(size_bytes, max_model_len);
+}
+
 long long mp::probe_gpu_total_bytes()
 {
     if (const auto from_smi = nvidia_smi_total_bytes(); from_smi > 0)

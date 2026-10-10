@@ -83,6 +83,8 @@ public:
     /** True if `memory` would fit without mutating claims (strict) or a warning (best-effort). */
     [[nodiscard]] TryClaimResult check_admit(MemorySize memory, int cpus) const;
     void force_claim(const std::string& name, WorkloadKind kind, MemorySize memory, int cpus);
+    /** Replace memory on an existing claim (post-load reconcile). No-op if missing. */
+    void update_claim(const std::string& name, MemorySize memory);
     void release(const std::string& name);
 
     /** Unload LLM claims first (largest first) until `needed` fits, or nothing left to preempt. */

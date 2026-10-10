@@ -75,3 +75,16 @@ TEST(TestVllmMemoryBudget, probeGpuTotalBytesPositiveOnThisHost)
     const auto total = mp::probe_gpu_total_bytes();
     EXPECT_GT(total, 0);
 }
+
+TEST(TestVllmMemoryBudget, claimBytesUsesUtilTimesGpuTotal)
+{
+    const auto claim = mp::vllm_claim_bytes(0.10, 120 * gib, 5 * gib, 8192);
+    EXPECT_EQ(claim, static_cast<long long>(0.10 * 120 * gib));
+}
+
+TEST(TestVllmMemoryBudget, claimBytesFallsBackToBudgetWhenTotalUnknown)
+{
+    const auto budget = mp::vllm_budget_bytes(5 * gib, 8192);
+    const auto claim = mp::vllm_claim_bytes(0.10, 0, 5 * gib, 8192);
+    EXPECT_EQ(claim, budget);
+}

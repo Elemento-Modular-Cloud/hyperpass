@@ -35,6 +35,9 @@ Future<void> writeLlmLoadPrefs(
       if (decoded is Map) all = Map<String, dynamic>.from(decoded);
     } catch (_) {}
   }
-  all[modelId] = form;
+  // Drop legacy util keys so stale 0.9 values cannot resurrect after a load.
+  final cleaned = Map<String, dynamic>.from(form)
+    ..remove('gpu_memory_utilization');
+  all[modelId] = cleaned;
   await prefs.setString(llmLoadPrefsKey, jsonEncode(all));
 }

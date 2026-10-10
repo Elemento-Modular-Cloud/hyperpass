@@ -80,8 +80,8 @@ required when building on **Ubuntu 24.04 aarch64** (e.g. Lenovo ThinkStation PGX
 ```
 # CMake: Ubuntu 24.04 apt ships 3.28.x; Hyperpass needs >= 3.29
 sudo snap install cmake --classic
-# Prefer snap cmake over /usr/bin/cmake (otherwise PATH order keeps 3.28):
-export PATH="/snap/bin:$PATH"
+# ./scripts/build-linux.sh auto-picks /snap/bin/cmake when PATH still has apt 3.28.
+# Or force it: CMAKE=/snap/bin/cmake ./scripts/build-linux.sh
 
 # Platform mDNS (src/platform → avahi-client.pc)
 sudo apt install -y libavahi-client-dev

@@ -19,6 +19,7 @@
 
 #include "../binary_locator.h"
 #include "../llama_server_process_spec.h"
+#include "../llm_memory_claim.h"
 #include "../managed_tools.h"
 
 #include <multipass/constants.h>
@@ -68,6 +69,17 @@ std::string llm::LlamaCppRunner::session_backend_name(RunnerDevice device) const
     default:
         return runner_llamacpp;
     }
+}
+
+long long llm::LlamaCppRunner::estimate_claim_bytes(const RunnerLaunchContext& ctx) const
+{
+    const auto parallel = ctx.resolved.llama.parallel > 0 ? ctx.resolved.llama.parallel : 1;
+    return estimate_llama_claim_bytes(ctx.artifact.size_bytes,
+                                      ctx.resolved.ctx_size,
+                                      parallel,
+                                      ctx.resolved.llama.cache_type_k.toStdString(),
+                                      ctx.resolved.llama.cache_type_v.toStdString(),
+                                      ctx.artifact.path);
 }
 
 std::unique_ptr<mp::Process> llm::LlamaCppRunner::start(const RunnerLaunchContext& ctx) const

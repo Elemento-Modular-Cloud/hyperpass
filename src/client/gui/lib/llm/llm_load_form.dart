@@ -116,7 +116,8 @@ class LlmLoadForm {
         'moe_offload': moeOffload,
         if (nCpuMoe != null) 'n_cpu_moe': nCpuMoe,
         'dtype': dtype,
-        'gpu_memory_utilization': gpuMemoryUtilization,
+        // Never persist util: the load dialog has no control for it, and old
+        // prefs stored vLLM's 0.9 default which bypassed daemon model-fit auto.
         'max_model_len': maxModelLen,
       };
 
@@ -143,9 +144,8 @@ class LlmLoadForm {
     form.moeOffload = json['moe_offload'] as String? ?? form.moeOffload;
     form.nCpuMoe = (json['n_cpu_moe'] as num?)?.toInt();
     form.dtype = json['dtype'] as String? ?? form.dtype;
-    form.gpuMemoryUtilization =
-        (json['gpu_memory_utilization'] as num?)?.toDouble() ??
-            form.gpuMemoryUtilization;
+    // Ignore legacy gpu_memory_utilization in prefs (often 0.9); GUI loads
+    // always leave util unset so the daemon applies model-fit sizing.
     form.maxModelLen =
         (json['max_model_len'] as num?)?.toInt() ?? form.maxModelLen;
     return form;

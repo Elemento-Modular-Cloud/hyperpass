@@ -87,6 +87,31 @@ void main() {
     );
   });
 
+  test('omits max_tokens when session cap is unlimited', () {
+    final body = playgroundRequestBody(
+      target: LlmPlaygroundTarget(
+        url: Uri.parse('http://127.0.0.1:9/v1/chat/completions'),
+        model: 'gemma',
+      ),
+      messages: const [LlmChatTurn(role: 'user', content: 'hi')],
+    );
+    expect(body.containsKey('max_tokens'), isFalse);
+    expect(playgroundMaxTokens(0), isNull);
+    expect(playgroundMaxTokens(2048), 2048);
+  });
+
+  test('respects an explicit session max_tokens cap', () {
+    final body = playgroundRequestBody(
+      target: LlmPlaygroundTarget(
+        url: Uri.parse('http://127.0.0.1:9/v1/chat/completions'),
+        model: 'gemma',
+        maxTokens: 1024,
+      ),
+      messages: const [LlmChatTurn(role: 'user', content: 'hi')],
+    );
+    expect(body['max_tokens'], 1024);
+  });
+
   test('parses OpenAI SSE deltas', () {
     expect(sseDataPayload('data: {"choices":[{"delta":{"content":"Hi"}}]}'),
         '{"choices":[{"delta":{"content":"Hi"}}]}');
@@ -97,11 +122,37 @@ void main() {
     expect(chatDeltaFromSseData('[DONE]'), isNull);
   });
 
+  test('reads reasoning_content when content is empty', () {
+    expect(
+      chatContentFromChoice({
+        'delta': {'reasoning_content': 'thinking…'},
+      }),
+      'thinking…',
+    );
+    expect(
+      chatContentFromCompletionJson(
+        jsonEncode({
+          'choices': [
+            {
+              'message': {
+                'role': 'assistant',
+                'content': '',
+                'reasoning_content': 'only reasoning',
+              },
+            },
+          ],
+        }),
+      ),
+      'only reasoning',
+    );
+  });
+
   test('streams a JSON completion through the HTTP client', () async {
     final client = _ScriptedClient((request) {
       expect(request.url.path, '/v1/chat/completions');
       final body = jsonDecode((request as http.Request).body) as Map;
       expect(body['model'], 'gemma');
+      expect(body.containsKey('max_tokens'), isFalse);
       return http.StreamedResponse(
         Stream.value(
           utf8.encode(

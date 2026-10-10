@@ -21,12 +21,15 @@ add_library(llm STATIC
   llama_server_process_spec.cpp
   llm_activity_log.cpp
   llm_load_params.cpp
+  gguf_kv_geometry.cpp
+  llm_memory_claim.cpp
   llm_service.cpp
   llmfit_advisor.cpp
   managed_tools.cpp
   mlx_server_process_spec.cpp
   model_vault.cpp
   openai_compat_client.cpp
+  process_memory_probe.cpp
   provider_store.cpp
   runtime_installer.cpp
   runners/llamacpp_runner.cpp

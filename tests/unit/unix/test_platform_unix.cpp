@@ -29,6 +29,8 @@
 #include <multipass/platform.h>
 #include <multipass/socket.h>
 
+#include <cstring>
+#include <fstream>
 #include <thread>
 
 #include <sys/socket.h>
@@ -226,6 +228,41 @@ TEST_F(TestPlatformUnix, getAvailableRamIsNonNegative)
 {
     EXPECT_GE(MP_PLATFORM.get_available_ram(), 0LL);
 }
+
+#ifndef __APPLE__
+TEST_F(TestPlatformUnix, getAvailableRamTracksMemAvailableNotJustMemFree)
+{
+    // GUI host pressure uses total - available; MemFree-only under-reports when
+    // page cache is large (common with LLM weight files / UMA).
+    std::ifstream meminfo{"/proc/meminfo"};
+    ASSERT_TRUE(meminfo);
+    long long mem_available_kib = -1;
+    long long mem_free_kib = -1;
+    std::string line;
+    while (std::getline(meminfo, line))
+    {
+        if (line.rfind("MemAvailable:", 0) == 0)
+            mem_available_kib = std::stoll(line.substr(std::strlen("MemAvailable:")));
+        else if (line.rfind("MemFree:", 0) == 0)
+            mem_free_kib = std::stoll(line.substr(std::strlen("MemFree:")));
+    }
+    ASSERT_GT(mem_available_kib, 0);
+    ASSERT_GE(mem_free_kib, 0);
+
+    const auto available = MP_PLATFORM.get_available_ram();
+    const auto available_kib = available / 1024LL;
+    // Within ~8 MiB of MemAvailable (other allocations can race the read).
+    EXPECT_NEAR(static_cast<double>(available_kib),
+                static_cast<double>(mem_available_kib),
+                8 * 1024.0);
+    // When cache is meaningful, available must beat MemFree — otherwise we
+    // are still on the sysconf(_SC_AVPHYS_PAGES) path.
+    if (mem_available_kib > mem_free_kib + 64 * 1024)
+    {
+        EXPECT_GT(available_kib, mem_free_kib + 32 * 1024);
+    }
+}
+#endif
 
 TEST_F(TestPlatformUnix, getCpuUsagePermilleIsInRange)
 {

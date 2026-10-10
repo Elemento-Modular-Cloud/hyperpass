@@ -67,6 +67,8 @@ public:
     virtual bool uses_gpu(RunnerDevice device) const = 0;
     /// Persisted LoadedSession.backend string (may include device suffix).
     virtual std::string session_backend_name(RunnerDevice device) const = 0;
+    /// Host-pool admit estimate for this launch (bytes). Backend-specific.
+    virtual long long estimate_claim_bytes(const RunnerLaunchContext& ctx) const = 0;
     virtual std::unique_ptr<Process> start(const RunnerLaunchContext& ctx) const = 0;
 };
 

@@ -43,6 +43,12 @@ double estimate_vllm_gpu_memory_utilization(long long size_bytes,
                                             long long gpu_total_bytes,
                                             double host_cap = 0);
 
+/// What vLLM actually reserves: util × GPU/UMA pool. Falls back to budget when total unknown.
+long long vllm_claim_bytes(double gpu_memory_utilization,
+                           long long gpu_total_bytes,
+                           long long size_bytes,
+                           int max_model_len);
+
 /// Probe total GPU memory: nvidia-smi, then host RAM (unified-memory fallback). 0 if unknown.
 long long probe_gpu_total_bytes();
 

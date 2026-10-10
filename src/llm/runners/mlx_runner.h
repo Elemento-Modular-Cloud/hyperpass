@@ -31,6 +31,7 @@ public:
     bool available_on_platform() const override;
     bool uses_gpu(RunnerDevice device) const override;
     std::string session_backend_name(RunnerDevice device) const override;
+    long long estimate_claim_bytes(const RunnerLaunchContext& ctx) const override;
     std::unique_ptr<Process> start(const RunnerLaunchContext& ctx) const override;
 };
 

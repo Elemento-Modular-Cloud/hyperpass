@@ -18,6 +18,7 @@
 #include "mlx_runner.h"
 
 #include "../binary_locator.h"
+#include "../llm_memory_claim.h"
 #include "../managed_tools.h"
 #include "../mlx_server_process_spec.h"
 
@@ -102,6 +103,11 @@ bool llm::MlxRunner::uses_gpu(RunnerDevice) const
 std::string llm::MlxRunner::session_backend_name(RunnerDevice) const
 {
     return runner_mlx;
+}
+
+long long llm::MlxRunner::estimate_claim_bytes(const RunnerLaunchContext& ctx) const
+{
+    return estimate_mlx_claim_bytes(ctx.artifact.size_bytes);
 }
 
 std::unique_ptr<mp::Process> llm::MlxRunner::start(const RunnerLaunchContext& ctx) const
